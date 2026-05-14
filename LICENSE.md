@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2025 Kubeara (IQud Tek LLP)
+Copyright (c) 2026 Kubeara (IQud Tek LLP)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
