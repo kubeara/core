@@ -1,0 +1,6 @@
+services:
+  redis:
+    image: redis:7
+    restart: always
+    ports:
+      - ${REDIS_PORT}:6379'

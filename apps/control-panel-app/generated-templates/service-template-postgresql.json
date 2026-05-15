@@ -1,0 +1,67 @@
+{
+  "slug": "postgresql",
+  "name": "PostgreSQL",
+  "description": "World's most advanced database",
+  "category": "database",
+  "tags": [
+    "database",
+    "sql",
+    "relational"
+  ],
+  "documentation": "https://www.postgresql.org",
+  "logo": "svgs/postgresql.svg",
+  "compose": "eyJzZXJ2aWNlcyI6eyJwb3N0Z3JlcyI6eyJpbWFnZSI6IiR7UE9TVEdSRVNfSU1BR0V9IiwicmVzdGFydCI6IiR7UE9TVEdSRVNfUkVTVEFSVF9QT0xJQ1l9IiwicG9ydHMiOlsiJHtQT1NUR1JFU19QT1JUfTo1NDMyIl0sImVudmlyb25tZW50Ijp7IlBPU1RHUkVTX0RCIjoiJHtQT1NUR1JFU19EQn0iLCJQT1NUR1JFU19VU0VSIjoiJHtQT1NUR1JFU19VU0VSfSIsIlBPU1RHUkVTX1BBU1NXT1JEIjoiJHtQT1NUR1JFU19QQVNTV09SRH0iLCJQR0RBVEEiOiIke1BPU1RHUkVTX0RBVEFfUEFUSH0iLCJUWiI6IiR7VFp9IiwiUEdUWiI6IiR7UEdUWn0ifSwidm9sdW1lcyI6WyJwb3N0Z3Jlc19kYXRhOiR7UE9TVEdSRVNfREFUQV9QQVRIfSJdLCJoZWFsdGhjaGVjayI6eyJ0ZXN0IjpbIkNNRC1TSEVMTCIsInBnX2lzcmVhZHkgLVUgJHtQT1NUR1JFU19VU0VSfSAtZCAke1BPU1RHUkVTX0RCfSJdLCJpbnRlcnZhbCI6IjEwcyIsInRpbWVvdXQiOiI1cyIsInJldHJpZXMiOjUsInN0YXJ0X3BlcmlvZCI6IjEwcyJ9fX0sInZvbHVtZXMiOnsicG9zdGdyZXNfZGF0YSI6bnVsbH19",
+  "port": 5432,
+  "version": "16",
+  "is_active": true,
+  "env_schema": {
+    "POSTGRES_USER": {
+      "type": "string",
+      "required": true,
+      "description": "Database username"
+    },
+    "POSTGRES_PASSWORD": {
+      "type": "string",
+      "required": true,
+      "description": "Database password"
+    },
+    "POSTGRES_DB": {
+      "type": "string",
+      "required": true,
+      "description": "Database name"
+    },
+    "POSTGRES_IMAGE": {
+      "type": "string",
+      "required": false,
+      "default": "postgres:16",
+      "description": "Docker image"
+    },
+    "POSTGRES_RESTART_POLICY": {
+      "type": "string",
+      "required": false,
+      "default": "always"
+    },
+    "POSTGRES_DATA_PATH": {
+      "type": "string",
+      "required": false,
+      "default": "/var/lib/postgresql/data"
+    },
+    "TZ": {
+      "type": "string",
+      "required": false,
+      "default": "UTC"
+    },
+    "PGTZ": {
+      "type": "string",
+      "required": false,
+      "default": "UTC"
+    }
+  },
+  "port_schema": {
+    "POSTGRES_PORT": {
+      "type": "number",
+      "required": true,
+      "description": "Host port"
+    }
+  }
+}

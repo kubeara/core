@@ -1,0 +1,116 @@
+{
+  "name": "template-service",
+  "version": "0.0.1",
+  "description": "NestJS monorepo for template service with control panel and deployment agents",
+  "author": "",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "build:apps": "npm run build:control-panel-app && npm run build:agent-app",
+    "build:control-panel-app": "nest build control-panel-app",
+    "build:agent-app": "nest build agent-app",
+    "start": "nest start",
+    "start:control-panel-app": "nest start control-panel-app",
+    "start:control-panel-app:dev": "nest start control-panel-app --watch",
+    "start:control-panel-app:prod": "node dist/apps/control-panel-app/main",
+    "start:agent-app": "nest start agent-app",
+    "start:agent-app:dev": "nest start agent-app --watch",
+    "start:agent-app:prod": "node dist/apps/agent-app/main",
+    "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\" \"test/**/*.ts\"",
+    "lint": "eslint \"{apps,libs,test}/**/*.ts\" --fix",
+    "build:templates": "ts-node apps/control-panel-app/src/scripts/build-templates.ts",
+    "seed": "ts-node apps/control-panel-app/src/database/seeders/seed.ts",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:build:control-panel": "docker build -f apps/control-panel-app/Dockerfile -t control-panel-app:latest .",
+    "docker:build:agent": "docker build -f apps/agent-app/Dockerfile -t agent-app:latest .",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,js}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.1",
+    "@nestjs/config": "^4.0.4",
+    "@nestjs/core": "^11.0.1",
+    "@nestjs/mapped-types": "*",
+    "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-socket.io": "^11.1.20",
+    "@nestjs/typeorm": "^11.0.1",
+    "@nestjs/websockets": "^11.1.20",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "dotenv": "^17.4.2",
+    "js-yaml": "^4.1.1",
+    "pg": "^8.20.0",
+    "redis": "^5.12.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
+    "typeorm": "^0.3.29"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.2.0",
+    "@eslint/js": "^9.18.0",
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.0",
+    "@nestjs/testing": "^11.0.1",
+    "@types/express": "^5.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.12.4",
+    "@types/supertest": "^7.0.0",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.2",
+    "globals": "^17.0.0",
+    "husky": "^9.1.7",
+    "jest": "^30.0.0",
+    "lint-staged": "^17.0.4",
+    "prettier": "^3.4.2",
+    "source-map-support": "^0.5.21",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.2.5",
+    "ts-loader": "^9.5.2",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.20.0"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": ".",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "collectCoverageFrom": [
+      "apps/**/*.(t|j)s",
+      "libs/**/*.(t|j)s"
+    ],
+    "coverageDirectory": "./coverage",
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/apps/",
+      "<rootDir>/libs/"
+    ],
+    "moduleNameMapper": {
+      "^@common/(.*)$": "<rootDir>/libs/common/src/$1",
+      "^@socket-events/(.*)$": "<rootDir>/libs/socket-events/src/$1",
+      "^@shared-types/(.*)$": "<rootDir>/libs/shared-types/src/$1",
+      "^@database/(.*)$": "<rootDir>/libs/database/src/$1"
+    }
+  }
+}

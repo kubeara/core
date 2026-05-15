@@ -1,0 +1,7 @@
+{
+    "name": "@shared/common",
+    "version": "1.0.0",
+    "description": "Shared common library",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts"
+}   
