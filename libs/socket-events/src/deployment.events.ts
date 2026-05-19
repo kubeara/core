@@ -42,6 +42,8 @@ export interface SocketDeployMessage {
         deploymentId?: string;
         // Optional deployment schema provided by control-panel to guide agent-side validation
         schema?: TemplateSchema;
+        /** When true, env/ports are resolved from compose only (Coolify-style; no template.config.json). */
+        composeOnly?: boolean;
     };
 }
 

@@ -50,9 +50,10 @@ export class DeployTemplateExecutor {
         } | EnvFileInput;
         deploymentId: string;
         schema?: TemplateSchema;
+        composeOnly?: boolean;
         notifier: ExecutionNotifier;
     }): Promise<void> {
-        const { name, compose, env, deploymentId, schema, notifier } = opts;
+        const { name, compose, env, deploymentId, schema, composeOnly, notifier } = opts;
 
         const startedAt = new Date().toISOString();
         let dir = '';
@@ -78,7 +79,14 @@ export class DeployTemplateExecutor {
             const envPath = path.join(dir, '.env');
             const { envValues: rawEnv, portValues: rawPorts } = this.normalizeEnvPayload(env);
 
-            const resolved = this.resolveEnv(compose, schema, { envValues: rawEnv, portValues: rawPorts }, notifier, name);
+            const resolved = this.resolveEnv(
+                compose,
+                schema,
+                { envValues: rawEnv, portValues: rawPorts },
+                notifier,
+                name,
+                composeOnly,
+            );
             const generatedEnv = generateEnvFileDetails(resolved.envValues, resolved.portValues);
 
             const envFileContent = `${generatedEnv.content || ''}\n`;
@@ -283,13 +291,14 @@ export class DeployTemplateExecutor {
         userInput: { envValues: EnvFileInput; portValues: PortFileInput },
         notifier: ExecutionNotifier,
         templateName: string,
+        composeOnly = false,
     ): { envValues: EnvFileInput; portValues: PortFileInput } {
         const portSchemaKeys = Object.keys(schema?.port_schema ?? {});
         const parsedFromCompose = this.composeParserService.resolveFromCompose({
             compose,
             userEnv: userInput.envValues,
             userPorts: userInput.portValues,
-            portSchemaKeys,
+            portSchemaKeys: composeOnly ? [] : portSchemaKeys,
         });
 
         if (parsedFromCompose.generatedKeys.length > 0) {
@@ -301,10 +310,32 @@ export class DeployTemplateExecutor {
             });
         }
 
-        const { env: mergedEnv, ports: mergedPorts } = this.templateConfigService.mergeAndValidate(
-            schema,
-            { env: parsedFromCompose.env, ports: parsedFromCompose.ports },
-        );
+        let mergedEnv: Record<string, string>;
+        let mergedPorts: Record<string, number>;
+
+        if (composeOnly) {
+            const missing = this.composeParserService.findMissingVariables(compose, parsedFromCompose);
+            if (missing.length > 0) {
+                const errorMsg = ERROR_MESSAGES.MISSING_COMPOSE_VARS(missing.join(', '));
+                notifier.sendLog({
+                    deployment: templateName,
+                    type: 'stderr',
+                    message: errorMsg,
+                    timestamp: new Date().toISOString(),
+                });
+                throw new Error(errorMsg);
+            }
+
+            mergedEnv = parsedFromCompose.env;
+            mergedPorts = parsedFromCompose.ports;
+        } else {
+            const validated = this.templateConfigService.mergeAndValidate(
+                schema,
+                { env: parsedFromCompose.env, ports: parsedFromCompose.ports },
+            );
+            mergedEnv = validated.env;
+            mergedPorts = validated.ports;
+        }
 
         const composeVars = new Set<string>();
         for (const match of compose.matchAll(APP_CONFIG.REGEX.COMPOSE_PLACEHOLDER)) {

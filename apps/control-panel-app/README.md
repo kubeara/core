@@ -27,13 +27,12 @@ npm run start:control-panel-app:dev
 | Slug | Folder | Notes |
 |------|--------|--------|
 | `postgresql` | `templates/postgresql/` | Original one-click template |
-| `postgresV2` | `templates/postgresV2/` | **Preferred** — magic `SERVICE_*_POSTGRESV2` vars + DB persistence |
+| `postgresV2` | `templates/postgresV2/` | **Preferred** — Coolify-style compose-only (`POST /deploy/compose`) |
 
 Each folder contains:
 
 - `docker-compose.yml` — compose with Coolify-style `SERVICE_*` magic variables
-- `template.config.json` — schema (port required; credentials auto-generated)
-- `.env.example` — local reference only (deploy uses `environment_variables` table)
+- `template.config.json` — optional schema for legacy `POST /deploy` (not used by postgresV2)
 
 Build generated artifacts and seed the database:
 
@@ -42,12 +41,30 @@ npm run build:templates
 npm run seed
 ```
 
-Deploy **postgresV2** (only host port is required; user/password are generated if omitted). Resolved variables are stored in `environment_variables` (encrypted) linked to `service_deployments`:
+Deploy **postgresV2** via compose-only endpoint (user/password auto-generated; host port defaults to 5432):
+
+```bash
+curl -X POST http://localhost:3000/deploy/compose \
+  -H 'Content-Type: application/json' \
+  -d '{"templateSlug":"postgresV2"}'
+```
+
+Override the host port if needed:
+
+```bash
+curl -X POST http://localhost:3000/deploy/compose \
+  -H 'Content-Type: application/json' \
+  -d '{"templateSlug":"postgresV2","ports":{"SERVICE_PORT_POSTGRES":5435}}'
+```
+
+Note: the port key is `SERVICE_PORT_POSTGRES` (not `SERVICE_PORT_POSTGRESV2`).
+
+Legacy schema-based deploy (templates with `template.config.json`):
 
 ```bash
 curl -X POST http://localhost:3000/deploy \
   -H 'Content-Type: application/json' \
-  -d '{"templateSlug":"postgresV2","ports":{"SERVICE_PORT_POSTGRESV2":5432}}'
+  -d '{"templateSlug":"postgresql","ports":{"SERVICE_PORT_POSTGRESQL":5432}}'
 ```
 
 Inspect stored variables (secrets masked):
@@ -68,4 +85,4 @@ curl -X POST http://localhost:3000/deployments/<deploymentId>/redeploy \
   -d '{}'
 ```
 
-Magic variable naming follows `SERVICE_{COMMAND}_{IDENTIFIER}` (e.g. `SERVICE_PASSWORD_POSTGRESV2` → auto password).
+Magic variable naming follows `SERVICE_{COMMAND}_{IDENTIFIER}` (e.g. `SERVICE_PASSWORD_POSTGRES` → auto password).

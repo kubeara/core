@@ -1,5 +1,5 @@
 # documentation: https://www.postgresql.org
-# slogan: PostgreSQL with DB-backed env (postgresV2)
+# slogan: PostgreSQL database (compose-only / Coolify-style)
 # category: database
 # tags: postgres,postgresql,database,sql,v2
 # port: 5432
@@ -10,11 +10,11 @@ services:
     restart: ${POSTGRES_RESTART_POLICY:-unless-stopped}
 
     ports:
-      - '${SERVICE_PORT_POSTGRESV2}:5432'
+      - '${SERVICE_PORT_POSTGRES:-5432}:5432'
 
     environment:
-      POSTGRES_USER: ${SERVICE_USER_POSTGRESV2}
-      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRESV2}
+      POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
       PGDATA: ${POSTGRES_DATA_PATH:-/var/lib/postgresql/data}
       TZ: ${TZ:-UTC}
@@ -25,10 +25,9 @@ services:
 
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      interval: 5s
+      timeout: 20s
+      retries: 10
 
 volumes:
   postgres_data:

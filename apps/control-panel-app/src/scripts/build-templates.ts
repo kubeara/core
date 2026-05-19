@@ -29,7 +29,7 @@ const metadataBySlug: Record<string, TemplateMetadata> = {
     },
     postgresV2: {
         name: 'PostgreSQL V2',
-        description: 'PostgreSQL with compose-parser magic vars and DB-backed deployment env',
+        description: 'PostgreSQL with compose-parser magic vars and DB-backed deployment env (without template.config.json)',
         category: 'database',
         tags: ['database', 'sql', 'relational', 'v2'],
         documentation: 'https://www.postgresql.org',

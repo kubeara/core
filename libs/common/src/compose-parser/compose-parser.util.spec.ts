@@ -1,7 +1,12 @@
 import {
     extractComposeVariables,
+    findMissingComposeVariables,
+    findUnknownPortKeys,
     generateMagicEnvValue,
+    inferRequiredComposeVariables,
+    listComposePortVariables,
     parseMagicEnvCommand,
+    resolveAndValidateComposeEnvironment,
     resolveComposeEnvironment,
 } from './compose-parser.util';
 
@@ -94,5 +99,66 @@ services:
         expect(resolved.env.SERVICE_PASSWORD_POSTGRES).toBe('secret');
         expect(resolved.env.POSTGRES_DB).toBe('mydb');
         expect(resolved.generatedKeys).toHaveLength(0);
+    });
+
+    it('infers required variables from compose (no default, not auto-generated)', () => {
+        expect(inferRequiredComposeVariables(sampleCompose)).toEqual(['SERVICE_PORT_POSTGRES']);
+    });
+
+    it('finds missing compose variables after resolve', () => {
+        const resolved = resolveComposeEnvironment({ compose: sampleCompose });
+        const missing = findMissingComposeVariables(sampleCompose, resolved);
+
+        expect(missing).toEqual(['SERVICE_PORT_POSTGRES']);
+    });
+
+    it('resolveAndValidateComposeEnvironment throws when port is missing', () => {
+        expect(() =>
+            resolveAndValidateComposeEnvironment({ compose: sampleCompose }),
+        ).toThrow('Missing required compose variables: SERVICE_PORT_POSTGRES');
+    });
+
+    it('resolveAndValidateComposeEnvironment succeeds when port is provided', () => {
+        const resolved = resolveAndValidateComposeEnvironment({
+            compose: sampleCompose,
+            userPorts: { SERVICE_PORT_POSTGRES: 5432 },
+        });
+
+        expect(resolved.ports.SERVICE_PORT_POSTGRES).toBe(5432);
+        expect(resolved.env.SERVICE_USER_POSTGRES).toBeTruthy();
+        expect(resolved.env.SERVICE_PASSWORD_POSTGRES).toBeTruthy();
+    });
+
+    it('accepts port variables supplied in userEnv', () => {
+        const resolved = resolveAndValidateComposeEnvironment({
+            compose: sampleCompose,
+            userEnv: { SERVICE_PORT_POSTGRES: 5433 },
+        });
+
+        expect(resolved.ports.SERVICE_PORT_POSTGRES).toBe(5433);
+    });
+
+    it('uses compose default for SERVICE_PORT when present', () => {
+        const composeWithDefault = sampleCompose.replace(
+            '${SERVICE_PORT_POSTGRES}:5432',
+            '${SERVICE_PORT_POSTGRES:-5432}:5432',
+        );
+
+        expect(inferRequiredComposeVariables(composeWithDefault)).toEqual([]);
+
+        const resolved = resolveAndValidateComposeEnvironment({
+            compose: composeWithDefault,
+        });
+
+        expect(resolved.ports.SERVICE_PORT_POSTGRES).toBe(5432);
+    });
+
+    it('findUnknownPortKeys detects port keys not in compose', () => {
+        const unknown = findUnknownPortKeys(sampleCompose, {
+            SERVICE_PORT_POSTGRESV2: 5435,
+        });
+
+        expect(unknown).toEqual(['SERVICE_PORT_POSTGRESV2']);
+        expect(listComposePortVariables(sampleCompose)).toEqual(['SERVICE_PORT_POSTGRES']);
     });
 });

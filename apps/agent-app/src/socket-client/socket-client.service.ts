@@ -80,7 +80,15 @@ export class SocketClientService {
     }
 
     private async handleDeployAction(message: SocketDeployMessage): Promise<void> {
-        const { name, compose, env, deploymentId: providedId, ports: encryptedPorts, schema } = message.payload;
+        const {
+            name,
+            compose,
+            env,
+            deploymentId: providedId,
+            ports: encryptedPorts,
+            schema,
+            composeOnly,
+        } = message.payload;
         const deploymentId = providedId || this.generateDeploymentId();
 
         this.sendDeploymentStatus({
@@ -100,8 +108,8 @@ export class SocketClientService {
             const envValues = env ? this.decryptAndParse(env) : {};
             const portValues = encryptedPorts ? this.decryptAndParse(encryptedPorts) : {};
 
-            // 3. Validate schema presence
-            if (!schema) {
+            // 3. Schema required for legacy deploy path only
+            if (!composeOnly && !schema) {
                 throw new Error(`Missing deployment schema for template ${name}`);
             }
 
@@ -113,6 +121,7 @@ export class SocketClientService {
                 env: { env: envValues, ports: portValues },
                 deploymentId,
                 schema,
+                composeOnly,
                 notifier: this,
             });
         } catch (err) {

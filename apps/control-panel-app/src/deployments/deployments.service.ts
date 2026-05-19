@@ -35,7 +35,8 @@ export interface PreparedDeployment {
     mergedEnv: Record<string, string>;
     mergedPorts: Record<string, number>;
     generatedKeys: string[];
-    schema: TemplateSchema;
+    schema?: TemplateSchema;
+    composeOnly?: boolean;
 }
 
 export interface EnvironmentVariableView {
@@ -74,6 +75,11 @@ export class DeploymentsService {
         const template = await this.templateRepository.findOne({ where: { slug: templateSlug } });
         if (!template?.compose) {
             throw new NotFoundException(`Template '${templateSlug}' not found`);
+        }
+
+        const hasSchema = Boolean(template.env_schema || template.port_schema);
+        if (!hasSchema) {
+            return this.prepareComposeDeployment(input);
         }
 
         const schema: TemplateSchema = {
@@ -135,6 +141,103 @@ export class DeploymentsService {
             mergedPorts,
             generatedKeys: parsedFromCompose.generatedKeys,
             schema: { ...schema, normalized },
+            composeOnly: false,
+        };
+    }
+
+    /**
+     * Coolify-style deploy: resolve and validate env entirely from docker-compose.yml
+     * (no template.config.json / env_schema / port_schema).
+     */
+    async prepareComposeDeployment(input: PrepareDeploymentInput): Promise<PreparedDeployment> {
+        const { templateSlug, requestEnv = {}, requestPorts = {}, existingDeploymentId } = input;
+
+        const template = await this.templateRepository.findOne({ where: { slug: templateSlug } });
+        if (!template?.compose) {
+            throw new NotFoundException(`Template '${templateSlug}' not found`);
+        }
+
+        let baseEnv: Record<string, unknown> = { ...requestEnv };
+        let basePorts: Record<string, unknown> = { ...requestPorts };
+
+        if (existingDeploymentId) {
+            const stored = await this.loadStoredVariables(existingDeploymentId, []);
+            baseEnv = { ...stored.env, ...requestEnv };
+            basePorts = { ...stored.ports, ...requestPorts };
+        }
+
+        const composeYaml = this.templatePayloadService.decodeBase64ToYaml(template.compose);
+
+        const unknownPortKeys = this.composeParserService.findUnknownPortKeys(composeYaml, requestPorts);
+        if (unknownPortKeys.length > 0) {
+            const expected = this.composeParserService.listPortVariables(composeYaml);
+            throw new BadRequestException(
+                `Unknown port keys: ${unknownPortKeys.join(', ')}. ` +
+                    `Template '${templateSlug}' expects: ${expected.join(', ') || '(none)'}`,
+            );
+        }
+
+        // Fallback: template catalog port (e.g. 5432) when compose has no default for a required SERVICE_PORT_*
+        const requiredPortVars = this.composeParserService
+            .inferRequiredVariables(composeYaml)
+            .filter((name) => name.startsWith('SERVICE_PORT_'));
+
+        if (template.port && requiredPortVars.length === 1) {
+            const portVar = requiredPortVars[0];
+            if (basePorts[portVar] === undefined && baseEnv[portVar] === undefined) {
+                basePorts[portVar] = template.port;
+            }
+        }
+
+        let parsedFromCompose;
+        try {
+            parsedFromCompose = this.composeParserService.resolveAndValidateFromCompose({
+                compose: composeYaml,
+                userEnv: baseEnv,
+                userPorts: basePorts,
+            });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            const required = this.composeParserService.inferRequiredVariables(composeYaml);
+            const hint = required.length > 0
+                ? ` Required: ${required.join(', ')}. Pass them in "ports" or "env", or use POST /deploy/compose with a template that defines compose defaults.`
+                : '';
+            throw new BadRequestException(`${message}.${hint}`);
+        }
+
+        const mergedEnv = parsedFromCompose.env;
+        const mergedPorts = parsedFromCompose.ports;
+        const requiredKeys = new Set(this.composeParserService.inferRequiredVariables(composeYaml));
+        const deploymentId = existingDeploymentId ?? this.generateDeploymentId();
+
+        await this.upsertDeploymentRecord({
+            deploymentId,
+            templateSlug,
+            status: 'pending',
+        });
+
+        await this.persistEnvironmentVariables({
+            deploymentId,
+            env: mergedEnv,
+            ports: mergedPorts,
+            generatedKeys: parsedFromCompose.generatedKeys,
+            requiredKeys,
+        });
+
+        if (parsedFromCompose.generatedKeys.length > 0) {
+            this.logger.log(
+                `Stored auto-generated variables for '${deploymentId}': ${parsedFromCompose.generatedKeys.join(', ')}`,
+            );
+        }
+
+        return {
+            deploymentId,
+            templateSlug,
+            encodedCompose: template.compose,
+            mergedEnv,
+            mergedPorts,
+            generatedKeys: parsedFromCompose.generatedKeys,
+            composeOnly: true,
         };
     }
 
@@ -282,14 +385,17 @@ export class DeploymentsService {
         env: Record<string, string>;
         ports: Record<string, number>;
         generatedKeys: string[];
-        schema: TemplateSchema;
+        schema?: TemplateSchema;
+        requiredKeys?: Set<string>;
     }): Promise<void> {
         const generated = new Set(opts.generatedKeys);
-        const requiredKeys = new Set<string>();
+        const requiredKeys = opts.requiredKeys ?? new Set<string>();
 
-        for (const field of opts.schema.normalized ?? this.templateConfigService.normalizeSchema(opts.schema)) {
-            if (field.required) {
-                requiredKeys.add(field.name);
+        if (!opts.requiredKeys && opts.schema) {
+            for (const field of opts.schema.normalized ?? this.templateConfigService.normalizeSchema(opts.schema)) {
+                if (field.required) {
+                    requiredKeys.add(field.name);
+                }
             }
         }
 

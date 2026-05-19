@@ -175,10 +175,20 @@ export function generateMagicEnvValue(command: string): string {
 export function resolveComposeEnvironment(options: ResolveComposeEnvOptions): ResolvedComposeEnv {
     const {
         compose,
-        userEnv = {},
-        userPorts = {},
+        userEnv: rawUserEnv = {},
+        userPorts: rawUserPorts = {},
         portSchemaKeys = [],
     } = options;
+
+    const userEnv = { ...rawUserEnv };
+    const userPorts = { ...rawUserPorts };
+
+    // Allow port variables in either `ports` or `env` request fields
+    for (const [key, value] of Object.entries(userEnv)) {
+        if (isPortVariable(key, portSchemaKeys) && userPorts[key] === undefined) {
+            userPorts[key] = value;
+        }
+    }
 
     const extracted = extractComposeVariables(compose);
     const env: Record<string, string> = {};
@@ -235,6 +245,84 @@ export function resolveComposeEnvironment(options: ResolveComposeEnvOptions): Re
     }
 
     return { env, ports, generatedKeys };
+}
+
+/**
+ * Variables the caller must supply (no compose default, not auto-generated magic).
+ */
+export function inferRequiredComposeVariables(compose: string): string[] {
+    const required: string[] = [];
+
+    for (const { name, defaultValue } of extractComposeVariables(compose)) {
+        if (defaultValue !== undefined && defaultValue !== '') {
+            continue;
+        }
+
+        const magicCommand = parseMagicEnvCommand(name);
+        if (magicCommand && magicCommand !== 'PORT' && magicCommand !== 'FQDN' && magicCommand !== 'URL') {
+            continue;
+        }
+
+        required.push(name);
+    }
+
+    return required;
+}
+
+/**
+ * Port placeholder names declared in compose (e.g. SERVICE_PORT_POSTGRES).
+ */
+export function listComposePortVariables(compose: string): string[] {
+    return extractComposeVariables(compose)
+        .filter((variable) => isPortVariable(variable.name))
+        .map((variable) => variable.name);
+}
+
+/**
+ * Port keys sent by the caller that do not exist in the compose template.
+ */
+export function findUnknownPortKeys(
+    compose: string,
+    userPorts: Record<string, unknown>,
+): string[] {
+    const known = new Set(listComposePortVariables(compose));
+
+    return Object.keys(userPorts).filter((key) => !known.has(key));
+}
+
+/**
+ * Returns compose placeholder names that remain unresolved after parsing.
+ */
+export function findMissingComposeVariables(
+    compose: string,
+    resolved: ResolvedComposeEnv,
+): string[] {
+    const merged: Record<string, string | number> = { ...resolved.env, ...resolved.ports };
+    const missing: string[] = [];
+
+    for (const { name } of extractComposeVariables(compose)) {
+        const value = merged[name];
+        if (value !== undefined && value !== null && value !== '') {
+            continue;
+        }
+
+        missing.push(name);
+    }
+
+    return missing;
+}
+
+export function resolveAndValidateComposeEnvironment(
+    options: ResolveComposeEnvOptions,
+): ResolvedComposeEnv {
+    const resolved = resolveComposeEnvironment(options);
+    const missing = findMissingComposeVariables(options.compose, resolved);
+
+    if (missing.length > 0) {
+        throw new Error(`Missing required compose variables: ${missing.join(', ')}`);
+    }
+
+    return resolved;
 }
 
 function randomAlphanumeric(length: number): string {
