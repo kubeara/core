@@ -12,7 +12,7 @@ import {
 
 import { DeploymentGateway } from '../websocket/websocket.gateway';
 import { SocketDeployMessage } from '@shared/socket-events';
-import { EncryptionService } from '@shared/common';
+import { EncryptionService, ServerUrlContext } from '@shared/common';
 
 import { DeployTemplateDto } from './dto/deploy-template.dto';
 import { DeploymentsService, PreparedDeployment } from './deployments.service';
@@ -48,6 +48,7 @@ export class DeployController {
             requestEnv,
             requestPorts,
             existingDeploymentId: deploymentId,
+            serverUrlContext: this.buildServerUrlContext(),
         });
 
         return this.emitPreparedDeployment(prepared, Boolean(deploymentId));
@@ -65,6 +66,7 @@ export class DeployController {
         template: string;
         deploymentId: string;
         mode: 'compose';
+        publicUrl?: string;
     }> {
         const { templateSlug, env: requestEnv = {}, ports: requestPorts = {}, deploymentId } = body;
 
@@ -79,11 +81,16 @@ export class DeployController {
             requestEnv,
             requestPorts,
             existingDeploymentId: deploymentId,
+            serverUrlContext: this.buildServerUrlContext(),
         });
 
         const result = this.emitPreparedDeployment(prepared, Boolean(deploymentId));
 
-        return { ...result, mode: 'compose' };
+        const publicUrl =
+            prepared.mergedEnv.SERVICE_URL_N8N ??
+            Object.entries(prepared.mergedEnv).find(([key]) => key.startsWith('SERVICE_URL_'))?.[1];
+
+        return { ...result, mode: 'compose', publicUrl };
     }
 
     @Post(':deploymentId/redeploy')
@@ -135,6 +142,19 @@ export class DeployController {
             message: isRedeploy ? 'Redeployment initiated' : 'Deployment initiated',
             template: prepared.templateSlug,
             deploymentId: prepared.deploymentId,
+        };
+    }
+
+    private buildServerUrlContext(): Omit<ServerUrlContext, 'deploymentId'> {
+        const publicIp =
+            this.deploymentGateway.getPrimaryAgentPublicIp() ??
+            process.env.DEFAULT_AGENT_PUBLIC_IP ??
+            '127.0.0.1';
+
+        return {
+            publicIp,
+            wildcardDomain: process.env.WILDCARD_DOMAIN ?? null,
+            forceHttps: process.env.FORCE_HTTPS === 'true',
         };
     }
 }

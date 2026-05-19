@@ -162,3 +162,41 @@ services:
         expect(listComposePortVariables(sampleCompose)).toEqual(['SERVICE_PORT_POSTGRES']);
     });
 });
+
+describe('n8n URL generation', () => {
+    const n8nCompose = `
+services:
+  n8n:
+    ports:
+      - '\${SERVICE_PORT_N8N:-5678}:5678'
+    environment:
+      - SERVICE_URL_N8N_5678
+      - N8N_EDITOR_BASE_URL=\${SERVICE_URL_N8N}
+      - WEBHOOK_URL=\${SERVICE_URL_N8N}
+      - N8N_HOST=\${SERVICE_FQDN_N8N}
+      - N8N_RUNNERS_AUTH_TOKEN=\${SERVICE_PASSWORD_N8N}
+      - N8N_RUNNERS_BROKER_PORT=\${N8N_RUNNERS_BROKER_PORT:-5679}
+`;
+
+    it('generates sslip URLs and passwords for n8n template', () => {
+        const resolved = resolveAndValidateComposeEnvironment({
+            compose: n8nCompose,
+            serverUrlContext: {
+                publicIp: '192.168.1.50',
+                deploymentId: 'deployment-test-n8n',
+            },
+        });
+
+        expect(resolved.env.SERVICE_URL_N8N).toBe(
+            'http://n8n-test-n8n.192.168.1.50.sslip.io',
+        );
+        expect(resolved.env.SERVICE_FQDN_N8N).toBe('n8n-test-n8n.192.168.1.50.sslip.io');
+        expect(resolved.env.SERVICE_URL_N8N_5678).toBe(
+            'http://n8n-test-n8n.192.168.1.50.sslip.io:5678',
+        );
+        expect(resolved.ports.SERVICE_PORT_N8N).toBe(5678);
+        expect(resolved.env.SERVICE_PASSWORD_N8N).toBeTruthy();
+        expect(resolved.ports.N8N_RUNNERS_BROKER_PORT).toBeUndefined();
+        expect(resolved.env.N8N_RUNNERS_BROKER_PORT).toBe('5679');
+    });
+});

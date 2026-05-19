@@ -10,6 +10,7 @@ import { Repository } from 'typeorm';
 import {
     ComposeParserService,
     EncryptionService,
+    ServerUrlContext,
     TemplateConfigService,
     TemplatePayloadService,
     maskEnvMap,
@@ -26,6 +27,8 @@ export interface PrepareDeploymentInput {
     requestPorts?: Record<string, unknown>;
     /** When set, load stored variables and merge request overrides (redeploy). */
     existingDeploymentId?: string;
+    /** Agent/server context for SERVICE_URL_* / SERVICE_FQDN_* generation (deploymentId added internally). */
+    serverUrlContext?: Omit<ServerUrlContext, 'deploymentId'>;
 }
 
 export interface PreparedDeployment {
@@ -150,12 +153,23 @@ export class DeploymentsService {
      * (no template.config.json / env_schema / port_schema).
      */
     async prepareComposeDeployment(input: PrepareDeploymentInput): Promise<PreparedDeployment> {
-        const { templateSlug, requestEnv = {}, requestPorts = {}, existingDeploymentId } = input;
+        const {
+            templateSlug,
+            requestEnv = {},
+            requestPorts = {},
+            existingDeploymentId,
+            serverUrlContext: serverUrlContextInput,
+        } = input;
 
         const template = await this.templateRepository.findOne({ where: { slug: templateSlug } });
         if (!template?.compose) {
             throw new NotFoundException(`Template '${templateSlug}' not found`);
         }
+
+        const deploymentId = existingDeploymentId ?? this.generateDeploymentId();
+        const serverUrlContext: ServerUrlContext | undefined = serverUrlContextInput
+            ? { ...serverUrlContextInput, deploymentId }
+            : undefined;
 
         let baseEnv: Record<string, unknown> = { ...requestEnv };
         let basePorts: Record<string, unknown> = { ...requestPorts };
@@ -177,9 +191,10 @@ export class DeploymentsService {
             );
         }
 
-        // Fallback: template catalog port (e.g. 5432) when compose has no default for a required SERVICE_PORT_*
+        const inferOptions = serverUrlContext ? { serverUrlContext } : undefined;
+
         const requiredPortVars = this.composeParserService
-            .inferRequiredVariables(composeYaml)
+            .inferRequiredVariables(composeYaml, inferOptions)
             .filter((name) => name.startsWith('SERVICE_PORT_'));
 
         if (template.port && requiredPortVars.length === 1) {
@@ -195,20 +210,27 @@ export class DeploymentsService {
                 compose: composeYaml,
                 userEnv: baseEnv,
                 userPorts: basePorts,
+                serverUrlContext,
             });
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            const required = this.composeParserService.inferRequiredVariables(composeYaml);
+            const required = this.composeParserService.inferRequiredVariables(composeYaml, inferOptions);
             const hint = required.length > 0
-                ? ` Required: ${required.join(', ')}. Pass them in "ports" or "env", or use POST /deploy/compose with a template that defines compose defaults.`
+                ? ` Required: ${required.join(', ')}. Pass them in "ports" or "env".`
                 : '';
+            if (!serverUrlContext && composeYaml.includes('SERVICE_URL_')) {
+                throw new BadRequestException(
+                    `${message}.${hint} Connect an agent with AGENT_PUBLIC_IP set for auto URL generation.`,
+                );
+            }
             throw new BadRequestException(`${message}.${hint}`);
         }
 
         const mergedEnv = parsedFromCompose.env;
         const mergedPorts = parsedFromCompose.ports;
-        const requiredKeys = new Set(this.composeParserService.inferRequiredVariables(composeYaml));
-        const deploymentId = existingDeploymentId ?? this.generateDeploymentId();
+        const requiredKeys = new Set(
+            this.composeParserService.inferRequiredVariables(composeYaml, inferOptions),
+        );
 
         await this.upsertDeploymentRecord({
             deploymentId,

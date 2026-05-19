@@ -27,7 +27,27 @@ npm run start:control-panel-app:dev
 | Slug | Folder | Notes |
 |------|--------|--------|
 | `postgresql` | `templates/postgresql/` | Original one-click template |
-| `postgresV2` | `templates/postgresV2/` | **Preferred** — Coolify-style compose-only (`POST /deploy/compose`) |
+| `postgresV2` | `templates/postgresV2/` | Compose-only database template |
+| `n8n` | `templates/n8n/` | Web app with **sslip.io URL generation** |
+
+## URL generation (Coolify-style)
+
+Set `AGENT_PUBLIC_IP` on the agent (reported to control panel on WebSocket connect).  
+When a template declares `SERVICE_URL_*` (e.g. n8n), the control panel auto-generates:
+
+- `SERVICE_URL_N8N` → `http://n8n-{deploymentId}.{ip}.sslip.io`
+- `SERVICE_FQDN_N8N` → hostname only
+- Port-specific variants with `:5678` appended
+
+Deploy **n8n** (agent must be connected with `AGENT_PUBLIC_IP` set):
+
+```bash
+curl -X POST http://localhost:3000/deploy/compose \
+  -H 'Content-Type: application/json' \
+  -d '{"templateSlug":"n8n"}'
+```
+
+Response includes `publicUrl` — open that URL (with port `:5678`) in your browser.
 
 Each folder contains:
 

@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import {
     ResolveComposeEnvOptions,
     ResolvedComposeEnv,
+    ServerUrlContext,
     extractComposeVariables,
     findMissingComposeVariables,
     inferRequiredComposeVariables,
@@ -26,8 +27,8 @@ export class ComposeParserService {
         return resolveAndValidateComposeEnvironment(options);
     }
 
-    inferRequiredVariables(compose: string): string[] {
-        return inferRequiredComposeVariables(compose);
+    inferRequiredVariables(compose: string, options?: { serverUrlContext?: ServerUrlContext }): string[] {
+        return inferRequiredComposeVariables(compose, options);
     }
 
     findMissingVariables(compose: string, resolved: ResolvedComposeEnv): string[] {

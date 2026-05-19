@@ -33,6 +33,7 @@ export class DeploymentGateway implements OnGatewayInit, OnGatewayConnection, On
     server!: Server;
 
     private connectedAgents = new Map<string, Socket>();
+    private agentPublicIps = new Map<string, string>();
 
     afterInit(): void {
         this.logger.log('WebSocket Gateway initialized');
@@ -40,9 +41,23 @@ export class DeploymentGateway implements OnGatewayInit, OnGatewayConnection, On
 
     handleConnection(client: Socket): void {
         const agentId = client.id;
-        this.connectedAgents.set(agentId, client);
+        const headerIp = client.handshake.headers['x-agent-public-ip'];
+        const queryIp = client.handshake.query.publicIp;
+        const publicIp = String(
+            (Array.isArray(headerIp) ? headerIp[0] : headerIp) ??
+                (Array.isArray(queryIp) ? queryIp[0] : queryIp) ??
+                '',
+        ).trim();
 
-        this.logger.log(`Agent connected: ${agentId} (Total: ${this.connectedAgents.size})`);
+        this.connectedAgents.set(agentId, client);
+        if (publicIp) {
+            this.agentPublicIps.set(agentId, publicIp);
+        }
+
+        this.logger.log(
+            `Agent connected: ${agentId} (Total: ${this.connectedAgents.size})` +
+                (publicIp ? ` publicIp=${publicIp}` : ' (no public IP — set AGENT_PUBLIC_IP)'),
+        );
 
         this.server.emit(DeploymentEvents.AGENT_CONNECTED, {
             agentId,
@@ -54,6 +69,7 @@ export class DeploymentGateway implements OnGatewayInit, OnGatewayConnection, On
     handleDisconnect(client: Socket): void {
         const agentId = client.id;
         this.connectedAgents.delete(agentId);
+        this.agentPublicIps.delete(agentId);
 
         this.logger.log(`Agent disconnected: ${agentId} (Total: ${this.connectedAgents.size})`);
 
@@ -111,5 +127,13 @@ export class DeploymentGateway implements OnGatewayInit, OnGatewayConnection, On
 
     getConnectedAgentsCount(): number {
         return this.connectedAgents.size;
+    }
+
+    /** Public IP reported by the first connected agent (for sslip.io URL generation). */
+    getPrimaryAgentPublicIp(): string | null {
+        const first = this.agentPublicIps.values().next();
+        const ip = first.value?.trim();
+
+        return ip || null;
     }
 }

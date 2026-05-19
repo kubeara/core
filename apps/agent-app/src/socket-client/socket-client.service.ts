@@ -35,6 +35,7 @@ export class SocketClientService {
         }
 
         const controlPanelUrl = this.configService.get<string>('CONTROL_PANEL_URL', 'http://localhost:3000');
+        const publicIp = this.configService.get<string>('AGENT_PUBLIC_IP', '').trim();
 
         this.logger.log(`Connecting to control panel at ${controlPanelUrl}`);
 
@@ -43,7 +44,11 @@ export class SocketClientService {
             reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
             reconnectionAttempts: Infinity,
-            extraHeaders: { 'X-Agent-ID': this.agentId },
+            extraHeaders: {
+                'X-Agent-ID': this.agentId,
+                ...(publicIp ? { 'X-Agent-Public-IP': publicIp } : {}),
+            },
+            query: publicIp ? { publicIp } : undefined,
         });
 
         this.setupEventListeners();

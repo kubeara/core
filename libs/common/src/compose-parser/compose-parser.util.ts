@@ -1,11 +1,20 @@
 import { randomBytes } from 'crypto';
 
+import {
+    generateServiceUrlFqdnPairs,
+    parseServiceEnvironmentVariable,
+    ServerUrlContext,
+} from '../server-url/server-url.util';
+
 /**
  * Coolify-inspired compose environment parsing:
  * - Discover ${VAR} and ${VAR:-default} placeholders in compose YAML
  * - Auto-generate SERVICE_* magic variables (PASSWORD, USER, BASE64, …)
+ * - Auto-generate SERVICE_URL_* / SERVICE_FQDN_* when serverUrlContext is provided
  * - Merge with caller-provided env / ports (user values win)
  */
+
+export type { ServerUrlContext };
 
 export interface ComposeVariableRef {
     name: string;
@@ -18,6 +27,8 @@ export interface ResolveComposeEnvOptions {
     userPorts?: Record<string, unknown>;
     /** Keys from template port_schema (e.g. SERVICE_PORT_POSTGRES) */
     portSchemaKeys?: string[];
+    /** When set, auto-generate SERVICE_URL_* / SERVICE_FQDN_* via sslip.io (Coolify-style). */
+    serverUrlContext?: ServerUrlContext;
 }
 
 export interface ResolvedComposeEnv {
@@ -62,6 +73,71 @@ export function extractComposeVariables(compose: string): ComposeVariableRef[] {
     }
 
     return Array.from(byName.values());
+}
+
+/**
+ * Bare SERVICE_URL_* / SERVICE_FQDN_* declarations in compose environment lists
+ * (e.g. `- SERVICE_URL_N8N_5678` with no value).
+ */
+export function extractUrlFqdnDeclarations(compose: string): string[] {
+    const names = new Set<string>();
+    const patterns = [
+        /^\s*-\s*(SERVICE_(?:URL|FQDN)_[A-Za-z0-9_]+)\s*$/gm,
+        /^\s*(SERVICE_(?:URL|FQDN)_[A-Za-z0-9_]+):\s*['"]?['"]?\s*$/gm,
+    ];
+
+    for (const pattern of patterns) {
+        for (const match of compose.matchAll(pattern)) {
+            if (match[1]) {
+                names.add(match[1]);
+            }
+        }
+    }
+
+    return Array.from(names);
+}
+
+function applyServerUrlFqdnGeneration(
+    compose: string,
+    env: Record<string, string>,
+    ports: Record<string, number>,
+    generatedKeys: string[],
+    serverUrlContext: ServerUrlContext,
+): void {
+    const declarations = extractUrlFqdnDeclarations(compose);
+    const processed = new Set<string>();
+
+    for (const declaration of declarations) {
+        if (!declaration.startsWith('SERVICE_URL_')) {
+            continue;
+        }
+
+        const parsed = parseServiceEnvironmentVariable(declaration);
+        const groupKey = `${parsed.serviceName}:${parsed.port ?? 'base'}`;
+
+        if (processed.has(groupKey)) {
+            continue;
+        }
+
+        processed.add(groupKey);
+
+        const pairs = generateServiceUrlFqdnPairs(declaration, serverUrlContext);
+
+        for (const [key, value] of Object.entries(pairs)) {
+            if (env[key] === undefined) {
+                env[key] = value;
+                generatedKeys.push(key);
+            }
+        }
+
+        if (parsed.hasPort && parsed.port) {
+            const portKey = `SERVICE_PORT_${parsed.preservedName}`;
+            if (ports[portKey] === undefined) {
+                ports[portKey] = Number(parsed.port);
+                generatedKeys.push(portKey);
+            }
+        }
+    }
 }
 
 function parsePlaceholderContent(content: string): ComposeVariableRef {
@@ -134,7 +210,8 @@ export function isPortVariable(name: string, portSchemaKeys: string[] = []): boo
         return true;
     }
 
-    return name.startsWith(PORT_KEY_PREFIX) || name.endsWith('_PORT');
+    // Host port mappings use SERVICE_PORT_* only (not app env vars like N8N_RUNNERS_BROKER_PORT).
+    return name.startsWith(PORT_KEY_PREFIX);
 }
 
 /**
@@ -178,6 +255,7 @@ export function resolveComposeEnvironment(options: ResolveComposeEnvOptions): Re
         userEnv: rawUserEnv = {},
         userPorts: rawUserPorts = {},
         portSchemaKeys = [],
+        serverUrlContext,
     } = options;
 
     const userEnv = { ...rawUserEnv };
@@ -239,9 +317,21 @@ export function resolveComposeEnvironment(options: ResolveComposeEnvOptions): Re
             continue;
         }
 
+        if (
+            serverUrlContext &&
+            (magicCommand === 'FQDN' || magicCommand === 'URL') &&
+            env[name] === undefined
+        ) {
+            continue;
+        }
+
         if (defaultValue !== undefined) {
             env[name] = defaultValue;
         }
+    }
+
+    if (serverUrlContext) {
+        applyServerUrlFqdnGeneration(compose, env, ports, generatedKeys, serverUrlContext);
     }
 
     return { env, ports, generatedKeys };
@@ -250,7 +340,10 @@ export function resolveComposeEnvironment(options: ResolveComposeEnvOptions): Re
 /**
  * Variables the caller must supply (no compose default, not auto-generated magic).
  */
-export function inferRequiredComposeVariables(compose: string): string[] {
+export function inferRequiredComposeVariables(
+    compose: string,
+    options: { serverUrlContext?: ServerUrlContext } = {},
+): string[] {
     const required: string[] = [];
 
     for (const { name, defaultValue } of extractComposeVariables(compose)) {
@@ -260,6 +353,10 @@ export function inferRequiredComposeVariables(compose: string): string[] {
 
         const magicCommand = parseMagicEnvCommand(name);
         if (magicCommand && magicCommand !== 'PORT' && magicCommand !== 'FQDN' && magicCommand !== 'URL') {
+            continue;
+        }
+
+        if (options.serverUrlContext && (magicCommand === 'FQDN' || magicCommand === 'URL')) {
             continue;
         }
 

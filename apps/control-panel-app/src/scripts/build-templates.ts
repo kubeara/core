@@ -47,6 +47,16 @@ const metadataBySlug: Record<string, TemplateMetadata> = {
         port: 6379,
         version: '7',
     },
+    n8n: {
+        name: 'n8n',
+        description: 'Workflow automation tool',
+        category: 'automation',
+        tags: ['n8n', 'workflow', 'automation', 'no-code'],
+        documentation: 'https://n8n.io',
+        logo: 'svgs/n8n.png',
+        port: 5678,
+        version: '2.10.2',
+    },
 };
 
 const templatesDir = path.join(process.cwd(), 'apps/control-panel-app/templates');

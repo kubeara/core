@@ -10,4 +10,5 @@ export * from './template-config/template-config.service';
 export * from './compose-parser/compose-parser.module';
 export * from './compose-parser/compose-parser.service';
 export * from './compose-parser/compose-parser.util';
+export * from './server-url/server-url.util';
 export * from './utils/deployment.utils';
