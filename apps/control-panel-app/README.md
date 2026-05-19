@@ -47,7 +47,13 @@ curl -X POST http://localhost:3000/deploy/compose \
   -d '{"templateSlug":"n8n"}'
 ```
 
-Response includes `publicUrl` — open that URL (with port `:5678`) in your browser.
+Response includes `publicUrl` — open the **port 5678** URL in your browser:
+
+```
+http://n8n-{deploymentId}.127.0.0.1.sslip.io:5678
+```
+
+Without Traefik/HTTPS, the template sets `N8N_SECURE_COOKIE=false` so n8n works over plain HTTP.
 
 Each folder contains:
 
