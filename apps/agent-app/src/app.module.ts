@@ -4,6 +4,7 @@ import { SocketClientService } from './socket-client/socket-client.service';
 import { HealthController } from './health/health.controller';
 import { FilesystemService } from './filesystem/filesystem.service';
 import { DeployTemplateExecutor } from './executors/deploy-template.executor';
+import { TraefikProxyService } from './proxy/traefik-proxy.service';
 import {
     ComposeParserModule,
     EncryptionModule,
@@ -22,7 +23,7 @@ import {
         ComposeParserModule,
     ],
     controllers: [HealthController],
-    providers: [SocketClientService, FilesystemService, DeployTemplateExecutor],
+    providers: [SocketClientService, FilesystemService, DeployTemplateExecutor, TraefikProxyService],
 })
 export class AppModule implements OnModuleInit {
     constructor(private readonly socketClientService: SocketClientService) { }

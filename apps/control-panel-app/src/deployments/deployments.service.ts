@@ -40,6 +40,7 @@ export interface PreparedDeployment {
     generatedKeys: string[];
     schema?: TemplateSchema;
     composeOnly?: boolean;
+    useTraefik?: boolean;
 }
 
 export interface EnvironmentVariableView {
@@ -260,6 +261,7 @@ export class DeploymentsService {
             mergedPorts,
             generatedKeys: parsedFromCompose.generatedKeys,
             composeOnly: true,
+            useTraefik: serverUrlContext?.useTraefik,
         };
     }
 

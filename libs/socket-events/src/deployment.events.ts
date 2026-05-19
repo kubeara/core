@@ -44,6 +44,8 @@ export interface SocketDeployMessage {
         schema?: TemplateSchema;
         /** When true, env/ports are resolved from compose only (Coolify-style; no template.config.json). */
         composeOnly?: boolean;
+        /** Route HTTP(S) via Traefik on the agent (port 80/443, no host port publish). */
+        useTraefik?: boolean;
     };
 }
 

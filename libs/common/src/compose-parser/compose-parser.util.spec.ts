@@ -199,4 +199,21 @@ services:
         expect(resolved.ports.N8N_RUNNERS_BROKER_PORT).toBeUndefined();
         expect(resolved.env.N8N_RUNNERS_BROKER_PORT).toBe('5679');
     });
+
+    it('with useTraefik skips host port publish and port-suffixed URLs', () => {
+        const resolved = resolveAndValidateComposeEnvironment({
+            compose: n8nCompose,
+            serverUrlContext: {
+                publicIp: '192.168.1.50',
+                deploymentId: 'deployment-test-n8n',
+                useTraefik: true,
+            },
+        });
+
+        expect(resolved.env.SERVICE_URL_N8N).toBe(
+            'http://n8n-test-n8n.192.168.1.50.sslip.io',
+        );
+        expect(resolved.env.SERVICE_URL_N8N_5678).toBeUndefined();
+        expect(resolved.ports.SERVICE_PORT_N8N).toBeUndefined();
+    });
 });

@@ -48,7 +48,7 @@ export class DeployController {
             requestEnv,
             requestPorts,
             existingDeploymentId: deploymentId,
-            serverUrlContext: this.buildServerUrlContext(),
+            serverUrlContext: this.buildServerUrlContext(body.useTraefik),
         });
 
         return this.emitPreparedDeployment(prepared, Boolean(deploymentId));
@@ -81,7 +81,7 @@ export class DeployController {
             requestEnv,
             requestPorts,
             existingDeploymentId: deploymentId,
-            serverUrlContext: this.buildServerUrlContext(),
+            serverUrlContext: this.buildServerUrlContext(body.useTraefik),
         });
 
         const result = this.emitPreparedDeployment(prepared, Boolean(deploymentId));
@@ -133,6 +133,7 @@ export class DeployController {
                 deploymentId: prepared.deploymentId,
                 schema: prepared.schema,
                 composeOnly: prepared.composeOnly,
+                useTraefik: prepared.useTraefik,
             },
         };
 
@@ -145,16 +146,20 @@ export class DeployController {
         };
     }
 
-    private buildServerUrlContext(): Omit<ServerUrlContext, 'deploymentId'> {
+    private buildServerUrlContext(useTraefikRequest?: boolean): Omit<ServerUrlContext, 'deploymentId'> {
         const publicIp =
             this.deploymentGateway.getPrimaryAgentPublicIp() ??
             process.env.DEFAULT_AGENT_PUBLIC_IP ??
             '127.0.0.1';
 
+        const useTraefik =
+            useTraefikRequest ?? process.env.TRAEFIK_ENABLED === 'true';
+
         return {
             publicIp,
             wildcardDomain: process.env.WILDCARD_DOMAIN ?? null,
             forceHttps: process.env.FORCE_HTTPS === 'true',
+            useTraefik,
         };
     }
 }

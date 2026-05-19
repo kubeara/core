@@ -18,8 +18,11 @@ import {
     maskEnvMap,
     maskEnvContents,
     formatPortMappings,
+    discoverTraefikRoutes,
+    applyTraefikRoutingToCompose,
 } from '@shared/common';
 import { EnvFileInput, generateEnvFileDetails, PortFileInput } from './env-file.util';
+import { TraefikProxyService } from '../proxy/traefik-proxy.service';
 
 const yaml = require('js-yaml') as {
     load(input: string): any;
@@ -39,6 +42,7 @@ export class DeployTemplateExecutor {
         private readonly fsService: FilesystemService,
         private readonly templateConfigService: TemplateConfigService,
         private readonly composeParserService: ComposeParserService,
+        private readonly traefikProxy: TraefikProxyService,
     ) { }
 
     async execute(opts: {
@@ -51,9 +55,11 @@ export class DeployTemplateExecutor {
         deploymentId: string;
         schema?: TemplateSchema;
         composeOnly?: boolean;
+        useTraefik?: boolean;
         notifier: ExecutionNotifier;
     }): Promise<void> {
-        const { name, compose, env, deploymentId, schema, composeOnly, notifier } = opts;
+        const { name, compose, env, deploymentId, schema, composeOnly, useTraefik: useTraefikPayload, notifier } = opts;
+        const useTraefik = Boolean(useTraefikPayload ?? this.traefikProxy.isEnabled());
 
         const startedAt = new Date().toISOString();
         let dir = '';
@@ -74,8 +80,6 @@ export class DeployTemplateExecutor {
             }
 
             const composePath = path.join(dir, 'docker-compose.yml');
-            await this.fsService.writeFile(dir, 'docker-compose.yml', this.normalizeComposeForDeployment(compose));
-
             const envPath = path.join(dir, '.env');
             const { envValues: rawEnv, portValues: rawPorts } = this.normalizeEnvPayload(env);
 
@@ -87,6 +91,37 @@ export class DeployTemplateExecutor {
                 name,
                 composeOnly,
             );
+
+            if (useTraefik && this.traefikProxy.isHttpsEnabled()) {
+                resolved.envValues.N8N_PROTOCOL = 'https';
+                resolved.envValues.N8N_SECURE_COOKIE = 'true';
+            }
+
+            let composeYaml = this.normalizeComposeForDeployment(compose);
+
+            if (useTraefik) {
+                await this.traefikProxy.ensureRunning();
+                const routes = discoverTraefikRoutes(
+                    compose,
+                    this.stringifyEnvValues(resolved.envValues),
+                    deploymentId,
+                );
+                const parsedCompose = yaml.load(composeYaml) as Record<string, unknown>;
+                applyTraefikRoutingToCompose(parsedCompose, routes, {
+                    enableHttps: this.traefikProxy.isHttpsEnabled(),
+                    forceHttps: this.traefikProxy.isForceHttps(),
+                });
+                composeYaml = yaml.dump(parsedCompose, { lineWidth: -1, noRefs: true });
+                notifier.sendLog({
+                    deployment: name,
+                    type: 'stdout',
+                    message: `Traefik routing enabled (${routes.length} route(s)) — access via http://<fqdn> on port 80`,
+                    timestamp: new Date().toISOString(),
+                });
+            }
+
+            await this.fsService.writeFile(dir, 'docker-compose.yml', composeYaml);
+
             const generatedEnv = generateEnvFileDetails(resolved.envValues, resolved.portValues);
 
             const envFileContent = `${generatedEnv.content || ''}\n`;
@@ -110,7 +145,9 @@ export class DeployTemplateExecutor {
                 timestamp: new Date().toISOString(),
             });
 
-            await this.assertPortsAvailable(generatedEnv.ports);
+            if (!useTraefik && Object.keys(generatedEnv.ports).length > 0) {
+                await this.assertPortsAvailable(generatedEnv.ports);
+            }
 
             const maskedEnv = maskEnvContents(envFileContent);
             notifier.sendLog({ deployment: name, type: 'stdout', message: `.env contents:\n${maskedEnv}`, timestamp: new Date().toISOString() });
@@ -131,7 +168,9 @@ export class DeployTemplateExecutor {
                 return;
             }
 
-            this.validateResolvedConfig(validation.stdout, generatedEnv.ports);
+            if (!useTraefik) {
+                this.validateResolvedConfig(validation.stdout, generatedEnv.ports);
+            }
 
             notifier.sendStatus({
                 deploymentId,
@@ -421,6 +460,18 @@ export class DeployTemplateExecutor {
             message: SUCCESS_MESSAGES.CLEANUP_COMPLETED,
             timestamp: new Date().toISOString(),
         });
+    }
+
+    private stringifyEnvValues(env: EnvFileInput): Record<string, string> {
+        const result: Record<string, string> = {};
+
+        for (const [key, value] of Object.entries(env)) {
+            if (value !== undefined && value !== null && value !== '') {
+                result[key] = String(value);
+            }
+        }
+
+        return result;
     }
 
     private execCapture(cmd: string, args: string[], cwd: string): Promise<{ exitCode: number; stdout: string; stderr: string }> {

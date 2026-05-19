@@ -93,6 +93,7 @@ export class SocketClientService {
             ports: encryptedPorts,
             schema,
             composeOnly,
+            useTraefik,
         } = message.payload;
         const deploymentId = providedId || this.generateDeploymentId();
 
@@ -127,6 +128,7 @@ export class SocketClientService {
                 deploymentId,
                 schema,
                 composeOnly,
+                useTraefik,
                 notifier: this,
             });
         } catch (err) {

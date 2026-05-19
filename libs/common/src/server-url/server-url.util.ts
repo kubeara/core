@@ -7,6 +7,8 @@ export interface ServerUrlContext {
     wildcardDomain?: string | null;
     deploymentId: string;
     forceHttps?: boolean;
+    /** When true, do not publish SERVICE_PORT_* on host (Traefik routes traffic). */
+    useTraefik?: boolean;
 }
 
 export interface ParsedServiceEnvVar {
@@ -112,7 +114,7 @@ export function generateServiceUrlFqdnPairs(
         [`SERVICE_FQDN_${name}`]: baseFqdn,
     };
 
-    if (parsed.hasPort && parsed.port) {
+    if (parsed.hasPort && parsed.port && !context.useTraefik) {
         result[`SERVICE_URL_${name}_${parsed.port}`] = `${baseUrl}:${parsed.port}`;
         result[`SERVICE_FQDN_${name}_${parsed.port}`] = `${baseFqdn}:${parsed.port}`;
     }

@@ -132,7 +132,7 @@ function applyServerUrlFqdnGeneration(
 
         if (parsed.hasPort && parsed.port) {
             const portKey = `SERVICE_PORT_${parsed.preservedName}`;
-            if (ports[portKey] === undefined) {
+            if (ports[portKey] === undefined && !serverUrlContext?.useTraefik) {
                 ports[portKey] = Number(parsed.port);
                 generatedKeys.push(portKey);
             }
@@ -334,6 +334,14 @@ export function resolveComposeEnvironment(options: ResolveComposeEnvOptions): Re
         applyServerUrlFqdnGeneration(compose, env, ports, generatedKeys, serverUrlContext);
     }
 
+    if (serverUrlContext?.useTraefik) {
+        for (const key of Object.keys(ports)) {
+            if (isPortVariable(key, portSchemaKeys)) {
+                delete ports[key];
+            }
+        }
+    }
+
     return { env, ports, generatedKeys };
 }
 
@@ -393,11 +401,16 @@ export function findUnknownPortKeys(
 export function findMissingComposeVariables(
     compose: string,
     resolved: ResolvedComposeEnv,
+    options: { serverUrlContext?: ServerUrlContext } = {},
 ): string[] {
     const merged: Record<string, string | number> = { ...resolved.env, ...resolved.ports };
     const missing: string[] = [];
 
     for (const { name } of extractComposeVariables(compose)) {
+        if (options.serverUrlContext?.useTraefik && isPortVariable(name)) {
+            continue;
+        }
+
         const value = merged[name];
         if (value !== undefined && value !== null && value !== '') {
             continue;
@@ -413,7 +426,9 @@ export function resolveAndValidateComposeEnvironment(
     options: ResolveComposeEnvOptions,
 ): ResolvedComposeEnv {
     const resolved = resolveComposeEnvironment(options);
-    const missing = findMissingComposeVariables(options.compose, resolved);
+    const missing = findMissingComposeVariables(options.compose, resolved, {
+        serverUrlContext: options.serverUrlContext,
+    });
 
     if (missing.length > 0) {
         throw new Error(`Missing required compose variables: ${missing.join(', ')}`);

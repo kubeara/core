@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsObject } from 'class-validator';
+import { IsString, IsOptional, IsObject, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class DeployTemplateDto {
@@ -19,4 +19,9 @@ export class DeployTemplateDto {
     @IsObject()
     @Type(() => Object)
     ports?: Record<string, unknown>;
+
+    /** When true, route via Traefik (agent TRAEFIK_ENABLED must also be on). */
+    @IsOptional()
+    @IsBoolean()
+    useTraefik?: boolean;
 }
