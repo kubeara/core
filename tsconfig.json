@@ -4,6 +4,8 @@
     "target": "ES2023",
     "lib": ["ES2023"],
 
+    "ignoreDeprecations": "6.0",
+
     "types": ["node"],
 
     "baseUrl": ".",
@@ -37,6 +39,6 @@
     "experimentalDecorators": true,
 
     "removeComments": true,
-    "sourceMap": true,
+    "sourceMap": true
   }
 }

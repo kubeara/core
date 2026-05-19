@@ -112,7 +112,7 @@ export class DeployTemplateExecutor {
                 message: SUCCESS_MESSAGES.VALIDATING,
             } as DeploymentStatusPayload);
 
-            const validationArgs = ['compose', '--env-file', '.env', '-p', projectName, 'config'];
+            const validationArgs = ['compose', '--env-file', '.env', '-f', 'docker-compose.yml', '-p', projectName, 'config'];
             const validation = await this.execCapture('docker', validationArgs, dir);
 
             if (validation.exitCode !== 0) {
@@ -130,7 +130,7 @@ export class DeployTemplateExecutor {
                 message: SUCCESS_MESSAGES.DEPLOYING,
             } as DeploymentStatusPayload);
 
-            const upArgs = ['compose', '--env-file', '.env', '-p', projectName, 'up', '-d'];
+            const upArgs = ['compose', '--env-file', '.env', '-f', 'docker-compose.yml', '-p', projectName, 'up', '-d'];
             const upResult = await this.execCapture('docker', upArgs, dir);
 
             if (upResult.exitCode !== 0) {
@@ -351,7 +351,7 @@ export class DeployTemplateExecutor {
 
         const cleanup = await this.execCapture(
             'docker',
-            ['compose', '-p', projectName, 'down', '--volumes', '--remove-orphans'],
+            ['compose', '-f', 'docker-compose.yml', '-p', projectName, 'down', '--volumes', '--remove-orphans'],
             cwd,
         );
 
@@ -394,7 +394,7 @@ export class DeployTemplateExecutor {
         maxDurationMs: number,
     ): Promise<void> {
         return new Promise((resolve) => {
-            const child = spawn('docker', ['compose', '-p', projectName, 'logs', '-f', '--no-color'], { cwd });
+            const child = spawn('docker', ['compose', '-f', 'docker-compose.yml', '-p', projectName, 'logs', '-f', '--no-color'], { cwd });
             const timer = setTimeout(() => {
                 try { child.kill(); } catch {}
                 resolve();
