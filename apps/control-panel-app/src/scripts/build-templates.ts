@@ -27,6 +27,16 @@ const metadataBySlug: Record<string, TemplateMetadata> = {
         port: 5432,
         version: '16',
     },
+    postgresV2: {
+        name: 'PostgreSQL V2',
+        description: 'PostgreSQL with compose-parser magic vars and DB-backed deployment env',
+        category: 'database',
+        tags: ['database', 'sql', 'relational', 'v2'],
+        documentation: 'https://www.postgresql.org',
+        logo: 'svgs/postgresql.svg',
+        port: 5432,
+        version: '16',
+    },
     redis: {
         name: 'Redis',
         description: 'In-memory data structure store',

@@ -22,19 +22,29 @@
       "required": false,
       "default": "/var/lib/postgresql/data"
     },
-    "SERVICE_USER_POSTGRES": {
+    "TZ": {
+      "type": "string",
+      "required": false,
+      "default": "UTC"
+    },
+    "PGTZ": {
+      "type": "string",
+      "required": false,
+      "default": "UTC"
+    },
+    "SERVICE_USER_POSTGRESV2": {
       "type": "string",
       "required": false,
       "description": "Auto-generated if omitted (maps to POSTGRES_USER)"
     },
-    "SERVICE_PASSWORD_POSTGRES": {
+    "SERVICE_PASSWORD_POSTGRESV2": {
       "type": "string",
       "required": false,
       "description": "Auto-generated if omitted (maps to POSTGRES_PASSWORD)"
     }
   },
   "port_schema": {
-    "SERVICE_PORT_POSTGRES": {
+    "SERVICE_PORT_POSTGRESV2": {
       "type": "number",
       "required": true,
       "description": "Host port mapped to container port 5432"

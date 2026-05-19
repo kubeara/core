@@ -1,7 +1,7 @@
 # documentation: https://www.postgresql.org
-# slogan: Advanced open source relational database
+# slogan: PostgreSQL with DB-backed env (postgresV2)
 # category: database
-# tags: postgres,postgresql,database,sql
+# tags: postgres,postgresql,database,sql,v2
 # port: 5432
 
 services:
@@ -10,13 +10,15 @@ services:
     restart: ${POSTGRES_RESTART_POLICY:-unless-stopped}
 
     ports:
-      - '${SERVICE_PORT_POSTGRES}:5432'
+      - '${SERVICE_PORT_POSTGRESV2}:5432'
 
     environment:
-      POSTGRES_USER: ${SERVICE_USER_POSTGRES}
-      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      POSTGRES_USER: ${SERVICE_USER_POSTGRESV2}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRESV2}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
       PGDATA: ${POSTGRES_DATA_PATH:-/var/lib/postgresql/data}
+      TZ: ${TZ:-UTC}
+      PGTZ: ${PGTZ:-UTC}
 
     volumes:
       - postgres_data:/var/lib/postgresql/data

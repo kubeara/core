@@ -8,7 +8,7 @@ import { AppModule } from './app.module';
 function validateEnv(): void {
     const rootDir = process.cwd();
     const rootEnvPath = path.join(rootDir, '.env');
-    
+
     // Prevent accidental use of root .env
     if (fs.existsSync(rootEnvPath) && fs.existsSync(path.join(rootDir, 'apps')) && fs.existsSync(path.join(rootDir, 'package.json'))) {
         throw new Error(
@@ -30,7 +30,7 @@ function validateEnv(): void {
     }
 
     const isDocker = process.env.NODE_ENV === 'production' || process.env.DB_HOST === 'postgres';
-    
+
     if (!isDocker && !fs.existsSync(appEnvPath)) {
         throw new Error(
             `\n========================================================================\n` +

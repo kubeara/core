@@ -7,4 +7,7 @@ export * from './template-payload/template-payload.module';
 export * from './template-payload/template-payload.service';
 export * from './template-config/template-config.module';
 export * from './template-config/template-config.service';
+export * from './compose-parser/compose-parser.module';
+export * from './compose-parser/compose-parser.service';
+export * from './compose-parser/compose-parser.util';
 export * from './utils/deployment.utils';

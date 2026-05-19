@@ -3,13 +3,22 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { TemplatesModule } from './templates/templates.module';
+import { DeploymentsModule } from './deployments/deployments.module';
 import { WebsocketModule } from './websocket/websocket.module';
 import { ServiceTemplateEntity } from './templates/entities/service-template.entity';
+import { ServiceDeploymentEntity } from './deployments/entities/service-deployment.entity';
+import { EnvironmentVariableEntity } from './deployments/entities/environment-variable.entity';
 import { EncryptionModule } from '@shared/common';
+import path from 'path';
+
+console.log(process.env.DB_HOST);
+console.log(new ConfigService().get<string>('DB_HOST'));
+console.log('app.module.ts',path.join(__dirname, '../.env'));
 @Module({
     imports: [
         ConfigModule.forRoot({
             isGlobal: true,
+            envFilePath: path.join(__dirname, '../.env'),
         }),
 
         TypeOrmModule.forRootAsync({
@@ -22,11 +31,16 @@ import { EncryptionModule } from '@shared/common';
                 password: configService.get<string>('DB_PASSWORD', 'postgres'),
                 database: configService.get<string>('DB_DATABASE', 'templates'),
                 synchronize: true,
-                entities: [ServiceTemplateEntity],
+                entities: [
+                    ServiceTemplateEntity,
+                    ServiceDeploymentEntity,
+                    EnvironmentVariableEntity,
+                ],
             }),
         }),
 
         TemplatesModule,
+        DeploymentsModule,
         WebsocketModule,
         EncryptionModule,
     ],

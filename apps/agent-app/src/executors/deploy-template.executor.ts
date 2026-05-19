@@ -10,6 +10,7 @@ import {
     TemplateSchema,
 } from '@shared/socket-events';
 import {
+    ComposeParserService,
     TemplateConfigService,
     ERROR_MESSAGES,
     SUCCESS_MESSAGES,
@@ -37,6 +38,7 @@ export class DeployTemplateExecutor {
     constructor(
         private readonly fsService: FilesystemService,
         private readonly templateConfigService: TemplateConfigService,
+        private readonly composeParserService: ComposeParserService,
     ) { }
 
     async execute(opts: {
@@ -282,9 +284,26 @@ export class DeployTemplateExecutor {
         notifier: ExecutionNotifier,
         templateName: string,
     ): { envValues: EnvFileInput; portValues: PortFileInput } {
+        const portSchemaKeys = Object.keys(schema?.port_schema ?? {});
+        const parsedFromCompose = this.composeParserService.resolveFromCompose({
+            compose,
+            userEnv: userInput.envValues,
+            userPorts: userInput.portValues,
+            portSchemaKeys,
+        });
+
+        if (parsedFromCompose.generatedKeys.length > 0) {
+            notifier.sendLog({
+                deployment: templateName,
+                type: 'stdout',
+                message: `Auto-generated variables: ${parsedFromCompose.generatedKeys.join(', ')}`,
+                timestamp: new Date().toISOString(),
+            });
+        }
+
         const { env: mergedEnv, ports: mergedPorts } = this.templateConfigService.mergeAndValidate(
             schema,
-            { env: userInput.envValues, ports: userInput.portValues }
+            { env: parsedFromCompose.env, ports: parsedFromCompose.ports },
         );
 
         const composeVars = new Set<string>();

@@ -1,9 +1,26 @@
 import { Injectable } from '@nestjs/common';
 
+const yaml = require('js-yaml') as {
+    dump(
+        input: unknown,
+        options?: {
+            lineWidth?: number;
+            noRefs?: boolean;
+        },
+    ): string;
+};
+
 type ComposeJson = Record<string, unknown>;
 
 @Injectable()
 export class TemplatePayloadService {
+    decodeBase64ToYaml(encoded: string): string {
+        return yaml.dump(this.decodeBase64ToObject(encoded), {
+            lineWidth: -1,
+            noRefs: true,
+        });
+    }
+
     decodeBase64ToObject(encoded: string): ComposeJson {
         try {
             const decoded = Buffer.from(encoded, 'base64').toString('utf8');

@@ -7,7 +7,8 @@ import {
     OnGatewayInit,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import { DeploymentsService } from '../deployments/deployments.service';
 import {
     DeploymentStatusPayload,
     DeploymentLogPayload,
@@ -22,6 +23,11 @@ import {
 })
 export class DeploymentGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
     private readonly logger = new Logger(DeploymentGateway.name);
+
+    constructor(
+        @Inject(forwardRef(() => DeploymentsService))
+        private readonly deploymentsService: DeploymentsService,
+    ) {}
 
     @WebSocketServer()
     server!: Server;
@@ -59,8 +65,22 @@ export class DeploymentGateway implements OnGatewayInit, OnGatewayConnection, On
     }
 
     @SubscribeMessage(DeploymentEvents.DEPLOYMENT_STATUS)
-    handleDeploymentStatus(client: Socket, payload: DeploymentStatusPayload): void {
+    async handleDeploymentStatus(client: Socket, payload: DeploymentStatusPayload): Promise<void> {
         this.logger.debug(`Status from ${client.id}: ${payload.status}`);
+
+        if (payload.deploymentId) {
+            try {
+                await this.deploymentsService.updateStatus(payload.deploymentId, payload.status, {
+                    message: payload.message,
+                    error: payload.error,
+                });
+            } catch (err) {
+                this.logger.warn(
+                    `Could not persist deployment status for ${payload.deploymentId}: ${err instanceof Error ? err.message : String(err)}`,
+                );
+            }
+        }
+
         this.server.emit(DeploymentEvents.DEPLOYMENT_STATUS, {
             agentId: client.id,
             ...payload,
