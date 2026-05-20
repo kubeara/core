@@ -1,0 +1,32 @@
+# documentation: https://www.postgresql.org
+# slogan: Advanced open source relational database
+# category: database
+# tags: postgres,postgresql,database,sql
+# port: 5432
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:16}
+    restart: ${POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_POSTGRES}:5432'
+
+    environment:
+      POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      PGDATA: ${POSTGRES_DATA_PATH:-/var/lib/postgresql/data}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  postgres_data:

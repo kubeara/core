@@ -1,0 +1,43 @@
+{
+  "env_schema": {
+    "POSTGRES_DB": {
+      "type": "string",
+      "required": false,
+      "default": "postgres",
+      "description": "Database name"
+    },
+    "POSTGRES_IMAGE": {
+      "type": "string",
+      "required": false,
+      "default": "postgres:16",
+      "description": "Docker image tag"
+    },
+    "POSTGRES_RESTART_POLICY": {
+      "type": "string",
+      "required": false,
+      "default": "unless-stopped"
+    },
+    "POSTGRES_DATA_PATH": {
+      "type": "string",
+      "required": false,
+      "default": "/var/lib/postgresql/data"
+    },
+    "SERVICE_USER_POSTGRES": {
+      "type": "string",
+      "required": false,
+      "description": "Auto-generated if omitted (maps to POSTGRES_USER)"
+    },
+    "SERVICE_PASSWORD_POSTGRES": {
+      "type": "string",
+      "required": false,
+      "description": "Auto-generated if omitted (maps to POSTGRES_PASSWORD)"
+    }
+  },
+  "port_schema": {
+    "SERVICE_PORT_POSTGRES": {
+      "type": "number",
+      "required": true,
+      "description": "Host port mapped to container port 5432"
+    }
+  }
+}

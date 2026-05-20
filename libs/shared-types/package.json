@@ -1,0 +1,7 @@
+{
+    "name": "@shared/types",
+    "version": "1.0.0",
+    "description": "Shared types library",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts"
+}

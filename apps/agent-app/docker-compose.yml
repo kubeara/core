@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  agent-app:
+    build:
+      context: ../..
+      dockerfile: apps/agent-app/Dockerfile
+    container_name: agent-app
+    ports:
+      - "${PORT:-3001}:${PORT:-3001}"
+    environment:
+      NODE_ENV: production
+      PORT: ${PORT:-3001}
+      CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:-http://localhost:3000}
+      ENCRYPTION_SECRET: ${ENCRYPTION_SECRET}
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+networks:
+  agent-network:
+    driver: bridge
