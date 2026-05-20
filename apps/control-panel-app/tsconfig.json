@@ -13,6 +13,7 @@
 
   "exclude": [
     "../../apps/agent-app/**/*",
+    "../../libs/**/*.spec.ts",
     "node_modules",
     "dist"
   ]

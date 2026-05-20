@@ -87,8 +87,13 @@ function validateEnv(): void {
     }
 }
 
+/**
+ * Bootstraps the NestJS agent application after env validation.
+ * @returns Promise resolved once server starts listening.
+ */
 async function bootstrap(): Promise<void> {
-    validateEnv();
+    try {
+        validateEnv();
 
     const app = await NestFactory.create(AppModule);
 
@@ -98,7 +103,7 @@ async function bootstrap(): Promise<void> {
         configService.get<string>('PORT'),
     );
 
-    await app.listen(port);
+        await app.listen(port);
 
     console.log(
         `[Agent App] Server running on port ${port}`,

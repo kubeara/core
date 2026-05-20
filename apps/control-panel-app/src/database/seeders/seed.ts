@@ -1,11 +1,13 @@
 import 'reflect-metadata';
-
 import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { DataSource } from 'typeorm';
 
 import { ServiceTemplateEntity } from '../../templates/entities/service-template.entity';
+
+const envPath = path.join(__dirname, '../../../.env');
+dotenv.config({ path: envPath });
 
 interface ServiceTemplateSeed {
     slug: string;

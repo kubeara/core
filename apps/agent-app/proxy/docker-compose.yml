@@ -1,0 +1,40 @@
+# Kubeara reverse proxy (Traefik) — run once per agent host:
+#   docker compose -f apps/agent-app/proxy/docker-compose.yml -p kubeara-proxy up -d
+
+services:
+  traefik:
+    image: traefik:v3.6
+    container_name: kubeara-proxy
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '8080:8080'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - kubeara_traefik_data:/traefik
+    command:
+      - --ping=true
+      - --ping.entrypoint=http
+      - --api.dashboard=true
+      - --api.insecure=true
+      - --entrypoints.http.address=:80
+      - --entrypoints.https.address=:443
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=kubeara-proxy
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=http
+      - --certificatesresolvers.letsencrypt.acme.storage=/traefik/acme.json
+    labels:
+      - traefik.enable=true
+      - kubeara.proxy=true
+    networks:
+      - kubeara-proxy
+
+networks:
+  kubeara-proxy:
+    name: kubeara-proxy
+
+volumes:
+  kubeara_traefik_data:

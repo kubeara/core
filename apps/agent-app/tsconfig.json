@@ -10,6 +10,7 @@
   ],
   "exclude": [
     "../../apps/control-panel-app/**/*",
+    "../../libs/**/*.spec.ts",
     "node_modules",
     "dist"
   ]

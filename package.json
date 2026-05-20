@@ -102,6 +102,13 @@
     ],
     "coverageDirectory": "./coverage",
     "testEnvironment": "node",
+    "globals": {
+      "ts-jest": {
+        "tsconfig": {
+          "types": ["jest", "node"]
+        }
+      }
+    },
     "roots": [
       "<rootDir>/apps/",
       "<rootDir>/libs/"

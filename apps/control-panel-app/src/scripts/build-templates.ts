@@ -27,6 +27,16 @@ const metadataBySlug: Record<string, TemplateMetadata> = {
         port: 5432,
         version: '16',
     },
+    postgresV2: {
+        name: 'PostgreSQL V2',
+        description: 'PostgreSQL with compose-parser magic vars and DB-backed deployment env (without template.config.json)',
+        category: 'database',
+        tags: ['database', 'sql', 'relational', 'v2'],
+        documentation: 'https://www.postgresql.org',
+        logo: 'svgs/postgresql.svg',
+        port: 5432,
+        version: '16',
+    },
     redis: {
         name: 'Redis',
         description: 'In-memory data structure store',
@@ -36,6 +46,16 @@ const metadataBySlug: Record<string, TemplateMetadata> = {
         logo: 'svgs/redis.svg',
         port: 6379,
         version: '7',
+    },
+    n8n: {
+        name: 'n8n',
+        description: 'Workflow automation tool',
+        category: 'automation',
+        tags: ['n8n', 'workflow', 'automation', 'no-code'],
+        documentation: 'https://n8n.io',
+        logo: 'svgs/n8n.png',
+        port: 5678,
+        version: '2.10.2',
     },
 };
 
