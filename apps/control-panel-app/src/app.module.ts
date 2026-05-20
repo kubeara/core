@@ -11,9 +11,6 @@ import { EnvironmentVariableEntity } from './deployments/entities/environment-va
 import { EncryptionModule } from '@shared/common';
 import path from 'path';
 
-console.log(process.env.DB_HOST);
-console.log(new ConfigService().get<string>('DB_HOST'));
-console.log('app.module.ts',path.join(__dirname, '../.env'));
 @Module({
     imports: [
         ConfigModule.forRoot({
