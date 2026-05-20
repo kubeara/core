@@ -20,20 +20,26 @@ import path from 'path';
 
         TypeOrmModule.forRootAsync({
             inject: [ConfigService],
-            useFactory: (configService: ConfigService) => ({
-                type: 'postgres',
-                host: configService.get<string>('DB_HOST', 'localhost'),
-                port: Number(configService.get<string>('DB_PORT', '5432')),
-                username: configService.get<string>('DB_USERNAME', 'postgres'),
-                password: configService.get<string>('DB_PASSWORD', 'postgres'),
-                database: configService.get<string>('DB_DATABASE', 'templates'),
-                synchronize: true,
-                entities: [
-                    ServiceTemplateEntity,
-                    ServiceDeploymentEntity,
-                    EnvironmentVariableEntity,
-                ],
-            }),
+            useFactory: (configService: ConfigService) => {
+                try {
+                    return {
+                        type: 'postgres',
+                        host: configService.get<string>('DB_HOST', 'localhost'),
+                        port: Number(configService.get<string>('DB_PORT', '5432')),
+                        username: configService.get<string>('DB_USERNAME', 'postgres'),
+                        password: configService.get<string>('DB_PASSWORD', 'postgres'),
+                        database: configService.get<string>('DB_DATABASE', 'templates'),
+                        synchronize: true,
+                        entities: [
+                            ServiceTemplateEntity,
+                            ServiceDeploymentEntity,
+                            EnvironmentVariableEntity,
+                        ],
+                    };
+                } catch (error) {
+                    throw new Error(`Failed to build TypeORM configuration: ${error instanceof Error ? error.message : String(error)}`);
+                }
+            },
         }),
 
         TemplatesModule,

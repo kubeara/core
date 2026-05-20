@@ -42,13 +42,22 @@ export class DeployController {
                 ? `Redeploy '${deploymentId}' for template '${templateSlug}'`
                 : `New deployment for template '${templateSlug}'`,
         );
+        this.logger.debug(
+            `[deploy] payload ports=${JSON.stringify(requestPorts)} envPortKeys=${JSON.stringify(
+                Object.keys(requestEnv).filter((key) => key.startsWith('SERVICE_PORT_')),
+            )}`,
+        );
 
         const prepared = await this.deploymentsService.prepareDeployment({
             templateSlug,
             requestEnv,
             requestPorts,
             existingDeploymentId: deploymentId,
-            serverUrlContext: this.buildServerUrlContext(body.useTraefik),
+            serverUrlContext: this.buildServerUrlContext({
+                useTraefikRequest: body.useTraefik,
+                requestEnv,
+                requestPorts,
+            }),
         });
 
         return this.emitPreparedDeployment(prepared, Boolean(deploymentId));
@@ -75,13 +84,22 @@ export class DeployController {
                 ? `Compose redeploy '${deploymentId}' for template '${templateSlug}'`
                 : `New compose deployment for template '${templateSlug}'`,
         );
+        this.logger.debug(
+            `[deploy/compose] payload ports=${JSON.stringify(requestPorts)} envPortKeys=${JSON.stringify(
+                Object.keys(requestEnv).filter((key) => key.startsWith('SERVICE_PORT_')),
+            )}`,
+        );
 
         const prepared = await this.deploymentsService.prepareComposeDeployment({
             templateSlug,
             requestEnv,
             requestPorts,
             existingDeploymentId: deploymentId,
-            serverUrlContext: this.buildServerUrlContext(body.useTraefik),
+            serverUrlContext: this.buildServerUrlContext({
+                useTraefikRequest: body.useTraefik,
+                requestEnv,
+                requestPorts,
+            }),
         });
 
         const result = this.emitPreparedDeployment(prepared, Boolean(deploymentId));
@@ -119,6 +137,9 @@ export class DeployController {
         prepared: PreparedDeployment,
         isRedeploy: boolean,
     ): { message: string; template: string; deploymentId: string } {
+        this.logger.debug(
+            `[emitPreparedDeployment] deploymentId=${prepared.deploymentId} mergedPorts=${JSON.stringify(prepared.mergedPorts)}`,
+        );
         const encryptedCompose = this.encryptionService.encrypt(prepared.encodedCompose);
         const encryptedEnv = this.encryptionService.encrypt(JSON.stringify(prepared.mergedEnv));
         const encryptedPorts = this.encryptionService.encrypt(JSON.stringify(prepared.mergedPorts));
@@ -146,14 +167,35 @@ export class DeployController {
         };
     }
 
-    private buildServerUrlContext(useTraefikRequest?: boolean): Omit<ServerUrlContext, 'deploymentId'> {
+    /**
+     * Builds URL generation context for SERVICE_URL_* / SERVICE_FQDN_* and Traefik-oriented resolution.
+     *
+     * Precedence:
+     * - If the client sends `useTraefik`, that value wins.
+     * - Else if the client passes any `SERVICE_PORT_*` host binding in `ports` or `env`, Traefik is off
+     *   so declared ports are not stripped for that deploy.
+     * - Else default from `TRAEFIK_ENABLED` in environment.
+     */
+    private buildServerUrlContext(options: {
+        useTraefikRequest?: boolean;
+        requestEnv?: Record<string, unknown>;
+        requestPorts?: Record<string, unknown>;
+    }): Omit<ServerUrlContext, 'deploymentId'> {
+        const { useTraefikRequest, requestEnv = {}, requestPorts = {} } = options;
+
         const publicIp =
             this.deploymentGateway.getPrimaryAgentPublicIp() ??
             process.env.DEFAULT_AGENT_PUBLIC_IP ??
             '127.0.0.1';
 
-        const useTraefik =
-            useTraefikRequest ?? process.env.TRAEFIK_ENABLED === 'true';
+        let useTraefik: boolean;
+        if (useTraefikRequest !== undefined) {
+            useTraefik = Boolean(useTraefikRequest);
+        } else if (this.requestContainsExplicitServiceHostPorts(requestPorts, requestEnv)) {
+            useTraefik = false;
+        } else {
+            useTraefik = process.env.TRAEFIK_ENABLED === 'true';
+        }
 
         return {
             publicIp,
@@ -161,5 +203,29 @@ export class DeployController {
             forceHttps: process.env.FORCE_HTTPS === 'true',
             useTraefik,
         };
+    }
+
+    /**
+     * Returns true when the deploy request supplies at least one SERVICE_PORT_* value
+     * (host publish intent). Used to avoid Traefik mode stripping those keys.
+     */
+    private requestContainsExplicitServiceHostPorts(
+        requestPorts: Record<string, unknown>,
+        requestEnv: Record<string, unknown>,
+    ): boolean {
+        const hasServicePortValue = (value: unknown): boolean =>
+            value !== undefined && value !== null && value !== '';
+
+        for (const [key, value] of Object.entries(requestPorts)) {
+            if (key.startsWith('SERVICE_PORT_') && hasServicePortValue(value)) {
+                return true;
+            }
+        }
+        for (const [key, value] of Object.entries(requestEnv)) {
+            if (key.startsWith('SERVICE_PORT_') && hasServicePortValue(value)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

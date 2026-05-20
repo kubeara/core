@@ -21,78 +21,113 @@ export interface ParsedServiceEnvVar {
 }
 
 export function parseServiceEnvironmentVariable(key: string): ParsedServiceEnvVar {
-    const lastSegment = key.slice(key.lastIndexOf('_') + 1);
-    const hasPort = /^\d+$/.test(lastSegment);
+    try {
+        const lastSegment = key.slice(key.lastIndexOf('_') + 1);
+        const hasPort = /^\d+$/.test(lastSegment);
 
-    let preservedName = '';
-    let serviceName = '';
-    let port: string | null = null;
+        let preservedName = '';
+        let serviceName = '';
+        let port: string | null = null;
 
-    if (key.startsWith('SERVICE_URL_')) {
-        preservedName = hasPort
-            ? key.slice('SERVICE_URL_'.length, key.lastIndexOf('_'))
-            : key.slice('SERVICE_URL_'.length);
-    } else if (key.startsWith('SERVICE_FQDN_')) {
-        preservedName = hasPort
-            ? key.slice('SERVICE_FQDN_'.length, key.lastIndexOf('_'))
-            : key.slice('SERVICE_FQDN_'.length);
+        if (key.startsWith('SERVICE_URL_')) {
+            preservedName = hasPort
+                ? key.slice('SERVICE_URL_'.length, key.lastIndexOf('_'))
+                : key.slice('SERVICE_URL_'.length);
+        } else if (key.startsWith('SERVICE_FQDN_')) {
+            preservedName = hasPort
+                ? key.slice('SERVICE_FQDN_'.length, key.lastIndexOf('_'))
+                : key.slice('SERVICE_FQDN_'.length);
+        }
+
+        serviceName = preservedName.toLowerCase();
+
+        if (hasPort) {
+            port = lastSegment;
+        }
+
+        return { serviceName, preservedName, port, hasPort };
+    } catch (error) {
+        throw new Error(`Failed to parse service environment variable "${key}": ${error instanceof Error ? error.message : String(error)}`);
     }
-
-    serviceName = preservedName.toLowerCase();
-
-    if (hasPort) {
-        port = lastSegment;
-    }
-
-    return { serviceName, preservedName, port, hasPort };
 }
 
 /** Wildcard base URL when no custom domain is configured (Coolify sslip fallback). */
 export function sslipWildcard(publicIp: string): string {
-    const ip = publicIp.trim();
+    try {
+        const normalizedIp = publicIp.trim();
 
-    if (!ip || ip === 'localhost' || ip === '127.0.0.1') {
-        return 'http://127.0.0.1.sslip.io';
+        if (!normalizedIp || normalizedIp === 'localhost' || normalizedIp === '127.0.0.1') {
+            return 'http://127.0.0.1.sslip.io';
+        }
+
+        if (normalizedIp.includes(':')) {
+            return `http://${normalizedIp.replace(/:/g, '-')}.sslip.io`;
+        }
+
+        return `http://${normalizedIp}.sslip.io`;
+    } catch (error) {
+        throw new Error(`Failed to compute sslip wildcard from "${publicIp}": ${error instanceof Error ? error.message : String(error)}`);
     }
-
-    if (ip.includes(':')) {
-        return `http://${ip.replace(/:/g, '-')}.sslip.io`;
-    }
-
-    return `http://${ip}.sslip.io`;
 }
 
+/**
+ * Resolves wildcard domain base URL using explicit domain or sslip fallback.
+ * @param context URL generation context for deployment.
+ * @returns Parsed URL object for downstream host/path extraction.
+ */
 function resolveWildcardBase(context: ServerUrlContext): URL {
-    const raw = context.wildcardDomain?.trim() || sslipWildcard(context.publicIp);
-    const normalized = raw.includes('://') ? raw : `http://${raw}`;
+    try {
+        const rawDomain = context.wildcardDomain?.trim() || sslipWildcard(context.publicIp);
+        const normalizedDomain = rawDomain.includes('://') ? rawDomain : `http://${rawDomain}`;
 
-    return new URL(normalized);
+        return new URL(normalizedDomain);
+    } catch (error) {
+        throw new Error(`Failed to resolve wildcard base URL: ${error instanceof Error ? error.message : String(error)}`);
+    }
 }
 
+/**
+ * Builds deterministic deployment subdomain from service name and deployment id.
+ * @param preservedServiceName Service name token from variable declaration.
+ * @param deploymentId Deployment identifier used in URL suffix.
+ * @returns Kebab-cased deployment-specific subdomain label.
+ */
 export function buildServiceSubdomain(preservedServiceName: string, deploymentId: string): string {
-    const kebab = preservedServiceName.replace(/_/g, '-').toLowerCase();
-    const suffix = deploymentId.replace(/^deployment-/, '');
+    try {
+        const kebabServiceName = preservedServiceName.replace(/_/g, '-').toLowerCase();
+        const deploymentSuffix = deploymentId.replace(/^deployment-/, '');
 
-    return `${kebab}-${suffix}`;
+        return `${kebabServiceName}-${deploymentSuffix}`;
+    } catch (error) {
+        throw new Error(`Failed to build service subdomain: ${error instanceof Error ? error.message : String(error)}`);
+    }
 }
 
 /** Full URL with scheme (e.g. http://n8n-abc.192.168.1.5.sslip.io). */
 export function generateServiceUrl(context: ServerUrlContext, subdomain: string): string {
-    const base = resolveWildcardBase(context);
-    const scheme = context.forceHttps ? 'https' : base.protocol.replace(':', '');
-    const host = base.hostname;
-    const path = base.pathname === '/' ? '' : base.pathname;
+    try {
+        const wildcardBase = resolveWildcardBase(context);
+        const protocol = context.forceHttps ? 'https' : wildcardBase.protocol.replace(':', '');
+        const hostName = wildcardBase.hostname;
+        const basePath = wildcardBase.pathname === '/' ? '' : wildcardBase.pathname;
 
-    return `${scheme}://${subdomain}.${host}${path}`;
+        return `${protocol}://${subdomain}.${hostName}${basePath}`;
+    } catch (error) {
+        throw new Error(`Failed to generate service URL for "${subdomain}": ${error instanceof Error ? error.message : String(error)}`);
+    }
 }
 
 /** Hostname only, no scheme (e.g. n8n-abc.192.168.1.5.sslip.io). */
 export function generateServiceFqdn(context: ServerUrlContext, subdomain: string): string {
-    const base = resolveWildcardBase(context);
-    const host = `${subdomain}.${base.hostname}`;
-    const path = base.pathname === '/' ? '' : base.pathname;
+    try {
+        const wildcardBase = resolveWildcardBase(context);
+        const hostName = `${subdomain}.${wildcardBase.hostname}`;
+        const basePath = wildcardBase.pathname === '/' ? '' : wildcardBase.pathname;
 
-    return `${host}${path}`;
+        return `${hostName}${basePath}`;
+    } catch (error) {
+        throw new Error(`Failed to generate service FQDN for "${subdomain}": ${error instanceof Error ? error.message : String(error)}`);
+    }
 }
 
 /**
@@ -103,21 +138,25 @@ export function generateServiceUrlFqdnPairs(
     declarationKey: string,
     context: ServerUrlContext,
 ): Record<string, string> {
-    const parsed = parseServiceEnvironmentVariable(declarationKey);
-    const subdomain = buildServiceSubdomain(parsed.preservedName, context.deploymentId);
-    const baseUrl = generateServiceUrl(context, subdomain);
-    const baseFqdn = generateServiceFqdn(context, subdomain);
-    const name = parsed.preservedName;
+    try {
+        const parsedServiceEnvironmentVariable = parseServiceEnvironmentVariable(declarationKey);
+        const serviceSubdomain = buildServiceSubdomain(parsedServiceEnvironmentVariable.preservedName, context.deploymentId);
+        const generatedBaseUrl = generateServiceUrl(context, serviceSubdomain);
+        const generatedBaseFqdn = generateServiceFqdn(context, serviceSubdomain);
+        const preservedName = parsedServiceEnvironmentVariable.preservedName;
 
-    const result: Record<string, string> = {
-        [`SERVICE_URL_${name}`]: baseUrl,
-        [`SERVICE_FQDN_${name}`]: baseFqdn,
-    };
+        const result: Record<string, string> = {
+            [`SERVICE_URL_${preservedName}`]: generatedBaseUrl,
+            [`SERVICE_FQDN_${preservedName}`]: generatedBaseFqdn,
+        };
 
-    if (parsed.hasPort && parsed.port && !context.useTraefik) {
-        result[`SERVICE_URL_${name}_${parsed.port}`] = `${baseUrl}:${parsed.port}`;
-        result[`SERVICE_FQDN_${name}_${parsed.port}`] = `${baseFqdn}:${parsed.port}`;
+        if (parsedServiceEnvironmentVariable.hasPort && parsedServiceEnvironmentVariable.port && !context.useTraefik) {
+            result[`SERVICE_URL_${preservedName}_${parsedServiceEnvironmentVariable.port}`] = `${generatedBaseUrl}:${parsedServiceEnvironmentVariable.port}`;
+            result[`SERVICE_FQDN_${preservedName}_${parsedServiceEnvironmentVariable.port}`] = `${generatedBaseFqdn}:${parsedServiceEnvironmentVariable.port}`;
+        }
+
+        return result;
+    } catch (error) {
+        throw new Error(`Failed to generate SERVICE_URL/SERVICE_FQDN pairs: ${error instanceof Error ? error.message : String(error)}`);
     }
-
-    return result;
 }

@@ -7,18 +7,34 @@ import { IEncryptionService } from './interfaces';
 export class EncryptionService implements IEncryptionService {
     private readonly key: Buffer;
 
+    /**
+     * Initializes encryption service key material from configured secret.
+     * @throws InternalServerErrorException when encryption secret is missing.
+     */
     constructor() {
-        const secret = process.env[ENCRYPTION.ENV_KEY];
-        if (!secret) {
-            throw new InternalServerErrorException(
-                `Missing encryption secret. Set env ${ENCRYPTION.ENV_KEY}`,
-            );
-        }
+        try {
+            const secret = process.env[ENCRYPTION.ENV_KEY];
+            if (!secret) {
+                throw new InternalServerErrorException(
+                    `Missing encryption secret. Set env ${ENCRYPTION.ENV_KEY}`,
+                );
+            }
 
-        // Derive 32-byte key using SHA-256 from provided secret (passphrase or base64)
-        this.key = crypto.createHash('sha256').update(secret).digest();
+            // Derive 32-byte key using SHA-256 from provided secret (passphrase or base64)
+            this.key = crypto.createHash('sha256').update(secret).digest();
+        } catch (error) {
+            if (error instanceof InternalServerErrorException) {
+                throw error;
+            }
+            throw new InternalServerErrorException(`Encryption service initialization failed: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
 
+    /**
+     * Encrypts plain text using AES-256-GCM and returns base64 payload.
+     * @param data UTF-8 text input to encrypt.
+     * @returns Base64 encoded iv|tag|ciphertext payload.
+     */
     encrypt(data: string): string {
         try {
             const iv = crypto.randomBytes(ENCRYPTION.IV_LENGTH);
@@ -28,11 +44,16 @@ export class EncryptionService implements IEncryptionService {
 
             // Output: iv|tag|ciphertext, base64 encoded
             return Buffer.concat([iv, tag, enc]).toString('base64');
-        } catch (err) {
-            throw new InternalServerErrorException('Encryption failed');
+        } catch (error) {
+            throw new InternalServerErrorException(`Encryption failed: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
+    /**
+     * Decrypts a base64 iv|tag|ciphertext payload into plain text.
+     * @param data Base64 encoded encrypted payload.
+     * @returns Decrypted UTF-8 string.
+     */
     decrypt(data: string): string {
         try {
             const input = Buffer.from(data, 'base64');
@@ -45,8 +66,8 @@ export class EncryptionService implements IEncryptionService {
             const dec = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
 
             return dec.toString('utf8');
-        } catch (err) {
-            throw new InternalServerErrorException('Decryption failed');
+        } catch (error) {
+            throw new InternalServerErrorException(`Decryption failed: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 }

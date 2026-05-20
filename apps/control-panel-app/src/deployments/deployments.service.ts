@@ -174,11 +174,19 @@ export class DeploymentsService {
 
         let baseEnv: Record<string, unknown> = { ...requestEnv };
         let basePorts: Record<string, unknown> = { ...requestPorts };
+        this.logger.debug(
+            `[prepareComposeDeployment] initial deploymentId=${deploymentId} requestPorts=${JSON.stringify(requestPorts)} requestEnvPortKeys=${JSON.stringify(
+                Object.keys(requestEnv).filter((key) => key.startsWith('SERVICE_PORT_')),
+            )}`,
+        );
 
         if (existingDeploymentId) {
             const stored = await this.loadStoredVariables(existingDeploymentId, []);
             baseEnv = { ...stored.env, ...requestEnv };
             basePorts = { ...stored.ports, ...requestPorts };
+            this.logger.debug(
+                `[prepareComposeDeployment] merged redeploy ports deploymentId=${deploymentId} basePorts=${JSON.stringify(basePorts)}`,
+            );
         }
 
         const composeYaml = this.templatePayloadService.decodeBase64ToYaml(template.compose);
@@ -202,8 +210,14 @@ export class DeploymentsService {
             const portVar = requiredPortVars[0];
             if (basePorts[portVar] === undefined && baseEnv[portVar] === undefined) {
                 basePorts[portVar] = template.port;
+                this.logger.debug(
+                    `[prepareComposeDeployment] applied template default port deploymentId=${deploymentId} ${portVar}=${template.port}`,
+                );
             }
         }
+        this.logger.debug(
+            `[prepareComposeDeployment] before parser deploymentId=${deploymentId} basePorts=${JSON.stringify(basePorts)}`,
+        );
 
         let parsedFromCompose;
         try {
@@ -229,6 +243,13 @@ export class DeploymentsService {
 
         const mergedEnv = parsedFromCompose.env;
         const mergedPorts = parsedFromCompose.ports;
+        this.logger.debug(
+            `[prepareComposeDeployment] parser result deploymentId=${deploymentId} mergedPorts=${JSON.stringify(mergedPorts)} mergedEnvServicePort=${JSON.stringify(
+                Object.fromEntries(
+                    Object.entries(mergedEnv).filter(([key]) => key.startsWith('SERVICE_PORT_')),
+                ),
+            )}`,
+        );
         const requiredKeys = new Set(
             this.composeParserService.inferRequiredVariables(composeYaml, inferOptions),
         );
@@ -246,6 +267,9 @@ export class DeploymentsService {
             generatedKeys: parsedFromCompose.generatedKeys,
             requiredKeys,
         });
+        this.logger.debug(
+            `[prepareComposeDeployment] persisted deploymentId=${deploymentId} ports=${JSON.stringify(mergedPorts)}`,
+        );
 
         if (parsedFromCompose.generatedKeys.length > 0) {
             this.logger.log(
