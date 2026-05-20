@@ -17,7 +17,7 @@ import {
 } from '@shared/common';
 import { DeploymentStatus, SchemaFieldDetails, TemplateSchema } from '@shared/socket-events';
 
-import { ServiceTemplateEntity } from '../templates/entities/service-template.entity';
+import { ServiceTemplateEntity } from '../modules/templates/entities/service-template.entity';
 import { EnvironmentVariableEntity } from './entities/environment-variable.entity';
 import { ServiceDeploymentEntity } from './entities/service-deployment.entity';
 

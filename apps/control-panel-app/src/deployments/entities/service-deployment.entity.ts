@@ -9,7 +9,7 @@ import {
     JoinColumn,
 } from 'typeorm';
 
-import { ServiceTemplateEntity } from '../../templates/entities/service-template.entity';
+import { ServiceTemplateEntity } from '../../modules/templates/entities/service-template.entity';
 import { EnvironmentVariableEntity } from './environment-variable.entity';
 import type { DeploymentStatus } from '@shared/socket-events';
 

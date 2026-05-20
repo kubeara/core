@@ -9,7 +9,6 @@ import {
 } from '@shared/socket-events';
 import { DeployTemplateExecutor } from '../executors/deploy-template.executor';
 import { EncryptionService, TemplatePayloadService, SUCCESS_MESSAGES } from '@shared/common';
-import type { EnvFileInput, PortFileInput } from '../executors/env-file.util';
 const yaml = require('js-yaml');
 
 @Injectable()
@@ -123,12 +122,10 @@ export class SocketClientService {
         });
 
         try {
-            // 1. Decrypt and decode compose
             const decryptedEncodedCompose = this.encryptionService.decrypt(compose);
             const composeObj = this.templatePayloadService.decodeBase64ToObject(decryptedEncodedCompose);
             const composeYaml = yaml.dump(composeObj, { lineWidth: -1, noRefs: true });
 
-            // 2. Decrypt env and ports
             const envValues = env ? this.decryptAndParse(env) : {};
             const portValues = encryptedPorts ? this.decryptAndParse(encryptedPorts) : {};
 
@@ -137,7 +134,6 @@ export class SocketClientService {
                 throw new Error(`Missing deployment schema for template ${name}`);
             }
 
-            // 4. Execute deployment
             this.logger.log(`Starting deployment ${deploymentId} for template ${name}`);
             await this.executor.execute({
                 name,

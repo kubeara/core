@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TemplatesService } from './templates.service';
 import { TemplatePayloadModule, TemplateConfigModule } from '@shared/common';
 import { TemplatesController } from './templates.controller';
-import { ServiceTemplateEntity } from './entities/service-template.entity';
+import { ServiceTemplateEntity } from '../modules/templates/entities/service-template.entity';
 
 @Module({
     imports: [

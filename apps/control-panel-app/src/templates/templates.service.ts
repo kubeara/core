@@ -8,7 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TemplatePayloadService } from '@shared/common';
 
-import { ServiceTemplateEntity } from './entities/service-template.entity';
+import { ServiceTemplateEntity } from '../modules/templates/entities/service-template.entity';
 
 const yaml = require('js-yaml') as {
     dump(

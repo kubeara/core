@@ -8,7 +8,7 @@ import {
     TemplatePayloadModule,
 } from '@shared/common';
 
-import { ServiceTemplateEntity } from '../templates/entities/service-template.entity';
+import { ServiceTemplateEntity } from '../modules/templates/entities/service-template.entity';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { EnvironmentVariableEntity } from './entities/environment-variable.entity';
 import { ServiceDeploymentEntity } from './entities/service-deployment.entity';

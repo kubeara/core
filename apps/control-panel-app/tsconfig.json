@@ -8,7 +8,12 @@
 
   "include": [
     "src/**/*",
-    "../../libs/**/*"
+    "../../libs/**/*",
+    "config",
+    "migrations",
+    "seeders",
+    "scripts",
+    "config"
   ],
 
   "exclude": [

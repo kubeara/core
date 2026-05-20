@@ -5,12 +5,11 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TemplatesModule } from './templates/templates.module';
 import { DeploymentsModule } from './deployments/deployments.module';
 import { WebsocketModule } from './websocket/websocket.module';
-import { ServiceTemplateEntity } from './templates/entities/service-template.entity';
-import { ServiceDeploymentEntity } from './deployments/entities/service-deployment.entity';
-import { EnvironmentVariableEntity } from './deployments/entities/environment-variable.entity';
 import { EncryptionModule } from '@shared/common';
 import path from 'path';
 
+import { ServerConnectionsModule } from './modules/server-connections/server-connections.module';
+import { SshModule } from '@shared/ssh';
 @Module({
     imports: [
         ConfigModule.forRoot({
@@ -29,23 +28,23 @@ import path from 'path';
                         username: configService.get<string>('DB_USERNAME', 'postgres'),
                         password: configService.get<string>('DB_PASSWORD', 'postgres'),
                         database: configService.get<string>('DB_DATABASE', 'templates'),
-                        synchronize: true,
-                        entities: [
-                            ServiceTemplateEntity,
-                            ServiceDeploymentEntity,
-                            EnvironmentVariableEntity,
-                        ],
+                        synchronize: false,
+                        migrationsRun: false,
+                        entities: [__dirname + '/modules/**/entities/*{.ts,.js}'],
+                        migrations: ['dist/apps/control-panel-app/src/database/migrations/*.js'],
                     };
                 } catch (error) {
                     throw new Error(`Failed to build TypeORM configuration: ${error instanceof Error ? error.message : String(error)}`);
                 }
             },
         }),
-
         TemplatesModule,
         DeploymentsModule,
-        WebsocketModule,
+        TemplatesModule,
+        ServerConnectionsModule,
+        SshModule,
         EncryptionModule,
+        WebsocketModule,
     ],
     providers: [],
     exports: [],

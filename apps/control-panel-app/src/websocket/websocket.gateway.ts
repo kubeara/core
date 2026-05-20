@@ -151,9 +151,6 @@ export class DeploymentGateway implements OnGatewayInit, OnGatewayConnection, On
         }
     }
 
-    /**
-     * Emit a deploy message to all connected agents.
-     */
     emitDeploy(message: SocketDeployMessage): void {
         try {
             this.logger.log(`Emitting deploy message for template: ${message.payload.name}`);

@@ -1,3 +1,4 @@
+import { BaseEntity } from '@control-panel/common/entity/base.entity';
 import {
     Entity,
     Column,
@@ -6,8 +7,9 @@ import {
     UpdateDateColumn,
 } from 'typeorm';
 
-@Entity('service_templates')
-export class ServiceTemplateEntity {
+@Entity('serviceTemplates')
+
+export class ServiceTemplateEntity extends BaseEntity {
     @PrimaryColumn({ type: 'varchar', length: 255 })
     slug!: string;
 
@@ -44,11 +46,5 @@ export class ServiceTemplateEntity {
     version!: string | null;
 
     @Column({ type: 'boolean', default: true })
-    is_active!: boolean;
-
-    @CreateDateColumn({ type: 'timestamp' })
-    created_at!: Date;
-
-    @UpdateDateColumn({ type: 'timestamp' })
-    updated_at!: Date;
+    isActive!: boolean;
 }

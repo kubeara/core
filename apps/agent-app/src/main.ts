@@ -108,6 +108,9 @@ async function bootstrap(): Promise<void> {
     console.log(
         `[Agent App] Server running on port ${port}`,
     );
+} catch {
+
+}
 }
 
 void bootstrap();
