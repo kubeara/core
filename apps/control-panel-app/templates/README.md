@@ -144,7 +144,8 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 3. For Coolify-style public URLs, add a bare line **`SERVICE_URL_{NAME}_{internalPort}`** and reference `${SERVICE_URL_{NAME}}` / `${SERVICE_FQDN_{NAME}}` in app env as needed.
 4. Prefer **`${VAR:-sensible}`** for optional tuning knobs so deploy works without passing every key.
 5. Run **`npm run build:templates && npm run seed`** from `core` after editing.
-6. Register display metadata for new **slug** folders in `apps/control-panel-app/src/scripts/build-templates.ts` (`metadataBySlug`).
+6. Run **`npm run test:templates`** from `core` to validate compose structure, env/port rules, resource limits, and logging limits.
+7. Register display metadata for new **slug** folders in `apps/control-panel-app/src/scripts/build-templates.ts` (`metadataBySlug`).
 
 ---
 
