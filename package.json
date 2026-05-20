@@ -20,6 +20,7 @@
     "lint": "eslint \"{apps,libs,test}/**/*.ts\" --fix",
     "build:templates": "ts-node apps/control-panel-app/src/scripts/build-templates.ts",
     "seed": "ts-node apps/control-panel-app/src/database/seeders/seed.ts",
+    "seed:templates": "ts-node apps/control-panel-app/src/database/seeders/seed-from-templates.ts",
     "prereq:agent": "bash apps/control-panel-app/scripts/ensure-agent-prerequisites.sh",
     "prereq:agent:check": "bash apps/control-panel-app/scripts/ensure-agent-prerequisites.sh --check-only",
     "docker:build": "docker-compose build",
