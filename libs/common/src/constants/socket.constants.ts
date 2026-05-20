@@ -1,5 +1,6 @@
 export const SOCKET_EVENTS = {
   DEPLOY: 'deploy',
+  REMOVE: 'deploy:remove',
   DEPLOY_TEMPLATE: 'deploy:template',
   DEPLOYMENT_STATUS: 'deployment:status',
   DEPLOYMENT_LOG: 'deployment-log',

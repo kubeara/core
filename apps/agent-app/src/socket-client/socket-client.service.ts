@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client';
 import {
     DeploymentStatusPayload,
     SocketDeployMessage,
+    SocketRemoveMessage,
     DeploymentLogPayload,
     DeploymentEvents,
 } from '@shared/socket-events';
@@ -89,6 +90,10 @@ export class SocketClientService {
                 void this.handleDeployAction(message);
             });
 
+            this.socket.on(DeploymentEvents.REMOVE, (message: SocketRemoveMessage) => {
+                void this.handleRemoveAction(message);
+            });
+
             this.socket.on(DeploymentEvents.AGENT_CONNECTED, (data) => {
                 this.logger.debug(`Agent connected notification: ${JSON.stringify(data)}`);
             });
@@ -156,6 +161,33 @@ export class SocketClientService {
             this.sendDeploymentStatus({
                 deploymentId,
                 templateSlug: name,
+                status: 'failed',
+                message: msg,
+                error: msg,
+            });
+        }
+    }
+
+    /**
+     * Handles remove requests from control panel and tears down deployment resources.
+     */
+    private async handleRemoveAction(message: SocketRemoveMessage): Promise<void> {
+        const { deploymentId, templateSlug } = message.payload;
+
+        try {
+            this.logger.log(`Starting removal for deployment ${deploymentId}`);
+            await this.executor.removeDeployment({
+                deploymentId,
+                templateSlug,
+                notifier: this,
+            });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            this.logger.error(`Deployment removal failed: ${msg}`);
+
+            this.sendDeploymentStatus({
+                deploymentId,
+                templateSlug,
                 status: 'failed',
                 message: msg,
                 error: msg,

@@ -33,6 +33,43 @@ export class FilesystemService {
     }
 
     /**
+     * Resolves the deployment directory path without creating it.
+     * @param deploymentId Deployment identifier.
+     * @returns Absolute path to the deployment directory.
+     */
+    getDeploymentDir(deploymentId: string): string {
+        try {
+            const safeId = this.sanitizeName(deploymentId);
+            if (!safeId) {
+                throw new Error(`Invalid deployment ID: ${deploymentId}`);
+            }
+
+            return path.join(this.getDeploymentsRoot(), safeId);
+        } catch (error) {
+            throw new Error(
+                `Failed to resolve deployment directory for "${deploymentId}": ${error instanceof Error ? error.message : String(error)}`,
+            );
+        }
+    }
+
+    /**
+     * Removes the deployment directory and all files inside it.
+     * @param deploymentId Deployment identifier.
+     */
+    async removeDeploymentDir(deploymentId: string): Promise<void> {
+        const targetDir = this.getDeploymentDir(deploymentId);
+
+        try {
+            await fs.rm(targetDir, { recursive: true, force: true });
+            this.logger.debug(`Removed deployment directory: ${targetDir}`);
+        } catch (error) {
+            const msg = `Failed to remove deployment directory ${targetDir}`;
+            this.logger.error(`${msg}: ${error instanceof Error ? error.message : String(error)}`);
+            throw new Error(msg);
+        }
+    }
+
+    /**
      * Ensures the deployment directory exists.
      * @param deploymentId Deployment identifier to materialize.
      * @returns Absolute path to ensured deployment directory.

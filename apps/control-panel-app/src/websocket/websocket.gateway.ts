@@ -14,6 +14,7 @@ import {
     DeploymentLogPayload,
     DeploymentEvents,
     SocketDeployMessage,
+    SocketRemoveMessage,
 } from '@shared/socket-events';
 
 @Injectable()
@@ -117,10 +118,16 @@ export class DeploymentGateway implements OnGatewayInit, OnGatewayConnection, On
 
             if (payload.deploymentId) {
                 try {
-                    await this.deploymentsService.updateStatus(payload.deploymentId, payload.status, {
-                        message: payload.message,
-                        error: payload.error,
-                    });
+                    if (payload.status === 'removed') {
+                        await this.deploymentsService.softDeleteDeploymentRecord(payload.deploymentId, {
+                            message: payload.message,
+                        });
+                    } else {
+                        await this.deploymentsService.updateStatus(payload.deploymentId, payload.status, {
+                            message: payload.message,
+                            error: payload.error,
+                        });
+                    }
                 } catch (error) {
                     this.logger.warn(
                         `Could not persist deployment status for ${payload.deploymentId}: ${error instanceof Error ? error.message : String(error)}`,
@@ -160,6 +167,18 @@ export class DeploymentGateway implements OnGatewayInit, OnGatewayConnection, On
             this.server.emit(DeploymentEvents.DEPLOY, message);
         } catch (error) {
             this.logger.error(`Failed to emit deploy message: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    /**
+     * Emit a remove message to all connected agents.
+     */
+    emitRemove(message: SocketRemoveMessage): void {
+        try {
+            this.logger.log(`Emitting remove message for deployment: ${message.payload.deploymentId}`);
+            this.server.emit(DeploymentEvents.REMOVE, message);
+        } catch (error) {
+            this.logger.error(`Failed to emit remove message: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 

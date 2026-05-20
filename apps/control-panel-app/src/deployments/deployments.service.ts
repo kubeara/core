@@ -1,8 +1,11 @@
 import {
     BadRequestException,
+    ConflictException,
+    Inject,
     Injectable,
     Logger,
     NotFoundException,
+    forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,13 +14,15 @@ import {
     ComposeParserService,
     EncryptionService,
     ServerUrlContext,
+    SUCCESS_MESSAGES,
     TemplateConfigService,
     TemplatePayloadService,
     maskEnvMap,
 } from '@shared/common';
-import { DeploymentStatus, SchemaFieldDetails, TemplateSchema } from '@shared/socket-events';
+import { DeploymentStatus, SchemaFieldDetails, TemplateSchema, SocketRemoveMessage } from '@shared/socket-events';
 
 import { ServiceTemplateEntity } from '../templates/entities/service-template.entity';
+import { DeploymentGateway } from '../websocket/websocket.gateway';
 import { EnvironmentVariableEntity } from './entities/environment-variable.entity';
 import { ServiceDeploymentEntity } from './entities/service-deployment.entity';
 
@@ -67,6 +72,8 @@ export class DeploymentsService {
         private readonly templateConfigService: TemplateConfigService,
         private readonly composeParserService: ComposeParserService,
         private readonly encryptionService: EncryptionService,
+        @Inject(forwardRef(() => DeploymentGateway))
+        private readonly deploymentGateway: DeploymentGateway,
     ) {}
 
     generateDeploymentId(): string {
@@ -174,11 +181,6 @@ export class DeploymentsService {
 
         let baseEnv: Record<string, unknown> = { ...requestEnv };
         let basePorts: Record<string, unknown> = { ...requestPorts };
-        this.logger.debug(
-            `[prepareComposeDeployment] initial deploymentId=${deploymentId} requestPorts=${JSON.stringify(requestPorts)} requestEnvPortKeys=${JSON.stringify(
-                Object.keys(requestEnv).filter((key) => key.startsWith('SERVICE_PORT_')),
-            )}`,
-        );
 
         if (existingDeploymentId) {
             const stored = await this.loadStoredVariables(existingDeploymentId, []);
@@ -215,9 +217,6 @@ export class DeploymentsService {
                 );
             }
         }
-        this.logger.debug(
-            `[prepareComposeDeployment] before parser deploymentId=${deploymentId} basePorts=${JSON.stringify(basePorts)}`,
-        );
 
         let parsedFromCompose;
         try {
@@ -243,13 +242,7 @@ export class DeploymentsService {
 
         const mergedEnv = parsedFromCompose.env;
         const mergedPorts = parsedFromCompose.ports;
-        this.logger.debug(
-            `[prepareComposeDeployment] parser result deploymentId=${deploymentId} mergedPorts=${JSON.stringify(mergedPorts)} mergedEnvServicePort=${JSON.stringify(
-                Object.fromEntries(
-                    Object.entries(mergedEnv).filter(([key]) => key.startsWith('SERVICE_PORT_')),
-                ),
-            )}`,
-        );
+        
         const requiredKeys = new Set(
             this.composeParserService.inferRequiredVariables(composeYaml, inferOptions),
         );
@@ -267,9 +260,6 @@ export class DeploymentsService {
             generatedKeys: parsedFromCompose.generatedKeys,
             requiredKeys,
         });
-        this.logger.debug(
-            `[prepareComposeDeployment] persisted deploymentId=${deploymentId} ports=${JSON.stringify(mergedPorts)}`,
-        );
 
         if (parsedFromCompose.generatedKeys.length > 0) {
             this.logger.log(
@@ -394,6 +384,87 @@ export class DeploymentsService {
         await this.deploymentRepository.save(deployment);
     }
 
+    /**
+     * Starts removal of a deployment: marks it removing, notifies agents, and waits for
+     * agent confirmation before soft-deleting the DB record (handled in the gateway).
+     */
+    async removeDeployment(deploymentId: string): Promise<{
+        deploymentId: string;
+        status: DeploymentStatus;
+        message: string;
+    }> {
+        const deployment = await this.getDeployment(deploymentId);
+        const blockingStatuses: DeploymentStatus[] = [
+            'pending',
+            'validating',
+            'pulling',
+            'building',
+            'deploying',
+            'removing',
+            'removed',
+        ];
+
+        if (blockingStatuses.includes(deployment.status)) {
+            throw new ConflictException(
+                `Deployment '${deploymentId}' cannot be removed while status is '${deployment.status}'`,
+            );
+        }
+
+        if (this.deploymentGateway.getConnectedAgentsCount() === 0) {
+            throw new ConflictException(
+                'No agent is connected. Connect an agent before removing a deployment.',
+            );
+        }
+
+        await this.updateStatus(deploymentId, 'removing', {
+            message: SUCCESS_MESSAGES.REMOVING,
+        });
+
+        const message: SocketRemoveMessage = {
+            type: 'REMOVE',
+            payload: {
+                deploymentId,
+                templateSlug: deployment.template_slug,
+            },
+        };
+
+        this.deploymentGateway.emitRemove(message);
+
+        this.logger.log(`Removal requested for deployment '${deploymentId}'`);
+
+        return {
+            deploymentId,
+            status: 'removing',
+            message: SUCCESS_MESSAGES.REMOVING,
+        };
+    }
+
+    /**
+     * Soft-deletes a deployment after agent teardown while preserving env vars and history.
+     */
+    async softDeleteDeploymentRecord(
+        deploymentId: string,
+        options: { message?: string } = {},
+    ): Promise<void> {
+        const deployment = await this.deploymentRepository.findOne({
+            where: { id: deploymentId },
+            withDeleted: true,
+        });
+
+        if (!deployment || deployment.deleted_at) {
+            return;
+        }
+
+        deployment.status = 'removed';
+        deployment.status_message = options.message ?? SUCCESS_MESSAGES.REMOVAL_COMPLETED;
+        deployment.last_error = null;
+
+        await this.deploymentRepository.save(deployment);
+        await this.deploymentRepository.softDelete({ id: deploymentId });
+
+        this.logger.log(`Soft-deleted deployment record '${deploymentId}'`);
+    }
+
     async loadResolvedForAgent(
         deploymentId: string,
         portSchemaKeys: string[],
@@ -408,11 +479,19 @@ export class DeploymentsService {
     }): Promise<void> {
         const existing = await this.deploymentRepository.findOne({
             where: { id: opts.deploymentId },
+            withDeleted: true,
         });
 
         if (existing) {
+            if (existing.deleted_at) {
+                await this.deploymentRepository.recover(existing);
+                existing.deleted_at = null;
+            }
+
             existing.template_slug = opts.templateSlug;
             existing.status = opts.status;
+            existing.status_message = null;
+            existing.last_error = null;
             await this.deploymentRepository.save(existing);
             return;
         }

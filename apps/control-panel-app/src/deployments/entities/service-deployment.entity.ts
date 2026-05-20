@@ -4,6 +4,7 @@ import {
     PrimaryColumn,
     CreateDateColumn,
     UpdateDateColumn,
+    DeleteDateColumn,
     ManyToOne,
     OneToMany,
     JoinColumn,
@@ -44,4 +45,7 @@ export class ServiceDeploymentEntity {
 
     @UpdateDateColumn({ type: 'timestamptz' })
     updated_at!: Date;
+
+    @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+    deleted_at?: Date | null;
 }

@@ -95,19 +95,23 @@ async function bootstrap(): Promise<void> {
     try {
         validateEnv();
 
-    const app = await NestFactory.create(AppModule);
+        const app = await NestFactory.create(AppModule);
 
-    const configService = app.get(ConfigService);
+        const configService = app.get(ConfigService);
 
-    const port = Number(
-        configService.get<string>('PORT'),
-    );
+        const port = Number(
+            configService.get<string>('PORT'),
+        );
 
         await app.listen(port);
 
-    console.log(
-        `[Agent App] Server running on port ${port}`,
-    );
+        console.log(
+            `[Agent App] Server running on port ${port}`,
+        );
+    } catch (error: unknown) {
+        console.error(error);
+        process.exit(1);
+    }
 }
 
 void bootstrap();

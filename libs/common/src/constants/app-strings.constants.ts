@@ -5,6 +5,7 @@ export const ERROR_MESSAGES = {
   COMPOSE_VALIDATION_FAILED: 'Docker compose validation failed',
   DEPLOYMENT_FAILED: 'Deployment failed',
   CLEANUP_FAILED: 'Deployment cleanup failed',
+  REMOVAL_FAILED: 'Deployment removal failed',
   MISSING_REQUIRED_FIELDS: (fields: string) => `Missing required fields: ${fields}`,
   MISSING_COMPOSE_VARS: (vars: string) => `Missing required compose variables: ${vars}`,
   INVALID_NUMBER: (field: string, value: any) => `Field '${field}' must be a number, got '${value}'`,
@@ -18,6 +19,8 @@ export const SUCCESS_MESSAGES = {
   RUNNING: 'Services running',
   COMPLETED: 'Deployment completed',
   CLEANUP_COMPLETED: 'Deployment cleanup completed',
+  REMOVING: 'Removing deployment and resources',
+  REMOVAL_COMPLETED: 'Deployment removed successfully',
 };
 
 export const SOCKET_ERROR_MESSAGES = {
