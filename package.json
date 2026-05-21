@@ -20,11 +20,17 @@
     "lint": "eslint \"{apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:templates": "jest --testPathPatterns=template-compose",
-    "build:templates": "ts-node apps/control-panel-app/src/scripts/build-templates.ts",
-    "seed": "ts-node apps/control-panel-app/src/database/seeders/seed.ts",
     "seed:templates": "ts-node apps/control-panel-app/src/database/seeders/seed-from-templates.ts",
     "prereq:agent": "bash apps/control-panel-app/scripts/ensure-agent-prerequisites.sh",
     "prereq:agent:check": "bash apps/control-panel-app/scripts/ensure-agent-prerequisites.sh --check-only",
+    "build:templates": "ts-node -r tsconfig-paths/register apps/control-panel-app/src/scripts/build-templates.ts",
+    "seed": "ts-node -r tsconfig-paths/register apps/control-panel-app/seeders/seed.ts",    
+    "migration:create": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:create apps/control-panel-app/migrations/$npm_config_name",
+    "migration:generate": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate apps/control-panel-app/migrations/GeneratedMigration -d apps/control-panel-app/config/typeorm.config.ts",
+    "migration:run": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d apps/control-panel-app/config/typeorm.config.ts",
+    "migration:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d apps/control-panel-app/config/typeorm.config.ts",
+    "migration:run:dist": "node ./node_modules/typeorm/cli.js migration:run -d dist/apps/control-panel-app/config/typeorm.config.js",
+    "migration:revert:dist": "node ./node_modules/typeorm/cli.js migration:revert -d dist/apps/control-panel-app/config/typeorm.config.js",
     "docker:build": "docker-compose build",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
@@ -53,6 +59,7 @@
     "@nestjs/websockets": "^11.1.20",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "dayjs": "^1.11.20",
     "dotenv": "^17.4.2",
     "js-yaml": "^4.1.1",
     "pg": "^8.20.0",
@@ -61,9 +68,12 @@
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
-    "typeorm": "^0.3.29"
+    "ssh2": "^1.17.0",
+    "typeorm": "^1.0.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.0.1",
+    "@commitlint/config-conventional": "^21.0.1",
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
     "@nestjs/cli": "^11.0.0",
@@ -71,19 +81,21 @@
     "@nestjs/testing": "^11.0.1",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^24.12.4",
+    "@types/ssh2": "^1.15.5",
     "@types/supertest": "^7.0.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
     "globals": "^17.0.0",
     "husky": "^9.1.7",
-    "jest": "^30.0.0",
-    "lint-staged": "^17.0.4",
-    "prettier": "^3.4.2",
+    "jest": "^30.4.2",
+    "lint-staged": "^17.0.5",
+    "prettier": "^3.8.3",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
-    "ts-jest": "^29.2.5",
+    "ts-jest": "^29.4.10",
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
@@ -114,6 +126,16 @@
     ],
     "coverageDirectory": "./coverage",
     "testEnvironment": "node",
+    "globals": {
+      "ts-jest": {
+        "tsconfig": {
+          "types": [
+            "jest",
+            "node"
+          ]
+        }
+      }
+    },
     "roots": [
       "<rootDir>/apps/",
       "<rootDir>/libs/"
@@ -123,8 +145,7 @@
       "^@shared/common/(.*)$": "<rootDir>/libs/common/src/$1",
       "^@common/(.*)$": "<rootDir>/libs/common/src/$1",
       "^@socket-events/(.*)$": "<rootDir>/libs/socket-events/src/$1",
-      "^@shared-types/(.*)$": "<rootDir>/libs/shared-types/src/$1",
-      "^@database/(.*)$": "<rootDir>/libs/database/src/$1"
+      "^@shared-types/(.*)$": "<rootDir>/libs/shared-types/src/$1"
     }
   }
 }

@@ -6,7 +6,7 @@
 
     "ignoreDeprecations": "6.0",
 
-    "types": ["node"],
+    "types": ["node", "jest"],
 
     "baseUrl": ".",
     "paths": {
@@ -19,15 +19,17 @@
       "@shared/types": ["libs/shared-types/src"],
       "@shared/types/*": ["libs/shared-types/src/*"],
 
-      "@shared/database": ["libs/database/src"],
-      "@shared/database/*": ["libs/database/src/*"]
+      "@shared/ssh": ["libs/ssh/src"],
+      "@shared/ssh/*": ["libs/ssh/src/*"]
+      ,
+      "@control-panel/*": ["apps/control-panel-app/src/*"],
+      "@control-panel": ["apps/control-panel-app/src"]
     },
 
     "declaration": true,
     "incremental": true,
     "skipLibCheck": true,
 
-    "ignoreDeprecations": "6.0",
     "strict": true,
     "strictNullChecks": true,
     "noImplicitAny": true,

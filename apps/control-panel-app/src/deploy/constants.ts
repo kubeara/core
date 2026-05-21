@@ -1,1 +1,0 @@
-export const SENSITIVE_ENV_KEYS = ['PASSWORD', 'SECRET', 'API_KEY', 'TOKEN'];

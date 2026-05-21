@@ -11,15 +11,17 @@ import * as dotenv from 'dotenv';
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 
-import { ServiceTemplateEntity } from '../../templates/entities/service-template.entity';
 import {
     buildServiceTemplateRecords,
     getDefaultTemplatesDir,
 } from '../../templates/build-template-records.util';
+import { ServiceTemplateEntity } from '../../modules/templates/entities/service-template.entity';
+import { EntityStatus } from '../../common/entity/base.entity';
 
 const ROOT_DIR = process.cwd();
 const ROOT_ENV_PATH = path.join(ROOT_DIR, '.env');
 const APP_ENV_PATH = path.join(ROOT_DIR, 'apps/control-panel-app/.env');
+import dayjs from 'dayjs';
 
 /**
  * Database connection settings required before seeding can start.
@@ -237,6 +239,9 @@ async function seedFromTemplates(configService: ConfigService): Promise<void> {
                     port: templateRecord.port || null,
                     version: templateRecord.version || null,
                     is_active: templateRecord.is_active,
+                    status: EntityStatus.ACTIVE,
+                    createdAt: dayjs().unix(),
+                    updatedAt: dayjs().unix(),
                 };
 
                 await repository.upsert(payload, ['slug']);

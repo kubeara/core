@@ -1,6 +1,6 @@
 export const ERROR_MESSAGES = {
-  INVALID_COMPOSE_NAME: 'Invalid docker compose project name',
-  ENV_GENERATION_FAILED: '.env file was not generated',
+  INVALID_COMPOSE_NAME: "Invalid docker compose project name",
+  ENV_GENERATION_FAILED: ".env file was not generated",
   PORT_OCCUPIED: (port: number) => `Port ${port} is already occupied`,
   COMPOSE_VALIDATION_FAILED: 'Docker compose validation failed',
   DEPLOYMENT_FAILED: 'Deployment failed',
@@ -24,6 +24,6 @@ export const SUCCESS_MESSAGES = {
 };
 
 export const SOCKET_ERROR_MESSAGES = {
-  MISSING_SOCKET_PAYLOAD: 'Missing socket payload',
-  INVALID_SOCKET_PAYLOAD: 'Invalid socket payload',
+  MISSING_SOCKET_PAYLOAD: "Missing socket payload",
+  INVALID_SOCKET_PAYLOAD: "Invalid socket payload",
 };
