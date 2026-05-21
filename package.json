@@ -6,7 +6,8 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build:apps": "npm run build:control-panel-app && npm run build:agent-app",
+    "clean": "rm -rf dist",
+    "build:apps": "npm run clean && npm run build:control-panel-app && npm run build:agent-app",
     "build:control-panel-app": "nest build control-panel-app",
     "build:agent-app": "nest build agent-app",
     "start": "nest start",
