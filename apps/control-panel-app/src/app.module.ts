@@ -3,7 +3,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 
 import { TemplatesModule } from "./templates/templates.module";
-import { DeploymentsModule } from "./deployments/deployments.module";
+import { DeploymentsModule } from "./modules/deployments/deployments.module";
 import { WebsocketModule } from "./websocket/websocket.module";
 import { EncryptionModule } from "@shared/common";
 import path from "path";

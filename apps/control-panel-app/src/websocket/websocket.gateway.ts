@@ -8,7 +8,7 @@ import {
 } from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
 import { Inject, Injectable, Logger, forwardRef } from "@nestjs/common";
-import { DeploymentsService } from "../deployments/deployments.service";
+import { DeploymentsService } from "../modules/deployments/deployments.service";
 import {
   DeploymentStatusPayload,
   DeploymentLogPayload,
