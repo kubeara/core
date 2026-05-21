@@ -111,4 +111,4 @@ curl -X POST http://localhost:3000/deployments/<deploymentId>/redeploy \
   -d '{}'
 ```
 
-Magic variable naming follows `SERVICE_{COMMAND}_{IDENTIFIER}` (e.g. `SERVICE_PASSWORD_POSTGRES` → auto password).
+Magic variable naming follows `SERVICE_{COMMAND}_{IDENTIFIER}` (e.g. `SERVICE_PASSWORD_POSTGRES` → auto password)
