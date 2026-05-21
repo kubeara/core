@@ -1,6 +1,43 @@
+# documentation: https://redis.io/docs
+# slogan: In-memory data structure store
+# category: cache
+# tags: cache,redis,key-value
+# port: 6379
+
 services:
   redis:
     image: redis:7
-    restart: always
+    restart: unless-stopped
+
     ports:
-      - '${REDIS_PORT}:6379'
+      - '${REDIS_PORT:-6379}:6379'
+
+    command: >
+      sh -c "if [ -n \"$$REDIS_PASSWORD\" ]; then
+      exec redis-server --requirepass \"$$REDIS_PASSWORD\";
+      else exec redis-server; fi"
+
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

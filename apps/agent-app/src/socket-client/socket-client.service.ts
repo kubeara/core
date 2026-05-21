@@ -4,10 +4,12 @@ import { io, Socket } from "socket.io-client";
 import {
   DeploymentStatusPayload,
   SocketDeployMessage,
+  SocketRemoveMessage,
   DeploymentLogPayload,
   DeploymentEvents,
 } from "@shared/socket-events";
 import { DeployTemplateExecutor } from "../executors/deploy-template.executor";
+import type { EnvFileInput, PortFileInput } from "../executors/env-file.util";
 import {
   EncryptionService,
   TemplatePayloadService,
@@ -145,6 +147,7 @@ export class SocketClientService {
     });
 
     try {
+      // 1. Decrypt and decode compose
       const decryptedEncodedCompose = this.encryptionService.decrypt(compose);
       const composeObj = this.templatePayloadService.decodeBase64ToObject(
         decryptedEncodedCompose,
@@ -154,68 +157,20 @@ export class SocketClientService {
         noRefs: true,
       });
 
-      const rawEnv = env ? this.decryptAndParse(env) : {};
-      const rawPorts = encryptedPorts
-        ? this.decryptAndParse(encryptedPorts)
+      // 2. Decrypt env and ports
+      const envValues: EnvFileInput = env
+        ? (this.decryptAndParse(env) as EnvFileInput)
         : {};
-
-      // Narrow runtime values to the expected typed shapes used by the executor
-      const envValues: import("../executors/env-file.util").EnvFileInput = {};
-      for (const [k, v] of Object.entries(rawEnv)) {
-        if (v === undefined || v === null) {
-          envValues[k] = v;
-          continue;
-        }
-        if (
-          typeof v === "string" ||
-          typeof v === "number" ||
-          typeof v === "boolean"
-        ) {
-          envValues[k] = v;
-          continue;
-        }
-        // Fallback: safely serialize non-primitive values
-        if (
-          typeof v === "object" ||
-          typeof v === "function" ||
-          typeof v === "symbol"
-        ) {
-          envValues[k] = JSON.stringify(v);
-        } else if (
-          typeof v === "string" ||
-          typeof v === "number" ||
-          typeof v === "boolean" ||
-          typeof v === "bigint"
-        ) {
-          envValues[k] = String(v);
-        } else {
-          envValues[k] = JSON.stringify(v);
-        }
-      }
-
-      const portValues: import("../executors/env-file.util").PortFileInput = {};
-      for (const [k, v] of Object.entries(rawPorts)) {
-        if (v === undefined || v === null) {
-          portValues[k] = v;
-          continue;
-        }
-        if (typeof v === "number" && Number.isFinite(v)) {
-          portValues[k] = v;
-          continue;
-        }
-        const parsed = Number(v);
-        if (!Number.isNaN(parsed) && Number.isFinite(parsed)) {
-          portValues[k] = parsed;
-          continue;
-        }
-        // ignore invalid port values (executor will validate later)
-      }
+      const portValues: PortFileInput = encryptedPorts
+        ? (this.decryptAndParse(encryptedPorts) as PortFileInput)
+        : {};
 
       // 3. Schema required for legacy deploy path only
       if (!composeOnly && !schema) {
         throw new Error(`Missing deployment schema for template ${name}`);
       }
 
+      // 4. Execute deployment
       this.logger.log(
         `Starting deployment ${deploymentId} for template ${name}`,
       );
@@ -243,10 +198,43 @@ export class SocketClientService {
     }
   }
 
+  /**
+   * Handles remove requests from control panel and tears down deployment resources.
+   */
+  private async handleRemoveAction(
+    message: SocketRemoveMessage,
+  ): Promise<void> {
+    const { deploymentId, templateSlug } = message.payload;
+
+    try {
+      this.logger.log(`Starting removal for deployment ${deploymentId}`);
+      await this.executor.removeDeployment({
+        deploymentId,
+        templateSlug,
+        notifier: this,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Deployment removal failed: ${msg}`);
+
+      this.sendDeploymentStatus({
+        deploymentId,
+        templateSlug,
+        status: "failed",
+        message: msg,
+        error: msg,
+      });
+    }
+  }
+
   private decryptAndParse(encryptedData: string): Record<string, unknown> {
     try {
       const decrypted = this.encryptionService.decrypt(encryptedData);
-      return JSON.parse(decrypted || "{}") as Record<string, unknown>;
+      const parsed: unknown = JSON.parse(decrypted || "{}");
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return {};
+      }
+      return parsed as Record<string, unknown>;
     } catch (err) {
       this.logger.error(
         `Failed to decrypt/parse data: ${err instanceof Error ? err.message : String(err)}`,

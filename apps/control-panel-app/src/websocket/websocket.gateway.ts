@@ -8,12 +8,13 @@ import {
 } from "@nestjs/websockets";
 import { Server, Socket } from "socket.io";
 import { Inject, Injectable, Logger, forwardRef } from "@nestjs/common";
-import { DeploymentsService } from "../deployments/deployments.service";
+import { DeploymentsService } from "../modules/deployments/deployments.service";
 import {
   DeploymentStatusPayload,
   DeploymentLogPayload,
   DeploymentEvents,
   SocketDeployMessage,
+  SocketRemoveMessage,
 } from "@shared/socket-events";
 
 @Injectable()
@@ -132,14 +133,39 @@ export class DeploymentGateway
 
       if (payload.deploymentId) {
         try {
-          await this.deploymentsService.updateStatus(
-            payload.deploymentId,
-            payload.status,
-            {
-              message: payload.message,
-              error: payload.error,
-            },
-          );
+          this.logger.debug(`Status from ${client.id}: ${payload.status}`);
+
+          if (payload.deploymentId) {
+            try {
+              if (payload.status === "removed") {
+                await this.deploymentsService.softDeleteDeploymentRecord(
+                  payload.deploymentId,
+                  {
+                    message: payload.message,
+                  },
+                );
+              } else {
+                await this.deploymentsService.updateStatus(
+                  payload.deploymentId,
+                  payload.status,
+                  {
+                    message: payload.message,
+                    error: payload.error,
+                  },
+                );
+              }
+            } catch (error) {
+              this.logger.warn(
+                `Could not persist deployment status for ${payload.deploymentId}: ${error instanceof Error ? error.message : String(error)}`,
+              );
+            }
+          }
+
+          this.server.emit(DeploymentEvents.DEPLOYMENT_STATUS, {
+            agentId: client.id,
+            ...payload,
+            receivedAt: new Date().toISOString(),
+          });
         } catch (error) {
           this.logger.warn(
             `Could not persist deployment status for ${payload.deploymentId}: ${error instanceof Error ? error.message : String(error)}`,
@@ -170,6 +196,22 @@ export class DeploymentGateway
     } catch (error) {
       this.logger.error(
         `Failed to process deployment log event: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Emit a remove message to all connected agents.
+   */
+  emitRemove(message: SocketRemoveMessage): void {
+    try {
+      this.logger.log(
+        `Emitting remove message for deployment: ${message.payload.deploymentId}`,
+      );
+      this.server.emit(DeploymentEvents.REMOVE, message);
+    } catch (error) {
+      this.logger.error(
+        `Failed to emit remove message: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

@@ -1,4 +1,4 @@
-import { BaseEntity } from "@control-panel/common/entity/base.entity";
+import { BaseEntity } from "../../../common/entity/base.entity";
 import { Entity, Column, PrimaryColumn } from "typeorm";
 
 @Entity("serviceTemplates")
@@ -39,5 +39,5 @@ export class ServiceTemplateEntity extends BaseEntity {
   version!: string | null;
 
   @Column({ type: "boolean", default: true })
-  isActive!: boolean;
+  is_active!: boolean;
 }

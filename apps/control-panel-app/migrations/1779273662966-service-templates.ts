@@ -86,6 +86,18 @@ export class ServiceTemplates1779273662966 implements MigrationInterface {
             isNullable: false,
           },
           {
+            name: "status",
+            type: "varchar",
+            length: "50",
+            default: "'ACTIVE'",
+            isNullable: false,
+          },
+          {
+            name: "metadata",
+            type: "jsonb",
+            isNullable: true,
+          },
+          {
             name: "createdAt",
             type: "bigint",
             isNullable: false,

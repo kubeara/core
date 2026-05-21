@@ -44,8 +44,24 @@ services:
       timeout: 20s
       retries: 10
 
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1536M
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   task-runners:
     image: n8nio/runners:2.10.2
+    restart: unless-stopped
     environment:
       - N8N_RUNNERS_TASK_BROKER_URI=${N8N_RUNNERS_TASK_BROKER_URI:-http://n8n:5679}
       - N8N_RUNNERS_AUTH_TOKEN=${SERVICE_PASSWORD_N8N}
@@ -53,6 +69,22 @@ services:
       - N8N_RUNNERS_MAX_CONCURRENCY=${N8N_RUNNERS_MAX_CONCURRENCY:-5}
     depends_on:
       - n8n
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
     healthcheck:
       test:
         - CMD-SHELL
