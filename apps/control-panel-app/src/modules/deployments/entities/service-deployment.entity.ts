@@ -4,14 +4,15 @@ import {
   PrimaryColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   OneToMany,
   JoinColumn,
 } from "typeorm";
 
-import { ServiceTemplateEntity } from "../../modules/templates/entities/service-template.entity";
 import { EnvironmentVariableEntity } from "./environment-variable.entity";
 import type { DeploymentStatus } from "@shared/socket-events";
+import { ServiceTemplateEntity } from "@control-panel/modules/templates";
 
 @Entity("service_deployments")
 export class ServiceDeploymentEntity {
@@ -48,4 +49,7 @@ export class ServiceDeploymentEntity {
 
   @UpdateDateColumn({ type: "timestamptz" })
   updated_at!: Date;
+
+  @DeleteDateColumn({ type: "timestamptz", nullable: true })
+  deleted_at?: Date | null;
 }

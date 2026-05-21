@@ -308,6 +308,93 @@ export class DeployTemplateExecutor {
     }
   }
 
+  /**
+   * Tears down a deployment: stops containers, removes volumes, and deletes agent files.
+   */
+  async removeDeployment(opts: {
+    deploymentId: string;
+    templateSlug: string;
+    notifier: ExecutionNotifier;
+  }): Promise<void> {
+    const { deploymentId, templateSlug, notifier } = opts;
+    const projectName = this.fsService.sanitizeName(deploymentId);
+    const dir = this.fsService.getDeploymentDir(deploymentId);
+    const startedAt = new Date().toISOString();
+
+    if (!projectName) {
+      notifier.sendStatus({
+        deploymentId,
+        templateSlug,
+        status: "failed",
+        message: ERROR_MESSAGES.INVALID_COMPOSE_NAME,
+        error: ERROR_MESSAGES.INVALID_COMPOSE_NAME,
+        startedAt,
+        completedAt: new Date().toISOString(),
+      });
+      return;
+    }
+
+    notifier.sendStatus({
+      deploymentId,
+      templateSlug,
+      status: "removing",
+      message: SUCCESS_MESSAGES.REMOVING,
+      startedAt,
+    });
+
+    try {
+      const dirExists = await this.exists(dir);
+      const composePath = path.join(dir, "docker-compose.yml");
+      const composeExists = dirExists && (await this.exists(composePath));
+
+      if (composeExists) {
+        await this.teardownComposeProject(
+          projectName,
+          dir,
+          templateSlug,
+          notifier,
+        );
+      } else {
+        await this.forceRemoveComposeProject(
+          projectName,
+          templateSlug,
+          notifier,
+        );
+      }
+
+      if (dirExists) {
+        await this.fsService.removeDeploymentDir(deploymentId);
+      }
+
+      notifier.sendLog({
+        deployment: templateSlug,
+        type: "stdout",
+        message: `Removed deployment directory for ${projectName}`,
+        timestamp: new Date().toISOString(),
+      });
+
+      notifier.sendStatus({
+        deploymentId,
+        templateSlug,
+        status: "removed",
+        message: SUCCESS_MESSAGES.REMOVAL_COMPLETED,
+        completedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(`${ERROR_MESSAGES.REMOVAL_FAILED}: ${msg}`);
+
+      notifier.sendStatus({
+        deploymentId,
+        templateSlug,
+        status: "failed",
+        message: ERROR_MESSAGES.REMOVAL_FAILED,
+        error: msg,
+        completedAt: new Date().toISOString(),
+      });
+    }
+  }
+
   private async handleDeploymentFailure(
     deploymentId: string,
     name: string,
@@ -615,6 +702,177 @@ export class DeployTemplateExecutor {
       message: SUCCESS_MESSAGES.CLEANUP_COMPLETED,
       timestamp: new Date().toISOString(),
     });
+  }
+
+  /**
+   * Runs docker compose down for a deployment project when compose files are present.
+   */
+  private async teardownComposeProject(
+    projectName: string,
+    cwd: string,
+    name: string,
+    notifier: ExecutionNotifier,
+  ): Promise<void> {
+    notifier.sendLog({
+      deployment: name,
+      type: "stdout",
+      message: `Cleaning up deployment for ${projectName}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    const envPath = path.join(cwd, ".env");
+    const hasEnv = await this.exists(envPath);
+    const downArgs = hasEnv
+      ? [
+          "compose",
+          "--env-file",
+          ".env",
+          "-f",
+          "docker-compose.yml",
+          "-p",
+          projectName,
+          "down",
+          "--volumes",
+          "--remove-orphans",
+        ]
+      : [
+          "compose",
+          "-f",
+          "docker-compose.yml",
+          "-p",
+          projectName,
+          "down",
+          "--volumes",
+          "--remove-orphans",
+        ];
+
+    const cleanup = await this.execCapture("docker", downArgs, cwd);
+
+    if (cleanup.exitCode !== 0) {
+      notifier.sendLog({
+        deployment: name,
+        type: "stderr",
+        message: `${ERROR_MESSAGES.CLEANUP_FAILED}:\n${cleanup.stderr || cleanup.stdout}`,
+        timestamp: new Date().toISOString(),
+      });
+
+      await this.forceRemoveComposeProject(projectName, name, notifier);
+      return;
+    }
+
+    notifier.sendLog({
+      deployment: name,
+      type: "stdout",
+      message: SUCCESS_MESSAGES.CLEANUP_COMPLETED,
+      timestamp: new Date().toISOString(),
+    });
+  }
+  /**
+   * Removes compose-managed containers, volumes, and networks by project label
+   * when compose files are unavailable.
+   */
+  private async forceRemoveComposeProject(
+    projectName: string,
+    name: string,
+    notifier: ExecutionNotifier,
+  ): Promise<void> {
+    notifier.sendLog({
+      deployment: name,
+      type: "stdout",
+      message: `Force-removing Docker resources for project ${projectName}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    const containerIds = await this.execCapture(
+      "docker",
+      [
+        "ps",
+        "-aq",
+        "--filter",
+        `label=com.docker.compose.project=${projectName}`,
+      ],
+      process.cwd(),
+    );
+
+    const ids = containerIds.stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (ids.length > 0) {
+      const removeContainers = await this.execCapture(
+        "docker",
+        ["rm", "-f", ...ids],
+        process.cwd(),
+      );
+      if (removeContainers.exitCode !== 0) {
+        throw new Error(
+          removeContainers.stderr ||
+            removeContainers.stdout ||
+            "Failed to remove containers",
+        );
+      }
+    }
+
+    const volumeIds = await this.execCapture(
+      "docker",
+      [
+        "volume",
+        "ls",
+        "-q",
+        "--filter",
+        `label=com.docker.compose.project=${projectName}`,
+      ],
+      process.cwd(),
+    );
+
+    const volumes = volumeIds.stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (volumes.length > 0) {
+      const removeVolumes = await this.execCapture(
+        "docker",
+        ["volume", "rm", "-f", ...volumes],
+        process.cwd(),
+      );
+      if (removeVolumes.exitCode !== 0) {
+        this.logger.warn(
+          `Volume removal for ${projectName} reported: ${removeVolumes.stderr || removeVolumes.stdout}`,
+        );
+      }
+    }
+
+    const networkIds = await this.execCapture(
+      "docker",
+      [
+        "network",
+        "ls",
+        "-q",
+        "--filter",
+        `label=com.docker.compose.project=${projectName}`,
+      ],
+      process.cwd(),
+    );
+
+    const networks = networkIds.stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    for (const networkId of networks) {
+      const removeNetwork = await this.execCapture(
+        "docker",
+        ["network", "rm", networkId],
+        process.cwd(),
+      );
+      if (removeNetwork.exitCode !== 0) {
+        this.logger.warn(
+          `Network removal for ${projectName} reported: ${removeNetwork.stderr || removeNetwork.stdout}`,
+        );
+      }
+    }
   }
 
   private stringifyEnvValues(env: EnvFileInput): Record<string, string> {

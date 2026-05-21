@@ -10,7 +10,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 
-import { DeploymentGateway } from "../websocket/websocket.gateway";
+import { DeploymentGateway } from "@control-panel/websocket/websocket.gateway";
 import { SocketDeployMessage } from "@shared/socket-events";
 import { EncryptionService, ServerUrlContext } from "@shared/common";
 

@@ -23,7 +23,7 @@ lerna-debug.log*
 
 # Runtime assets and deployments
 generated-templates/
-deployments/
+/deployments/
 docker-compose.override.yml
 docker-compose.generated.yml
 

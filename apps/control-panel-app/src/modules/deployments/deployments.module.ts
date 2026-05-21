@@ -8,13 +8,13 @@ import {
   TemplatePayloadModule,
 } from "@shared/common";
 
-import { ServiceTemplateEntity } from "../modules/templates/entities/service-template.entity";
-import { WebsocketModule } from "../websocket/websocket.module";
 import { EnvironmentVariableEntity } from "./entities/environment-variable.entity";
 import { ServiceDeploymentEntity } from "./entities/service-deployment.entity";
 import { DeploymentsService } from "./deployments.service";
 import { DeployController } from "./deploy.controller";
 import { DeploymentsController } from "./deployments.controller";
+import { WebsocketModule } from "@control-panel/websocket/websocket.module";
+import { ServiceTemplateEntity } from "../templates";
 
 @Module({
   imports: [

@@ -1,5 +1,6 @@
 import {
   Controller,
+  Delete,
   Get,
   Patch,
   Param,
@@ -53,5 +54,14 @@ export class DeploymentsController {
       env: body.env,
       ports: body.ports,
     });
+  }
+
+  /**
+   * Removes a deployment and its Docker resources on the connected agent.
+   * The DB record is soft-deleted once the agent confirms teardown.
+   */
+  @Delete(":deploymentId")
+  async removeDeployment(@Param("deploymentId") deploymentId: string) {
+    return this.deploymentsService.removeDeployment(deploymentId);
   }
 }

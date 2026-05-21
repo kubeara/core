@@ -9,6 +9,7 @@ export enum DeploymentEvents {
   AGENT_DISCONNECTED = "agent:disconnected",
   // New MVP events
   DEPLOY = "deploy",
+  REMOVE = "deploy:remove",
   DEPLOYMENT_LOG = "deployment-log",
 }
 
@@ -26,6 +27,17 @@ export interface DeployTemplatePayload {
 /**
  * MVP Deploy message structure (Control Panel -> Agent)
  */
+/**
+ * MVP Remove message structure (Control Panel -> Agent)
+ */
+export interface SocketRemoveMessage {
+  type: "REMOVE";
+  payload: {
+    deploymentId: string;
+    templateSlug: string;
+  };
+}
+
 export interface SocketDeployMessage {
   type: "DEPLOY";
   payload: {
@@ -107,6 +119,8 @@ export type DeploymentStatus =
   | "success"
   | "failed"
   | "cancelled"
+  | "removing"
+  | "removed"
   | "unknown";
 
 /**
