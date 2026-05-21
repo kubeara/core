@@ -8,7 +8,7 @@ import {
   Max,
   Min,
 } from "class-validator";
-import { Column, Entity, Index, OneToMany } from "typeorm";
+import { Column, Entity, Index, OneToMany, Unique } from "typeorm";
 import { BaseEntity } from "../../../common/entity/base.entity";
 import { ServerProvider } from "../enums/server-provider.enum";
 import { ServerType } from "../enums/server-type.enum";
@@ -22,6 +22,7 @@ import {
 import { ServerSshCredentialEntity } from "./server-ssh-credential.entity";
 
 @Entity({ name: "servers" })
+@Unique("UQ_servers_host_port", ["host", "port"])
 @Index("IDX_servers_host", ["host"])
 @Index("IDX_servers_status", ["status"])
 export class ServerEntity extends BaseEntity {
