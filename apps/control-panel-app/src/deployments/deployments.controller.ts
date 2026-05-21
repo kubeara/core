@@ -7,15 +7,14 @@ import {
   Body,
   UsePipes,
   ValidationPipe,
-} from '@nestjs/common';
-
+} from "@nestjs/common";
 
 import { DeploymentsService } from "./deployments.service";
 import { UpdateEnvironmentVariablesDto } from "./dto/update-environment-variables.dto";
 
 @Controller("deployments")
 export class DeploymentsController {
-  constructor(private readonly deploymentsService: DeploymentsService) { }
+  constructor(private readonly deploymentsService: DeploymentsService) {}
 
   @Get(":deploymentId")
   async getDeployment(@Param("deploymentId") deploymentId: string) {
@@ -45,10 +44,10 @@ export class DeploymentsController {
     });
   }
 
-  @Patch(':deploymentId/env')
+  @Patch(":deploymentId/env")
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   async updateEnvironmentVariables(
-    @Param('deploymentId') deploymentId: string,
+    @Param("deploymentId") deploymentId: string,
     @Body() body: UpdateEnvironmentVariablesDto,
   ) {
     return this.deploymentsService.updateEnvironmentVariables(deploymentId, {
@@ -61,8 +60,8 @@ export class DeploymentsController {
    * Removes a deployment and its Docker resources on the connected agent.
    * The DB record is soft-deleted once the agent confirms teardown.
    */
-  @Delete(':deploymentId')
-  async removeDeployment(@Param('deploymentId') deploymentId: string) {
+  @Delete(":deploymentId")
+  async removeDeployment(@Param("deploymentId") deploymentId: string) {
     return this.deploymentsService.removeDeployment(deploymentId);
   }
 }

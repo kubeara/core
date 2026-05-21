@@ -3,14 +3,14 @@
  * Enum for all deployment-related socket events
  */
 export enum DeploymentEvents {
-    DEPLOY_TEMPLATE = 'deploy:template',
-    DEPLOYMENT_STATUS = 'deployment:status',
-    AGENT_CONNECTED = 'agent:connected',
-    AGENT_DISCONNECTED = 'agent:disconnected',
-    // New MVP events
-    DEPLOY = 'deploy',
-    REMOVE = 'deploy:remove',
-    DEPLOYMENT_LOG = 'deployment-log'
+  DEPLOY_TEMPLATE = "deploy:template",
+  DEPLOYMENT_STATUS = "deployment:status",
+  AGENT_CONNECTED = "agent:connected",
+  AGENT_DISCONNECTED = "agent:disconnected",
+  // New MVP events
+  DEPLOY = "deploy",
+  REMOVE = "deploy:remove",
+  DEPLOYMENT_LOG = "deployment-log",
 }
 
 /**
@@ -31,11 +31,11 @@ export interface DeployTemplatePayload {
  * MVP Remove message structure (Control Panel -> Agent)
  */
 export interface SocketRemoveMessage {
-    type: 'REMOVE';
-    payload: {
-        deploymentId: string;
-        templateSlug: string;
-    };
+  type: "REMOVE";
+  payload: {
+    deploymentId: string;
+    templateSlug: string;
+  };
 }
 
 export interface SocketDeployMessage {
@@ -110,19 +110,18 @@ export interface DeploymentStatusPayload {
  * Current state of a deployment
  */
 export type DeploymentStatus =
-    | 'pending'
-    | 'validating'
-    | 'pulling'
-    | 'building'
-    | 'deploying'
-    | 'running'
-    | 'success'
-    | 'failed'
-    | 'cancelled'
-    | 'removing'
-    | 'removed'
-    | 'unknown';
-
+  | "pending"
+  | "validating"
+  | "pulling"
+  | "building"
+  | "deploying"
+  | "running"
+  | "success"
+  | "failed"
+  | "cancelled"
+  | "removing"
+  | "removed"
+  | "unknown";
 
 /**
  * Deployment Log payload (Agent -> Control Panel)

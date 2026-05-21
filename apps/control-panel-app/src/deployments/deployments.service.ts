@@ -1,30 +1,35 @@
 import {
-    BadRequestException,
-    ConflictException,
-    Inject,
-    Injectable,
-    Logger,
-    NotFoundException,
-    forwardRef,
-} from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  forwardRef,
+} from "@nestjs/common";
+import { InjectRepository } from "@nestjs/typeorm";
+import { Repository } from "typeorm";
 
 import {
-    ComposeParserService,
-    EncryptionService,
-    ServerUrlContext,
-    SUCCESS_MESSAGES,
-    TemplateConfigService,
-    TemplatePayloadService,
-    maskEnvMap,
-} from '@shared/common';
-import { DeploymentStatus, SchemaFieldDetails, TemplateSchema, SocketRemoveMessage } from '@shared/socket-events';
+  ComposeParserService,
+  EncryptionService,
+  ServerUrlContext,
+  SUCCESS_MESSAGES,
+  TemplateConfigService,
+  TemplatePayloadService,
+  maskEnvMap,
+} from "@shared/common";
+import {
+  DeploymentStatus,
+  SchemaFieldDetails,
+  TemplateSchema,
+  SocketRemoveMessage,
+} from "@shared/socket-events";
 
-import { DeploymentGateway } from '../websocket/websocket.gateway';
-import { EnvironmentVariableEntity } from './entities/environment-variable.entity';
-import { ServiceDeploymentEntity } from './entities/service-deployment.entity';
-import { ServiceTemplateEntity } from '../modules/templates/entities/service-template.entity';
+import { DeploymentGateway } from "../websocket/websocket.gateway";
+import { EnvironmentVariableEntity } from "./entities/environment-variable.entity";
+import { ServiceDeploymentEntity } from "./entities/service-deployment.entity";
+import { ServiceTemplateEntity } from "../modules/templates/entities/service-template.entity";
 
 export interface PrepareDeploymentInput {
   templateSlug: string;
@@ -61,41 +66,50 @@ export interface EnvironmentVariableView {
 export class DeploymentsService {
   private readonly logger = new Logger(DeploymentsService.name);
 
-    constructor(
-        @InjectRepository(ServiceDeploymentEntity)
-        private readonly deploymentRepository: Repository<ServiceDeploymentEntity>,
-        @InjectRepository(EnvironmentVariableEntity)
-        private readonly environmentVariableRepository: Repository<EnvironmentVariableEntity>,
-        @InjectRepository(ServiceTemplateEntity)
-        private readonly templateRepository: Repository<ServiceTemplateEntity>,
-        private readonly templatePayloadService: TemplatePayloadService,
-        private readonly templateConfigService: TemplateConfigService,
-        private readonly composeParserService: ComposeParserService,
-        private readonly encryptionService: EncryptionService,
-        @Inject(forwardRef(() => DeploymentGateway))
-        private readonly deploymentGateway: DeploymentGateway,
-    ) {}
+  constructor(
+    @InjectRepository(ServiceDeploymentEntity)
+    private readonly deploymentRepository: Repository<ServiceDeploymentEntity>,
+    @InjectRepository(EnvironmentVariableEntity)
+    private readonly environmentVariableRepository: Repository<EnvironmentVariableEntity>,
+    @InjectRepository(ServiceTemplateEntity)
+    private readonly templateRepository: Repository<ServiceTemplateEntity>,
+    private readonly templatePayloadService: TemplatePayloadService,
+    private readonly templateConfigService: TemplateConfigService,
+    private readonly composeParserService: ComposeParserService,
+    private readonly encryptionService: EncryptionService,
+    @Inject(forwardRef(() => DeploymentGateway))
+    private readonly deploymentGateway: DeploymentGateway,
+  ) {}
 
   generateDeploymentId(): string {
     return `deployment-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 
-  async prepareDeployment(input: PrepareDeploymentInput): Promise<PreparedDeployment> {
-    const { templateSlug, requestEnv = {}, requestPorts = {}, existingDeploymentId } = input;
+  async prepareDeployment(
+    input: PrepareDeploymentInput,
+  ): Promise<PreparedDeployment> {
+    const {
+      templateSlug,
+      requestEnv = {},
+      requestPorts = {},
+      existingDeploymentId,
+    } = input;
 
-    const template = await this.templateRepository.findOne({ where: { slug: templateSlug } });
+    const template = await this.templateRepository.findOne({
+      where: { slug: templateSlug },
+    });
     if (!template?.compose) {
-        throw new NotFoundException(`Template '${templateSlug}' not found`);
+      throw new NotFoundException(`Template '${templateSlug}' not found`);
     }
 
     const hasSchema = Boolean(template.env_schema || template.port_schema);
     if (!hasSchema) {
-        return this.prepareComposeDeployment(input);
+      return this.prepareComposeDeployment(input);
     }
 
     const schema: TemplateSchema = {
-        env_schema: template.env_schema as Record<string, SchemaFieldDetails>,
-        port_schema: template.port_schema as Record<string, SchemaFieldDetails>,
+      env_schema: template.env_schema as Record<string, SchemaFieldDetails>,
+      port_schema: template.port_schema as Record<string, SchemaFieldDetails>,
     };
     const normalized = this.templateConfigService.normalizeSchema(schema);
     const portSchemaKeys = Object.keys(schema.port_schema ?? {});
@@ -104,180 +118,203 @@ export class DeploymentsService {
     let basePorts: Record<string, unknown> = { ...requestPorts };
 
     if (existingDeploymentId) {
-        const stored = await this.loadStoredVariables(existingDeploymentId, portSchemaKeys);
-        baseEnv = { ...stored.env, ...requestEnv };
-        basePorts = { ...stored.ports, ...requestPorts };
+      const stored = await this.loadStoredVariables(
+        existingDeploymentId,
+        portSchemaKeys,
+      );
+      baseEnv = { ...stored.env, ...requestEnv };
+      basePorts = { ...stored.ports, ...requestPorts };
     }
 
-    const composeYaml = this.templatePayloadService.decodeBase64ToYaml(template.compose);
+    const composeYaml = this.templatePayloadService.decodeBase64ToYaml(
+      template.compose,
+    );
     const parsedFromCompose = this.composeParserService.resolveFromCompose({
-        compose: composeYaml,
-        userEnv: baseEnv,
-        userPorts: basePorts,
-        portSchemaKeys,
+      compose: composeYaml,
+      userEnv: baseEnv,
+      userPorts: basePorts,
+      portSchemaKeys,
     });
 
-    const { env: mergedEnv, ports: mergedPorts } = this.templateConfigService.mergeAndValidate(
+    const { env: mergedEnv, ports: mergedPorts } =
+      this.templateConfigService.mergeAndValidate(
         { ...schema, normalized },
         { env: parsedFromCompose.env, ports: parsedFromCompose.ports },
-    );
+      );
 
     const deploymentId = existingDeploymentId ?? this.generateDeploymentId();
 
     await this.upsertDeploymentRecord({
-        deploymentId,
-        templateSlug,
-        status: 'pending',
+      deploymentId,
+      templateSlug,
+      status: "pending",
     });
 
     await this.persistEnvironmentVariables({
-        deploymentId,
-        env: mergedEnv,
-        ports: mergedPorts,
-        generatedKeys: parsedFromCompose.generatedKeys,
-        schema,
+      deploymentId,
+      env: mergedEnv,
+      ports: mergedPorts,
+      generatedKeys: parsedFromCompose.generatedKeys,
+      schema,
     });
 
     if (parsedFromCompose.generatedKeys.length > 0) {
-        this.logger.log(
-            `Stored auto-generated variables for '${deploymentId}': ${parsedFromCompose.generatedKeys.join(', ')}`,
-        );
+      this.logger.log(
+        `Stored auto-generated variables for '${deploymentId}': ${parsedFromCompose.generatedKeys.join(", ")}`,
+      );
     }
 
     return {
-        deploymentId,
-        templateSlug,
-        encodedCompose: template.compose,
-        mergedEnv,
-        mergedPorts,
-        generatedKeys: parsedFromCompose.generatedKeys,
-        schema: { ...schema, normalized },
-        composeOnly: false,
+      deploymentId,
+      templateSlug,
+      encodedCompose: template.compose,
+      mergedEnv,
+      mergedPorts,
+      generatedKeys: parsedFromCompose.generatedKeys,
+      schema: { ...schema, normalized },
+      composeOnly: false,
     };
-}
+  }
 
   /**
-     * Coolify-style deploy: resolve and validate env entirely from docker-compose.yml
-     * (no template.config.json / env_schema / port_schema).
-     */
-  async prepareComposeDeployment(input: PrepareDeploymentInput): Promise<PreparedDeployment> {
+   * Coolify-style deploy: resolve and validate env entirely from docker-compose.yml
+   * (no template.config.json / env_schema / port_schema).
+   */
+  async prepareComposeDeployment(
+    input: PrepareDeploymentInput,
+  ): Promise<PreparedDeployment> {
     const {
-        templateSlug,
-        requestEnv = {},
-        requestPorts = {},
-        existingDeploymentId,
-        serverUrlContext: serverUrlContextInput,
+      templateSlug,
+      requestEnv = {},
+      requestPorts = {},
+      existingDeploymentId,
+      serverUrlContext: serverUrlContextInput,
     } = input;
 
-    const template = await this.templateRepository.findOne({ where: { slug: templateSlug } });
+    const template = await this.templateRepository.findOne({
+      where: { slug: templateSlug },
+    });
     if (!template?.compose) {
-        throw new NotFoundException(`Template '${templateSlug}' not found`);
+      throw new NotFoundException(`Template '${templateSlug}' not found`);
     }
 
     const deploymentId = existingDeploymentId ?? this.generateDeploymentId();
     const serverUrlContext: ServerUrlContext | undefined = serverUrlContextInput
-        ? { ...serverUrlContextInput, deploymentId }
-        : undefined;
+      ? { ...serverUrlContextInput, deploymentId }
+      : undefined;
 
     let baseEnv: Record<string, unknown> = { ...requestEnv };
     let basePorts: Record<string, unknown> = { ...requestPorts };
 
     if (existingDeploymentId) {
-        const stored = await this.loadStoredVariables(existingDeploymentId, []);
-        baseEnv = { ...stored.env, ...requestEnv };
-        basePorts = { ...stored.ports, ...requestPorts };
-        this.logger.debug(
-            `[prepareComposeDeployment] merged redeploy ports deploymentId=${deploymentId} basePorts=${JSON.stringify(basePorts)}`,
-        );
+      const stored = await this.loadStoredVariables(existingDeploymentId, []);
+      baseEnv = { ...stored.env, ...requestEnv };
+      basePorts = { ...stored.ports, ...requestPorts };
+      this.logger.debug(
+        `[prepareComposeDeployment] merged redeploy ports deploymentId=${deploymentId} basePorts=${JSON.stringify(basePorts)}`,
+      );
     }
 
-    const composeYaml = this.templatePayloadService.decodeBase64ToYaml(template.compose);
+    const composeYaml = this.templatePayloadService.decodeBase64ToYaml(
+      template.compose,
+    );
 
-    const unknownPortKeys = this.composeParserService.findUnknownPortKeys(composeYaml, requestPorts);
+    const unknownPortKeys = this.composeParserService.findUnknownPortKeys(
+      composeYaml,
+      requestPorts,
+    );
     if (unknownPortKeys.length > 0) {
-        const expected = this.composeParserService.listPortVariables(composeYaml);
-        throw new BadRequestException(
-            `Unknown port keys: ${unknownPortKeys.join(', ')}. ` +
-                `Template '${templateSlug}' expects: ${expected.join(', ') || '(none)'}`,
-        );
+      const expected = this.composeParserService.listPortVariables(composeYaml);
+      throw new BadRequestException(
+        `Unknown port keys: ${unknownPortKeys.join(", ")}. ` +
+          `Template '${templateSlug}' expects: ${expected.join(", ") || "(none)"}`,
+      );
     }
 
     const inferOptions = serverUrlContext ? { serverUrlContext } : undefined;
 
     const requiredPortVars = this.composeParserService
-        .inferRequiredVariables(composeYaml, inferOptions)
-        .filter((name) => name.startsWith('SERVICE_PORT_'));
+      .inferRequiredVariables(composeYaml, inferOptions)
+      .filter((name) => name.startsWith("SERVICE_PORT_"));
 
     if (template.port && requiredPortVars.length === 1) {
-        const portVar = requiredPortVars[0];
-        if (basePorts[portVar] === undefined && baseEnv[portVar] === undefined) {
-            basePorts[portVar] = template.port;
-            this.logger.debug(
-                `[prepareComposeDeployment] applied template default port deploymentId=${deploymentId} ${portVar}=${template.port}`,
-            );
-        }
+      const portVar = requiredPortVars[0];
+      if (basePorts[portVar] === undefined && baseEnv[portVar] === undefined) {
+        basePorts[portVar] = template.port;
+        this.logger.debug(
+          `[prepareComposeDeployment] applied template default port deploymentId=${deploymentId} ${portVar}=${template.port}`,
+        );
+      }
     }
 
     let parsedFromCompose;
     try {
-        parsedFromCompose = this.composeParserService.resolveAndValidateFromCompose({
-            compose: composeYaml,
-            userEnv: baseEnv,
-            userPorts: basePorts,
-            serverUrlContext,
+      parsedFromCompose =
+        this.composeParserService.resolveAndValidateFromCompose({
+          compose: composeYaml,
+          userEnv: baseEnv,
+          userPorts: basePorts,
+          serverUrlContext,
         });
     } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        const required = this.composeParserService.inferRequiredVariables(composeYaml, inferOptions);
-        const hint = required.length > 0
-            ? ` Required: ${required.join(', ')}. Pass them in "ports" or "env".`
-            : '';
-        if (!serverUrlContext && composeYaml.includes('SERVICE_URL_')) {
-            throw new BadRequestException(
-                `${message}.${hint} Connect an agent with AGENT_PUBLIC_IP set for auto URL generation.`,
-            );
-        }
-        throw new BadRequestException(`${message}.${hint}`);
+      const message = error instanceof Error ? error.message : String(error);
+      const required = this.composeParserService.inferRequiredVariables(
+        composeYaml,
+        inferOptions,
+      );
+      const hint =
+        required.length > 0
+          ? ` Required: ${required.join(", ")}. Pass them in "ports" or "env".`
+          : "";
+      if (!serverUrlContext && composeYaml.includes("SERVICE_URL_")) {
+        throw new BadRequestException(
+          `${message}.${hint} Connect an agent with AGENT_PUBLIC_IP set for auto URL generation.`,
+        );
+      }
+      throw new BadRequestException(`${message}.${hint}`);
     }
 
     const mergedEnv = parsedFromCompose.env;
     const mergedPorts = parsedFromCompose.ports;
-    
+
     const requiredKeys = new Set(
-        this.composeParserService.inferRequiredVariables(composeYaml, inferOptions),
+      this.composeParserService.inferRequiredVariables(
+        composeYaml,
+        inferOptions,
+      ),
     );
 
     await this.upsertDeploymentRecord({
-        deploymentId,
-        templateSlug,
-        status: 'pending',
+      deploymentId,
+      templateSlug,
+      status: "pending",
     });
 
     await this.persistEnvironmentVariables({
-        deploymentId,
-        env: mergedEnv,
-        ports: mergedPorts,
-        generatedKeys: parsedFromCompose.generatedKeys,
-        requiredKeys,
+      deploymentId,
+      env: mergedEnv,
+      ports: mergedPorts,
+      generatedKeys: parsedFromCompose.generatedKeys,
+      requiredKeys,
     });
 
     if (parsedFromCompose.generatedKeys.length > 0) {
-        this.logger.log(
-            `Stored auto-generated variables for '${deploymentId}': ${parsedFromCompose.generatedKeys.join(', ')}`,
-        );
+      this.logger.log(
+        `Stored auto-generated variables for '${deploymentId}': ${parsedFromCompose.generatedKeys.join(", ")}`,
+      );
     }
 
     return {
-        deploymentId,
-        templateSlug,
-        encodedCompose: template.compose,
-        mergedEnv,
-        mergedPorts,
-        generatedKeys: parsedFromCompose.generatedKeys,
-        composeOnly: true,
-        useTraefik: serverUrlContext?.useTraefik,
+      deploymentId,
+      templateSlug,
+      encodedCompose: template.compose,
+      mergedEnv,
+      mergedPorts,
+      generatedKeys: parsedFromCompose.generatedKeys,
+      composeOnly: true,
+      useTraefik: serverUrlContext?.useTraefik,
     };
-}
+  }
 
   async getDeployment(deploymentId: string): Promise<ServiceDeploymentEntity> {
     const deployment = await this.deploymentRepository.findOne({
@@ -450,155 +487,157 @@ export class DeploymentsService {
     generatedKeys: string[];
     schema?: TemplateSchema;
     requiredKeys?: Set<string>;
-}): Promise<void> {
+  }): Promise<void> {
     const generated = new Set(opts.generatedKeys);
     const requiredKeys = opts.requiredKeys ?? new Set<string>();
 
     if (!opts.requiredKeys && opts.schema) {
-        for (const field of opts.schema.normalized ?? this.templateConfigService.normalizeSchema(opts.schema)) {
-            if (field.required) {
-                requiredKeys.add(field.name);
-            }
+      for (const field of opts.schema.normalized ??
+        this.templateConfigService.normalizeSchema(opts.schema)) {
+        if (field.required) {
+          requiredKeys.add(field.name);
         }
+      }
     }
 
     const allEntries: Record<string, string> = {
-        ...opts.env,
-        ...Object.fromEntries(
-            Object.entries(opts.ports).map(([key, value]) => [key, String(value)]),
-        ),
+      ...opts.env,
+      ...Object.fromEntries(
+        Object.entries(opts.ports).map(([key, value]) => [key, String(value)]),
+      ),
     };
 
     for (const [key, value] of Object.entries(allEntries)) {
-        await this.environmentVariableRepository.upsert(
-            {
-                deployment_id: opts.deploymentId,
-                key,
-                value: this.encryptValue(value),
-                is_required: requiredKeys.has(key),
-                is_generated: generated.has(key),
-                comment: null,
-            },
-            ['deployment_id', 'key'],
-        );
+      await this.environmentVariableRepository.upsert(
+        {
+          deployment_id: opts.deploymentId,
+          key,
+          value: this.encryptValue(value),
+          is_required: requiredKeys.has(key),
+          is_generated: generated.has(key),
+          comment: null,
+        },
+        ["deployment_id", "key"],
+      );
     }
-}
+  }
 
-private async loadStoredVariables(
-  deploymentId: string,
-  portSchemaKeys: string[],
-): Promise<{ env: Record<string, string>; ports: Record<string, number> }> {
-  const rows = await this.environmentVariableRepository.find({
+  private async loadStoredVariables(
+    deploymentId: string,
+    portSchemaKeys: string[],
+  ): Promise<{ env: Record<string, string>; ports: Record<string, number> }> {
+    const rows = await this.environmentVariableRepository.find({
       where: { deployment_id: deploymentId },
-  });
+    });
 
-  const env: Record<string, string> = {};
-  const ports: Record<string, number> = {};
-  const portKeys = new Set(portSchemaKeys);
+    const env: Record<string, string> = {};
+    const ports: Record<string, number> = {};
+    const portKeys = new Set(portSchemaKeys);
 
-  for (const row of rows) {
+    for (const row of rows) {
       const plain = this.decryptValue(row.value);
 
-      if (portKeys.has(row.key) || row.key.startsWith('SERVICE_PORT_')) {
-          const parsed = Number(plain);
-          if (!Number.isNaN(parsed)) {
-              ports[row.key] = parsed;
-          }
-          continue;
+      if (portKeys.has(row.key) || row.key.startsWith("SERVICE_PORT_")) {
+        const parsed = Number(plain);
+        if (!Number.isNaN(parsed)) {
+          ports[row.key] = parsed;
+        }
+        continue;
       }
 
       env[row.key] = plain;
+    }
+
+    return { env, ports };
   }
 
-  return { env, ports };
-}
+  private encryptValue(value: string): string {
+    return this.encryptionService.encrypt(value);
+  }
 
-private encryptValue(value: string): string {
-  return this.encryptionService.encrypt(value);
-}
+  private decryptValue(encrypted: string): string {
+    return this.encryptionService.decrypt(encrypted);
+  }
 
-private decryptValue(encrypted: string): string {
-  return this.encryptionService.decrypt(encrypted);
-}
+  /**
+   * Starts removal of a deployment: marks it removing, notifies agents, and waits for
+   * agent confirmation before soft-deleting the DB record (handled in the gateway).
+   */
+  async removeDeployment(deploymentId: string): Promise<{
+    deploymentId: string;
+    status: DeploymentStatus;
+    message: string;
+  }> {
+    const deployment = await this.getDeployment(deploymentId);
+    const blockingStatuses: DeploymentStatus[] = [
+      "pending",
+      "validating",
+      "pulling",
+      "building",
+      "deploying",
+      "removing",
+      "removed",
+    ];
 
-    /**
-     * Starts removal of a deployment: marks it removing, notifies agents, and waits for
-     * agent confirmation before soft-deleting the DB record (handled in the gateway).
-     */
-    async removeDeployment(deploymentId: string): Promise<{
-        deploymentId: string;
-        status: DeploymentStatus;
-        message: string;
-    }> {
-        const deployment = await this.getDeployment(deploymentId);
-        const blockingStatuses: DeploymentStatus[] = [
-            'pending',
-            'validating',
-            'pulling',
-            'building',
-            'deploying',
-            'removing',
-            'removed',
-        ];
-
-        if (blockingStatuses.includes(deployment.status)) {
-            throw new ConflictException(
-                `Deployment '${deploymentId}' cannot be removed while status is '${deployment.status}'`,
-            );
-        }
-
-        if (this.deploymentGateway.getConnectedAgentsCount() === 0) {
-            throw new ConflictException(
-                'No agent is connected. Connect an agent before removing a deployment.',
-            );
-        }
-
-        await this.updateStatus(deploymentId, 'removing', {
-            message: SUCCESS_MESSAGES.REMOVING,
-        });
-
-        const message: SocketRemoveMessage = {
-            type: 'REMOVE',
-            payload: {
-                deploymentId,
-                templateSlug: deployment.template_slug,
-            },
-        };
-
-        this.deploymentGateway.emitRemove(message);
-
-        this.logger.log(`Removal requested for deployment '${deploymentId}'`);
-
-        return {
-            deploymentId,
-            status: 'removing',
-            message: SUCCESS_MESSAGES.REMOVING,
-        };
+    if (blockingStatuses.includes(deployment.status)) {
+      throw new ConflictException(
+        `Deployment '${deploymentId}' cannot be removed while status is '${deployment.status}'`,
+      );
     }
 
-    /**
-     * Soft-deletes a deployment after agent teardown while preserving env vars and history.
-     */
-    async softDeleteDeploymentRecord(
-        deploymentId: string,
-        options: { message?: string } = {},
-    ): Promise<void> {
-        const deployment = await this.deploymentRepository.findOne({
-            where: { id: deploymentId },
-            withDeleted: true,
-        });
-
-        if (!deployment || deployment.deleted_at) {
-            return;
-        }
-
-        deployment.status = 'removed';
-        deployment.status_message = options.message ?? SUCCESS_MESSAGES.REMOVAL_COMPLETED;
-        deployment.last_error = null;
-
-        await this.deploymentRepository.save(deployment);
-        await this.deploymentRepository.softDelete({ id: deploymentId });
-
-        this.logger.log(`Soft-deleted deployment record '${deploymentId}'`);
+    if (this.deploymentGateway.getConnectedAgentsCount() === 0) {
+      throw new ConflictException(
+        "No agent is connected. Connect an agent before removing a deployment.",
+      );
     }
+
+    await this.updateStatus(deploymentId, "removing", {
+      message: SUCCESS_MESSAGES.REMOVING,
+    });
+
+    const message: SocketRemoveMessage = {
+      type: "REMOVE",
+      payload: {
+        deploymentId,
+        templateSlug: deployment.template_slug,
+      },
+    };
+
+    this.deploymentGateway.emitRemove(message);
+
+    this.logger.log(`Removal requested for deployment '${deploymentId}'`);
+
+    return {
+      deploymentId,
+      status: "removing",
+      message: SUCCESS_MESSAGES.REMOVING,
+    };
+  }
+
+  /**
+   * Soft-deletes a deployment after agent teardown while preserving env vars and history.
+   */
+  async softDeleteDeploymentRecord(
+    deploymentId: string,
+    options: { message?: string } = {},
+  ): Promise<void> {
+    const deployment = await this.deploymentRepository.findOne({
+      where: { id: deploymentId },
+      withDeleted: true,
+    });
+
+    if (!deployment || deployment.deleted_at) {
+      return;
+    }
+
+    deployment.status = "removed";
+    deployment.status_message =
+      options.message ?? SUCCESS_MESSAGES.REMOVAL_COMPLETED;
+    deployment.last_error = null;
+
+    await this.deploymentRepository.save(deployment);
+    await this.deploymentRepository.softDelete({ id: deploymentId });
+
+    this.logger.log(`Soft-deleted deployment record '${deploymentId}'`);
+  }
 }

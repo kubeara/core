@@ -8,8 +8,7 @@ import {
   ManyToOne,
   OneToMany,
   JoinColumn,
-} from 'typeorm';
-
+} from "typeorm";
 
 import { ServiceTemplateEntity } from "../../modules/templates/entities/service-template.entity";
 import { EnvironmentVariableEntity } from "./environment-variable.entity";
@@ -48,9 +47,9 @@ export class ServiceDeploymentEntity {
   @CreateDateColumn({ type: "timestamptz" })
   created_at!: Date;
 
-  @UpdateDateColumn({ type: 'timestamptz' })
+  @UpdateDateColumn({ type: "timestamptz" })
   updated_at!: Date;
 
-  @DeleteDateColumn({ type: 'timestamptz', nullable: true })
+  @DeleteDateColumn({ type: "timestamptz", nullable: true })
   deleted_at?: Date | null;
 }

@@ -67,7 +67,9 @@ export class FilesystemService {
       this.logger.debug(`Removed deployment directory: ${targetDir}`);
     } catch (error) {
       const msg = `Failed to remove deployment directory ${targetDir}`;
-      this.logger.error(`${msg}: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `${msg}: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw new Error(msg);
     }
   }

@@ -10,14 +10,12 @@ import { Server, Socket } from "socket.io";
 import { Inject, Injectable, Logger, forwardRef } from "@nestjs/common";
 import { DeploymentsService } from "../deployments/deployments.service";
 import {
-
   DeploymentStatusPayload,
   DeploymentLogPayload,
   DeploymentEvents,
   SocketDeployMessage,
   SocketRemoveMessage,
-} from '@shared/socket-events';
-
+} from "@shared/socket-events";
 
 @Injectable()
 @WebSocketGateway({
@@ -25,7 +23,8 @@ import {
   cors: { origin: "*" },
 })
 export class DeploymentGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   private readonly logger = new Logger(DeploymentGateway.name);
 
   /**
@@ -35,7 +34,7 @@ export class DeploymentGateway
   constructor(
     @Inject(forwardRef(() => DeploymentsService))
     private readonly deploymentsService: DeploymentsService,
-  ) { }
+  ) {}
 
   @WebSocketServer()
   server!: Server;
@@ -69,8 +68,8 @@ export class DeploymentGateway
       const queryIp = client.handshake.query.publicIp;
       const publicIp = String(
         (Array.isArray(headerIp) ? headerIp[0] : headerIp) ??
-        (Array.isArray(queryIp) ? queryIp[0] : queryIp) ??
-        "",
+          (Array.isArray(queryIp) ? queryIp[0] : queryIp) ??
+          "",
       ).trim();
 
       this.connectedAgents.set(agentId, client);
@@ -80,9 +79,9 @@ export class DeploymentGateway
 
       this.logger.log(
         `Agent connected: ${agentId} (Total: ${this.connectedAgents.size})` +
-        (publicIp
-          ? ` publicIp=${publicIp}`
-          : " (no public IP — set AGENT_PUBLIC_IP)"),
+          (publicIp
+            ? ` publicIp=${publicIp}`
+            : " (no public IP — set AGENT_PUBLIC_IP)"),
       );
 
       this.server.emit(DeploymentEvents.AGENT_CONNECTED, {
@@ -138,15 +137,22 @@ export class DeploymentGateway
 
           if (payload.deploymentId) {
             try {
-              if (payload.status === 'removed') {
-                await this.deploymentsService.softDeleteDeploymentRecord(payload.deploymentId, {
-                  message: payload.message,
-                });
+              if (payload.status === "removed") {
+                await this.deploymentsService.softDeleteDeploymentRecord(
+                  payload.deploymentId,
+                  {
+                    message: payload.message,
+                  },
+                );
               } else {
-                await this.deploymentsService.updateStatus(payload.deploymentId, payload.status, {
-                  message: payload.message,
-                  error: payload.error,
-                });
+                await this.deploymentsService.updateStatus(
+                  payload.deploymentId,
+                  payload.status,
+                  {
+                    message: payload.message,
+                    error: payload.error,
+                  },
+                );
               }
             } catch (error) {
               this.logger.warn(
@@ -160,7 +166,6 @@ export class DeploymentGateway
             ...payload,
             receivedAt: new Date().toISOString(),
           });
-
         } catch (error) {
           this.logger.warn(
             `Could not persist deployment status for ${payload.deploymentId}: ${error instanceof Error ? error.message : String(error)}`,
@@ -200,13 +205,16 @@ export class DeploymentGateway
    */
   emitRemove(message: SocketRemoveMessage): void {
     try {
-      this.logger.log(`Emitting remove message for deployment: ${message.payload.deploymentId}`);
+      this.logger.log(
+        `Emitting remove message for deployment: ${message.payload.deploymentId}`,
+      );
       this.server.emit(DeploymentEvents.REMOVE, message);
     } catch (error) {
-      this.logger.error(`Failed to emit remove message: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.error(
+        `Failed to emit remove message: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
-
 
   emitDeploy(message: SocketDeployMessage): void {
     try {
