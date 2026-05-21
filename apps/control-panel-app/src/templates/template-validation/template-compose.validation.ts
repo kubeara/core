@@ -98,8 +98,8 @@ export function validateTemplateComposeFile(
 
     validateComposeStructure(parsed, issues);
     validateHeaderMetadata(context.composeYaml, issues);
-    validateServices(parsed, policy, issues);
-    validatePortRules(context, parsed, issues);
+    validateServices(parsed, policy, context, issues);
+    validateSchemaPortKeysInCompose(context, issues);
     validateEnvironmentRules(context, issues);
 
     return buildResult(context, issues);
@@ -160,6 +160,7 @@ function validateHeaderMetadata(composeYaml: string, issues: TemplateValidationI
 function validateServices(
     parsed: Record<string, unknown>,
     policy: Required<TemplateComposeValidationOptions>,
+    context: TemplateComposeFileContext,
     issues: TemplateValidationIssue[],
 ): void {
     const services = parsed.services as Record<string, Record<string, unknown>>;
@@ -181,6 +182,8 @@ function validateServices(
             });
         }
 
+        validateServicePortMappings(serviceName, service, context, issues);
+
         if (policy.requireHealthcheck) {
             validateHealthcheck(service.healthcheck, `${basePath}.healthcheck`, issues);
         }
@@ -197,6 +200,136 @@ function validateServices(
         if (policy.requireLoggingLimits) {
             validateLoggingLimits(service.logging, `${basePath}.logging`, policy, issues);
         }
+    }
+
+    validateTemplateHasExposedEndpoint(services, context, issues);
+}
+
+/**
+ * Returns service names defined in a parsed compose document.
+ */
+export function listComposeServiceNames(parsed: Record<string, unknown>): string[] {
+    const services = parsed.services;
+
+    if (!services || typeof services !== 'object' || Array.isArray(services)) {
+        return [];
+    }
+
+    return Object.keys(services as Record<string, unknown>).sort();
+}
+
+function getServicePortMappingText(service: Record<string, unknown>): string {
+    const ports = service.ports;
+
+    if (!Array.isArray(ports) || ports.length === 0) {
+        return '';
+    }
+
+    return ports.map((entry) => String(entry)).join(' ');
+}
+
+function serviceExposesHostEndpoint(service: Record<string, unknown>): boolean {
+    if (hasTraefikRouting(service)) {
+        return true;
+    }
+
+    const portText = getServicePortMappingText(service);
+
+    if (!portText) {
+        return false;
+    }
+
+    return listComposePortVariables(portText).length > 0 || extractComposeVariables(portText).length > 0;
+}
+
+/**
+ * Validates port mappings for a single service when it publishes host ports.
+ * Internal services without a ports block are allowed (e.g. sidecars).
+ */
+function validateServicePortMappings(
+    serviceName: string,
+    service: Record<string, unknown>,
+    context: TemplateComposeFileContext,
+    issues: TemplateValidationIssue[],
+): void {
+    const basePath = `services.${serviceName}.ports`;
+    const portText = getServicePortMappingText(service);
+
+    if (!portText) {
+        return;
+    }
+
+    if (context.hasTemplateConfig) {
+        const schemaKeys = context.portSchemaKeys ?? [];
+        const usesSchemaKey = schemaKeys.some(
+            (key) => portText.includes(`\${${key}`) || portText.includes(`$${key}`),
+        );
+        const usesServicePort = listComposePortVariables(portText).length > 0;
+
+        if (!usesSchemaKey && !usesServicePort) {
+            issues.push({
+                path: basePath,
+                message:
+                    'Published port mappings must reference port_schema keys or SERVICE_PORT_* variables',
+            });
+        }
+
+        return;
+    }
+
+    const portVars = extractComposeVariables(portText).map((entry) => entry.name);
+    const servicePortVars = portVars.filter((name) => name.startsWith('SERVICE_PORT_'));
+
+    if (servicePortVars.length === 0) {
+        issues.push({
+            path: basePath,
+            message: 'Published port mappings must use SERVICE_PORT_* variables (compose-only templates)',
+        });
+    }
+
+    for (const name of portVars) {
+        if (name.startsWith('SERVICE_PORT_')) {
+            continue;
+        }
+
+        if (/PORT/i.test(name)) {
+            issues.push({
+                path: `${basePath}.${name}`,
+                message: `Host port variable "${name}" must use the SERVICE_PORT_* prefix`,
+            });
+        }
+    }
+}
+
+function schemaPortsDeclaredInCompose(context: TemplateComposeFileContext): boolean {
+    const schemaPortKeys = context.portSchemaKeys ?? [];
+
+    return (
+        context.hasTemplateConfig &&
+        schemaPortKeys.length > 0 &&
+        schemaPortKeys.every(
+            (portKey) =>
+                context.composeYaml.includes(`\${${portKey}`) || context.composeYaml.includes(`$${portKey}`),
+        )
+    );
+}
+
+/**
+ * Ensures the template exposes at least one reachable endpoint across its services.
+ */
+function validateTemplateHasExposedEndpoint(
+    services: Record<string, Record<string, unknown>>,
+    context: TemplateComposeFileContext,
+    issues: TemplateValidationIssue[],
+): void {
+    const anyServiceExposes = Object.values(services).some((service) => serviceExposesHostEndpoint(service));
+
+    if (!anyServiceExposes && !schemaPortsDeclaredInCompose(context)) {
+        issues.push({
+            path: 'services',
+            message:
+                'Template must expose at least one host port (SERVICE_PORT_* or port_schema) or Traefik routing on a service',
+        });
     }
 }
 
@@ -369,59 +502,23 @@ function validateLoggingLimits(
     }
 }
 
-function validatePortRules(
+function validateSchemaPortKeysInCompose(
     context: TemplateComposeFileContext,
-    parsed: Record<string, unknown>,
     issues: TemplateValidationIssue[],
 ): void {
-    const services = parsed.services as Record<string, Record<string, unknown>>;
-    const composePortVars = listComposePortVariables(context.composeYaml);
-    const hasTraefikLabels = Object.values(services).some((service) => hasTraefikRouting(service));
-    const schemaPortKeys = context.portSchemaKeys ?? [];
-    const schemaPortsDeclared =
-        context.hasTemplateConfig &&
-        schemaPortKeys.length > 0 &&
-        schemaPortKeys.every(
-            (portKey) =>
-                context.composeYaml.includes(`\${${portKey}`) || context.composeYaml.includes(`$${portKey}`),
-        );
-
-    if (composePortVars.length === 0 && !hasTraefikLabels && !schemaPortsDeclared) {
-        issues.push({
-            path: 'services',
-            message:
-                'Template must expose at least one SERVICE_PORT_* host mapping or define Traefik routing labels',
-        });
-    }
-
-    if (context.hasTemplateConfig && schemaPortKeys.length > 0) {
-        for (const portKey of schemaPortKeys) {
-            if (!context.composeYaml.includes(`\${${portKey}`) && !context.composeYaml.includes(`$${portKey}`)) {
-                issues.push({
-                    path: `port_schema.${portKey}`,
-                    message: `port_schema key "${portKey}" must appear as a placeholder in docker-compose.yml`,
-                });
-            }
-        }
+    if (!context.hasTemplateConfig) {
         return;
     }
 
-    for (const portVar of composePortVars) {
-        if (!portVar.startsWith('SERVICE_PORT_')) {
+    const schemaPortKeys = context.portSchemaKeys ?? [];
+
+    for (const portKey of schemaPortKeys) {
+        if (!context.composeYaml.includes(`\${${portKey}`) && !context.composeYaml.includes(`$${portKey}`)) {
             issues.push({
-                path: `ports.${portVar}`,
-                message: `Host port variable "${portVar}" must use the SERVICE_PORT_* prefix for compose-only templates`,
+                path: `port_schema.${portKey}`,
+                message: `port_schema key "${portKey}" must appear as a placeholder in docker-compose.yml`,
             });
         }
-    }
-
-    const legacyPortPattern = /['"]?\$\{(?!SERVICE_PORT_)[A-Z0-9_]*PORT[A-Z0-9_]*\}/g;
-    if (!context.hasTemplateConfig && legacyPortPattern.test(context.composeYaml)) {
-        issues.push({
-            path: 'ports',
-            message:
-                'Compose-only templates must not use non-standard port env names; use SERVICE_PORT_<SERVICE> instead',
-        });
     }
 }
 
