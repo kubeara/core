@@ -18,9 +18,7 @@ interface SeedTemplate {
   is_active: boolean;
 }
 
-export async function seedTemplates(
-  queryRunner: QueryRunner,
-) {
+export async function seedTemplates(queryRunner: QueryRunner) {
   const generatedTemplatesDir = path.join(
     process.cwd(),
     "apps",
