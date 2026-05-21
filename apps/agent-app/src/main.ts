@@ -1,71 +1,85 @@
-import * as path from 'path';
-import * as fs from 'fs';
-import * as dotenv from 'dotenv';
-import { NestFactory } from '@nestjs/core';
-import { ConfigService } from '@nestjs/config';
-import { AppModule } from './app.module';
+import * as fs from "fs";
+import * as path from "path";
+import * as dotenv from "dotenv";
+import { NestFactory } from "@nestjs/core";
+import { ConfigService } from "@nestjs/config";
 
-/**
- * Validates required environment files and keys before bootstrapping the agent app.
- * @throws Error when environment file placement or required keys are invalid.
- */
+import { AppModule } from "./app.module";
+
+const ROOT_DIR = process.cwd();
+
+const ROOT_ENV_PATH = path.join(ROOT_DIR, ".env");
+
+const AGENT_ENV_PATH = path.join(ROOT_DIR, "apps/agent-app/.env");
+
 function validateEnv(): void {
-    try {
-        const rootDirectory = process.cwd();
-        const rootEnvPath = path.join(rootDirectory, '.env');
+  /**
+   * Prevent accidental shared root env usage
+   */
+  if (fs.existsSync(ROOT_ENV_PATH)) {
+    throw new Error(
+      [
+        "",
+        "========================================================================",
+        `[FATAL] Root .env file detected at: ${ROOT_ENV_PATH}`,
+        "Root level env files are not allowed.",
+        "Use only isolated application env files:",
+        "  - apps/control-panel-app/.env",
+        "  - apps/agent-app/.env",
+        "========================================================================",
+        "",
+      ].join("\n"),
+    );
+  }
 
-        // Prevent accidental use of root .env
-        if (fs.existsSync(rootEnvPath) && fs.existsSync(path.join(rootDirectory, 'apps')) && fs.existsSync(path.join(rootDirectory, 'package.json'))) {
-            throw new Error(
-                `\n========================================================================\n` +
-                `[FATAL] Accidental root .env file detected at: ${rootEnvPath}\n` +
-                `To ensure secure isolation and prevent env leakage, you must delete the root .env file\n` +
-                `and use app-specific env files inside the respective application folders:\n` +
-                `  - Control Panel: apps/control-panel-app/.env\n` +
-                `  - Agent:         apps/agent-app/.env\n` +
-                `========================================================================\n`
-            );
-        }
+  /**
+   * Ensure agent env exists
+   */
+  if (!fs.existsSync(AGENT_ENV_PATH)) {
+    throw new Error(
+      [
+        "",
+        "========================================================================",
+        `[FATAL] Missing env file: ${AGENT_ENV_PATH}`,
+        "Please create the agent env file before starting the application.",
+        "========================================================================",
+        "",
+      ].join("\n"),
+    );
+  }
 
-        let applicationEnvPath = path.join(rootDirectory, 'apps/agent-app/.env');
-        if (!fs.existsSync(applicationEnvPath)) {
-            if (fs.existsSync(path.join(rootDirectory, '.env')) && !fs.existsSync(path.join(rootDirectory, 'apps'))) {
-                applicationEnvPath = path.join(rootDirectory, '.env');
-            }
-        }
+  /**
+   * Load agent specific env variables
+   */
+  dotenv.config({
+    path: AGENT_ENV_PATH,
+  });
 
-        const isDockerRuntime = process.env.NODE_ENV === 'production' || process.env.CONTROL_PANEL_URL === 'http://control-panel-app:3000';
+  /**
+   * Validate required env keys
+   */
+  const requiredKeys = [
+    "PORT",
+    "CONTROL_PANEL_URL",
+    "ENCRYPTION_SECRET",
+  ] as const;
 
-        if (!isDockerRuntime && !fs.existsSync(applicationEnvPath)) {
-            throw new Error(
-                `\n========================================================================\n` +
-                `[FATAL] Required env file is missing at: ${applicationEnvPath}\n` +
-                `Please copy apps/agent-app/.env.example to apps/agent-app/.env\n` +
-                `and set the necessary configuration values.\n` +
-                `========================================================================\n`
-            );
-        }
+  const missingKeys = requiredKeys.filter((key) => !process.env[key]);
 
-        // Load the app-specific environment variables
-        if (fs.existsSync(applicationEnvPath)) {
-            dotenv.config({ path: applicationEnvPath });
-        }
-
-        // Validate required env keys
-        const requiredKeys = ['PORT', 'CONTROL_PANEL_URL', 'ENCRYPTION_SECRET'];
-        const missingKeys = requiredKeys.filter((key) => !process.env[key]);
-        if (missingKeys.length > 0) {
-            throw new Error(
-                `\n========================================================================\n` +
-                `[FATAL] Missing required environment variables in apps/agent-app/.env:\n` +
-                `  ${missingKeys.join(', ')}\n` +
-                `Please ensure these are defined in your env file.\n` +
-                `========================================================================\n`
-            );
-        }
-    } catch (error) {
-        throw new Error(`Agent environment validation failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
+  if (missingKeys.length > 0) {
+    throw new Error(
+      [
+        "",
+        "========================================================================",
+        "[FATAL] Missing required environment variables:",
+        ...missingKeys.map((key) => `  - ${key}`),
+        "Please define all required variables in:",
+        `  ${AGENT_ENV_PATH}`,
+        "========================================================================",
+        "",
+      ].join("\n"),
+    );
+  }
 }
 
 /**
@@ -73,20 +87,27 @@ function validateEnv(): void {
  * @returns Promise resolved once server starts listening.
  */
 async function bootstrap(): Promise<void> {
-    try {
-        validateEnv();
+  try {
+    validateEnv();
 
-        const app = await NestFactory.create(AppModule);
-        const configService = app.get(ConfigService);
-        const port = Number(configService.get<string>('PORT', '3001'));
+    const app = await NestFactory.create(AppModule);
 
-        await app.listen(port);
+    const configService = app.get(ConfigService);
 
-        console.log(`[Agent App] Server running on port ${port}`);
-    } catch (error) {
-        console.error(`[Agent App] Bootstrap failed: ${error instanceof Error ? error.message : String(error)}`);
-        throw error;
-    }
+    const port = Number(configService.get<string>("PORT"));
+
+    await app.listen(port);
+
+    console.log(`[Agent App] Server running on port ${port}`);
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.stack || err.message : String(err);
+
+    console.error("[Agent App] Failed to bootstrap application");
+    console.error(message);
+
+    process.exit(1);
+  }
 }
 
 void bootstrap();

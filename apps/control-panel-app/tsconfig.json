@@ -1,13 +1,21 @@
 {
   "extends": "../../tsconfig.json",
+
   "compilerOptions": {
     "outDir": "../../dist/apps/control-panel-app",
     "rootDir": "../../"
   },
+
   "include": [
     "src/**/*",
-    "../../libs/**/*"
+    "../../libs/**/*",
+    "config",
+    "migrations",
+    "seeders",
+    "scripts",
+    "config"
   ],
+
   "exclude": [
     "../../apps/agent-app/**/*",
     "../../libs/**/*.spec.ts",

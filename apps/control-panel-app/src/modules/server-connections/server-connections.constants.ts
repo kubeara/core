@@ -1,0 +1,8 @@
+export const DEFAULT_SSH_PORT = 22;
+export const SERVER_NAME_MAXLength = 120;
+export const SERVER_NAME_MAX_LENGTH = 120;
+export const SERVER_HOST_MAX_LENGTH = 255;
+export const SERVER_REGION_MAX_LENGTH = 120;
+export const SERVER_OPERATING_SYSTEM_MAX_LENGTH = 120;
+export const SSH_USERNAME_MAX_LENGTH = 120;
+export const SSH_FINGERPRINT_MAX_LENGTH = 160;

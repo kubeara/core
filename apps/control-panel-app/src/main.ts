@@ -1,97 +1,158 @@
-import * as path from 'path';
-import * as fs from 'fs';
-import * as dotenv from 'dotenv';
-import { NestFactory } from '@nestjs/core';
-import { ConfigService } from '@nestjs/config';
-import { AppModule } from './app.module';
+import * as fs from "fs";
+import * as path from "path";
+import * as dotenv from "dotenv";
 
-/**
- * Validates control-panel environment files and required runtime keys.
- * @throws Error when env file strategy or required keys are invalid.
- */
-function validateEnv(): void {
-    try {
-        const rootDirectory = process.cwd();
-        const rootEnvPath = path.join(rootDirectory, '.env');
+import { NestFactory } from "@nestjs/core";
+import { ConfigService } from "@nestjs/config";
+import { ValidationPipe } from "@nestjs/common";
 
-        // Prevent accidental use of root .env
-        if (fs.existsSync(rootEnvPath) && fs.existsSync(path.join(rootDirectory, 'apps')) && fs.existsSync(path.join(rootDirectory, 'package.json'))) {
-            throw new Error(
-                `\n========================================================================\n` +
-                `[FATAL] Accidental root .env file detected at: ${rootEnvPath}\n` +
-                `To ensure secure isolation and prevent env leakage, you must delete the root .env file\n` +
-                `and use app-specific env files inside the respective application folders:\n` +
-                `  - Control Panel: apps/control-panel-app/.env\n` +
-                `  - Agent:         apps/agent-app/.env\n` +
-                `========================================================================\n`
-            );
-        }
+import { AppModule } from "./app.module";
 
-        let appEnvPath = path.join(rootDirectory, 'apps/control-panel-app/.env');
-        if (!fs.existsSync(appEnvPath)) {
-            if (fs.existsSync(path.join(rootDirectory, '.env')) && !fs.existsSync(path.join(rootDirectory, 'apps'))) {
-                appEnvPath = path.join(rootDirectory, '.env');
-            }
-        }
+const APP_NAME = "control-panel-app";
 
-        const isDockerRuntime = process.env.NODE_ENV === 'production' || process.env.DB_HOST === 'postgres';
+const REQUIRED_ENV_KEYS: string[] = [
+  "PORT",
+  "DB_HOST",
+  "DB_PORT",
+  "DB_USERNAME",
+  "DB_PASSWORD",
+  "DB_DATABASE",
+  "ENCRYPTION_SECRET",
+];
 
-        if (!isDockerRuntime && !fs.existsSync(appEnvPath)) {
-            throw new Error(
-                `\n========================================================================\n` +
-                `[FATAL] Required env file is missing at: ${appEnvPath}\n` +
-                `Please copy apps/control-panel-app/.env.example to apps/control-panel-app/.env\n` +
-                `and set the necessary configuration values.\n` +
-                `========================================================================\n`
-            );
-        }
-
-        // Load the app-specific environment variables
-        if (fs.existsSync(appEnvPath)) {
-            dotenv.config({ path: appEnvPath });
-        }
-
-        // Validate required env keys
-        const requiredKeys = ['DB_HOST', 'DB_PORT', 'DB_USERNAME', 'DB_PASSWORD', 'DB_DATABASE', 'PORT', 'ENCRYPTION_SECRET'];
-        const missingKeys = requiredKeys.filter((key) => !process.env[key]);
-        if (missingKeys.length > 0) {
-            throw new Error(
-                `\n========================================================================\n` +
-                `[FATAL] Missing required environment variables in apps/control-panel-app/.env:\n` +
-                `  ${missingKeys.join(', ')}\n` +
-                `Please ensure these are defined in your env file.\n` +
-                `========================================================================\n`
-            );
-        }
-    } catch (error) {
-        throw new Error(`Control-panel environment validation failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
+function getRootDirectory(): string {
+  return process.cwd();
 }
 
-/**
- * Bootstraps control-panel Nest app and enables CORS for agent websocket communication.
- * @returns Promise resolved once server starts listening.
- */
-async function bootstrap(): Promise<void> {
-    try {
-        validateEnv();
+function getAppEnvPath(rootDir: string): string {
+  return path.join(rootDir, "apps", APP_NAME, ".env");
+}
 
-        const app = await NestFactory.create(AppModule);
-        const configService = app.get(ConfigService);
-        const port = Number(configService.get<string>('PORT', '3000'));
+function validateRootEnvIsolation(rootDir: string): void {
+  const rootEnvPath = path.join(rootDir, ".env");
 
-        // Enable CORS for websocket communication with agent
-        app.enableCors({
-            origin: '*',
-        });
+  const isMonorepo =
+    fs.existsSync(path.join(rootDir, "apps")) &&
+    fs.existsSync(path.join(rootDir, "package.json"));
 
-        await app.listen(port);
+  if (!isMonorepo) {
+    return;
+  }
 
-        console.log(`[Control Panel App] Server running on port ${port}`);
-    } catch (error) {
-        console.error(`[Control Panel App] Bootstrap failed: ${error instanceof Error ? error.message : String(error)}`);
-        throw error;
+  if (fs.existsSync(rootEnvPath)) {
+    throw new Error(
+      [
+        "",
+        "========================================================================",
+        `[FATAL] Root .env file detected: ${rootEnvPath}`,
+        "",
+        "Root-level environment files are not allowed in this monorepo.",
+        "Each application must use its own isolated environment file.",
+        "",
+        "Required locations:",
+        "  - apps/control-panel-app/.env",
+        "  - apps/agent-app/.env",
+        "========================================================================",
+        "",
+      ].join("\n"),
+    );
+  }
+}
+
+function loadEnvironmentFile(envPath: string): void {
+  const isDockerEnvironment =
+    process.env.NODE_ENV === "production" || process.env.DOCKER_ENV === "true";
+
+  if (!fs.existsSync(envPath)) {
+    if (isDockerEnvironment) {
+      return;
     }
+
+    throw new Error(
+      [
+        "",
+        "========================================================================",
+        `[FATAL] Environment file not found: ${envPath}`,
+        "",
+        "Create the environment file before starting the application.",
+        "",
+        "Example:",
+        `  cp apps/${APP_NAME}/.env.example apps/${APP_NAME}/.env`,
+        "========================================================================",
+        "",
+      ].join("\n"),
+    );
+  }
+
+  dotenv.config({
+    path: envPath,
+  });
+}
+
+function validateRequiredEnvironmentVariables(): void {
+  const missingKeys = REQUIRED_ENV_KEYS.filter(
+    (key: string) =>
+      process.env[key] === undefined ||
+      process.env[key] === null ||
+      process.env[key]?.trim() === "",
+  );
+
+  if (missingKeys.length === 0) {
+    return;
+  }
+
+  throw new Error(
+    [
+      "",
+      "========================================================================",
+      "[FATAL] Missing required environment variables",
+      "",
+      ...missingKeys.map((key: string) => `  - ${key}`),
+      "",
+      `Please update apps/${APP_NAME}/.env`,
+      "========================================================================",
+      "",
+    ].join("\n"),
+  );
+}
+
+function initializeEnvironment(): void {
+  const rootDir = getRootDirectory();
+
+  validateRootEnvIsolation(rootDir);
+
+  const envPath = getAppEnvPath(rootDir);
+
+  loadEnvironmentFile(envPath);
+
+  validateRequiredEnvironmentVariables();
+}
+
+async function bootstrap(): Promise<void> {
+  initializeEnvironment();
+
+  const app = await NestFactory.create(AppModule);
+
+  const configService = app.get(ConfigService);
+
+  const port = Number(configService.get<string>("PORT"));
+
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+
+  await app.listen(port);
+
+  console.log(`[${APP_NAME}] Server running on port ${port}`);
 }
 
 void bootstrap();
