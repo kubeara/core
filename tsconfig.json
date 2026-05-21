@@ -6,7 +6,7 @@
 
     "ignoreDeprecations": "6.0",
 
-    "types": ["node"],
+    "types": ["node", "jest"],
 
     "baseUrl": ".",
     "paths": {

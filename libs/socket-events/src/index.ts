@@ -1,1 +1,1 @@
-export * from './deployment.events';
+export * from "./deployment.events";

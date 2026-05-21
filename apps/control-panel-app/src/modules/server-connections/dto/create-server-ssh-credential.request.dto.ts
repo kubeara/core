@@ -1,5 +1,11 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, ValidateIf } from 'class-validator';
-import { ServerSshAuthType } from '../enums/server-ssh-auth-type.enum';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  ValidateIf,
+} from "class-validator";
+import { ServerSshAuthType } from "../enums/server-ssh-auth-type.enum";
 
 /**
  * Incoming request DTO for adding SSH credentials.
@@ -7,23 +13,30 @@ import { ServerSshAuthType } from '../enums/server-ssh-auth-type.enum';
  * will be encrypted before persisting to the database.
  */
 export class CreateServerSshCredentialRequestDto {
-    @IsEnum(ServerSshAuthType)
-    authType!: ServerSshAuthType;
+  @IsEnum(ServerSshAuthType)
+  authType!: ServerSshAuthType;
 
-    @IsString()
-    @IsNotEmpty()
-    username!: string;
+  @IsString()
+  @IsNotEmpty()
+  username!: string;
 
-    @ValidateIf((dto: CreateServerSshCredentialRequestDto) => dto.authType === ServerSshAuthType.PASSWORD)
-    @IsString()
-    @IsNotEmpty()
-    password?: string;
+  @ValidateIf(
+    (dto: CreateServerSshCredentialRequestDto) =>
+      dto.authType === ServerSshAuthType.PASSWORD,
+  )
+  @IsString()
+  @IsNotEmpty()
+  password?: string;
 
-    @IsOptional()
-    @IsString()
-    privateKey?: string;
+  @IsOptional()
+  @IsString()
+  privateKey?: string;
 
-    @IsOptional()
-    @IsString()
-    privateKeyPassphrase?: string;
+  @IsOptional()
+  @IsString()
+  privateKeyPassphrase?: string;
+
+  @IsOptional()
+  @IsString()
+  sshFingerprint?: string;
 }

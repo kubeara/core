@@ -1,41 +1,55 @@
-import { IsEnum, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, ValidateIf } from 'class-validator';
-import { EntityStatus } from '../../../common/entity/base.entity';
-import { ServerSshAuthType } from '../enums/server-ssh-auth-type.enum';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  ValidateIf,
+} from "class-validator";
+import { EntityStatus } from "../../../common/entity/base.entity";
+import { ServerSshAuthType } from "../enums/server-ssh-auth-type.enum";
 
 export class CreateServerSshCredentialDto {
-    @IsUUID()
-    serverId!: string;
+  @IsUUID()
+  serverId!: string;
 
-    @IsEnum(ServerSshAuthType)
-    authType!: ServerSshAuthType;
+  @IsEnum(ServerSshAuthType)
+  authType!: ServerSshAuthType;
 
-    @IsString()
-    @IsNotEmpty()
-    username!: string;
+  @IsString()
+  @IsNotEmpty()
+  username!: string;
 
-    @ValidateIf((dto: CreateServerSshCredentialDto) => dto.authType === ServerSshAuthType.PRIVATE_KEY)
-    @IsString()
-    @IsNotEmpty()
-    encryptedPrivateKey?: string;
+  @ValidateIf(
+    (dto: CreateServerSshCredentialDto) =>
+      dto.authType === ServerSshAuthType.PRIVATE_KEY,
+  )
+  @IsString()
+  @IsNotEmpty()
+  encryptedPrivateKey?: string;
 
-    @IsOptional()
-    @IsString()
-    privateKeyPassphrase?: string;
+  @IsOptional()
+  @IsString()
+  privateKeyPassphrase?: string;
 
-    @ValidateIf((dto: CreateServerSshCredentialDto) => dto.authType === ServerSshAuthType.PASSWORD)
-    @IsString()
-    @IsNotEmpty()
-    encryptedPassword?: string;
+  @ValidateIf(
+    (dto: CreateServerSshCredentialDto) =>
+      dto.authType === ServerSshAuthType.PASSWORD,
+  )
+  @IsString()
+  @IsNotEmpty()
+  encryptedPassword?: string;
 
-    @IsOptional()
-    @IsString()
-    sshFingerprint?: string;
+  @IsOptional()
+  @IsString()
+  sshFingerprint?: string;
 
-    @IsOptional()
-    @IsEnum(EntityStatus)
-    status?: EntityStatus;
+  @IsOptional()
+  @IsEnum(EntityStatus)
+  status?: EntityStatus;
 
-    @IsOptional()
-    @IsObject()
-    metadata?: Record<string, unknown>;
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>;
 }

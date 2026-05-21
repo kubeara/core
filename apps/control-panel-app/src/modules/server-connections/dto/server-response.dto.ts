@@ -1,20 +1,20 @@
-import { EntityStatus } from '../../../common/entity/base.entity';
-import { ServerProvider } from '../enums/server-provider.enum';
-import { ServerType } from '../enums/server-type.enum';
+import { EntityStatus } from "../../../common/entity/base.entity";
+import { ServerProvider } from "../enums/server-provider.enum";
+import { ServerType } from "../enums/server-type.enum";
 
 export interface ServerResponseDto {
-    id: string;
-    status: EntityStatus;
-    metadata: Record<string, unknown> | null;
-    name: string;
-    host: string;
-    port: number;
-    provider: ServerProvider;
-    region: string | null;
-    operatingSystem: string | null;
-    serverType: ServerType;
-    lastConnectedAt: number | null;
-    createdAt: number;
-    updatedAt: number;
-    deletedAt: number | null;
+  id: string;
+  status: EntityStatus;
+  metadata: Record<string, unknown> | null;
+  name: string;
+  host: string;
+  port: number;
+  provider: ServerProvider;
+  region: string | null;
+  operatingSystem: string | null;
+  serverType: ServerType;
+  lastConnectedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+  deletedAt: number | null;
 }
