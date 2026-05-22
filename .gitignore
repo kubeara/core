@@ -20,6 +20,8 @@ lerna-debug.log*
 *.env
 *.env.*
 !*.env.example
+!.env.agent.example
+!.env.control-panel.example
 
 # Runtime assets and deployments
 generated-templates/
