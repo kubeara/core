@@ -48,8 +48,8 @@ The agent container mounts `/var/run/docker.sock` so it can run `docker compose`
 ## Pull images manually
 
 ```bash
-docker pull your-dockerhub-username/control-panel-app:latest
-docker pull your-dockerhub-username/agent-app:latest
+docker pull kubeara/control-panel-app:latest
+docker pull kubeara/agent-app:latest
 ```
 
 ## Environment
