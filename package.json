@@ -19,6 +19,7 @@
     "start:agent-app:prod": "node dist/apps/agent-app/src/main",
     "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\" \"test/**/*.ts\"",
     "lint": "eslint \"{apps,libs,test}/**/*.ts\" --fix",
+    "lint:ci": "eslint \"{apps,libs,test}/**/*.ts\" --max-warnings 0",
     "test": "jest",
     "test:templates": "jest --testPathPatterns=template-compose",
     "seed:templates": "ts-node apps/control-panel-app/src/database/seeders/seed-from-templates.ts",
@@ -32,12 +33,11 @@
     "migration:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d apps/control-panel-app/config/typeorm.config.ts",
     "migration:run:dist": "node ./node_modules/typeorm/cli.js migration:run -d dist/apps/control-panel-app/config/typeorm.config.js",
     "migration:revert:dist": "node ./node_modules/typeorm/cli.js migration:revert -d dist/apps/control-panel-app/config/typeorm.config.js",
-    "docker:build": "docker-compose build",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f",
-    "docker:build:control-panel": "docker build -f apps/control-panel-app/Dockerfile -t control-panel-app:latest .",
-    "docker:build:agent": "docker build -f apps/agent-app/Dockerfile -t agent-app:latest .",
+    "docker:build:control-panel": "docker compose -f apps/control-panel-app/docker-compose.yml build",
+    "docker:build:agent": "docker compose -f apps/agent-app/docker-compose.yml build",
+    "docker:build": "npm run docker:build:control-panel && npm run docker:build:agent",
+    "docker:up:control-panel": "docker compose -f apps/control-panel-app/docker-compose.yml up -d",
+    "docker:up:agent": "docker compose -f apps/agent-app/docker-compose.yml up -d",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -112,7 +112,7 @@
     "rootDir": ".",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": [
+      "^.+\\.ts$": [
         "ts-jest",
         {
           "tsconfig": {
@@ -127,16 +127,6 @@
     ],
     "coverageDirectory": "./coverage",
     "testEnvironment": "node",
-    "globals": {
-      "ts-jest": {
-        "tsconfig": {
-          "types": [
-            "jest",
-            "node"
-          ]
-        }
-      }
-    },
     "roots": [
       "<rootDir>/apps/",
       "<rootDir>/libs/"

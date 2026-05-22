@@ -2,17 +2,26 @@ version: '3.8'
 
 services:
   agent-app:
+    image: agent:latest
     build:
       context: ../..
       dockerfile: apps/agent-app/Dockerfile
+      args:
+        NODE_VERSION: "24.15.0"
     container_name: agent-app
     ports:
       - "${PORT:-3001}:${PORT:-3001}"
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
       PORT: ${PORT:-3001}
-      CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:-http://localhost:3000}
+      # Control panel on host (run control-panel compose first)
+      CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:-http://host.docker.internal:3000}
       ENCRYPTION_SECRET: ${ENCRYPTION_SECRET}
+    volumes:
+      # Agent bootstrap expects this path inside the container
+      - ./.env:/app/apps/agent-app/.env:ro
     networks:
       - agent-network
     restart: unless-stopped
