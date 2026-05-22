@@ -9,6 +9,8 @@
 services:
   agent-app:
     image: ${KUBEARA_AGENT_IMAGE}
+    # Use amd64 on Apple Silicon until multi-arch Hub images exist; remove to auto-select arch.
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: kubeara-agent
     ports:
       - "${AGENT_PORT:-3001}:3001"

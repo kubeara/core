@@ -23,8 +23,13 @@ cd deploy
 cp .env.control-panel.example .env.control-panel
 # Edit: KUBEARA_CONTROL_PANEL_IMAGE, ENCRYPTION_SECRET, DB_*
 
-docker compose --env-file .env.control-panel pull
 docker compose --env-file .env.control-panel up -d
+```
+
+Pulls images from Docker Hub automatically if they are not on the machine. To force the latest tag from Hub:
+
+```bash
+docker compose --env-file .env.control-panel up -d --pull always
 ```
 
 Open http://localhost:3000
@@ -39,8 +44,21 @@ cp .env.agent.example .env.agent
 # Edit: KUBEARA_AGENT_IMAGE, ENCRYPTION_SECRET (same as control panel),
 #       CONTROL_PANEL_URL (e.g. http://host.docker.internal:3000)
 
-docker compose -f docker-compose.agent.yml --env-file .env.agent pull
 docker compose -f docker-compose.agent.yml --env-file .env.agent up -d
+```
+
+Use `--pull always` to refresh `kubeara/agent-app:latest` from Docker Hub before starting.
+
+## Apple Silicon (M1/M2/M3) — `no matching manifest for linux/arm64`
+
+Hub images built on GitHub Actions were **amd64-only**. Macs need **arm64** (or amd64 via emulation).
+
+**Right now:** compose defaults to `platform: linux/amd64` (runs under emulation on Mac).
+
+**After the next push to `main`:** CI publishes **multi-arch** (`amd64` + `arm64`). Pull again, then remove `platform` from compose or set in `.env.agent`:
+
+```bash
+DOCKER_PLATFORM=linux/arm64
 ```
 
 The agent container mounts `/var/run/docker.sock` so it can run `docker compose` on the **host** for template deployments. The host must have Docker installed.
