@@ -57,7 +57,7 @@ export class ServerConnectionsService {
   ): Promise<OnboardResponseDto> {
     await this.assertServerNotDuplicate({
       host: input.server.host,
-      username: input.server.username
+      username: input.server.username,
     });
 
     const logs: string[] = [];

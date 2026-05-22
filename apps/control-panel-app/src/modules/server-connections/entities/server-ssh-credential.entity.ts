@@ -1,16 +1,8 @@
-import {
-  IsEnum,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  IsUUID,
-} from "class-validator";
+import { IsEnum, IsOptional, IsString, IsUUID } from "class-validator";
 import { Column, Entity, Index, JoinColumn, ManyToOne } from "typeorm";
 import { BaseEntity } from "../../../common/entity/base.entity";
 import { ServerSshAuthType } from "../enums/server-ssh-auth-type.enum";
-import {
-  SSH_FINGERPRINT_MAX_LENGTH,
-} from "../server-connections.constants";
+import { SSH_FINGERPRINT_MAX_LENGTH } from "../server-connections.constants";
 import { ServerEntity } from "./server.entity";
 
 @Entity({ name: "serverSshCredentials" })
