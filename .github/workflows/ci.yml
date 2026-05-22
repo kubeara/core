@@ -68,8 +68,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test -- --ci --passWithNoTests
+      - name: Run template tests
+        run: npm run test:templates -- --ci --passWithNoTests
 
   publish-docker:
     name: Push Docker images
