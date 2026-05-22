@@ -1,4 +1,10 @@
-import { MigrationInterface, QueryRunner, Table, TableIndex } from "typeorm";
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableIndex,
+  TableUnique,
+} from "typeorm";
 
 export class Server1779272785745 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -29,6 +35,12 @@ export class Server1779272785745 implements MigrationInterface {
             name: "port",
             type: "integer",
             default: 22,
+            isNullable: false,
+          },
+          {
+            name: "username",
+            type: "varchar",
+            length: "255",
             isNullable: false,
           },
           {
@@ -120,12 +132,25 @@ export class Server1779272785745 implements MigrationInterface {
         columnNames: ["status"],
       }),
     );
+
+    await queryRunner.createUniqueConstraint(
+      "servers",
+      new TableUnique({
+        name: "servers_host_username_unique",
+        columnNames: ["host", "username"],
+      }),
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.dropIndex("servers", "IDX_servers_status");
 
     await queryRunner.dropIndex("servers", "IDX_servers_host");
+
+    await queryRunner.dropUniqueConstraint(
+      "servers",
+      "servers_host_username_unique",
+    );
 
     await queryRunner.dropTable("servers");
 

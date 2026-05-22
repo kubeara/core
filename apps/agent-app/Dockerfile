@@ -25,4 +25,4 @@ COPY --from=builder /app/dist ./dist
 
 EXPOSE 3001
 
-CMD ["node", "dist/apps/agent-app/apps/agent-app/src/main.js"]
+CMD ["node", "dist/apps/agent-app/src/main.js"]

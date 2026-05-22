@@ -21,6 +21,7 @@ services:
       retries: 5
 
   control-panel-app:
+    image: control-panel-app:latest
     build:
       context: ../..
       dockerfile: apps/control-panel-app/Dockerfile
@@ -29,8 +30,11 @@ services:
     container_name: control-panel-app
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
+    env_file:
+      - .env
     environment:
       NODE_ENV: production
+      DOCKER_ENV: "true"
       PORT: ${PORT:-3000}
       DB_HOST: postgres
       DB_PORT: 5432

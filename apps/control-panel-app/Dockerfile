@@ -25,4 +25,4 @@ COPY --from=builder /app/dist ./dist
 
 EXPOSE 3000
 
-CMD ["node", "dist/apps/control-panel-app/apps/control-panel-app/src/main.js"]
+CMD ["node", "dist/apps/control-panel-app/src/main.js"]

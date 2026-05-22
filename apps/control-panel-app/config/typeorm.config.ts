@@ -24,7 +24,7 @@ export default new DataSource({
     path.join(
       __dirname,
       "..",
-      "..",
+      "src",
       "modules",
       "**",
       "entities",
