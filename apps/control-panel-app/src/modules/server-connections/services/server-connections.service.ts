@@ -1,15 +1,9 @@
-import { Injectable } from "@nestjs/common";
-import { DataSource } from "typeorm";
+import { ConflictException, Injectable } from "@nestjs/common";
+import { DataSource, Repository } from "typeorm";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
 import {
   CreateServerDto,
-  CreateServerSshCredentialDto,
   CreateServerSshCredentialRequestDto,
-  ServerResponseDto,
-  ServerSshCredentialResponseDto,
-  CreateServerWithCredentialsRequestDto,
-  CreateServerWithCredentialsResponseDto,
   CreateServerOnboardRequestDto,
   OnboardResponseDto,
 } from "../dto";
@@ -25,6 +19,11 @@ import {
 } from "@shared/ssh";
 import { DEFAULT_SSH_PORT } from "../server-connections.constants";
 
+export interface ExistingServerCheck {
+  host: string;
+  username: string;
+}
+
 @Injectable()
 export class ServerConnectionsService {
   constructor(
@@ -38,127 +37,14 @@ export class ServerConnectionsService {
     private readonly executor: SshCommandExecutorService,
   ) {}
 
-  async createServer(input: CreateServerDto): Promise<ServerResponseDto> {
-    const entity = this.serverRepository.create({
-      name: input.name,
-      host: input.host,
-      port: input.port ?? DEFAULT_SSH_PORT,
-      provider: input.provider,
-      region: input.region ?? null,
-      operatingSystem: input.operatingSystem ?? null,
-      serverType: input.serverType,
-      status: input.status,
-      metadata: input.metadata ?? null,
+  async assertServerNotDuplicate(input: ExistingServerCheck): Promise<void> {
+    const exists = await this.serverRepository.findOne({
+      where: { host: input.host, username: input.username },
     });
-
-    const saved = await this.serverRepository.save(entity);
-    return toServerResponse(saved);
-  }
-
-  /**
-   * Create a server and optionally attach SSH credentials within a single
-   * database transaction. Sensitive fields are encrypted before persisting.
-   */
-  async createServerWithCredentials(
-    input: CreateServerWithCredentialsRequestDto,
-  ): Promise<CreateServerWithCredentialsResponseDto> {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      const serverRepo = queryRunner.manager.getRepository(ServerEntity);
-      const credentialRepo = queryRunner.manager.getRepository(
-        ServerSshCredentialEntity,
+    if (exists) {
+      throw new ConflictException(
+        "Server with this host and username already exists",
       );
-
-      // Prepare and save server
-      const serverEntity = serverRepo.create({
-        name: input.name,
-        host: input.host,
-        port: input.port,
-        provider: input.provider,
-        region: input.region ?? null,
-        operatingSystem: input.operatingSystem ?? null,
-        serverType: input.serverType,
-        status: input.status,
-        metadata: input.metadata ?? null,
-      });
-
-      const savedServer = await serverRepo.save(serverEntity);
-
-      let savedCredential: ServerSshCredentialEntity | null = null;
-
-      if (input.credentials) {
-        const c: CreateServerSshCredentialRequestDto = input.credentials;
-
-        // Business rule validation (extra safety beyond DTO validators)
-        if (!c.username) throw new Error("username required for credentials");
-        if (c.authType === ServerSshAuthType.PASSWORD && !c.password) {
-          throw new Error("password required for authType PASSWORD");
-        }
-        if (c.authType === ServerSshAuthType.PRIVATE_KEY && !c.privateKey) {
-          throw new Error("privateKey required for authType PRIVATE_KEY");
-        }
-
-        // Encrypt sensitive fields before saving
-        let encryptedPassword: string | null = null;
-        let encryptedPrivateKey: string | null = null;
-        let encryptedPassphrase: string | null = null;
-
-        if (c.password) {
-          encryptedPassword = this.encryptionService.encrypt(c.password);
-        }
-
-        if (c.privateKey) {
-          encryptedPrivateKey = this.encryptionService.encrypt(c.privateKey);
-        }
-
-        if (c.privateKeyPassphrase) {
-          encryptedPassphrase = this.encryptionService.encrypt(
-            c.privateKeyPassphrase,
-          );
-        }
-
-        const credEntity = credentialRepo.create({
-          serverId: savedServer.id,
-          authType: c.authType,
-          username: c.username,
-          encryptedPrivateKey: encryptedPrivateKey ?? null,
-          privateKeyPassphrase: encryptedPassphrase ?? null,
-          encryptedPassword: encryptedPassword ?? null,
-          sshFingerprint: c.sshFingerprint ?? null,
-          status: undefined,
-          metadata: undefined,
-        });
-
-        savedCredential = await credentialRepo.save(credEntity);
-      }
-
-      await queryRunner.commitTransaction();
-
-      const response: CreateServerWithCredentialsResponseDto = {
-        server: {
-          id: savedServer.id,
-          name: savedServer.name,
-          host: savedServer.host,
-        },
-      };
-
-      if (savedCredential) {
-        response.credentials = {
-          id: savedCredential.id,
-          authType: savedCredential.authType,
-          username: savedCredential.username,
-        };
-      }
-
-      return response;
-    } catch (err) {
-      await queryRunner.rollbackTransaction();
-      throw err;
-    } finally {
-      await queryRunner.release();
     }
   }
 
@@ -169,6 +55,11 @@ export class ServerConnectionsService {
   async onboardServer(
     input: CreateServerOnboardRequestDto,
   ): Promise<OnboardResponseDto> {
+    await this.assertServerNotDuplicate({
+      host: input.server.host,
+      username: input.server.username
+    });
+
     const logs: string[] = [];
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -186,6 +77,7 @@ export class ServerConnectionsService {
         name: serverPayload.name,
         host: serverPayload.host,
         port: serverPayload.port ?? DEFAULT_SSH_PORT,
+        username: serverPayload.username,
         provider: serverPayload.provider ?? undefined,
         region: serverPayload.region ?? null,
         operatingSystem: serverPayload.operatingSystem ?? null,
@@ -204,35 +96,36 @@ export class ServerConnectionsService {
       // Debug: show full incoming ssh payload (for debugging only — avoid in production)
       console.log("ONBOARD SSH PAYLOAD:", {
         authType: ssh.authType,
-        username: ssh.username,
         hasPrivateKey: !!ssh.privateKey,
       });
       console.log("FULL SSH PAYLOAD:", ssh);
 
-      if (!ssh.username)
-        throw new Error("username required for ssh credentials");
-      if (ssh.authType === ServerSshAuthType.PASSWORD && !ssh.password)
+      if (ssh.authType === ServerSshAuthType.PASSWORD && !ssh.password) {
         throw new Error("password required for PASSWORD authType");
-      if (ssh.authType === ServerSshAuthType.PRIVATE_KEY && !ssh.privateKey)
+      }
+      if (ssh.authType === ServerSshAuthType.PRIVATE_KEY && !ssh.privateKey) {
         throw new Error("privateKey required for PRIVATE_KEY authType");
+      }
 
       let encryptedPassword: string | null = null;
       let encryptedPrivateKey: string | null = null;
       let encryptedPassphrase: string | null = null;
 
-      if (ssh.password)
+      if (ssh.password) {
         encryptedPassword = this.encryptionService.encrypt(ssh.password);
-      if (ssh.privateKey)
+      }
+      if (ssh.privateKey) {
         encryptedPrivateKey = this.encryptionService.encrypt(ssh.privateKey);
-      if (ssh.privateKeyPassphrase)
+      }
+      if (ssh.privateKeyPassphrase) {
         encryptedPassphrase = this.encryptionService.encrypt(
           ssh.privateKeyPassphrase,
         );
+      }
 
       const credEntity = credentialRepo.create({
         serverId: savedServer.id,
         authType: ssh.authType,
-        username: ssh.username,
         encryptedPrivateKey: encryptedPrivateKey ?? null,
         privateKeyPassphrase: encryptedPassphrase ?? null,
         encryptedPassword: encryptedPassword ?? null,
@@ -244,19 +137,16 @@ export class ServerConnectionsService {
       const savedCredential = await credentialRepo.save(credEntity);
       logs.push("SSH credentials created");
 
-      // STEP 4: test SSH connection with timeout of 10s using health.testConnection
       const testTimeoutMs = 10_000;
 
       const testPromise = this.health.testConnection({
         serverId: savedServer.id,
         host: savedServer.host,
         port: savedServer.port,
-        username: savedCredential.username,
+        username: savedServer.username,
         authType: savedCredential.authType,
         encryptedPassword: savedCredential.encryptedPassword ?? null,
         encryptedPrivateKey: savedCredential.encryptedPrivateKey ?? null,
-        // If an incoming raw privateKey was provided during onboarding, pass it through
-        // so that the connection manager receives the full secret directly.
         privateKey: ssh.privateKey ?? undefined,
         privateKeyPassphrase: savedCredential.privateKeyPassphrase ?? null,
       });
@@ -329,6 +219,16 @@ export class ServerConnectionsService {
         console.warn("rollback failed:", (rollbackErr as Error).message);
       }
       logs.push("Transaction rolled back");
+      if (
+        err &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: string }).code === "23505"
+      ) {
+        throw new ConflictException(
+          "Server with this host and port already exists",
+        );
+      }
       return {
         success: false,
         step: "SSH_TEST",
@@ -339,35 +239,6 @@ export class ServerConnectionsService {
     } finally {
       await queryRunner.release();
     }
-  }
-
-  async createSshCredential(
-    input: CreateServerSshCredentialDto,
-  ): Promise<ServerSshCredentialResponseDto> {
-    const entity = this.credentialRepository.create({
-      serverId: input.serverId,
-      authType: input.authType,
-      username: input.username,
-      encryptedPrivateKey: input.encryptedPrivateKey ?? null,
-      privateKeyPassphrase: input.privateKeyPassphrase ?? null,
-      encryptedPassword: input.encryptedPassword ?? null,
-      sshFingerprint: input.sshFingerprint ?? null,
-      status: input.status,
-      metadata: input.metadata ?? null,
-    });
-
-    const saved = await this.credentialRepository.save(entity);
-    return toCredentialResponse(saved);
-  }
-
-  async findServerCredentials(
-    serverId: string,
-  ): Promise<ServerSshCredentialResponseDto[]> {
-    const credentials = await this.credentialRepository.find({
-      where: { serverId },
-      order: { createdAt: "DESC" },
-    });
-    return credentials.map(toCredentialResponse);
   }
 
   // Controller-facing helpers moved into service so controllers remain thin
@@ -408,122 +279,12 @@ export class ServerConnectionsService {
       serverId: id,
       host: server.host,
       port: server.port,
-      username: credential.username,
+      username: server.username,
       authType: credential.authType,
       encryptedPassword: credential.encryptedPassword ?? null,
       encryptedPrivateKey: credential.encryptedPrivateKey ?? null,
       privateKeyPassphrase: credential.privateKeyPassphrase ?? null,
     });
-  }
-
-  async addCredentials(
-    id: string,
-    body: CreateServerSshCredentialRequestDto,
-  ): Promise<unknown> {
-    // Encrypt sensitive fields
-    let encryptedPassword: string | null = null;
-    let encryptedPrivateKey: string | null = null;
-    let encryptedPrivateKeyPassphrase: string | null = null;
-
-    try {
-      if (body.authType === ServerSshAuthType.PASSWORD && body.password) {
-        encryptedPassword = this.encryptionService.encrypt(body.password);
-      }
-
-      if (body.authType === ServerSshAuthType.PRIVATE_KEY && body.privateKey) {
-        encryptedPrivateKey = this.encryptionService.encrypt(body.privateKey);
-      }
-
-      if (body.privateKeyPassphrase) {
-        encryptedPrivateKeyPassphrase = this.encryptionService.encrypt(
-          body.privateKeyPassphrase,
-        );
-      }
-    } catch (err) {
-      return {
-        success: false,
-        message: "Encryption failed",
-        error: (err as Error).message,
-      };
-    }
-
-    const server = await this.serverRepository.findOne({ where: { id } });
-    if (!server) return { success: false, message: "Server not found" };
-
-    const existing = await this.credentialRepository.find({
-      where: { serverId: id },
-      order: { createdAt: "DESC" },
-    });
-    const createDto: CreateServerSshCredentialDto = {
-      serverId: id,
-      authType: body.authType,
-      username: body.username,
-      encryptedPrivateKey: encryptedPrivateKey ?? undefined,
-      privateKeyPassphrase: encryptedPrivateKeyPassphrase ?? undefined,
-      encryptedPassword: encryptedPassword ?? undefined,
-      sshFingerprint: body.sshFingerprint ?? undefined,
-      status: undefined,
-      metadata: undefined,
-    };
-
-    if (existing && existing.length > 0) {
-      const toUpdate: Partial<ServerSshCredentialEntity> = {
-        authType: createDto.authType,
-        username: createDto.username,
-        encryptedPrivateKey: createDto.encryptedPrivateKey,
-        privateKeyPassphrase: createDto.privateKeyPassphrase,
-        encryptedPassword: createDto.encryptedPassword,
-      };
-      const entity = existing[0];
-      Object.assign(entity, toUpdate);
-      await this.credentialRepository.save(entity);
-    } else {
-      const entity = this.credentialRepository.create(
-        createDto as Partial<ServerSshCredentialEntity>,
-      );
-      await this.credentialRepository.save(entity);
-    }
-
-    // Test SSH connection
-    try {
-      const result = await this.health.testConnection({
-        serverId: id,
-        host: server.host,
-        port: server.port,
-        username: body.username,
-        authType: body.authType,
-        encryptedPassword: encryptedPassword,
-        encryptedPrivateKey: encryptedPrivateKey,
-        // forward raw privateKey if provided so manager can use it immediately
-        privateKey: body.privateKey ?? undefined,
-        privateKeyPassphrase: encryptedPrivateKeyPassphrase,
-      });
-
-      if (result.success) {
-        return {
-          success: true,
-          message: "SSH connection established successfully",
-          serverId: id,
-          authType: body.authType,
-          connectionTest: {
-            latency: result.latency,
-            platform: result.platform,
-          },
-        };
-      }
-
-      return {
-        success: false,
-        message: "SSH authentication failed",
-        error: result.message,
-      };
-    } catch (err) {
-      return {
-        success: false,
-        message: "SSH authentication failed",
-        error: (err as Error).message,
-      };
-    }
   }
 
   async execute(
@@ -544,7 +305,7 @@ export class ServerConnectionsService {
       serverId: id,
       host: server.host,
       port: server.port,
-      username: credential.username,
+      username: server.username,
       authType: credential.authType,
       encryptedPassword: credential.encryptedPassword ?? null,
       encryptedPrivateKey: credential.encryptedPrivateKey ?? null,
@@ -582,40 +343,4 @@ export class ServerConnectionsService {
       return "HOST_UNREACHABLE";
     return "UNKNOWN_ERROR";
   }
-}
-
-function toServerResponse(entity: ServerEntity): ServerResponseDto {
-  return {
-    id: entity.id,
-    status: entity.status,
-    metadata: entity.metadata,
-    name: entity.name,
-    host: entity.host,
-    port: entity.port,
-    provider: entity.provider,
-    region: entity.region,
-    operatingSystem: entity.operatingSystem,
-    serverType: entity.serverType,
-    lastConnectedAt: entity.lastConnectedAt,
-    createdAt: entity.createdAt,
-    updatedAt: entity.updatedAt,
-    deletedAt: entity.deletedAt,
-  };
-}
-
-function toCredentialResponse(
-  entity: ServerSshCredentialEntity,
-): ServerSshCredentialResponseDto {
-  return {
-    id: entity.id,
-    serverId: entity.serverId,
-    status: entity.status,
-    metadata: entity.metadata,
-    authType: entity.authType,
-    username: entity.username,
-    sshFingerprint: entity.sshFingerprint,
-    createdAt: entity.createdAt,
-    updatedAt: entity.updatedAt,
-    deletedAt: entity.deletedAt,
-  };
 }

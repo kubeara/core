@@ -27,6 +27,10 @@ export class CreateServerDto {
   @Max(65535)
   port?: number;
 
+  @IsString()
+  @IsNotEmpty()
+  username!: string;
+
   @IsOptional()
   @IsEnum(ServerProvider)
   provider?: ServerProvider;

@@ -11,8 +11,8 @@ import {
 } from "typeorm";
 
 import { EnvironmentVariableEntity } from "./environment-variable.entity";
+import { ServiceTemplateEntity } from "../../templates/entities/service-template.entity";
 import type { DeploymentStatus } from "@shared/socket-events";
-import { ServiceTemplateEntity } from "@control-panel/modules/templates";
 
 @Entity("service_deployments")
 export class ServiceDeploymentEntity {
