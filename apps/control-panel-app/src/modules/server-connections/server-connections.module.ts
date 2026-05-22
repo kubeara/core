@@ -1,7 +1,6 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 
-import { ServerConnectionsController } from "./controllers/server-connections.controller";
 import { ServersController } from "./controllers/servers.controller";
 
 import { ServerEntity } from "./entities/server.entity";
@@ -15,7 +14,7 @@ import { SshModule } from "@shared/ssh";
     TypeOrmModule.forFeature([ServerEntity, ServerSshCredentialEntity]),
     SshModule,
   ],
-  controllers: [ServerConnectionsController, ServersController],
+  controllers: [ServersController],
   providers: [ServerConnectionsService],
   exports: [ServerConnectionsService],
 })

@@ -10,7 +10,7 @@ services:
     restart: unless-stopped
 
     ports:
-      - '${REDIS_PORT:-6379}:6379'
+      - '${SERVICE_PORT_REDIS:-6379}:6379'
 
     command: >
       sh -c "if [ -n \"$$REDIS_PASSWORD\" ]; then
@@ -18,7 +18,7 @@ services:
       else exec redis-server; fi"
 
     environment:
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      REDIS_PASSWORD: ${SERVICE_PASSWORD_REDIS}
 
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']

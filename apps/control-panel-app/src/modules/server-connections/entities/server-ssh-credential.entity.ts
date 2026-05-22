@@ -37,7 +37,6 @@ export class ServerSshCredentialEntity extends BaseEntity {
   @Column({
     type: "text",
     nullable: true,
-    select: false,
     comment:
       "Encrypted SSH private key material. Integrate with Vault/KMS before storing production secrets.",
   })
@@ -59,7 +58,6 @@ export class ServerSshCredentialEntity extends BaseEntity {
   @Column({
     type: "text",
     nullable: true,
-    select: false,
     comment: "Encrypted SSH password. Do not store plaintext passwords.",
   })
   encryptedPassword!: string | null;
