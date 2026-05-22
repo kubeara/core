@@ -112,7 +112,7 @@
     "rootDir": ".",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": [
+      "^.+\\.ts$": [
         "ts-jest",
         {
           "tsconfig": {
@@ -127,16 +127,6 @@
     ],
     "coverageDirectory": "./coverage",
     "testEnvironment": "node",
-    "globals": {
-      "ts-jest": {
-        "tsconfig": {
-          "types": [
-            "jest",
-            "node"
-          ]
-        }
-      }
-    },
     "roots": [
       "<rootDir>/apps/",
       "<rootDir>/libs/"
