@@ -21,7 +21,7 @@ import { DEFAULT_SSH_PORT } from "../server-connections.constants";
 
 export interface ExistingServerCheck {
   host: string;
-  port: number;
+  username: string;
 }
 
 @Injectable()
@@ -39,11 +39,11 @@ export class ServerConnectionsService {
 
   async assertServerNotDuplicate(input: ExistingServerCheck): Promise<void> {
     const exists = await this.serverRepository.findOne({
-      where: { host: input.host, port: input.port },
+      where: { host: input.host, username: input.username },
     });
     if (exists) {
       throw new ConflictException(
-        "Server with this host and port already exists",
+        "Server with this host and username already exists",
       );
     }
   }
@@ -57,7 +57,7 @@ export class ServerConnectionsService {
   ): Promise<OnboardResponseDto> {
     await this.assertServerNotDuplicate({
       host: input.server.host,
-      port: input.server.port ?? DEFAULT_SSH_PORT,
+      username: input.server.username
     });
 
     const logs: string[] = [];
@@ -77,6 +77,7 @@ export class ServerConnectionsService {
         name: serverPayload.name,
         host: serverPayload.host,
         port: serverPayload.port ?? DEFAULT_SSH_PORT,
+        username: serverPayload.username,
         provider: serverPayload.provider ?? undefined,
         region: serverPayload.region ?? null,
         operatingSystem: serverPayload.operatingSystem ?? null,
@@ -95,14 +96,10 @@ export class ServerConnectionsService {
       // Debug: show full incoming ssh payload (for debugging only — avoid in production)
       console.log("ONBOARD SSH PAYLOAD:", {
         authType: ssh.authType,
-        username: ssh.username,
         hasPrivateKey: !!ssh.privateKey,
       });
       console.log("FULL SSH PAYLOAD:", ssh);
 
-      if (!ssh.username) {
-        throw new Error("username required for ssh credentials");
-      }
       if (ssh.authType === ServerSshAuthType.PASSWORD && !ssh.password) {
         throw new Error("password required for PASSWORD authType");
       }
@@ -129,7 +126,6 @@ export class ServerConnectionsService {
       const credEntity = credentialRepo.create({
         serverId: savedServer.id,
         authType: ssh.authType,
-        username: ssh.username,
         encryptedPrivateKey: encryptedPrivateKey ?? null,
         privateKeyPassphrase: encryptedPassphrase ?? null,
         encryptedPassword: encryptedPassword ?? null,
@@ -147,7 +143,7 @@ export class ServerConnectionsService {
         serverId: savedServer.id,
         host: savedServer.host,
         port: savedServer.port,
-        username: savedCredential.username,
+        username: savedServer.username,
         authType: savedCredential.authType,
         encryptedPassword: savedCredential.encryptedPassword ?? null,
         encryptedPrivateKey: savedCredential.encryptedPrivateKey ?? null,
@@ -283,7 +279,7 @@ export class ServerConnectionsService {
       serverId: id,
       host: server.host,
       port: server.port,
-      username: credential.username,
+      username: server.username,
       authType: credential.authType,
       encryptedPassword: credential.encryptedPassword ?? null,
       encryptedPrivateKey: credential.encryptedPrivateKey ?? null,
@@ -309,7 +305,7 @@ export class ServerConnectionsService {
       serverId: id,
       host: server.host,
       port: server.port,
-      username: credential.username,
+      username: server.username,
       authType: credential.authType,
       encryptedPassword: credential.encryptedPassword ?? null,
       encryptedPrivateKey: credential.encryptedPrivateKey ?? null,

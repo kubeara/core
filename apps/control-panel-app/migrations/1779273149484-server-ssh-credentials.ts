@@ -32,12 +32,6 @@ export class ServerSshCredentials1779273149484 implements MigrationInterface {
             isNullable: false,
           },
           {
-            name: "username",
-            type: "varchar",
-            length: "255",
-            isNullable: false,
-          },
-          {
             name: "encryptedPrivateKey",
             type: "text",
             isNullable: true,

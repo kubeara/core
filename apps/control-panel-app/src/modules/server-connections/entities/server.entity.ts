@@ -18,11 +18,12 @@ import {
   SERVER_NAME_MAX_LENGTH,
   SERVER_OPERATING_SYSTEM_MAX_LENGTH,
   SERVER_REGION_MAX_LENGTH,
+  SSH_USERNAME_MAX_LENGTH,
 } from "../server-connections.constants";
 import { ServerSshCredentialEntity } from "./server-ssh-credential.entity";
 
 @Entity({ name: "servers" })
-@Unique("UQ_servers_host_port", ["host", "port"])
+@Unique("UQ_servers_host_port", ["host", "username"])
 @Index("IDX_servers_host", ["host"])
 @Index("IDX_servers_status", ["status"])
 export class ServerEntity extends BaseEntity {
@@ -41,6 +42,11 @@ export class ServerEntity extends BaseEntity {
   @Max(65535)
   @Column({ type: "integer", default: DEFAULT_SSH_PORT })
   port!: number;
+
+  @IsString()
+  @IsNotEmpty()
+  @Column({ type: "varchar", length: SSH_USERNAME_MAX_LENGTH})
+  username!: string;
 
   @IsEnum(ServerProvider)
   @Column({

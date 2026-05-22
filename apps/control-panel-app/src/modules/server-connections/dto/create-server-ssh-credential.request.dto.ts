@@ -16,10 +16,6 @@ export class CreateServerSshCredentialRequestDto {
   @IsEnum(ServerSshAuthType)
   authType!: ServerSshAuthType;
 
-  @IsString()
-  @IsNotEmpty()
-  username!: string;
-
   @ValidateIf(
     (dto: CreateServerSshCredentialRequestDto) =>
       dto.authType === ServerSshAuthType.PASSWORD,

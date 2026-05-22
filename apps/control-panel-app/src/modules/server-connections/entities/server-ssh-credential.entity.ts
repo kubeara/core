@@ -10,7 +10,6 @@ import { BaseEntity } from "../../../common/entity/base.entity";
 import { ServerSshAuthType } from "../enums/server-ssh-auth-type.enum";
 import {
   SSH_FINGERPRINT_MAX_LENGTH,
-  SSH_USERNAME_MAX_LENGTH,
 } from "../server-connections.constants";
 import { ServerEntity } from "./server.entity";
 
@@ -40,11 +39,6 @@ export class ServerSshCredentialEntity extends BaseEntity {
     enumName: "serverSshAuthTypeEnum",
   })
   authType!: ServerSshAuthType;
-
-  @IsString()
-  @IsNotEmpty()
-  @Column({ type: "varchar", length: SSH_USERNAME_MAX_LENGTH })
-  username!: string;
 
   @IsOptional()
   @IsString()
