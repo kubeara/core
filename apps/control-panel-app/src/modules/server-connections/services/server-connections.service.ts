@@ -1,5 +1,5 @@
 import { ConflictException, Injectable } from "@nestjs/common";
-import { DataSource, Repository } from "typeorm";
+import { DataSource, FindOneOptions, Repository, IsNull } from "typeorm";
 import { InjectRepository } from "@nestjs/typeorm";
 import {
   CreateServerDto,
@@ -16,8 +16,13 @@ import {
   SshCommandExecutorService,
   ExecuteCommandDto,
   ExecuteResult,
+  SshConnectionManager,
 } from "@shared/ssh";
 import { DEFAULT_SSH_PORT } from "../server-connections.constants";
+import { EntityStatus } from "@control-panel/common/entity/base.entity";
+import dayjs from "dayjs";
+import { ERROR_MESSAGES } from "@control-panel/constants/error";
+import { SUCCESS_MESSAGES } from "@control-panel/constants/success";
 
 export interface ExistingServerCheck {
   host: string;
@@ -35,30 +40,186 @@ export class ServerConnectionsService {
     private readonly encryptionService: EncryptionService,
     private readonly health: SshHealthCheckService,
     private readonly executor: SshCommandExecutorService,
+    private readonly sshManager: SshConnectionManager,
   ) {}
 
-  async assertServerNotDuplicate(input: ExistingServerCheck): Promise<void> {
-    const exists = await this.serverRepository.findOne({
-      where: { host: input.host, username: input.username },
+  private async getServerConnectionOptions(id: string) {
+    const server = await this.serverRepository.findOne({
+      where: { id, status: EntityStatus.ACTIVE, deletedAt: IsNull() },
     });
-    if (exists) {
-      throw new ConflictException(
-        "Server with this host and username already exists",
-      );
+
+    if (!server) {
+      throw new Error(ERROR_MESSAGES.SERVER.NOT_FOUND);
     }
+
+    const credential = await this.credentialRepository.findOne({
+      where: { serverId: id },
+    });
+
+    if (!credential) {
+      throw new Error(ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND);
+    }
+
+    return {
+      serverId: id,
+      host: server.host,
+      port: server.port,
+      username: server.username,
+      authType: credential.authType,
+      encryptedPassword: credential.encryptedPassword,
+      encryptedPrivateKey: credential.encryptedPrivateKey,
+      privateKeyPassphrase: credential.privateKeyPassphrase,
+    };
   }
 
   /**
-   * Onboard server: create server + credentials and validate SSH connection
-   * Atomically: if SSH test fails the transaction is rolled back and nothing is persisted
+   * find exisiting server
+   * @param input
+   * @returns
+   */
+  private async findExistingServer(
+    input: ExistingServerCheck,
+  ): Promise<ServerEntity | null> {
+    return this.serverRepository.findOne({
+      where: {
+        host: input.host,
+        username: input.username,
+      },
+    });
+  }
+
+  /**
+   * restore from soft delete
+   * @param serverId
+   * @returns
+   */
+  private async restoreServer(
+    serverId: string,
+  ): Promise<ServerSshCredentialEntity | null> {
+    await this.serverRepository.update(
+      { id: serverId },
+      {
+        status: EntityStatus.ACTIVE,
+        deletedAt: null,
+      },
+    );
+
+    await this.credentialRepository.update(
+      { serverId },
+      {
+        status: EntityStatus.ACTIVE,
+        deletedAt: null,
+      },
+    );
+
+    return this.credentialRepository.findOne({
+      where: { serverId, status: EntityStatus.ACTIVE },
+    });
+  }
+
+  /**
+   * create the server
+   * @param input
+   * @returns
    */
   async onboardServer(
     input: CreateServerOnboardRequestDto,
   ): Promise<OnboardResponseDto> {
-    await this.assertServerNotDuplicate({
+    const existingServer = await this.findExistingServer({
       host: input.server.host,
-      username: input.server.username
+      username: input.server.username,
     });
+
+    if (existingServer) {
+      // Active server already exists
+      if (
+        existingServer.status === EntityStatus.ACTIVE &&
+        !existingServer.deletedAt
+      ) {
+        throw new ConflictException(ERROR_MESSAGES.SERVER.ALREADY_EXIST);
+      }
+
+      // Previously deleted -> restore it
+      if (
+        existingServer.status === EntityStatus.INACTIVE &&
+        existingServer.deletedAt
+      ) {
+        const credential = await this.credentialRepository.findOne({
+          where: {
+            serverId: existingServer.id,
+            status: EntityStatus.INACTIVE,
+          },
+        });
+
+        if (!credential) {
+          return {
+            success: false,
+            step: "SSH_TEST",
+            error: ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
+            code: "CREDENTIALS_NOT_FOUND",
+            logs: ["SSH credentials not found for deleted server"],
+          };
+        }
+
+        const testTimeoutMs = 10_000;
+
+        type SshTestResult = {
+          success: boolean;
+          latency: number;
+          username: string | null;
+          hostname: string | null;
+          platform: string | null;
+          message: string;
+          code?: string;
+        };
+
+        const testPromise = this.validateServerConnection(
+          existingServer,
+          credential,
+        );
+
+        const result = (await Promise.race([
+          testPromise,
+          new Promise<SshTestResult>((resolve) =>
+            setTimeout(
+              () =>
+                resolve({
+                  success: false,
+                  latency: 0,
+                  username: null,
+                  hostname: null,
+                  platform: null,
+                  message: "Connection timed out",
+                  code: "CONNECTION_TIMEOUT",
+                }),
+              testTimeoutMs,
+            ),
+          ),
+        ])) as SshTestResult;
+
+        if (!result.success) {
+          return {
+            success: false,
+            step: "SSH_TEST",
+            error: result.message,
+            code: result.code ?? this.mapTestErrorCode(result.message),
+            logs: ["Deleted server found", "SSH validation failed"],
+          };
+        }
+
+        const restoredCredential = await this.restoreServer(existingServer.id);
+
+        return {
+          success: true,
+          serverId: existingServer.id,
+          sshCredentialId: restoredCredential?.id ?? "",
+          sshTest: {
+            success: true,
+          },
+          message: SUCCESS_MESSAGES.SERVER.CREATED,
+        };
+      }
+    }
 
     const logs: string[] = [];
     const queryRunner = this.dataSource.createQueryRunner();
@@ -191,7 +352,7 @@ export class ServerConnectionsService {
           serverId: savedServer.id,
           sshCredentialId: savedCredential.id,
           sshTest: { success: true },
-          logs,
+          message: SUCCESS_MESSAGES.SERVER.CREATED,
         };
       }
 
@@ -241,31 +402,177 @@ export class ServerConnectionsService {
     }
   }
 
-  // Controller-facing helpers moved into service so controllers remain thin
-  async list(): Promise<ServerEntity[]> {
-    return this.serverRepository.find({
-      where: {},
-      order: { createdAt: "DESC" },
+  /**
+   * Test connection
+   * @param server
+   * @param credential
+   * @returns
+   */
+  private async validateServerConnection(
+    server: ServerEntity,
+    credential: ServerSshCredentialEntity,
+  ) {
+    return this.health.testConnection({
+      serverId: server.id,
+      host: server.host,
+      port: server.port,
+      username: server.username,
+      authType: credential.authType,
+      encryptedPassword: credential.encryptedPassword ?? null,
+      encryptedPrivateKey: credential.encryptedPrivateKey ?? null,
+      privateKeyPassphrase: credential.privateKeyPassphrase ?? null,
     });
   }
 
-  async get(id: string): Promise<ServerEntity | null> {
-    return this.serverRepository.findOne({ where: { id } });
+  /**
+   * connec with the server
+   * @param id
+   * @returns
+   */
+  async connectServer(id: string) {
+    try {
+      const serverOptions = await this.getServerConnectionOptions(id);
+
+      const existing = this.sshManager.getConnection(id);
+
+      if (existing) {
+        throw new Error("Server already connected");
+      }
+
+      await this.sshManager.connect(serverOptions);
+
+      return {
+        success: true,
+        connected: true,
+        message: "Server connected successfully",
+      };
+    } catch (error) {
+      console.log(error);
+      return {
+        success: false,
+        connected: false,
+        message:
+          error instanceof Error ? error.message : "Failed to connect server",
+      };
+    }
   }
 
-  async patch(id: string, patch: Partial<ServerEntity>): Promise<ServerEntity> {
-    const entity = await this.serverRepository.findOne({ where: { id } });
-    if (!entity) throw new Error("Server not found");
-    Object.assign(entity, patch);
-    return this.serverRepository.save(entity);
+  /**
+   * disconnect with the server
+   * @param id
+   * @returns
+   */
+  async disconnectServer(id: string) {
+    try {
+      await this.getServerConnectionOptions(id);
+      this.sshManager.disconnect(id);
+      return {
+        success: true,
+        connected: false,
+        message: "Server disconnected successfully",
+      };
+    } catch (error) {
+      return {
+        success: false,
+        connected: false,
+        message:
+          error instanceof Error ? error.message : "Failed to connect server",
+      };
+    }
   }
 
-  async remove(id: string): Promise<void> {
-    await this.serverRepository.softDelete({ id });
+  /**
+   * soft delete server
+   * @param id
+   * @returns
+   */
+  async deleteServer(id: string) {
+    const queryRunner = this.dataSource.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const serverRepo = queryRunner.manager.getRepository(ServerEntity);
+      const credentialRepo = queryRunner.manager.getRepository(
+        ServerSshCredentialEntity,
+      );
+
+      const server = await serverRepo.findOne({
+        where: { id },
+      });
+
+      if (!server) {
+        throw new Error("Server not found");
+      }
+
+      // Disconnect active SSH session
+      if (this.sshManager.isConnected(id)) {
+        this.sshManager.disconnect(id);
+      }
+
+      const currentTime = dayjs().unix();
+
+      await serverRepo.update(
+        { id },
+        {
+          status: EntityStatus.INACTIVE,
+          deletedAt: currentTime,
+        },
+      );
+
+      await credentialRepo.update(
+        { serverId: id },
+        {
+          status: EntityStatus.INACTIVE,
+          deletedAt: currentTime,
+        },
+      );
+
+      await queryRunner.commitTransaction();
+
+      return {
+        success: true,
+        message: "Server deleted successfully",
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+
+      return {
+        success: false,
+        message:
+          error instanceof Error ? error.message : "Failed to delete server",
+      };
+    } finally {
+      await queryRunner.release();
+    }
   }
 
+  /**
+   * List servers
+   * @returns
+   */
+  async list(): Promise<ServerEntity[]> {
+    return await this.serverRepository.find({
+      where: {
+        status: EntityStatus.ACTIVE,
+        deletedAt: IsNull(),
+      },
+      order: {
+        createdAt: "DESC",
+      },
+    });
+  }
+
+  /**
+   * Test connection
+   * @param id
+   * @returns
+   */
   async test(id: string): Promise<unknown> {
-    const server = await this.serverRepository.findOne({ where: { id } });
+    const server = await this.serverRepository.findOne({
+      where: { id, status: EntityStatus.ACTIVE, deletedAt: IsNull() },
+    });
     if (!server) return { success: false, message: "Server not found" };
     const creds = await this.credentialRepository.find({
       where: { serverId: id },
@@ -287,11 +594,19 @@ export class ServerConnectionsService {
     });
   }
 
+  /**
+   * execute commands
+   * @param id
+   * @param body
+   * @returns
+   */
   async execute(
     id: string,
     body: ExecuteCommandDto,
   ): Promise<ExecuteResult | { success: false; message: string }> {
-    const server = await this.serverRepository.findOne({ where: { id } });
+    const server = await this.serverRepository.findOne({
+      where: { id, status: EntityStatus.ACTIVE, deletedAt: IsNull() },
+    });
     if (!server) return { success: false, message: "Server not found" };
     const creds = await this.credentialRepository.find({
       where: { serverId: id },
@@ -322,7 +637,6 @@ export class ServerConnectionsService {
     return result;
   }
 
-  // Map textual error to one of the UI codes
   private mapTestErrorCode(message: string | undefined): string {
     const msg = (message ?? "").toLowerCase();
     if (
@@ -342,5 +656,14 @@ export class ServerConnectionsService {
     )
       return "HOST_UNREACHABLE";
     return "UNKNOWN_ERROR";
+  }
+
+  /**
+   * find one
+   * @param options
+   * @returns
+   */
+  async findOne(options: FindOneOptions<ServerEntity>) {
+    return await this.serverRepository.findOne(options);
   }
 }

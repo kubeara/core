@@ -137,6 +137,8 @@ async function bootstrap(): Promise<void> {
 
   const port = Number(configService.get<string>("PORT"));
 
+  app.setGlobalPrefix("api");
+
   app.enableCors({
     origin: true,
     credentials: true,

@@ -1,8 +1,6 @@
 import dataSource from "../config/typeorm.config";
 
 import { seedTemplates } from "./templates.seed";
-// import { seedUsers } from "./users.seed";
-// import { seedRoles } from "./roles.seed";
 
 async function run() {
   const ds = dataSource;
@@ -20,7 +18,7 @@ async function run() {
 
     console.log("Starting database seeding...");
 
-    await seedTemplates(queryRunner);
+    await seedTemplates();
 
     await queryRunner.commitTransaction();
 

@@ -3,7 +3,7 @@ export interface OnboardSuccessResponse {
   serverId: string;
   sshCredentialId: string;
   sshTest: { success: true };
-  logs: string[];
+  message: string;
 }
 
 export interface OnboardFailureResponse {

@@ -4,3 +4,8 @@ export const SSH_DEFAULTS = {
   READY_TIMEOUT: 20000, // ms
   COMMAND_TIMEOUT: 30000, // ms
 };
+
+export const AUTH_TYPE = {
+  PRIVATE_KEY: "PRIVATE_KEY",
+  PASSWORD: "PASSWORD",
+};

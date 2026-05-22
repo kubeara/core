@@ -45,7 +45,7 @@ export class ServerEntity extends BaseEntity {
 
   @IsString()
   @IsNotEmpty()
-  @Column({ type: "varchar", length: SSH_USERNAME_MAX_LENGTH})
+  @Column({ type: "varchar", length: SSH_USERNAME_MAX_LENGTH })
   username!: string;
 
   @IsEnum(ServerProvider)
