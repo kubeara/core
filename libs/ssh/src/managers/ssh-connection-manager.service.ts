@@ -32,7 +32,6 @@ export class SshConnectionManager {
     };
 
     // Debug: show full options received (for debugging only — avoid logging secrets in production)
-    console.log("SSH OPTIONS RECEIVED:", options);
 
     if (options.authType === AUTH_TYPE.PASSWORD || options.encryptedPassword) {
       const pwd = options.encryptedPassword
@@ -93,12 +92,6 @@ export class SshConnectionManager {
       });
 
       try {
-        // Debug: show sanitized config (do not print privateKey contents)
-        const safeConfig = {
-          ...connectConfig,
-          privateKey: connectConfig.privateKey ? "[REDACTED]" : undefined,
-        };
-        console.log("SSH CONFIG:", safeConfig);
         client.connect(connectConfig);
       } catch (err) {
         reject(new SshConnectionError(String((err as Error).message)));

@@ -254,13 +254,6 @@ export class ServerConnectionsService {
       const ssh: CreateServerSshCredentialRequestDto | undefined = input.ssh;
       if (!ssh) throw new Error("ssh payload required");
 
-      // Debug: show full incoming ssh payload (for debugging only — avoid in production)
-      console.log("ONBOARD SSH PAYLOAD:", {
-        authType: ssh.authType,
-        hasPrivateKey: !!ssh.privateKey,
-      });
-      console.log("FULL SSH PAYLOAD:", ssh);
-
       if (ssh.authType === ServerSshAuthType.PASSWORD && !ssh.password) {
         throw new Error("password required for PASSWORD authType");
       }
