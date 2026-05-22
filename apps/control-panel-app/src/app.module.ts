@@ -10,6 +10,8 @@ import path from "path";
 import { ServerConnectionsModule } from "./modules/server-connections/server-connections.module";
 import { SshModule } from "@shared/ssh";
 import { DeploymentsModule } from "./modules/deployments/deployments.module";
+import { AuthModule } from "./modules/auth/auth.module";
+import { UsersModule } from "./modules/users/users.module";
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -47,6 +49,8 @@ import { DeploymentsModule } from "./modules/deployments/deployments.module";
     SshModule,
     EncryptionModule,
     WebsocketModule,
+    AuthModule,
+    UsersModule,
   ],
   providers: [],
   exports: [],
