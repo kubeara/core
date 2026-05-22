@@ -76,9 +76,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    # Prefer repo variable DOCKERHUB_USERNAME (visible in logs). Token must stay in secrets.
     env:
-      DOCKER_HUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME || secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_ORG: kubeara
     strategy:
       fail-fast: false
       matrix:
@@ -96,44 +95,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Show Docker Hub target
-        run: |
-          if [ -z "${DOCKER_HUB_USERNAME}" ]; then
-            echo "::error::DOCKERHUB_USERNAME is not set. Add it as a repository secret or variable (Settings → Secrets and variables → Actions)."
-            exit 1
-          fi
-          if [ -n "${{ vars.DOCKERHUB_USERNAME }}" ]; then
-            echo "DOCKERHUB_USERNAME source: repository variable (visible)"
-          else
-            echo "DOCKERHUB_USERNAME source: repository secret (username may be masked below)"
-          fi
-          echo "Docker Hub namespace: ${DOCKER_HUB_USERNAME}"
-          echo "Will push:"
-          echo "  ${DOCKER_HUB_USERNAME}/${{ matrix.image }}:latest"
-          echo "  ${DOCKER_HUB_USERNAME}/${{ matrix.image }}:${{ github.sha }}"
-
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ env.DOCKER_HUB_USERNAME }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Verify Docker Hub login
-        run: |
-          CONFIG="${HOME}/.docker/config.json"
-          if [ -f "$CONFIG" ]; then
-            HUB_USER=$(jq -r '
-              .auths["https://index.docker.io/v1/"].username //
-              (.auths | to_entries[] | select(.key | test("docker.io")) | .value.username) //
-              empty
-            ' "$CONFIG" 2>/dev/null | head -n1)
-            if [ -n "$HUB_USER" ]; then
-              echo "Docker CLI logged in as: ${HUB_USER}"
-              if [ "$HUB_USER" != "${DOCKER_HUB_USERNAME}" ]; then
-                echo "::warning::CLI username (${HUB_USER}) differs from configured namespace (${DOCKER_HUB_USERNAME})"
-              fi
-            fi
-          fi
 
       - name: Build and push ${{ matrix.name }}
         uses: docker/build-push-action@v6
@@ -142,12 +108,7 @@ jobs:
           file: ${{ matrix.dockerfile }}
           push: true
           tags: |
-            ${{ env.DOCKER_HUB_USERNAME }}/${{ matrix.image }}:latest
-            ${{ env.DOCKER_HUB_USERNAME }}/${{ matrix.image }}:${{ github.sha }}
+            ${{ env.DOCKERHUB_ORG }}/${{ matrix.image }}:latest
+            ${{ env.DOCKERHUB_ORG }}/${{ matrix.image }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
-
-      - name: Confirm image on Docker Hub
-        run: |
-          docker buildx imagetools inspect "${DOCKER_HUB_USERNAME}/${{ matrix.image }}:latest"
-          echo "Published: https://hub.docker.com/r/${DOCKER_HUB_USERNAME}/${{ matrix.image }}"
