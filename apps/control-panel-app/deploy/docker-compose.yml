@@ -25,6 +25,7 @@ services:
 
   control-panel-app:
     image: ${KUBEARA_CONTROL_PANEL_IMAGE}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: kubeara-control-panel
     ports:
       - "${PORT:-3000}:3000"

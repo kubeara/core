@@ -107,6 +107,7 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: |
             ${{ env.DOCKERHUB_ORG }}/${{ matrix.image }}:latest
             ${{ env.DOCKERHUB_ORG }}/${{ matrix.image }}:${{ github.sha }}
