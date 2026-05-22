@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   agent-app:
-    image: agent-app:latest
+    image: agent:latest
     build:
       context: ../..
       dockerfile: apps/agent-app/Dockerfile
