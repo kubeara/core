@@ -39,6 +39,8 @@ services:
     build:
       context: .
       dockerfile: apps/control-panel-app/Dockerfile
+      args:
+        NODE_VERSION: "24.15.0"
     container_name: control-panel-app
     ports:
       - "3000:3000"
@@ -64,6 +66,8 @@ services:
     build:
       context: .
       dockerfile: apps/agent-app/Dockerfile
+      args:
+        NODE_VERSION: "24.15.0"
     container_name: agent-app
     ports:
       - "3001:3001"

@@ -1,23 +1,28 @@
-FROM node:24.15.0-alpine
+ARG NODE_VERSION=24.15.0
+
+FROM node:${NODE_VERSION}-alpine AS builder
+
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
-COPY tsconfig*.json ./
-COPY nest-cli.json ./
-
-# Copy app and library source
+COPY tsconfig*.json nest-cli.json ./
 COPY apps/agent-app ./apps/agent-app
 COPY libs ./libs
 
-# Install dependencies
-RUN npm ci --only=production
-
-# Build the agent app (Nest will compile libs referenced by the app)
+RUN npm ci --ignore-scripts
 RUN npm run build:agent-app
 
-# Expose port
+FROM node:${NODE_VERSION}-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+COPY package*.json ./
+RUN npm ci --omit=dev --ignore-scripts
+
+COPY --from=builder /app/dist ./dist
+
 EXPOSE 3001
 
-# Run the application
-CMD ["npm", "run", "start:agent-app:prod"]
+CMD ["node", "dist/apps/agent-app/apps/agent-app/src/main.js"]
