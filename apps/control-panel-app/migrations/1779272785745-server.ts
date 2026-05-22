@@ -20,6 +20,11 @@ export class Server1779272785745 implements MigrationInterface {
             default: "uuid_generate_v4()",
           },
           {
+            name: "userId",
+            type: "uuid",
+            isNullable: false,
+          },
+          {
             name: "name",
             type: "varchar",
             length: "255",
