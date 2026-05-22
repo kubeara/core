@@ -1,0 +1,47 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2023",
+    "lib": ["ES2023"],
+
+    "ignoreDeprecations": "6.0",
+
+    "types": ["node", "jest"],
+
+    "baseUrl": ".",
+    "paths": {
+      "@shared/common": ["libs/common/src"],
+      "@shared/common/*": ["libs/common/src/*"],
+
+      "@shared/socket-events": ["libs/socket-events/src"],
+      "@shared/socket-events/*": ["libs/socket-events/src/*"],
+
+      "@shared/types": ["libs/shared-types/src"],
+      "@shared/types/*": ["libs/shared-types/src/*"],
+
+      "@shared/ssh": ["libs/ssh/src"],
+      "@shared/ssh/*": ["libs/ssh/src/*"]
+      ,
+      "@control-panel/*": ["apps/control-panel-app/src/*"],
+      "@control-panel": ["apps/control-panel-app/src"]
+    },
+
+    "declaration": true,
+    "incremental": true,
+    "skipLibCheck": true,
+
+    "strict": true,
+    "strictNullChecks": true,
+    "noImplicitAny": true,
+
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+
+    "removeComments": true,
+    "sourceMap": true
+  }
+}

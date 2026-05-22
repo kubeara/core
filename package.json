@@ -1,0 +1,142 @@
+{
+  "name": "template-service",
+  "version": "0.0.1",
+  "description": "NestJS monorepo for template service with control panel and deployment agents",
+  "author": "",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build:apps": "npm run clean && npm run build:control-panel-app && npm run build:agent-app",
+    "build:control-panel-app": "nest build control-panel-app",
+    "build:agent-app": "nest build agent-app",
+    "start": "nest start",
+    "start:control-panel-app": "nest start control-panel-app",
+    "start:control-panel-app:dev": "nest start control-panel-app --watch",
+    "start:control-panel-app:prod": "node dist/apps/control-panel-app/src/main",
+    "start:agent-app": "nest start agent-app",
+    "start:agent-app:dev": "nest start agent-app --watch",
+    "start:agent-app:prod": "node dist/apps/agent-app/src/main",
+    "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\" \"test/**/*.ts\"",
+    "lint": "eslint \"{apps,libs,test}/**/*.ts\" --fix",
+    "lint:ci": "eslint \"{apps,libs,test}/**/*.ts\" --max-warnings 0",
+    "test": "jest",
+    "test:templates": "jest --testPathPatterns=template-compose",
+    "seed:templates": "ts-node apps/control-panel-app/src/database/seeders/seed-from-templates.ts",
+    "prereq:agent": "bash apps/control-panel-app/scripts/ensure-agent-prerequisites.sh",
+    "prereq:agent:check": "bash apps/control-panel-app/scripts/ensure-agent-prerequisites.sh --check-only",
+    "build:templates": "ts-node -r tsconfig-paths/register apps/control-panel-app/src/scripts/build-templates.ts",
+    "seed": "ts-node -r tsconfig-paths/register apps/control-panel-app/seeders/seed.ts",    
+    "migration:create": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:create apps/control-panel-app/migrations/$npm_config_name",
+    "migration:generate": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate apps/control-panel-app/migrations/GeneratedMigration -d apps/control-panel-app/config/typeorm.config.ts",
+    "migration:run": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d apps/control-panel-app/config/typeorm.config.ts",
+    "migration:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d apps/control-panel-app/config/typeorm.config.ts",
+    "migration:run:dist": "node ./node_modules/typeorm/cli.js migration:run -d dist/apps/control-panel-app/config/typeorm.config.js",
+    "migration:revert:dist": "node ./node_modules/typeorm/cli.js migration:revert -d dist/apps/control-panel-app/config/typeorm.config.js",
+    "docker:build:control-panel": "docker compose -f apps/control-panel-app/docker-compose.yml build",
+    "docker:build:agent": "docker compose -f apps/agent-app/docker-compose.yml build",
+    "docker:build": "npm run docker:build:control-panel && npm run docker:build:agent",
+    "docker:up:control-panel": "docker compose -f apps/control-panel-app/docker-compose.yml up -d",
+    "docker:up:agent": "docker compose -f apps/agent-app/docker-compose.yml up -d",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,js}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.1",
+    "@nestjs/config": "^4.0.4",
+    "@nestjs/core": "^11.0.1",
+    "@nestjs/mapped-types": "*",
+    "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-socket.io": "^11.1.20",
+    "@nestjs/typeorm": "^11.0.1",
+    "@nestjs/websockets": "^11.1.20",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "dayjs": "^1.11.20",
+    "dotenv": "^17.4.2",
+    "js-yaml": "^4.1.1",
+    "pg": "^8.20.0",
+    "redis": "^5.12.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "socket.io": "^4.8.3",
+    "socket.io-client": "^4.8.3",
+    "ssh2": "^1.17.0",
+    "typeorm": "^1.0.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^21.0.1",
+    "@commitlint/config-conventional": "^21.0.1",
+    "@eslint/eslintrc": "^3.2.0",
+    "@eslint/js": "^9.18.0",
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.0",
+    "@nestjs/testing": "^11.0.1",
+    "@types/express": "^5.0.0",
+    "@types/jest": "^30.0.0",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^24.12.4",
+    "@types/ssh2": "^1.15.5",
+    "@types/supertest": "^7.0.0",
+    "eslint": "^9.18.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-prettier": "^5.2.2",
+    "globals": "^17.0.0",
+    "husky": "^9.1.7",
+    "jest": "^30.4.2",
+    "lint-staged": "^17.0.5",
+    "prettier": "^3.8.3",
+    "source-map-support": "^0.5.21",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.4.10",
+    "ts-loader": "^9.5.2",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.20.0"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": ".",
+    "testRegex": ".*\\.spec\\.ts$",
+    "transform": {
+      "^.+\\.ts$": [
+        "ts-jest",
+        {
+          "tsconfig": {
+            "types": ["jest", "node"]
+          }
+        }
+      ]
+    },
+    "collectCoverageFrom": [
+      "apps/**/*.(t|j)s",
+      "libs/**/*.(t|j)s"
+    ],
+    "coverageDirectory": "./coverage",
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/apps/",
+      "<rootDir>/libs/"
+    ],
+    "moduleNameMapper": {
+      "^@shared/common$": "<rootDir>/libs/common/src",
+      "^@shared/common/(.*)$": "<rootDir>/libs/common/src/$1",
+      "^@common/(.*)$": "<rootDir>/libs/common/src/$1",
+      "^@socket-events/(.*)$": "<rootDir>/libs/socket-events/src/$1",
+      "^@shared-types/(.*)$": "<rootDir>/libs/shared-types/src/$1"
+    }
+  }
+}

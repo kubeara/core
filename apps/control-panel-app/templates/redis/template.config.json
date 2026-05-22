@@ -1,0 +1,23 @@
+{
+  "env_schema": {
+    "REDIS_PASSWORD": {
+      "type": "string",
+      "required": false,
+      "default": "",
+      "description": "Password for Redis (empty = no password)"
+    },
+    "CONTAINER_NAME": {
+      "type": "string",
+      "required": false,
+      "default": "redis",
+      "description": "Name for the Redis container"
+    }
+  },
+  "port_schema": {
+    "REDIS_PORT": {
+      "type": "number",
+      "required": true,
+      "description": "Port Redis will listen on"
+    }
+  }
+}

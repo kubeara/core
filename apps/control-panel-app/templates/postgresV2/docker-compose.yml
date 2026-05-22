@@ -1,0 +1,48 @@
+# documentation: https://www.postgresql.org
+# slogan: PostgreSQL database (compose-only / Coolify-style)
+# category: database
+# tags: postgres,postgresql,database,sql,v2
+# port: 5432
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:16}
+    restart: ${POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_POSTGRES:-5432}:5432'
+
+    environment:
+      POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      PGDATA: ${POSTGRES_DATA_PATH:-/var/lib/postgresql/data}
+      TZ: ${TZ:-UTC}
+      PGTZ: ${PGTZ:-UTC}
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      timeout: 20s
+      retries: 10
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres_data:

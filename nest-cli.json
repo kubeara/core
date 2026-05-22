@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "apps",
+  "monorepo": true,
+  "compilerOptions": {
+    "webpack": false
+  },
+  "projects": {
+    "control-panel-app": {
+      "type": "application",
+      "root": "apps/control-panel-app",
+      "entryFile": "apps/control-panel-app/src/main",
+      "sourceRoot": "apps/control-panel-app/src",
+      "compilerOptions": {
+        "deleteOutDir": false,
+        "tsConfigPath": "apps/control-panel-app/tsconfig.json"
+      }
+    },
+    "agent-app": {
+      "type": "application",
+      "root": "apps/agent-app",
+      "entryFile": "apps/agent-app/src/main",
+      "sourceRoot": "apps/agent-app/src",
+      "compilerOptions": {
+        "deleteOutDir": false,
+        "tsConfigPath": "apps/agent-app/tsconfig.json"
+      }
+    }
+  }
+}

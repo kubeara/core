@@ -1,0 +1,169 @@
+# Service templates (`docker-compose.yml`)
+
+Templates in this folder are built with `npm run build:templates` (from the monorepo `core` root), producing JSON under `generated-templates/`, then seeded into Postgres with `npm run seed`.
+
+This document describes how the **Docker Compose parser** resolves **environment variables and host ports** for **compose-only** templates (templates without `template.config.json`, deployed via `POST /deploy/compose` or auto-routed when the template has no schema). The logic lives in:
+
+- `libs/common/src/compose-parser/compose-parser.util.ts`
+- `libs/common/src/server-url/server-url.util.ts`
+
+---
+
+## 1. Where variables are discovered
+
+The parser scans the **entire compose YAML as text** for placeholders:
+
+| Form | Example | Notes |
+|------|---------|--------|
+| Braced with optional default | `${VAR}` / `${VAR:-default}` | Default uses `:-` or a single `-` after the name (no nested `${}` inside defaults). |
+| Bare dollar | `$VAR` | Same as `${VAR}` without default. |
+
+Duplicate names merge: if one occurrence has a default and another does not, the default is kept.
+
+---
+
+## 2. Host ports: `SERVICE_PORT_*` only
+
+Only variables whose names start with **`SERVICE_PORT_`** are treated as **host port bindings** used in mappings like `'${SERVICE_PORT_N8N:-5678}:5678'`.
+
+- **Do not** use unrelated names such as `N8N_*_PORT` for **host publish** placeholders if you intend them as compose “port variables”—they remain normal env vars and are **not** auto-filled from template `port` metadata the same way.
+- Port values are stored as numbers; callers may pass them in API `env` or `ports` (both work for `SERVICE_PORT_*` keys).
+
+Compose-only deploys can omit a port only if **`serverUrlContext.useTraefik` is true** (Traefik path): host `SERVICE_PORT_*` placeholders are then not required and generated host port entries are stripped after resolution.
+
+---
+
+## 3. Default values in placeholders
+
+`${NAME:-DEFAULT}` fills `NAME` from the request/env first; otherwise **`DEFAULT`** is used if it is non-empty.
+
+For **`SERVICE_PORT_*`**, only a **numeric** default is applied (non-numeric defaults are ignored for the ports map).
+
+---
+
+## 4. `SERVICE_*` “magic” variables (auto-generated secrets)
+
+Variables matching **Coolify-style** `SERVICE_{COMMAND}_{IDENTIFIER}` can be **auto-generated** when missing (no request value, no compose default):
+
+| Pattern (examples) | Generated as |
+|--------------------|--------------|
+| `SERVICE_PASSWORD_*` | 24-char alphanumeric |
+| `SERVICE_PASSWORD_64_*` | 64-char alphanumeric |
+| `SERVICE_PASSWORDWITHSYMBOLS_*` | 24-char password with symbols |
+| `SERVICE_PASSWORDWITHSYMBOLS_64_*` | 64-char password with symbols |
+| `SERVICE_BASE64_*` / `SERVICE_BASE64_32_*` | 32-char alphanumeric |
+| `SERVICE_BASE64_64_*` | 64-char alphanumeric |
+| `SERVICE_BASE64_128_*` | 128-char alphanumeric |
+| `SERVICE_USER_*` | 16-char alphanumeric |
+| `SERVICE_LOWERCASEUSER_*` | 16-char lowercase alphanumeric |
+| `SERVICE_HEX_32_*` | 32 hex chars (16 random bytes) |
+| `SERVICE_HEX_64_*` | 64 hex chars |
+| `SERVICE_HEX_128_*` | 128 hex chars |
+| Other `SERVICE_{COMMAND}_*` shapes the parser treats as magic | 32-char alphanumeric (fallback) |
+
+**Not** auto-filled by this magic path (handled elsewhere or must be provided):
+
+- `SERVICE_PORT_*` — from user input, compose default, or URL generation (see below).
+- Names parsed as **`SERVICE_URL_*` / `SERVICE_FQDN_*`** — see §5–§6.
+
+---
+
+## 5. Bare `SERVICE_URL_*` / `SERVICE_FQDN_*` lines in `environment`
+
+Besides `${...}` substitution, you can **declare** URL/FQDN keys without values in lists (traefik / Coolify-style triggers):
+
+```yaml
+environment:
+  - SERVICE_URL_N8N_5678
+```
+
+The parser collects lines like:
+
+- `- SERVICE_URL_...` or `- SERVICE_FQDN_...`
+- `SERVICE_URL_...:` / `SERVICE_FQDN_...:` with an empty value
+
+**Generation runs only for declarations starting with `SERVICE_URL_`** (not bare `SERVICE_FQDN_*` alone). Those declarations drive creation of matching `SERVICE_FQDN_*` and `SERVICE_URL_*` keys.
+
+---
+
+## 6. Public URL / FQDN generation (`serverUrlContext`)
+
+When the control panel resolves compose with **`serverUrlContext`** set (connected agent IP, deployment id, optional `wildcardDomain`, `forceHttps`, `useTraefik`):
+
+1. **Subdomain**
+
+   `{serviceKebab}-{deploymentSuffix}.{baseHost}`  
+   Example: service `N8N`, deployment `deployment-abc-def` → `n8n-abc-def`.
+
+2. **Base host**
+
+   - If `wildcardDomain` is set → use that URL’s host (and path prefix if any).
+   - Else **sslip.io**-style: `http://<ip>.sslip.io` (with special cases for `127.0.0.1` / IPv6 formatting per `sslipWildcard()`).
+
+3. **Keys produced from a declaration `SERVICE_URL_{NAME}`** (no trailing port segment)
+
+   - `SERVICE_URL_{NAME}` — full URL with scheme.
+   - `SERVICE_FQDN_{NAME}` — host (+ path suffix from wildcard base), no scheme.
+
+4. **Declaration with trailing port: `SERVICE_URL_{NAME}_{PORT}`** (e.g. `SERVICE_URL_N8N_5678`)
+
+   - Same base pair as above.
+   - **If `useTraefik` is false:** also sets `SERVICE_URL_{NAME}_{PORT}` = base URL + `:{PORT}`, and matching `SERVICE_FQDN_*` with `:{PORT}` when applicable.
+   - **If `useTraefik` is true:** port-suffixed URL/FQDN entries are **omitted** (traffic goes through Traefik on 80/443; use the non-suffixed URL).
+   - **If `useTraefik` is false:** also auto-fills `SERVICE_PORT_{NAME}` from the numeric port suffix when not supplied (so direct host publishing matches the advertised URL).
+
+Caller-provided env values **win** over generated ones.
+
+---
+
+## 7. Required variables (compose-only validation)
+
+After resolution, any placeholder still empty is **missing** and fails validation.
+
+**Exceptions (not required to be filled):**
+
+- Magic `SERVICE_*` secrets (§4).
+- `SERVICE_URL_*` / `SERVICE_FQDN_*` when `serverUrlContext` is present (generated or skipped per rules above).
+- **`SERVICE_PORT_*`** when `serverUrlContext.useTraefik` is true.
+
+**Implication for authors:** every other `${VAR}` without a default must be supplied by the API or by a non-empty default in compose.
+
+---
+
+## 8. API request shape (compose-only)
+
+- **`env`**: arbitrary keys; `SERVICE_PORT_*` may appear here or under `ports`.
+- **`ports`**: only keys that appear as `SERVICE_PORT_*` in the compose should be sent; unknown port keys are rejected.
+
+---
+
+## 9. Minimal checklist for a new template
+
+1. Use **`SERVICE_PORT_{SERVICENAME}`** for host port mapping if the app should be reachable on the host (unless you standardize on Traefik-only).
+2. For auto secrets, use **`SERVICE_PASSWORD_{APP}`**, **`SERVICE_USER_{APP}`**, etc. (§4).
+3. For Coolify-style public URLs, add a bare line **`SERVICE_URL_{NAME}_{internalPort}`** and reference `${SERVICE_URL_{NAME}}` / `${SERVICE_FQDN_{NAME}}` in app env as needed.
+4. Prefer **`${VAR:-sensible}`** for optional tuning knobs so deploy works without passing every key.
+5. Run **`npm run build:templates && npm run seed`** from `core` after editing.
+6. Run **`npm run test:templates`** from `core` to validate compose structure, env/port rules, resource limits, and logging limits.
+7. Register display metadata for new **slug** folders in `apps/control-panel-app/src/scripts/build-templates.ts` (`metadataBySlug`).
+
+---
+
+## 10. Reference templates in this repo
+
+| Template | Notes |
+|----------|--------|
+| `postgresV2/` | Compose-only; magic vars; `SERVICE_PORT_POSTGRES`, passwords, etc. |
+| `n8n/` | Compose-only; `SERVICE_URL_N8N_5678` declaration + Traefik-friendly URL vars |
+
+---
+
+## 11. Implementation reference
+
+| Topic | File |
+|--------|------|
+| Extraction, magic, ports, validation | `libs/common/src/compose-parser/compose-parser.util.ts` |
+| sslip URL/FQDN, `useTraefik` URL shapes | `libs/common/src/server-url/server-url.util.ts` |
+| Traefik label injection on agent | `libs/common/src/traefik/traefik-labels.util.ts` |
+
+For behaviour guarantees, prefer reading these files and `compose-parser.util.spec.ts` alongside this README.

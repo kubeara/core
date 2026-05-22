@@ -1,0 +1,7 @@
+{
+    "name": "@shared/socket-events",
+    "version": "1.0.0",
+    "description": "Shared socket events library",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts"
+}
