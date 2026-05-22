@@ -21,7 +21,7 @@ services:
       retries: 5
 
   control-panel-app:
-    image: control-panel-app:latest
+    image: control-panel:latest
     build:
       context: ../..
       dockerfile: apps/control-panel-app/Dockerfile
