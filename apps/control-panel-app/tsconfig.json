@@ -39,6 +39,8 @@
   },
   "include": [
     "../../apps/control-panel-app/*",
+    "../../apps/control-panel-app/config/**/*",
+    "../../apps/control-panel-app/migrations/**/*",
     "src/**/*",
     "../../libs/**/*",
     "seeders/templates.seed.ts"

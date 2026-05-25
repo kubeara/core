@@ -17,7 +17,12 @@ import {
   ExecuteCommandDto,
   ExecuteResult,
   SshConnectionManager,
+  SshConnectionOptions,
 } from "@shared/ssh";
+import {
+  RemoteAgentInstallService,
+  AgentInstallResult,
+} from "./remote-agent-install.service";
 import { DEFAULT_SSH_PORT } from "../server-connections.constants";
 import { EntityStatus } from "@control-panel/common/entity/base.entity";
 import dayjs from "dayjs";
@@ -41,7 +46,63 @@ export class ServerConnectionsService {
     private readonly health: SshHealthCheckService,
     private readonly executor: SshCommandExecutorService,
     private readonly sshManager: SshConnectionManager,
+    private readonly remoteAgentInstall: RemoteAgentInstallService,
   ) {}
+
+  private shouldInstallAgent(installAgent: boolean | undefined): boolean {
+    return installAgent !== false;
+  }
+
+  private buildSshOptions(
+    server: ServerEntity,
+    credential: ServerSshCredentialEntity,
+    plainPrivateKey?: string,
+  ): SshConnectionOptions {
+    return {
+      serverId: server.id,
+      host: server.host,
+      port: server.port,
+      username: server.username,
+      authType: credential.authType,
+      encryptedPassword: credential.encryptedPassword ?? null,
+      encryptedPrivateKey: credential.encryptedPrivateKey ?? null,
+      privateKey: plainPrivateKey,
+      privateKeyPassphrase: credential.privateKeyPassphrase ?? null,
+    };
+  }
+
+  private async runAgentInstallAfterOnboard(params: {
+    installAgent: boolean | undefined;
+    server: ServerEntity;
+    credential: ServerSshCredentialEntity;
+    plainPrivateKey?: string;
+    logs: string[];
+  }): Promise<AgentInstallResult> {
+    if (!this.shouldInstallAgent(params.installAgent)) {
+      this.sshManager.disconnect(params.server.id);
+      return {
+        success: true,
+        logs: ["Agent install skipped (installAgent=false)"],
+        skipped: true,
+      };
+    }
+
+    try {
+      const result = await this.remoteAgentInstall.install({
+        connection: this.buildSshOptions(
+          params.server,
+          params.credential,
+          params.plainPrivateKey,
+        ),
+        serverHost: params.server.host,
+        plainPrivateKey: params.plainPrivateKey,
+      });
+      params.logs.push(...result.logs);
+      return result;
+    } finally {
+      this.sshManager.disconnect(params.server.id);
+    }
+  }
 
   private async getServerConnectionOptions(id: string) {
     const server = await this.serverRepository.findOne({
@@ -198,6 +259,7 @@ export class ServerConnectionsService {
         ])) as SshTestResult;
 
         if (!result.success) {
+          this.sshManager.disconnect(existingServer.id);
           return {
             success: false,
             step: "SSH_TEST",
@@ -209,13 +271,30 @@ export class ServerConnectionsService {
 
         const restoredCredential = await this.restoreServer(existingServer.id);
 
+        if (!restoredCredential) {
+          return {
+            success: false,
+            step: "SSH_TEST",
+            error: ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
+            code: "CREDENTIALS_NOT_FOUND",
+            logs: ["SSH ok but credentials missing after restore"],
+          };
+        }
+
+        const restoreLogs: string[] = ["Deleted server restored"];
+        const agentInstall = await this.runAgentInstallAfterOnboard({
+          installAgent: input.installAgent,
+          server: existingServer,
+          credential: restoredCredential,
+          logs: restoreLogs,
+        });
+
         return {
           success: true,
           serverId: existingServer.id,
-          sshCredentialId: restoredCredential?.id ?? "",
-          sshTest: {
-            success: true,
-          },
+          sshCredentialId: restoredCredential.id,
+          sshTest: { success: true },
+          agentInstall,
           message: SUCCESS_MESSAGES.SERVER.CREATED,
         };
       }
@@ -335,21 +414,29 @@ export class ServerConnectionsService {
       ])) as SshTestResult;
 
       if (result && result.success) {
-        // commit transaction
         await queryRunner.commitTransaction();
         logs.push("SSH connection successful");
         logs.push("Validation command executed");
+
+        const agentInstall = await this.runAgentInstallAfterOnboard({
+          installAgent: input.installAgent,
+          server: savedServer,
+          credential: savedCredential,
+          plainPrivateKey: ssh.privateKey,
+          logs,
+        });
 
         return {
           success: true,
           serverId: savedServer.id,
           sshCredentialId: savedCredential.id,
           sshTest: { success: true },
+          agentInstall,
           message: SUCCESS_MESSAGES.SERVER.CREATED,
         };
       }
 
-      // if we reach here, test failed
+      this.sshManager.disconnect(savedServer.id);
       await queryRunner.rollbackTransaction();
       logs.push("SSH test failed");
       logs.push("Transaction rolled back");
