@@ -3,4 +3,7 @@
 
 npm run lint
 npm run build:apps
+npm run spa:lint
+npm run build:spa
+
 # npx lint-staged
