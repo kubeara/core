@@ -40,35 +40,104 @@ export interface ResolvedComposeEnv {
 const MAGIC_PREFIX = "SERVICE_";
 const PORT_KEY_PREFIX = "SERVICE_PORT_";
 
+function isIdentifierStart(char: string): boolean {
+  return /[A-Za-z_]/.test(char);
+}
+
+function isIdentifierPart(char: string): boolean {
+  return /[A-Za-z0-9_]/.test(char);
+}
+
+/**
+ * Linear scan for ${VAR}, ${VAR:-default}, and $VAR placeholders (ReDoS-safe).
+ */
+function* scanComposeVariablePlaceholders(
+  compose: string,
+): Generator<ComposeVariableRef> {
+  let index = 0;
+
+  while (index < compose.length) {
+    const dollarIndex = compose.indexOf("$", index);
+    if (dollarIndex === -1) {
+      return;
+    }
+
+    if (compose[dollarIndex + 1] === "$") {
+      index = dollarIndex + 2;
+      continue;
+    }
+
+    if (compose[dollarIndex + 1] === "{") {
+      const contentStart = dollarIndex + 2;
+      const closeIndex = compose.indexOf("}", contentStart);
+      if (closeIndex === -1) {
+        index = dollarIndex + 1;
+        continue;
+      }
+
+      const raw = compose.slice(contentStart, closeIndex).trim();
+      if (raw) {
+        yield parsePlaceholderContent(raw);
+      }
+
+      index = closeIndex + 1;
+      continue;
+    }
+
+    const nameStart = dollarIndex + 1;
+    if (isIdentifierStart(compose[nameStart] ?? "")) {
+      let nameEnd = nameStart + 1;
+      while (
+        nameEnd < compose.length &&
+        isIdentifierPart(compose[nameEnd] ?? "")
+      ) {
+        nameEnd += 1;
+      }
+
+      yield { name: compose.slice(nameStart, nameEnd) };
+      index = nameEnd;
+      continue;
+    }
+
+    index = dollarIndex + 1;
+  }
+}
+
+function isServiceUrlFqdnDeclarationName(name: string): boolean {
+  if (!name.startsWith("SERVICE_")) {
+    return false;
+  }
+
+  const suffix = name.slice("SERVICE_".length);
+  if (!suffix.startsWith("URL_") && !suffix.startsWith("FQDN_")) {
+    return false;
+  }
+
+  const tail = suffix.slice(4);
+  return tail.length > 0 && /^[A-Za-z0-9_]+$/.test(tail);
+}
+
+function isEmptyYamlValue(valuePart: string): boolean {
+  const value = valuePart.trim();
+  return value === "" || value === "''" || value === '""';
+}
+
 /**
  * Extract variable names (and optional defaults) from a compose YAML string.
  */
 export function extractComposeVariables(compose: string): ComposeVariableRef[] {
   const byName = new Map<string, ComposeVariableRef>();
 
-  const patterns: RegExp[] = [
-    /\$\{([^}]+)\}/g,
-    /(?<!\$)\$([A-Za-z_][A-Za-z0-9_]*)/g,
-  ];
+  for (const parsed of scanComposeVariablePlaceholders(compose)) {
+    if (!parsed.name) {
+      continue;
+    }
 
-  for (const pattern of patterns) {
-    for (const match of compose.matchAll(pattern)) {
-      const raw = match[1] ?? match[2];
-      if (!raw) {
-        continue;
-      }
-
-      const parsed = parsePlaceholderContent(raw.trim());
-      if (!parsed.name) {
-        continue;
-      }
-
-      const existing = byName.get(parsed.name);
-      if (!existing) {
-        byName.set(parsed.name, parsed);
-      } else if (!existing.defaultValue && parsed.defaultValue) {
-        existing.defaultValue = parsed.defaultValue;
-      }
+    const existing = byName.get(parsed.name);
+    if (!existing) {
+      byName.set(parsed.name, parsed);
+    } else if (!existing.defaultValue && parsed.defaultValue) {
+      existing.defaultValue = parsed.defaultValue;
     }
   }
 
@@ -81,16 +150,30 @@ export function extractComposeVariables(compose: string): ComposeVariableRef[] {
  */
 export function extractUrlFqdnDeclarations(compose: string): string[] {
   const names = new Set<string>();
-  const patterns = [
-    /^\s*-\s*(SERVICE_(?:URL|FQDN)_[A-Za-z0-9_]+)\s*$/gm,
-    /^\s*(SERVICE_(?:URL|FQDN)_[A-Za-z0-9_]+):\s*['"]?['"]?\s*$/gm,
-  ];
 
-  for (const pattern of patterns) {
-    for (const match of compose.matchAll(pattern)) {
-      if (match[1]) {
-        names.add(match[1]);
+  for (const line of compose.split("\n")) {
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith("- ")) {
+      const key = trimmed.slice(2).trim();
+      if (isServiceUrlFqdnDeclarationName(key)) {
+        names.add(key);
       }
+      continue;
+    }
+
+    const colonIndex = trimmed.indexOf(":");
+    if (colonIndex <= 0) {
+      continue;
+    }
+
+    const key = trimmed.slice(0, colonIndex).trim();
+    const valuePart = trimmed.slice(colonIndex + 1);
+    if (
+      isServiceUrlFqdnDeclarationName(key) &&
+      isEmptyYamlValue(valuePart)
+    ) {
+      names.add(key);
     }
   }
 
