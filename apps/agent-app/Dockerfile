@@ -18,6 +18,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Client only: talks to host daemon via /var/run/docker.sock (see deploy compose).
+RUN apk add --no-cache docker-cli docker-cli-compose
+
 COPY package*.json ./
 RUN npm ci --omit=dev --ignore-scripts
 

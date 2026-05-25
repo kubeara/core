@@ -73,6 +73,8 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_DATABASE: ${DB_DATABASE:-kubeara}
       ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?Set ENCRYPTION_SECRET in .env.control-panel}
+      CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:-}
+      KUBEARA_AGENT_IMAGE: ${KUBEARA_AGENT_IMAGE:-kubeara/agent-app:latest}
     volumes:
       - ./.env.control-panel:/app/apps/control-panel-app/.env:ro
     depends_on:

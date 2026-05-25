@@ -22,9 +22,14 @@ services:
     volumes:
       # Agent bootstrap expects this path inside the container
       - ./.env:/app/apps/agent-app/.env:ro
+      - agent_deployments:/app/deployments
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - agent-network
     restart: unless-stopped
+
+volumes:
+  agent_deployments:
 
 networks:
   agent-network:
