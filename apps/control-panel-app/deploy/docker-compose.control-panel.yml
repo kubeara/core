@@ -1,0 +1,84 @@
+# Kubeara control panel — pull image from Docker Hub (no source code required).
+# Includes Postgres. Usage:
+#   cp .env.control-panel.example .env.control-panel
+#   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel pull
+#   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel up -d
+# Migrations (once, before first use):
+#   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel --profile migrate run --rm migrate
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kubeara-postgres
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_DATABASE:-kubeara}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    profiles: ["migrate"]
+    image: ${KUBEARA_CONTROL_PANEL_IMAGE}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    env_file:
+      - .env.control-panel
+    environment:
+      NODE_ENV: production
+      DOCKER_ENV: "true"
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_DATABASE: ${DB_DATABASE:-kubeara}
+      ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?Set ENCRYPTION_SECRET in .env.control-panel}
+    volumes:
+      - ./.env.control-panel:/app/apps/control-panel-app/.env:ro
+    command:
+      [
+        "node",
+        "./node_modules/typeorm/cli.js",
+        "migration:run",
+        "-d",
+        "dist/apps/control-panel-app/config/typeorm.config.js",
+      ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  control-panel-app:
+    image: ${KUBEARA_CONTROL_PANEL_IMAGE}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    container_name: kubeara-control-panel
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env.control-panel
+    environment:
+      NODE_ENV: production
+      DOCKER_ENV: "true"
+      PORT: ${PORT:-3000}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_DATABASE: ${DB_DATABASE:-kubeara}
+      ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?Set ENCRYPTION_SECRET in .env.control-panel}
+    volumes:
+      - ./.env.control-panel:/app/apps/control-panel-app/.env:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
