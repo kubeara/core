@@ -15,7 +15,51 @@ No source code required — only Docker and these compose files.
 
 1. Start the **control panel** stack (includes Postgres).
 2. Run **database migrations** once.
-3. Start the **agent** on the machine where deployments should run (same host or another server with Docker).
+3. Start the **agent** on the deployment host — manually (compose below) or automatically via **`POST /servers/onboard`** with `installAgent: true` (default).
+
+## Remote agent install (onboard API)
+
+When the control panel runs with `CONTROL_PANEL_URL` set, `POST /servers/onboard` can install the agent on the remote host over SSH after a successful login:
+
+- Uploads `docker-compose.agent.yml` and a generated `.env.agent` to `/opt/kubeara/agent` (override with `KUBEARA_AGENT_REMOTE_DIR`).
+- Runs `ensure-agent-prerequisites.sh` on the remote host (installs Docker, Compose, Node on Ubuntu/Debian or Alpine via sudo).
+- Then runs `docker compose pull` and `up -d` on the remote server.
+- Sets `AGENT_PUBLIC_IP` to the server host from onboard; `CONTROL_PANEL_URL` must be reachable from the remote host (not `host.docker.internal` on a VPS).
+
+Set on the **control panel** (see `.env.control-panel.example`):
+
+| Variable | Purpose |
+|----------|---------|
+| `CONTROL_PANEL_URL` | URL agents use to reach the API (required for install) |
+| `KUBEARA_AGENT_IMAGE` | Optional; default `kubeara/agent-app:latest` |
+| `KUBEARA_AGENT_DEPLOY_DIR` | Optional; path to bundled `deploy/` in the image |
+
+Request body: `"installAgent": false` skips remote install (SSH + DB only).
+
+### Supported production servers (per-user VPS)
+
+The prereq script is written for **real SSH servers** customers onboard, not minimal lab containers:
+
+| OS | Package manager | Docker service |
+|----|-----------------|----------------|
+| Debian / Ubuntu | `apt` | `systemd` (`systemctl start docker`) |
+| Alpine Linux VPS | `apk` | OpenRC (`rc-service docker start`) |
+
+Requirements on each server: SSH, **passwordless sudo** (or root), outbound internet for packages/images.
+
+### Local testing: Docker SSH container vs real server
+
+A **Docker image that only provides OpenSSH** (e.g. `localhost:2222`) is fine for testing **SSH login**, but often **cannot** run the Docker engine inside the container:
+
+- No `rc-service`, `service`, or `systemctl`
+- `dockerd` fails without `--privileged`
+- This is expected; it is **not** the same as a customer’s Ubuntu/Alpine VPS.
+
+| Goal | What to use |
+|------|-------------|
+| Test SSH + onboard API (no agent install) | `"installAgent": false` |
+| Test full agent install locally | Real VM, or SSH container with `--privileged`, or `-v /var/run/docker.sock:/var/run/docker.sock` |
+| Production | Customer’s Debian/Ubuntu/Alpine **VPS** |
 
 ## Control panel
 
@@ -104,6 +148,7 @@ docker pull kubeara/agent-app:latest
 | `KUBEARA_CONTROL_PANEL_IMAGE` | Docker Hub image |
 | `DOCKER_PLATFORM` | `linux/amd64` or `linux/arm64` (optional) |
 | `ENCRYPTION_SECRET` | App encryption key (must match agent) |
+| `CONTROL_PANEL_URL` | Public URL for remote agents / onboard install |
 | `PORT` | Control panel port (default 3000) |
 | `DB_HOST` | `postgres` inside compose (do not use `127.0.0.1`) |
 | `DB_*` | Postgres credentials and database name |

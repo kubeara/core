@@ -1,4 +1,4 @@
-import { ValidateNested } from "class-validator";
+import { IsBoolean, IsOptional, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 import { CreateServerDto } from "./create-server.dto";
 import { CreateServerSshCredentialRequestDto } from "./create-server-ssh-credential.request.dto";
@@ -11,4 +11,9 @@ export class CreateServerOnboardRequestDto {
   @ValidateNested()
   @Type(() => CreateServerSshCredentialRequestDto)
   ssh!: CreateServerSshCredentialRequestDto;
+
+  /** When true (default), install kubeara/agent-app on the server after SSH succeeds. */
+  @IsOptional()
+  @IsBoolean()
+  installAgent?: boolean;
 }
