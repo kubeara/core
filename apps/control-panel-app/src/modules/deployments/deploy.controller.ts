@@ -197,7 +197,11 @@ export class DeployController {
    * - If the client sends `useTraefik`, that value wins.
    * - Else if the client passes any `SERVICE_PORT_*` host binding in `ports` or `env`, Traefik is off
    *   so declared ports are not stripped for that deploy.
-   * - Else default from `TRAEFIK_ENABLED` in environment.
+   * - Else default from `TRAEFIK_ENABLED` on the **control panel** process (not the agent `.env`).
+   *
+   * Templates such as n8n with `SERVICE_URL_*` / `SERVICE_FQDN_*` work without Traefik when
+   * `useTraefik` is false and a `SERVICE_PORT_*` is supplied (or auto-filled). To force direct
+   * host ports: `"useTraefik": false` and `"ports": { "SERVICE_PORT_N8N": 5678 }`.
    */
   private buildServerUrlContext(options: {
     useTraefikRequest?: boolean;

@@ -24,7 +24,13 @@
       "sourceRoot": "apps/agent-app/src",
       "compilerOptions": {
         "deleteOutDir": false,
-        "tsConfigPath": "apps/agent-app/tsconfig.json"
+        "tsConfigPath": "apps/agent-app/tsconfig.json",
+        "assets": [
+          {
+            "include": "proxy/**/*",
+            "watchAssets": true
+          }
+        ]
       }
     }
   }
