@@ -49,6 +49,26 @@ docker compose -f docker-compose.agent.yml --env-file .env.agent up -d
 
 Use `--pull always` to refresh `kubeara/agent-app:latest` from Docker Hub before starting.
 
+## `all predefined address pools have been fully subnetted`
+
+Docker on Mac has created too many unused networks. Clean up, then retry:
+
+```bash
+docker compose -f docker-compose.agent.yml --env-file .env.agent down 2>/dev/null || true
+docker network prune -f
+docker container prune -f
+```
+
+If it still fails: **Docker Desktop → Troubleshoot → Clean / purge data** (removes unused networks), or restart Docker Desktop.
+
+Then:
+
+```bash
+docker compose -f docker-compose.agent.yml --env-file .env.agent up -d
+```
+
+The agent compose uses `network_mode: bridge` so it does not allocate another project network.
+
 ## Apple Silicon (M1/M2/M3) — `no matching manifest for linux/arm64`
 
 Hub images built on GitHub Actions were **amd64-only**. Macs need **arm64** (or amd64 via emulation).
