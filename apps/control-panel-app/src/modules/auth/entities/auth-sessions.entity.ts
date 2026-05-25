@@ -17,6 +17,11 @@ export class AuthSessionsEntity extends BaseEntity {
 
   @IsString()
   @IsNotEmpty()
+  @Column({ type: "varchar", nullable: false })
+  tokenType!: string;
+
+  @IsString()
+  @IsNotEmpty()
   @Column({ type: "text", nullable: false })
   accessToken!: string;
 

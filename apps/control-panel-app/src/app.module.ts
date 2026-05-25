@@ -12,6 +12,7 @@ import { SshModule } from "@shared/ssh";
 import { DeploymentsModule } from "./modules/deployments/deployments.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
+import { OrganizationsModule } from "./modules/organizations/organizations.module";
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -53,6 +54,7 @@ import { UsersModule } from "./modules/users/users.module";
     WebsocketModule,
     AuthModule,
     UsersModule,
+    OrganizationsModule,
   ],
   providers: [],
   exports: [],
