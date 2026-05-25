@@ -1,16 +1,10 @@
-import {
-  MigrationInterface,
-  QueryRunner,
-  Table,
-  TableIndex,
-  TableUnique,
-} from "typeorm";
+import { MigrationInterface, QueryRunner, Table } from "typeorm";
 
-export class Users1779273662966 implements MigrationInterface {
+export class Organizations1779273662966 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.createTable(
       new Table({
-        name: "users",
+        name: "organizations",
         columns: [
           {
             name: "id",
@@ -26,15 +20,9 @@ export class Users1779273662966 implements MigrationInterface {
             isNullable: false,
           },
           {
-            name: "email",
+            name: "logo",
             type: "varchar",
-            length: "255",
-            isNullable: false,
-          },
-          {
-            name: "passwordHash",
-            type: "text",
-            isNullable: false,
+            isNullable: true,
           },
           {
             name: "status",
@@ -67,29 +55,9 @@ export class Users1779273662966 implements MigrationInterface {
       }),
       true,
     );
-
-    await queryRunner.createIndex(
-      "users",
-      new TableIndex({
-        name: "IDX_users_email",
-        columnNames: ["email"],
-      }),
-    );
-
-    await queryRunner.createUniqueConstraint(
-      "users",
-      new TableUnique({
-        name: "UQ_users_email",
-        columnNames: ["email"],
-      }),
-    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.dropIndex("users", "IDX_users_email");
-
-    await queryRunner.dropUniqueConstraint("users", "UQ_users_email");
-
-    await queryRunner.dropTable("users");
+    await queryRunner.dropTable("organizations");
   }
 }

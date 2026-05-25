@@ -25,6 +25,11 @@ export class ServerSshCredentials1779273149484 implements MigrationInterface {
             isNullable: false,
           },
           {
+            name: "userId",
+            type: "uuid",
+            isNullable: false,
+          },
+          {
             name: "authType",
             type: "enum",
             enumName: "serverSshAuthTypeEnum",

@@ -1,9 +1,16 @@
-import { IsEnum, IsOptional, IsString, IsUUID } from "class-validator";
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from "class-validator";
 import { Column, Entity, Index, JoinColumn, ManyToOne } from "typeorm";
 import { BaseEntity } from "../../../common/entity/base.entity";
 import { ServerSshAuthType } from "../enums/server-ssh-auth-type.enum";
 import { SSH_FINGERPRINT_MAX_LENGTH } from "../server-connections.constants";
 import { ServerEntity } from "./server.entity";
+import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
 
 @Entity({ name: "serverSshCredentials" })
 @Index("IDX_serverSshCredentials_serverId", ["serverId"])
@@ -23,6 +30,15 @@ export class ServerSshCredentialEntity extends BaseEntity {
   )
   @JoinColumn({ name: "serverId" })
   server!: ServerEntity;
+
+  @IsUUID()
+  @IsNotEmpty()
+  @ManyToOne(() => UserEntity, { onDelete: "CASCADE" })
+  @JoinColumn({ name: "userId" })
+  user!: UserEntity;
+
+  @Column({ type: "uuid" })
+  userId!: string;
 
   @IsEnum(ServerSshAuthType)
   @Column({

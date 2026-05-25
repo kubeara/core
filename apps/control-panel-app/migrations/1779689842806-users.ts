@@ -1,10 +1,16 @@
-import { MigrationInterface, QueryRunner, Table, TableIndex } from "typeorm";
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableIndex,
+  TableUnique,
+} from "typeorm";
 
-export class AuthSessions1779458331393 implements MigrationInterface {
+export class Users1779689842806 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.createTable(
       new Table({
-        name: "authSessions",
+        name: "users",
         columns: [
           {
             name: "id",
@@ -14,42 +20,51 @@ export class AuthSessions1779458331393 implements MigrationInterface {
             default: "uuid_generate_v4()",
           },
           {
-            name: "userId",
+            name: "organizationId",
             type: "uuid",
             isNullable: false,
           },
           {
-            name: "tokenType",
+            name: "name",
             type: "varchar",
+            length: "255",
             isNullable: false,
-            default: "'jwt'",
           },
           {
-            name: "accessToken",
+            name: "email",
+            type: "varchar",
+            length: "255",
+            isNullable: false,
+          },
+          {
+            name: "passwordHash",
             type: "text",
             isNullable: false,
           },
           {
-            name: "refreshToken",
-            type: "text",
-            isNullable: false,
-          },
-          {
-            name: "ipAddress",
+            name: "profilePictureUrl",
             type: "varchar",
-            length: "255",
             isNullable: true,
           },
           {
-            name: "userAgent",
-            type: "varchar",
-            length: "255",
+            name: "dateOfBirth",
+            type: "bigint",
             isNullable: true,
           },
           {
-            name: "expiresAt",
+            name: "signUpAt",
             type: "bigint",
             isNullable: false,
+          },
+          {
+            name: "lastLoginAt",
+            type: "bigint",
+            isNullable: true,
+          },
+          {
+            name: "lastPasswordResetAt",
+            type: "bigint",
+            isNullable: true,
           },
           {
             name: "status",
@@ -84,17 +99,27 @@ export class AuthSessions1779458331393 implements MigrationInterface {
     );
 
     await queryRunner.createIndex(
-      "authSessions",
+      "users",
       new TableIndex({
-        name: "IDX_auth_sessions_userId",
-        columnNames: ["userId"],
+        name: "IDX_users_email",
+        columnNames: ["email"],
+      }),
+    );
+
+    await queryRunner.createUniqueConstraint(
+      "users",
+      new TableUnique({
+        name: "UQ_users_email",
+        columnNames: ["email"],
       }),
     );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.dropIndex("authSessions", "IDX_auth_sessions_userId");
+    await queryRunner.dropIndex("users", "IDX_users_email");
 
-    await queryRunner.dropTable("authSessions");
+    await queryRunner.dropUniqueConstraint("users", "UQ_users_email");
+
+    await queryRunner.dropTable("users");
   }
 }
