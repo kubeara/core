@@ -2,9 +2,10 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Client, ConnectConfig } from "ssh2";
 import { SshConnectionOptions } from "../interfaces/ssh-connection-options.interface";
 import { EncryptionService } from "@shared/common";
-import { SSH_DEFAULTS } from "../constants/ssh.constants";
+import { SSH_DEFAULTS, AUTH_TYPE } from "../constants/ssh.constants";
 import { SshConnectionError } from "../errors/ssh-connection.error";
 import { SshAuthenticationError } from "../errors/ssh-authentication.error";
+import { errors } from "../errors/error-messages";
 
 @Injectable()
 export class SshConnectionManager {
@@ -31,16 +32,15 @@ export class SshConnectionManager {
     };
 
     // Debug: show full options received (for debugging only — avoid logging secrets in production)
-    console.log("SSH OPTIONS RECEIVED:", options);
 
-    if (options.authType === "PASSWORD" || options.encryptedPassword) {
+    if (options.authType === AUTH_TYPE.PASSWORD || options.encryptedPassword) {
       const pwd = options.encryptedPassword
         ? this.encryptionService.decrypt(options.encryptedPassword)
         : undefined;
       connectConfig.password = pwd;
     }
 
-    if (options.authType === "PRIVATE_KEY") {
+    if (options.authType === AUTH_TYPE.PRIVATE_KEY) {
       const key =
         options.privateKey ??
         (options.encryptedPrivateKey
@@ -48,7 +48,7 @@ export class SshConnectionManager {
           : undefined);
 
       if (!key) {
-        throw new SshAuthenticationError("Missing private key");
+        throw new SshAuthenticationError(errors.MISSING_PRIVATE_KEY);
       }
 
       connectConfig.privateKey = key;
@@ -92,12 +92,6 @@ export class SshConnectionManager {
       });
 
       try {
-        // Debug: show sanitized config (do not print privateKey contents)
-        const safeConfig = {
-          ...connectConfig,
-          privateKey: connectConfig.privateKey ? "[REDACTED]" : undefined,
-        };
-        console.log("SSH CONFIG:", safeConfig);
         client.connect(connectConfig);
       } catch (err) {
         reject(new SshConnectionError(String((err as Error).message)));
@@ -110,7 +104,11 @@ export class SshConnectionManager {
     return c ?? null;
   }
 
-  disconnect(serverId: string): void {
+  isConnected(serverId: string): boolean {
+    return this.clients.has(serverId);
+  }
+
+  disconnect(serverId: string) {
     const client = this.clients.get(serverId);
     if (!client) return;
     try {
