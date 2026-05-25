@@ -6,7 +6,7 @@ No source code required — only Docker and these compose files.
 
 | File | What it starts |
 |------|----------------|
-| `docker-compose.yml` | Postgres + control panel |
+| `docker-compose.control-panel.yml` | Postgres + control panel |
 | `docker-compose.agent.yml` | Agent only (connects to an existing control panel) |
 | `.env.control-panel.example` | Example env for the control panel stack |
 | `.env.agent.example` | Example env for the agent |
@@ -14,22 +14,30 @@ No source code required — only Docker and these compose files.
 ## Typical flow
 
 1. Start the **control panel** stack (includes Postgres).
-2. Start the **agent** on the machine where deployments should run (same host or another server with Docker).
+2. Run **database migrations** once.
+3. Start the **agent** on the machine where deployments should run (same host or another server with Docker).
 
 ## Control panel
 
 ```bash
 cd deploy
 cp .env.control-panel.example .env.control-panel
-# Edit: KUBEARA_CONTROL_PANEL_IMAGE, ENCRYPTION_SECRET, DB_*
+# Edit: ENCRYPTION_SECRET (and image tag if needed)
 
-docker compose --env-file .env.control-panel up -d
+docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel pull
+docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel up -d
+```
+
+Run migrations once (before using the UI):
+
+```bash
+docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel --profile migrate run --rm migrate
 ```
 
 Pulls images from Docker Hub automatically if they are not on the machine. To force the latest tag from Hub:
 
 ```bash
-docker compose --env-file .env.control-panel up -d --pull always
+docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel up -d --pull always
 ```
 
 Open http://localhost:3000
@@ -41,7 +49,7 @@ Use after the control panel is running (local or remote).
 ```bash
 cd deploy
 cp .env.agent.example .env.agent
-# Edit: KUBEARA_AGENT_IMAGE, ENCRYPTION_SECRET (same as control panel),
+# Edit: ENCRYPTION_SECRET (same as control panel),
 #       CONTROL_PANEL_URL (e.g. http://host.docker.internal:3000)
 
 docker compose -f docker-compose.agent.yml --env-file .env.agent up -d
@@ -54,28 +62,25 @@ Use `--pull always` to refresh `kubeara/agent-app:latest` from Docker Hub before
 Docker on Mac has created too many unused networks. Clean up, then retry:
 
 ```bash
-docker compose -f docker-compose.agent.yml --env-file .env.agent down 2>/dev/null || true
 docker network prune -f
 docker container prune -f
 ```
 
 If it still fails: **Docker Desktop → Troubleshoot → Clean / purge data** (removes unused networks), or restart Docker Desktop.
 
-Then:
-
-```bash
-docker compose -f docker-compose.agent.yml --env-file .env.agent up -d
-```
-
-The agent compose uses `network_mode: bridge` so it does not allocate another project network.
+The agent compose uses `network_mode: bridge` so it does not allocate another project network. The control panel stack needs one compose network so the app can reach Postgres.
 
 ## Apple Silicon (M1/M2/M3) — `no matching manifest for linux/arm64`
 
 Hub images built on GitHub Actions were **amd64-only**. Macs need **arm64** (or amd64 via emulation).
 
-**Right now:** compose defaults to `platform: linux/amd64` (runs under emulation on Mac).
+**Right now:** compose defaults to `platform: linux/amd64` (runs under emulation on Mac). Set in `.env.control-panel` / `.env.agent`:
 
-**After the next push to `main`:** CI publishes **multi-arch** (`amd64` + `arm64`). Pull again, then remove `platform` from compose or set in `.env.agent`:
+```bash
+DOCKER_PLATFORM=linux/amd64
+```
+
+**After multi-arch images are on Hub:** pull again, then set:
 
 ```bash
 DOCKER_PLATFORM=linux/arm64
@@ -97,9 +102,13 @@ docker pull kubeara/agent-app:latest
 | Variable | Purpose |
 |----------|---------|
 | `KUBEARA_CONTROL_PANEL_IMAGE` | Docker Hub image |
-| `ENCRYPTION_SECRET` | App encryption key |
+| `DOCKER_PLATFORM` | `linux/amd64` or `linux/arm64` (optional) |
+| `ENCRYPTION_SECRET` | App encryption key (must match agent) |
 | `PORT` | Control panel port (default 3000) |
+| `DB_HOST` | `postgres` inside compose (do not use `127.0.0.1`) |
 | `DB_*` | Postgres credentials and database name |
+
+Mounted at `/app/apps/control-panel-app/.env` inside the container (same pattern as the agent).
 
 ### .env.agent
 
@@ -112,15 +121,11 @@ docker pull kubeara/agent-app:latest
 | `AGENT_PUBLIC_IP` | Public IP for generated URLs |
 | `TRAEFIK_ENABLED` | Enable Traefik routing on agent host |
 
-## Database migrations
-
-Migrations are not run automatically on first start. Run them once against this Postgres instance before using the control panel in production.
-
 ## Stop
 
 ```bash
-docker compose --env-file .env.control-panel down
+docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel down
 docker compose -f docker-compose.agent.yml --env-file .env.agent down
 # Add -v to remove volumes (deletes DB data):
-#   docker compose --env-file .env.control-panel down -v
+#   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel down -v
 ```
