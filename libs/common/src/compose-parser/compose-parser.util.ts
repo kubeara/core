@@ -169,10 +169,7 @@ export function extractUrlFqdnDeclarations(compose: string): string[] {
 
     const key = trimmed.slice(0, colonIndex).trim();
     const valuePart = trimmed.slice(colonIndex + 1);
-    if (
-      isServiceUrlFqdnDeclarationName(key) &&
-      isEmptyYamlValue(valuePart)
-    ) {
+    if (isServiceUrlFqdnDeclarationName(key) && isEmptyYamlValue(valuePart)) {
       names.add(key);
     }
   }
