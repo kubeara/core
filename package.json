@@ -8,7 +8,7 @@
   "scripts": {
     "clean": "rm -rf dist",
     "build:apps": "npm run clean && npm run build:control-panel-app && npm run build:agent-app",
-    "build:control-panel-app": "nest build control-panel-app",
+    "build:control-panel-app": "nest build control-panel-app && cp -R apps/control-panel-app/deploy dist/apps/control-panel-app/deploy && cp -R apps/control-panel-app/scripts dist/apps/control-panel-app/scripts",
     "build:agent-app": "nest build agent-app",
     "start": "nest start",
     "start:control-panel-app": "nest start control-panel-app",
@@ -33,6 +33,8 @@
     "migration:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d apps/control-panel-app/config/typeorm.config.ts",
     "migration:run:dist": "node ./node_modules/typeorm/cli.js migration:run -d dist/apps/control-panel-app/config/typeorm.config.js",
     "migration:revert:dist": "node ./node_modules/typeorm/cli.js migration:revert -d dist/apps/control-panel-app/config/typeorm.config.js",
+    "migration:show": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:show -d apps/control-panel-app/config/typeorm.config.ts",
+    "migration:show:dist": "node ./node_modules/typeorm/cli.js migration:show -d dist/apps/control-panel-app/config/typeorm.config.js",
     "docker:build:control-panel": "docker compose -f apps/control-panel-app/docker-compose.yml build",
     "docker:build:agent": "docker compose -f apps/agent-app/docker-compose.yml build",
     "docker:build": "npm run docker:build:control-panel && npm run docker:build:agent",

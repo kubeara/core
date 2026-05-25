@@ -207,9 +207,7 @@ export class DeployController {
     const { useTraefikRequest, requestEnv = {}, requestPorts = {} } = options;
 
     const publicIp =
-      this.deploymentGateway.getPrimaryAgentPublicIp() ??
-      process.env.DEFAULT_AGENT_PUBLIC_IP ??
-      "127.0.0.1";
+      this.deploymentGateway.getPrimaryAgentPublicIp() ?? "127.0.0.1";
 
     let useTraefik: boolean;
     if (useTraefikRequest !== undefined) {
