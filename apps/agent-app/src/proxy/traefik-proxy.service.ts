@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { spawn } from "child_process";
+import { existsSync } from "fs";
 import * as path from "path";
 
 @Injectable()
@@ -69,10 +70,26 @@ export class TraefikProxyService {
    */
   getProxyComposePath(): string {
     try {
-      return path.join(
-        process.cwd(),
-        "apps/agent-app/proxy/docker-compose.yml",
-      );
+      const configured = this.configService
+        .get<string>("TRAEFIK_COMPOSE_PATH")
+        ?.trim();
+      if (configured) {
+        return path.resolve(configured);
+      }
+
+      const candidates = [
+        "/app/proxy/docker-compose.yml",
+        path.join(process.cwd(), "apps/agent-app/proxy/docker-compose.yml"),
+        path.join(__dirname, "..", "proxy", "docker-compose.yml"),
+      ];
+
+      for (const candidate of candidates) {
+        if (existsSync(candidate)) {
+          return candidate;
+        }
+      }
+
+      return candidates[0];
     } catch (error) {
       throw new Error(
         `Failed to resolve Traefik compose path: ${error instanceof Error ? error.message : String(error)}`,
