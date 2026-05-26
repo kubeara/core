@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "crypto";
+import { randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { DEV_TEST_USER } from "./dev-test-user";
 
 type StoredUser = {
@@ -17,7 +17,19 @@ const users = new Map<string, StoredUser>();
 const resetTokens = new Map<string, { email: string; expiresAt: number }>();
 
 function hashPassword(password: string): string {
-  return createHash("sha256").update(password).digest("hex");
+  const salt = randomBytes(16).toString("hex");
+   const derivedKey = scryptSync(password, salt, 64).toString("hex");
+   return `scrypt$${salt}$${derivedKey}`;
+  // return createHash("sha256").update(password).digest("hex");
+}
+
+function verifyPassword(password: string, storedHash: string): boolean {
+  const [algorithm, salt, storedDerivedKey] = storedHash.split("$");
+  if (algorithm !== "scrypt" || !salt || !storedDerivedKey) return false;
+  const derivedKey = scryptSync(password, salt, 64);
+  const storedKeyBuffer = Buffer.from(storedDerivedKey, "hex");
+  if (derivedKey.length !== storedKeyBuffer.length) return false;
+  return timingSafeEqual(derivedKey, storedKeyBuffer);
 }
 
 function splitName(name: string): { firstName: string; lastName: string } {
@@ -75,7 +87,7 @@ export function validateUser(
   password: string,
 ): StoredUser | null {
   const user = users.get(email.toLowerCase().trim());
-  if (!user || user.passwordHash !== hashPassword(password)) {
+  if (!user || !verifyPassword(password, user.passwordHash)) {
     return null;
   }
   return ensureProfileFields(user);
@@ -122,7 +134,7 @@ export function changePasswordWithCurrent(
   newPassword: string,
 ): { ok: true } | { ok: false; error: string } {
   const user = users.get(email.toLowerCase().trim());
-  if (!user || user.passwordHash !== hashPassword(currentPassword)) {
+  if (!user || !verifyPassword(currentPassword, user.passwordHash)) {
     return { ok: false, error: "Current password is incorrect." };
   }
   if (newPassword.length < 8) {
