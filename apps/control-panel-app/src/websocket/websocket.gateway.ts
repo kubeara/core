@@ -16,6 +16,9 @@ import {
   SocketRemoveMessage,
 } from "@shared/socket-events";
 import { DeploymentsService } from "@control-panel/modules/deployments/deployments.service";
+import { AgentServerBindingService } from "@control-panel/modules/server-connections/services/agent-server-binding.service";
+
+const SERVER_ID_HEADER = "x-kubeara-server-id";
 
 @Injectable()
 @WebSocketGateway({
@@ -34,6 +37,7 @@ export class DeploymentGateway
   constructor(
     @Inject(forwardRef(() => DeploymentsService))
     private readonly deploymentsService: DeploymentsService,
+    private readonly agentServerBinding: AgentServerBindingService,
   ) {}
 
   @WebSocketServer()
@@ -41,6 +45,9 @@ export class DeploymentGateway
 
   private connectedAgents = new Map<string, Socket>();
   private agentPublicIps = new Map<string, string>();
+  /** Maps Kubeara `servers.id` → active agent socket. */
+  private agentsByServerId = new Map<string, Socket>();
+  private serverIdBySocketId = new Map<string, string>();
 
   /**
    * Logs gateway initialization event.
@@ -61,31 +68,47 @@ export class DeploymentGateway
    * @param client Connected socket client.
    * @returns Void.
    */
-  handleConnection(client: Socket): void {
+  async handleConnection(client: Socket): Promise<void> {
     try {
       const agentId = client.id;
-      const headerIp = client.handshake.headers["x-agent-public-ip"];
-      const queryIp = client.handshake.query.publicIp;
-      const publicIp = String(
-        (Array.isArray(headerIp) ? headerIp[0] : headerIp) ??
-          (Array.isArray(queryIp) ? queryIp[0] : queryIp) ??
-          "",
-      ).trim();
+      const publicIp = this.extractPublicIpFromHandshake(client);
+      const explicitServerId = this.extractServerIdFromHandshake(client);
+
+      const serverId = await this.agentServerBinding.resolveServerIdForAgent({
+        explicitServerId,
+        reportedPublicIp: publicIp || null,
+      });
 
       this.connectedAgents.set(agentId, client);
       if (publicIp) {
         this.agentPublicIps.set(agentId, publicIp);
       }
 
+      if (serverId) {
+        const previous = this.agentsByServerId.get(serverId);
+        if (previous && previous.id !== agentId) {
+          this.logger.warn(
+            `Replacing prior agent socket for serverId=${serverId} (old=${previous.id}, new=${agentId})`,
+          );
+          this.unregisterServerBinding(previous.id);
+          previous.disconnect(true);
+        }
+
+        this.agentsByServerId.set(serverId, client);
+        this.serverIdBySocketId.set(agentId, serverId);
+      }
+
       this.logger.log(
         `Agent connected: ${agentId} (Total: ${this.connectedAgents.size})` +
-          (publicIp
-            ? ` publicIp=${publicIp}`
-            : " (no public IP — set AGENT_PUBLIC_IP)"),
+          (serverId
+            ? ` serverId=${serverId} (auto-bound)`
+            : " (unbound — deploy to this host will fail until matched)") +
+          (publicIp ? ` publicIp=${publicIp}` : ""),
       );
 
       this.server.emit(DeploymentEvents.AGENT_CONNECTED, {
         agentId,
+        serverId: serverId ?? undefined,
         timestamp: new Date().toISOString(),
         totalAgents: this.connectedAgents.size,
       });
@@ -106,6 +129,7 @@ export class DeploymentGateway
       const agentId = client.id;
       this.connectedAgents.delete(agentId);
       this.agentPublicIps.delete(agentId);
+      this.unregisterServerBinding(agentId);
 
       this.logger.log(
         `Agent disconnected: ${agentId} (Total: ${this.connectedAgents.size})`,
@@ -133,39 +157,23 @@ export class DeploymentGateway
 
       if (payload.deploymentId) {
         try {
-          this.logger.debug(`Status from ${client.id}: ${payload.status}`);
-
-          if (payload.deploymentId) {
-            try {
-              if (payload.status === "removed") {
-                await this.deploymentsService.softDeleteDeploymentRecord(
-                  payload.deploymentId,
-                  {
-                    message: payload.message,
-                  },
-                );
-              } else {
-                await this.deploymentsService.updateStatus(
-                  payload.deploymentId,
-                  payload.status,
-                  {
-                    message: payload.message,
-                    error: payload.error,
-                  },
-                );
-              }
-            } catch (error) {
-              this.logger.warn(
-                `Could not persist deployment status for ${payload.deploymentId}: ${error instanceof Error ? error.message : String(error)}`,
-              );
-            }
+          if (payload.status === "removed") {
+            await this.deploymentsService.softDeleteDeploymentRecord(
+              payload.deploymentId,
+              {
+                message: payload.message,
+              },
+            );
+          } else {
+            await this.deploymentsService.updateStatus(
+              payload.deploymentId,
+              payload.status,
+              {
+                message: payload.message,
+                error: payload.error,
+              },
+            );
           }
-
-          this.server.emit(DeploymentEvents.DEPLOYMENT_STATUS, {
-            agentId: client.id,
-            ...payload,
-            receivedAt: new Date().toISOString(),
-          });
         } catch (error) {
           this.logger.warn(
             `Could not persist deployment status for ${payload.deploymentId}: ${error instanceof Error ? error.message : String(error)}`,
@@ -175,6 +183,7 @@ export class DeploymentGateway
 
       this.server.emit(DeploymentEvents.DEPLOYMENT_STATUS, {
         agentId: client.id,
+        serverId: this.serverIdBySocketId.get(client.id),
         ...payload,
         receivedAt: new Date().toISOString(),
       });
@@ -190,6 +199,7 @@ export class DeploymentGateway
     try {
       this.server.emit(DeploymentEvents.DEPLOYMENT_LOG, {
         agentId: client.id,
+        serverId: this.serverIdBySocketId.get(client.id),
         ...payload,
         receivedAt: new Date().toISOString(),
       });
@@ -201,31 +211,64 @@ export class DeploymentGateway
   }
 
   /**
-   * Emit a remove message to all connected agents.
+   * Emit a remove message to the agent bound to `serverId`.
    */
-  emitRemove(message: SocketRemoveMessage): void {
+  emitRemove(message: SocketRemoveMessage, serverId: string): void {
     try {
+      const client = this.agentsByServerId.get(serverId);
+      if (!client) {
+        throw new Error(
+          `No connected agent for server '${serverId}' (deployment ${message.payload.deploymentId})`,
+        );
+      }
+
       this.logger.log(
-        `Emitting remove message for deployment: ${message.payload.deploymentId}`,
+        `Emitting remove to serverId=${serverId} for deployment: ${message.payload.deploymentId}`,
       );
-      this.server.emit(DeploymentEvents.REMOVE, message);
+      client.emit(DeploymentEvents.REMOVE, message);
     } catch (error) {
       this.logger.error(
         `Failed to emit remove message: ${error instanceof Error ? error.message : String(error)}`,
       );
+      throw error;
     }
   }
 
-  emitDeploy(message: SocketDeployMessage): void {
+  /**
+   * Emit a deploy message to the agent bound to `serverId`.
+   */
+  emitDeploy(message: SocketDeployMessage, serverId: string): void {
     try {
+      const client = this.agentsByServerId.get(serverId);
+      if (!client) {
+        throw new Error(
+          `No connected agent for server '${serverId}' (template ${message.payload.name})`,
+        );
+      }
+
       this.logger.log(
-        `Emitting deploy message for template: ${message.payload.name}`,
+        `Emitting deploy to serverId=${serverId} for template: ${message.payload.name}`,
       );
-      this.server.emit(DeploymentEvents.DEPLOY, message);
+      client.emit(DeploymentEvents.DEPLOY, message);
     } catch (error) {
       this.logger.error(
         `Failed to emit deploy message: ${error instanceof Error ? error.message : String(error)}`,
       );
+      throw error;
+    }
+  }
+
+  /**
+   * Returns true when an agent registered for the given server is connected.
+   */
+  isAgentConnectedForServer(serverId: string): boolean {
+    try {
+      return this.agentsByServerId.has(serverId);
+    } catch (error) {
+      this.logger.error(
+        `Failed to check agent for server '${serverId}': ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
     }
   }
 
@@ -259,7 +302,10 @@ export class DeploymentGateway
     }
   }
 
-  /** Public IP reported by the first connected agent (for sslip.io URL generation). */
+  /**
+   * Public IP reported by the first connected agent (legacy fallback).
+   * Prefer {@link DeploymentsService.buildServerUrlContext} with an explicit serverId.
+   */
   getPrimaryAgentPublicIp(): string | null {
     try {
       const firstEntry = this.agentPublicIps.values().next();
@@ -271,6 +317,59 @@ export class DeploymentGateway
         `Failed to get primary agent public IP: ${error instanceof Error ? error.message : String(error)}`,
       );
       return null;
+    }
+  }
+
+  private extractPublicIpFromHandshake(client: Socket): string {
+    try {
+      const headerIp = client.handshake.headers["x-agent-public-ip"];
+      const queryIp = client.handshake.query.publicIp;
+      return String(
+        (Array.isArray(headerIp) ? headerIp[0] : headerIp) ??
+          (Array.isArray(queryIp) ? queryIp[0] : queryIp) ??
+          "",
+      ).trim();
+    } catch {
+      return "";
+    }
+  }
+
+  /**
+   * Optional id from install-generated agent env (not required from users).
+   */
+  private extractServerIdFromHandshake(client: Socket): string | null {
+    try {
+      const headerValue = client.handshake.headers[SERVER_ID_HEADER];
+      const queryValue = client.handshake.query.serverId;
+      const raw = String(
+        (Array.isArray(headerValue) ? headerValue[0] : headerValue) ??
+          (Array.isArray(queryValue) ? queryValue[0] : queryValue) ??
+          "",
+      ).trim();
+
+      return raw || null;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to parse server id from handshake: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
+  }
+
+  private unregisterServerBinding(socketId: string): void {
+    try {
+      const serverId = this.serverIdBySocketId.get(socketId);
+      if (serverId) {
+        const bound = this.agentsByServerId.get(serverId);
+        if (bound?.id === socketId) {
+          this.agentsByServerId.delete(serverId);
+        }
+        this.serverIdBySocketId.delete(socketId);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to unregister server binding for socket ${socketId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 }

@@ -14,6 +14,7 @@ import { DeploymentsService } from "./deployments.service";
 import { DeployController } from "./deploy.controller";
 import { DeploymentsController } from "./deployments.controller";
 import { WebsocketModule } from "@control-panel/websocket/websocket.module";
+import { ServerConnectionsModule } from "../server-connections/server-connections.module";
 import { ServiceTemplateEntity } from "../templates";
 
 @Module({
@@ -23,6 +24,7 @@ import { ServiceTemplateEntity } from "../templates";
       EnvironmentVariableEntity,
       ServiceTemplateEntity,
     ]),
+    ServerConnectionsModule,
     forwardRef(() => WebsocketModule),
     EncryptionModule,
     TemplatePayloadModule,

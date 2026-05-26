@@ -28,37 +28,21 @@ import {
 } from "@shared/socket-events";
 
 import { DeploymentGateway } from "@control-panel/websocket/websocket.gateway";
+import { EntityStatus } from "@control-panel/common/entity/base.entity";
+import { ServerEntity } from "@control-panel/modules/server-connections/entities/server.entity";
+import { LocalServerService } from "@control-panel/modules/server-connections/services/local-server.service";
+import { ServerConnectionsService } from "@control-panel/modules/server-connections/services/server-connections.service";
 import { EnvironmentVariableEntity } from "./entities/environment-variable.entity";
 import { ServiceDeploymentEntity } from "./entities/service-deployment.entity";
 import { ServiceTemplateEntity } from "@control-panel/modules/templates";
-
-export interface PrepareDeploymentInput {
-  templateSlug: string;
-  requestEnv?: Record<string, unknown>;
-  requestPorts?: Record<string, unknown>;
-  /** When set, load stored variables and merge request overrides (redeploy). */
-  existingDeploymentId?: string;
-  /** Agent/server context for SERVICE_URL_* / SERVICE_FQDN_* generation (deploymentId added internally). */
-  serverUrlContext?: Omit<ServerUrlContext, "deploymentId">;
-}
-
-export interface BuildServerUrlContextInput {
-  useTraefikRequest?: boolean;
-  requestEnv?: Record<string, unknown>;
-  requestPorts?: Record<string, unknown>;
-}
-
-export interface PreparedDeployment {
-  deploymentId: string;
-  templateSlug: string;
-  encodedCompose: string;
-  mergedEnv: Record<string, string>;
-  mergedPorts: Record<string, number>;
-  generatedKeys: string[];
-  schema?: TemplateSchema;
-  composeOnly?: boolean;
-  useTraefik?: boolean;
-}
+import {
+  BuildServerUrlContextInput,
+  PrepareDeploymentInput,
+  PreparedDeployment,
+  ResolveDeploymentServerInput,
+  ResolvedDeploymentTarget,
+} from "./dto/deployment.types";
+import { normalizeServerHostForUrls } from "./utils/deployment-server.util";
 
 export interface EnvironmentVariableView {
   key: string;
@@ -80,6 +64,8 @@ export class DeploymentsService {
     private readonly environmentVariableRepository: Repository<EnvironmentVariableEntity>,
     @InjectRepository(ServiceTemplateEntity)
     private readonly templateRepository: Repository<ServiceTemplateEntity>,
+    private readonly serverConnectionsService: ServerConnectionsService,
+    private readonly localServerService: LocalServerService,
     private readonly templatePayloadService: TemplatePayloadService,
     private readonly templateConfigService: TemplateConfigService,
     private readonly composeParserService: ComposeParserService,
@@ -90,6 +76,159 @@ export class DeploymentsService {
 
   generateDeploymentId(): string {
     return `deployment-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+  }
+
+  /**
+   * Resolves deploy target server and owning user (from server row or existing deployment).
+   */
+  async resolveDeploymentTarget(
+    input: ResolveDeploymentServerInput,
+  ): Promise<ResolvedDeploymentTarget> {
+    try {
+      const serverId = await this.resolveDeploymentServerId(input);
+      const server = await this.assertActiveServerForUser(
+        serverId,
+        input.userId,
+      );
+
+      if (input.existingDeploymentId) {
+        const deployment = await this.getDeployment(input.existingDeploymentId);
+        if (deployment.userId) {
+          return { serverId, userId: deployment.userId };
+        }
+      }
+
+      return { serverId, userId: server.userId };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      throw new BadRequestException(
+        `Failed to resolve deployment target: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Resolves which server a deploy targets.
+   * - Redeploy: uses stored `server_id`, or `serverId` / `deployOnLocal` when legacy row has no server.
+   * - New deploy: requires `serverId` or `deployOnLocal` (creates per-user local server on first use).
+   */
+  async resolveDeploymentServerId(
+    input: ResolveDeploymentServerInput,
+  ): Promise<string> {
+    try {
+      if (input.existingDeploymentId) {
+        const deployment = await this.getDeployment(input.existingDeploymentId);
+        const storedServerId = deployment.server_id;
+
+        if (
+          input.serverId &&
+          storedServerId &&
+          input.serverId !== storedServerId
+        ) {
+          throw new BadRequestException(
+            `Cannot change target server on redeploy (deployment uses server '${storedServerId}')`,
+          );
+        }
+
+        if (storedServerId) {
+          await this.assertActiveServerForUser(storedServerId, input.userId);
+          return storedServerId;
+        }
+
+        if (input.serverId) {
+          await this.assertActiveServerForUser(input.serverId, input.userId);
+          return input.serverId;
+        }
+
+        if (input.deployOnLocal) {
+          return (await this.localServerService.ensureLocalServer(input.userId))
+            .id;
+        }
+
+        throw new BadRequestException(
+          "Deployment has no target server. Provide serverId or set deployOnLocal=true.",
+        );
+      }
+
+      if (input.serverId) {
+        await this.assertActiveServerForUser(input.serverId, input.userId);
+        return input.serverId;
+      }
+
+      if (input.deployOnLocal) {
+        return (await this.localServerService.ensureLocalServer(input.userId))
+          .id;
+      }
+
+      throw new BadRequestException(
+        "Provide serverId or set deployOnLocal=true for local machine deploy.",
+      );
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+      throw new BadRequestException(
+        `Failed to resolve deployment server: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Loads an active server row owned by the given user.
+   */
+  async assertActiveServerForUser(
+    serverId: string,
+    userId: string,
+  ): Promise<ServerEntity> {
+    try {
+      const server = await this.serverConnectionsService.findOne({
+        where: { id: serverId, userId, status: EntityStatus.ACTIVE },
+      });
+
+      if (!server) {
+        throw new NotFoundException(
+          `Server '${serverId}' not found, inactive, or not accessible`,
+        );
+      }
+
+      return server;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(
+        `Failed to load server '${serverId}': ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Ensures an agent is connected for the given server before emitting deploy/remove.
+   */
+  assertAgentConnectedForServer(serverId: string): void {
+    try {
+      if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+        throw new ConflictException(
+          `No agent is connected for server '${serverId}'. ` +
+            "Start the agent on that machine (it will bind automatically after onboard/install).",
+        );
+      }
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException(
+        `Failed to verify agent connection: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
@@ -105,31 +244,51 @@ export class DeploymentsService {
    * `useTraefik` is false and a `SERVICE_PORT_*` is supplied (or auto-filled). To force direct
    * host ports: `"useTraefik": false` and `"ports": { "SERVICE_PORT_N8N": 5678 }`.
    */
-  buildServerUrlContext(
+  async buildServerUrlContext(
     options: BuildServerUrlContextInput,
-  ): Omit<ServerUrlContext, "deploymentId"> {
-    const { useTraefikRequest, requestEnv = {}, requestPorts = {} } = options;
+  ): Promise<Omit<ServerUrlContext, "deploymentId">> {
+    try {
+      const {
+        serverId,
+        useTraefikRequest,
+        requestEnv = {},
+        requestPorts = {},
+      } = options;
 
-    const publicIp =
-      this.deploymentGateway.getPrimaryAgentPublicIp() ?? "127.0.0.1";
+      const server = await this.assertActiveServerForUser(
+        serverId,
+        options.userId,
+      );
+      const publicIp = normalizeServerHostForUrls(server.host);
 
-    let useTraefik: boolean;
-    if (useTraefikRequest !== undefined) {
-      useTraefik = Boolean(useTraefikRequest);
-    } else if (
-      this.requestContainsExplicitServiceHostPorts(requestPorts, requestEnv)
-    ) {
-      useTraefik = false;
-    } else {
-      useTraefik = process.env.TRAEFIK_ENABLED === "true";
+      let useTraefik: boolean;
+      if (useTraefikRequest !== undefined) {
+        useTraefik = Boolean(useTraefikRequest);
+      } else if (
+        this.requestContainsExplicitServiceHostPorts(requestPorts, requestEnv)
+      ) {
+        useTraefik = false;
+      } else {
+        useTraefik = process.env.TRAEFIK_ENABLED === "true";
+      }
+
+      return {
+        publicIp,
+        wildcardDomain: process.env.WILDCARD_DOMAIN ?? null,
+        forceHttps: process.env.FORCE_HTTPS === "true",
+        useTraefik,
+      };
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new BadRequestException(
+        `Failed to build server URL context: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
-
-    return {
-      publicIp,
-      wildcardDomain: process.env.WILDCARD_DOMAIN ?? null,
-      forceHttps: process.env.FORCE_HTTPS === "true",
-      useTraefik,
-    };
   }
 
   /**
@@ -138,42 +297,58 @@ export class DeploymentsService {
   emitPreparedDeployment(
     prepared: PreparedDeployment,
     isRedeploy: boolean,
-  ): { message: string; template: string; deploymentId: string } {
-    this.logger.debug(
-      `[emitPreparedDeployment] deploymentId=${prepared.deploymentId} mergedPorts=${JSON.stringify(prepared.mergedPorts)}`,
-    );
+  ): {
+    message: string;
+    template: string;
+    deploymentId: string;
+    serverId: string;
+  } {
+    try {
+      this.logger.debug(
+        `[emitPreparedDeployment] deploymentId=${prepared.deploymentId} serverId=${prepared.serverId} mergedPorts=${JSON.stringify(prepared.mergedPorts)}`,
+      );
 
-    const encryptedCompose = this.encryptionService.encrypt(
-      prepared.encodedCompose,
-    );
-    const encryptedEnv = this.encryptionService.encrypt(
-      JSON.stringify(prepared.mergedEnv),
-    );
-    const encryptedPorts = this.encryptionService.encrypt(
-      JSON.stringify(prepared.mergedPorts),
-    );
+      const encryptedCompose = this.encryptionService.encrypt(
+        prepared.encodedCompose,
+      );
+      const encryptedEnv = this.encryptionService.encrypt(
+        JSON.stringify(prepared.mergedEnv),
+      );
+      const encryptedPorts = this.encryptionService.encrypt(
+        JSON.stringify(prepared.mergedPorts),
+      );
 
-    const message: SocketDeployMessage = {
-      type: "DEPLOY",
-      payload: {
-        name: prepared.templateSlug,
-        compose: encryptedCompose,
-        env: encryptedEnv,
-        ports: encryptedPorts,
+      const message: SocketDeployMessage = {
+        type: "DEPLOY",
+        payload: {
+          name: prepared.templateSlug,
+          compose: encryptedCompose,
+          env: encryptedEnv,
+          ports: encryptedPorts,
+          deploymentId: prepared.deploymentId,
+          schema: prepared.schema,
+          composeOnly: prepared.composeOnly,
+          useTraefik: prepared.useTraefik,
+        },
+      };
+
+      this.assertAgentConnectedForServer(prepared.serverId);
+      this.deploymentGateway.emitDeploy(message, prepared.serverId);
+
+      return {
+        message: isRedeploy ? "Redeployment initiated" : "Deployment initiated",
+        template: prepared.templateSlug,
         deploymentId: prepared.deploymentId,
-        schema: prepared.schema,
-        composeOnly: prepared.composeOnly,
-        useTraefik: prepared.useTraefik,
-      },
-    };
-
-    this.deploymentGateway.emitDeploy(message);
-
-    return {
-      message: isRedeploy ? "Redeployment initiated" : "Deployment initiated",
-      template: prepared.templateSlug,
-      deploymentId: prepared.deploymentId,
-    };
+        serverId: prepared.serverId,
+      };
+    } catch (error) {
+      if (error instanceof ConflictException) {
+        throw error;
+      }
+      throw new BadRequestException(
+        `Failed to emit deployment: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   async prepareDeployment(
@@ -181,6 +356,8 @@ export class DeploymentsService {
   ): Promise<PreparedDeployment> {
     const {
       templateSlug,
+      serverId,
+      userId,
       requestEnv = {},
       requestPorts = {},
       existingDeploymentId,
@@ -238,6 +415,8 @@ export class DeploymentsService {
     await this.upsertDeploymentRecord({
       deploymentId,
       templateSlug,
+      serverId,
+      userId,
       status: "pending",
     });
 
@@ -257,6 +436,8 @@ export class DeploymentsService {
 
     return {
       deploymentId,
+      serverId,
+      userId,
       templateSlug,
       encodedCompose: template.compose,
       mergedEnv,
@@ -264,6 +445,7 @@ export class DeploymentsService {
       generatedKeys: parsedFromCompose.generatedKeys,
       schema: { ...schema, normalized },
       composeOnly: false,
+      useTraefik: input.serverUrlContext?.useTraefik,
     };
   }
 
@@ -276,6 +458,8 @@ export class DeploymentsService {
   ): Promise<PreparedDeployment> {
     const {
       templateSlug,
+      serverId,
+      userId,
       requestEnv = {},
       requestPorts = {},
       existingDeploymentId,
@@ -378,6 +562,8 @@ export class DeploymentsService {
     await this.upsertDeploymentRecord({
       deploymentId,
       templateSlug,
+      serverId,
+      userId,
       status: "pending",
     });
 
@@ -397,6 +583,8 @@ export class DeploymentsService {
 
     return {
       deploymentId,
+      serverId,
+      userId,
       templateSlug,
       encodedCompose: template.compose,
       mergedEnv,
@@ -547,28 +735,40 @@ export class DeploymentsService {
   private async upsertDeploymentRecord(opts: {
     deploymentId: string;
     templateSlug: string;
+    serverId: string;
+    userId: string;
     status: DeploymentStatus;
   }): Promise<void> {
-    const existing = await this.deploymentRepository.findOne({
-      where: { id: opts.deploymentId },
-    });
+    try {
+      const existing = await this.deploymentRepository.findOne({
+        where: { id: opts.deploymentId },
+      });
 
-    if (existing) {
-      existing.template_slug = opts.templateSlug;
-      existing.status = opts.status;
-      await this.deploymentRepository.save(existing);
-      return;
+      if (existing) {
+        existing.template_slug = opts.templateSlug;
+        existing.server_id = opts.serverId;
+        existing.userId = opts.userId;
+        existing.status = opts.status;
+        await this.deploymentRepository.save(existing);
+        return;
+      }
+
+      const deployment = this.deploymentRepository.create({
+        id: opts.deploymentId,
+        template_slug: opts.templateSlug,
+        server_id: opts.serverId,
+        userId: opts.userId,
+        status: opts.status,
+        status_message: null,
+        last_error: null,
+      });
+
+      await this.deploymentRepository.save(deployment);
+    } catch (error) {
+      throw new BadRequestException(
+        `Failed to persist deployment record: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
-
-    const deployment = this.deploymentRepository.create({
-      id: opts.deploymentId,
-      template_slug: opts.templateSlug,
-      status: opts.status,
-      status_message: null,
-      last_error: null,
-    });
-
-    await this.deploymentRepository.save(deployment);
   }
 
   private async persistEnvironmentVariables(opts: {
@@ -676,11 +876,19 @@ export class DeploymentsService {
       );
     }
 
-    if (this.deploymentGateway.getConnectedAgentsCount() === 0) {
-      throw new ConflictException(
-        "No agent is connected. Connect an agent before removing a deployment.",
-      );
+    let serverId = deployment.server_id;
+    if (!serverId) {
+      if (!deployment.userId) {
+        throw new BadRequestException(
+          `Deployment '${deploymentId}' has no server_id; cannot remove.`,
+        );
+      }
+      serverId = (
+        await this.localServerService.ensureLocalServer(deployment.userId)
+      ).id;
     }
+
+    this.assertAgentConnectedForServer(serverId);
 
     await this.updateStatus(deploymentId, "removing", {
       message: SUCCESS_MESSAGES.REMOVING,
@@ -694,7 +902,7 @@ export class DeploymentsService {
       },
     };
 
-    this.deploymentGateway.emitRemove(message);
+    this.deploymentGateway.emitRemove(message, serverId);
 
     this.logger.log(`Removal requested for deployment '${deploymentId}'`);
 

@@ -22,6 +22,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev --ignore-scripts
 
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/apps/control-panel-app/templates ./apps/control-panel-app/templates
 
 EXPOSE 3000
 

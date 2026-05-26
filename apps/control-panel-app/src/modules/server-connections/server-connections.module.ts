@@ -8,15 +8,31 @@ import { ServerSshCredentialEntity } from "./entities/server-ssh-credential.enti
 
 import { ServerConnectionsService } from "./services/server-connections.service";
 import { RemoteAgentInstallService } from "./services/remote-agent-install.service";
+import { LocalServerService } from "./services/local-server.service";
+import { AgentServerBindingService } from "./services/agent-server-binding.service";
+import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
 import { SshModule } from "@shared/ssh";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ServerEntity, ServerSshCredentialEntity]),
+    TypeOrmModule.forFeature([
+      ServerEntity,
+      ServerSshCredentialEntity,
+      UserEntity,
+    ]),
     SshModule,
   ],
   controllers: [ServersController],
-  providers: [ServerConnectionsService, RemoteAgentInstallService],
-  exports: [ServerConnectionsService],
+  providers: [
+    ServerConnectionsService,
+    RemoteAgentInstallService,
+    LocalServerService,
+    AgentServerBindingService,
+  ],
+  exports: [
+    ServerConnectionsService,
+    LocalServerService,
+    AgentServerBindingService,
+  ],
 })
 export class ServerConnectionsModule {}

@@ -3,7 +3,7 @@
 #   cp .env.control-panel.example .env.control-panel
 #   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel pull
 #   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel up -d
-# Migrations (once, before first use):
+# Migrations + template seed (once, before first use):
 #   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel --profile migrate run --rm migrate
 
 services:
@@ -42,13 +42,12 @@ services:
       ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?Set ENCRYPTION_SECRET in .env.control-panel}
     volumes:
       - ./.env.control-panel:/app/apps/control-panel-app/.env:ro
+    working_dir: /app
     command:
       [
-        "node",
-        "./node_modules/typeorm/cli.js",
-        "migration:run",
-        "-d",
-        "dist/apps/control-panel-app/config/typeorm.config.js",
+        "sh",
+        "-c",
+        "node ./node_modules/typeorm/cli.js migration:run -d dist/apps/control-panel-app/config/typeorm.config.js && npm run seed",
       ]
     depends_on:
       postgres:

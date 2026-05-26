@@ -12,7 +12,7 @@ import {
 
 import { ServiceDeploymentEntity } from "./service-deployment.entity";
 
-@Entity("environment_variables")
+@Entity("environmentVariables")
 @Unique(["deployment_id", "key"])
 @Index(["deployment_id"])
 export class EnvironmentVariableEntity {
@@ -24,7 +24,7 @@ export class EnvironmentVariableEntity {
 
   @ManyToOne(
     () => ServiceDeploymentEntity,
-    (deployment) => deployment.environment_variables,
+    (deployment) => deployment.environmentVariables,
   )
   @JoinColumn({ name: "deployment_id" })
   deployment!: ServiceDeploymentEntity;

@@ -20,7 +20,7 @@ export class DeploymentsController {
   async getDeployment(@Param("deploymentId") deploymentId: string) {
     const deployment =
       await this.deploymentsService.getDeployment(deploymentId);
-    const environment_variables =
+    const environmentVariables =
       await this.deploymentsService.listEnvironmentVariables(deploymentId, {
         maskSecrets: true,
       });
@@ -28,12 +28,14 @@ export class DeploymentsController {
     return {
       id: deployment.id,
       template_slug: deployment.template_slug,
+      server_id: deployment.server_id,
+      userId: deployment.userId,
       status: deployment.status,
       status_message: deployment.status_message,
       last_error: deployment.last_error,
       created_at: deployment.created_at,
       updated_at: deployment.updated_at,
-      environment_variables,
+      environmentVariables,
     };
   }
 

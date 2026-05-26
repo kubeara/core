@@ -88,6 +88,7 @@ export class RemoteAgentInstallService {
         `AGENT_PORT=${AGENT_INSTALL.DEFAULT_PORT}`,
         `CONTROL_PANEL_URL=${controlPanelUrl.trim()}`,
         `ENCRYPTION_SECRET=${encryptionSecret}`,
+        `KUBEARA_SERVER_ID=${input.connection.serverId}`,
         `AGENT_PUBLIC_IP=${input.serverHost.trim()}`,
         "TRAEFIK_ENABLED=false",
         "DOCKER_PLATFORM=linux/amd64",

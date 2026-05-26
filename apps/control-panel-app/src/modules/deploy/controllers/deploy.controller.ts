@@ -15,7 +15,6 @@ import { SocketDeployMessage } from "@shared/socket-events";
 import { EncryptionService, TemplateConfigService } from "@shared/common";
 import { DeployTemplateDto } from "../dto/deploy-template.dto";
 import { TemplateSchema, SchemaFieldDetails } from "@shared/socket-events";
-
 @Controller("deploy")
 export class DeployController {
   private readonly logger = new Logger(DeployController.name);
@@ -30,9 +29,12 @@ export class DeployController {
   @Post()
   @HttpCode(202)
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-  async deploy(
-    @Body() body: DeployTemplateDto,
-  ): Promise<{ message: string; template: string; deploymentId: string }> {
+  async deploy(@Body() body: DeployTemplateDto): Promise<{
+    message: string;
+    template: string;
+    deploymentId: string;
+    serverId: string;
+  }> {
     const {
       templateSlug,
       env: requestEnv = {},
@@ -83,12 +85,26 @@ export class DeployController {
       },
     };
 
-    this.deploymentGateway.emitDeploy(message);
+    try {
+      if (!body.serverId) {
+        throw new BadRequestException(
+          "serverId is required. Use POST /deploy/compose with deployOnLocal for local deploy.",
+        );
+      }
 
-    return {
-      message: "Deployment initiated",
-      template: templateSlug,
-      deploymentId,
-    };
+      this.deploymentGateway.emitDeploy(message, body.serverId);
+
+      return {
+        message: "Deployment initiated",
+        template: templateSlug,
+        deploymentId,
+        serverId: body.serverId,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Legacy deploy emit failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 }

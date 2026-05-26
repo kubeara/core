@@ -18,6 +18,11 @@ import {
 import * as yaml from "js-yaml";
 import * as os from "os";
 
+import {
+  detectOutboundPublicIp,
+  localLoopbackHost,
+} from "./agent-public-ip.util";
+
 @Injectable()
 export class SocketClientService {
   private readonly logger = new Logger(SocketClientService.name);
@@ -39,6 +44,13 @@ export class SocketClientService {
    * @returns Void; logs connection lifecycle events.
    */
   connect(): void {
+    void this.connectAsync();
+  }
+
+  /**
+   * Connects to the control panel and registers this host (no manual server UUID in `.env`).
+   */
+  private async connectAsync(): Promise<void> {
     try {
       if (this.connected || this.socket) {
         this.logger.warn("Socket already connected or connecting");
@@ -49,8 +61,24 @@ export class SocketClientService {
         "CONTROL_PANEL_URL",
         "http://localhost:3000",
       );
-      const publicIp = this.configService
+
+      let publicIp = this.configService
         .get<string>("AGENT_PUBLIC_IP", "")
+        .trim();
+      if (!publicIp) {
+        publicIp = await detectOutboundPublicIp();
+        if (publicIp) {
+          this.logger.log(`Detected outbound public IP: ${publicIp}`);
+        } else {
+          publicIp = localLoopbackHost();
+          this.logger.log(
+            `Using ${publicIp} for registration (local / no outbound detect)`,
+          );
+        }
+      }
+
+      const installServerId = this.configService
+        .get<string>("KUBEARA_SERVER_ID", "")
         .trim();
 
       this.logger.log(`Connecting to control panel at ${controlPanelUrl}`);
@@ -62,9 +90,15 @@ export class SocketClientService {
         reconnectionAttempts: Infinity,
         extraHeaders: {
           "X-Agent-ID": this.agentId,
-          ...(publicIp ? { "X-Agent-Public-IP": publicIp } : {}),
+          ...(installServerId
+            ? { "X-Kubeara-Server-Id": installServerId }
+            : {}),
+          "X-Agent-Public-IP": publicIp,
         },
-        query: publicIp ? { publicIp } : undefined,
+        query: {
+          ...(installServerId ? { serverId: installServerId } : {}),
+          publicIp,
+        },
       });
 
       this.setupEventListeners();

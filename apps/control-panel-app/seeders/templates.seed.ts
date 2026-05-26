@@ -2,7 +2,7 @@
  * Seeds service templates directly from source files under apps/control-panel-app/templates.
  * Reads docker-compose.yml (and optional template.config.json), then upserts rows by slug.
  *
- * Run via: npm run seed:templates
+ * Run via: npm run seed (after build) or npm run seed:dev
  */
 import "reflect-metadata";
 import * as fs from "fs";

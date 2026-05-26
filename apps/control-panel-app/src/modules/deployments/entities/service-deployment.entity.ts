@@ -12,15 +12,31 @@ import {
 
 import { EnvironmentVariableEntity } from "./environment-variable.entity";
 import { ServiceTemplateEntity } from "../../templates/entities/service-template.entity";
+import { ServerEntity } from "@control-panel/modules/server-connections/entities/server.entity";
+import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
 import type { DeploymentStatus } from "@shared/socket-events";
 
-@Entity("service_deployments")
+@Entity("serviceDeployments")
 export class ServiceDeploymentEntity {
   @PrimaryColumn({ type: "varchar", length: 128 })
   id!: string;
 
   @Column({ type: "varchar", length: 255 })
   template_slug!: string;
+
+  @Column({ type: "uuid", nullable: true })
+  server_id!: string | null;
+
+  @Column({ type: "uuid", nullable: true })
+  userId!: string | null;
+
+  @ManyToOne(() => ServerEntity, { onDelete: "RESTRICT", nullable: true })
+  @JoinColumn({ name: "server_id" })
+  server?: ServerEntity | null;
+
+  @ManyToOne(() => UserEntity, { onDelete: "RESTRICT", nullable: true })
+  @JoinColumn({ name: "userId" })
+  user?: UserEntity | null;
 
   @ManyToOne(() => ServiceTemplateEntity, { onDelete: "RESTRICT" })
   @JoinColumn({ name: "template_slug", referencedColumnName: "slug" })
@@ -42,7 +58,7 @@ export class ServiceDeploymentEntity {
       cascade: true,
     },
   )
-  environment_variables?: EnvironmentVariableEntity[];
+  environmentVariables?: EnvironmentVariableEntity[];
 
   @CreateDateColumn({ type: "timestamptz" })
   created_at!: Date;

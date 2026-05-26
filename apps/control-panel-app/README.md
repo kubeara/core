@@ -60,10 +60,10 @@ Each folder contains:
 - `docker-compose.yml` — compose with Coolify-style `SERVICE_*` magic variables
 - `template.config.json` — optional schema for legacy `POST /deploy` (not used by postgresV2)
 
-Build generated artifacts and seed the database:
+Build the control panel and seed templates into the database:
 
 ```bash
-npm run build:templates
+npm run build:control-panel-app
 npm run seed
 ```
 

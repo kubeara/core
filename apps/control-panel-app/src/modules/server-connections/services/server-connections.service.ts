@@ -32,6 +32,7 @@ import { SUCCESS_MESSAGES } from "@control-panel/constants/success";
 export interface ExistingServerCheck {
   host: string;
   username: string;
+  userId: string;
 }
 
 @Injectable()
@@ -145,6 +146,7 @@ export class ServerConnectionsService {
       where: {
         host: input.host,
         username: input.username,
+        userId: input.userId,
       },
     });
   }
@@ -185,10 +187,12 @@ export class ServerConnectionsService {
    */
   async onboardServer(
     input: CreateServerOnboardRequestDto,
+    userId: string,
   ): Promise<OnboardResponseDto> {
     const existingServer = await this.findExistingServer({
       host: input.server.host,
       username: input.server.username,
+      userId,
     });
 
     if (existingServer) {
@@ -314,6 +318,7 @@ export class ServerConnectionsService {
       // STEP 2: create server
       const serverPayload: CreateServerDto = input.server;
       const serverEntity = serverRepo.create({
+        userId,
         name: serverPayload.name,
         host: serverPayload.host,
         port: serverPayload.port ?? DEFAULT_SSH_PORT,
@@ -357,6 +362,7 @@ export class ServerConnectionsService {
       }
 
       const credEntity = credentialRepo.create({
+        userId,
         serverId: savedServer.id,
         authType: ssh.authType,
         encryptedPrivateKey: encryptedPrivateKey ?? null,

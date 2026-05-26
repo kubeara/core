@@ -43,7 +43,7 @@
     "../../apps/control-panel-app/migrations/**/*",
     "src/**/*",
     "../../libs/**/*",
-    "seeders/templates.seed.ts"
+    "seeders/**/*.ts"
   ],
   "exclude": [
     "../../apps/agent-app/**/*",

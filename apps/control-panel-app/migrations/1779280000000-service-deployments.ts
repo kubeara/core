@@ -11,7 +11,7 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.createTable(
       new Table({
-        name: "service_deployments",
+        name: "serviceDeployments",
         columns: [
           {
             name: "id",
@@ -61,7 +61,7 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
     );
 
     await queryRunner.createIndex(
-      "service_deployments",
+      "serviceDeployments",
       new TableIndex({
         name: "IDX_service_deployments_template_slug",
         columnNames: ["template_slug"],
@@ -69,7 +69,7 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
     );
 
     await queryRunner.createIndex(
-      "service_deployments",
+      "serviceDeployments",
       new TableIndex({
         name: "IDX_service_deployments_status",
         columnNames: ["status"],
@@ -77,7 +77,7 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
     );
 
     await queryRunner.createForeignKey(
-      "service_deployments",
+      "serviceDeployments",
       new TableForeignKey({
         columnNames: ["template_slug"],
         referencedColumnNames: ["slug"],
@@ -89,7 +89,7 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
 
     await queryRunner.createTable(
       new Table({
-        name: "environment_variables",
+        name: "environmentVariables",
         columns: [
           {
             name: "id",
@@ -145,7 +145,7 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
     );
 
     await queryRunner.createIndex(
-      "environment_variables",
+      "environmentVariables",
       new TableIndex({
         name: "IDX_environment_variables_deployment_id",
         columnNames: ["deployment_id"],
@@ -153,7 +153,7 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
     );
 
     await queryRunner.createUniqueConstraint(
-      "environment_variables",
+      "environmentVariables",
       new TableUnique({
         name: "UQ_environment_variables_deployment_id_key",
         columnNames: ["deployment_id", "key"],
@@ -161,47 +161,47 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
     );
 
     await queryRunner.createForeignKey(
-      "environment_variables",
+      "environmentVariables",
       new TableForeignKey({
         columnNames: ["deployment_id"],
         referencedColumnNames: ["id"],
-        referencedTableName: "service_deployments",
+        referencedTableName: "serviceDeployments",
         onUpdate: "CASCADE",
       }),
     );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    const envTable = await queryRunner.getTable("environment_variables");
+    const envTable = await queryRunner.getTable("environmentVariables");
     if (envTable) {
       for (const fk of envTable.foreignKeys) {
-        await queryRunner.dropForeignKey("environment_variables", fk);
+        await queryRunner.dropForeignKey("environmentVariables", fk);
       }
     }
     await queryRunner.dropIndex(
-      "environment_variables",
+      "environmentVariables",
       "IDX_environment_variables_deployment_id",
     );
     await queryRunner.dropUniqueConstraint(
-      "environment_variables",
+      "environmentVariables",
       "UQ_environment_variables_deployment_id_key",
     );
-    await queryRunner.dropTable("environment_variables");
+    await queryRunner.dropTable("environmentVariables");
 
-    const depTable = await queryRunner.getTable("service_deployments");
+    const depTable = await queryRunner.getTable("serviceDeployments");
     if (depTable) {
       for (const fk of depTable.foreignKeys) {
-        await queryRunner.dropForeignKey("service_deployments", fk);
+        await queryRunner.dropForeignKey("serviceDeployments", fk);
       }
     }
     await queryRunner.dropIndex(
-      "service_deployments",
+      "serviceDeployments",
       "IDX_service_deployments_status",
     );
     await queryRunner.dropIndex(
-      "service_deployments",
+      "serviceDeployments",
       "IDX_service_deployments_template_slug",
     );
-    await queryRunner.dropTable("service_deployments");
+    await queryRunner.dropTable("serviceDeployments");
   }
 }
