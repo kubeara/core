@@ -10,4 +10,18 @@ export const ERROR_MESSAGES = {
     ALREADY_EXIST: "server with this host and username already exist",
     CREDENTIALS_NOT_FOUND: "ssh credentials not found",
   },
+
+  AUTH: {
+    EMAIL_ALREADY_EXISTS: "email already exists",
+    INVALID_CREDENTIALS: "invalid email or password",
+    INVALID_REFRESH_TOKEN: "invalid refresh token",
+    SESSION_EXPIRED: "session expired",
+    UNAUTHORIZED: "unauthorized",
+    USER_NOT_FOUND: "user not found",
+    OLD_SAME_PASSWORD: "new password cannot be same as old",
+    INVALID_OTP: "invalid OTP",
+    OTP_EXPIRED: "OTP expired",
+    OTP_NOT_VERIFIED: "OTP not verified",
+    MAX_OTP_ATTEMPTS: "OTP attempts exhausted, please try again later",
+  },
 };

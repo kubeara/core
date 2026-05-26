@@ -166,7 +166,6 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
         columnNames: ["deployment_id"],
         referencedColumnNames: ["id"],
         referencedTableName: "service_deployments",
-        onDelete: "CASCADE",
         onUpdate: "CASCADE",
       }),
     );
