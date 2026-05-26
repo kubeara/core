@@ -3,17 +3,11 @@ import { IsEnum, IsNotEmpty, IsNumber, IsString } from "class-validator";
 
 import { BaseEntity } from "@control-panel/common/entity/base.entity";
 import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
+import { CODE_TYPE } from "../enum/codeType.enum";
 
-export enum VerificationType {
-  EMAIL_VERIFICATION = "EMAIL_VERIFICATION",
-  FORGOT_PASSWORD = "FORGOT_PASSWORD",
-  LOGIN_OTP = "LOGIN_OTP",
-}
-
-@Entity({ name: "verificationOtps" })
+@Entity({ name: "userCodes" })
 @Index("IDX_verification_otps_userId", ["userId"])
-@Index("IDX_verification_otps_type", ["type"])
-export class VerificationOtpEntity extends BaseEntity {
+export class UserCodeEntity extends BaseEntity {
   @ManyToOne(() => UserEntity, { onDelete: "CASCADE" })
   @JoinColumn({ name: "userId" })
   user!: UserEntity;
@@ -21,13 +15,13 @@ export class VerificationOtpEntity extends BaseEntity {
   @Column({ type: "uuid" })
   userId!: string;
 
-  @IsEnum(VerificationType)
+  @IsEnum(CODE_TYPE)
   @Column({
     type: "enum",
-    enum: VerificationType,
+    enum: CODE_TYPE,
     enumName: "verificationTypeEnum",
   })
-  type!: VerificationType;
+  codeType!: CODE_TYPE;
 
   @IsString()
   @IsNotEmpty()

@@ -1,3 +1,4 @@
+import { NODE_ENV } from "@control-panel/constants/env.constant";
 import {
   ArgumentsHost,
   Catch,
@@ -11,7 +12,7 @@ import { Request, Response } from "express";
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
-  private readonly isDev = process.env.NODE_ENV !== "production";
+  private readonly isDev = process.env.NODE_ENV !== NODE_ENV.PRODUCTION;
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
@@ -64,6 +65,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
     });
   }
 
+  /**
+   * Code maps for error type status code
+   * @param status
+   * @returns
+   */
   private statusToCode(status: number): string {
     const map: Record<number, string> = {
       400: "BAD_REQUEST",

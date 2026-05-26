@@ -20,19 +20,12 @@ import { ERROR_MESSAGES } from "@control-panel/constants/error";
 import { SUCCESS_MESSAGES } from "@control-panel/constants/success";
 import { EntityStatus } from "@control-panel/common/entity/base.entity";
 import { tokenType } from "./enum/tokenType.enum";
-import {
-  VerificationOtpEntity,
-  VerificationType,
-} from "./entities/verification-otp.entity";
+import { UserCodeEntity } from "./entities/user-codes.entity";
 import { VerifyOtpDto } from "./dto/verify-otp.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { GenerateOTP } from "@control-panel/common/utils/generate-otp";
-
-interface RefreshTokenPayload {
-  sub: string;
-  email: string;
-  sessionId: string;
-}
+import { CODE_TYPE } from "./enum/codeType.enum";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class AuthService {
@@ -43,16 +36,22 @@ export class AuthService {
     @InjectRepository(AuthSessionsEntity)
     private readonly authSessionRepository: Repository<AuthSessionsEntity>,
 
-    @InjectRepository(VerificationOtpEntity)
-    private readonly verificationOtpRepository: Repository<VerificationOtpEntity>,
+    @InjectRepository(UserCodeEntity)
+    private readonly userCodeRepository: Repository<UserCodeEntity>,
 
     private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
   ) {}
 
+  /**
+   * Generate access and refresh tokens
+   * @param user
+   * @param sessionId
+   * @returns
+   */
   private async generateTokens(
     user: UserEntity,
-    sessionId: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const accessPayload = {
       sub: user.id,
@@ -63,13 +62,19 @@ export class AuthService {
 
     const refreshPayload = {
       sub: user.id,
-      sessionId,
       tokenType: tokenType.REFRESH,
     };
 
     const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(accessPayload, { expiresIn: "15m" }),
-      this.jwtService.signAsync(refreshPayload, { expiresIn: "7d" }),
+      this.jwtService.signAsync(accessPayload, {
+        expiresIn: this.configService.getOrThrow("JWT_ACCESS_TOKEN_EXPIRES_IN"),
+      }),
+      this.jwtService.signAsync(refreshPayload, {
+        secret: this.configService.getOrThrow("JWT_REFRESH_SECRET"),
+        expiresIn: this.configService.getOrThrow(
+          "JWT_REFRESH_TOKEN_EXPIRES_IN",
+        ),
+      }),
     ]);
 
     return { accessToken, refreshToken };
@@ -173,22 +178,18 @@ export class AuthService {
     user.lastLoginAt = dayjs().valueOf();
     await this.userRepository.save(user);
 
-    const authSession = await this.authSessionRepository.save(
+    const tokens = await this.generateTokens(user);
+
+    await this.authSessionRepository.save(
       this.authSessionRepository.create({
         userId: user.id,
         tokenType: "jwt",
-        accessToken: "",
-        refreshToken: "",
-        expiresAt: dayjs().add(7, "day").valueOf(),
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt: dayjs().add(7, "day").unix(),
         status: EntityStatus.ACTIVE,
       }),
     );
-
-    const tokens = await this.generateTokens(user, authSession.id);
-
-    authSession.accessToken = tokens.accessToken;
-    authSession.refreshToken = tokens.refreshToken;
-    await this.authSessionRepository.save(authSession);
 
     return {
       message: SUCCESS_MESSAGES.AUTH.LOGIN,
@@ -212,10 +213,8 @@ export class AuthService {
    */
   async refreshToken(refreshTokenDto: RefreshTokenDto) {
     const { refreshToken } = refreshTokenDto;
-
-    let payload: RefreshTokenPayload;
     try {
-      payload = await this.jwtService.verifyAsync(refreshToken);
+      await this.jwtService.verifyAsync(refreshToken);
     } catch {
       throw new UnauthorizedException(
         ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
@@ -223,10 +222,13 @@ export class AuthService {
     }
 
     const authSession = await this.authSessionRepository.findOne({
-      where: { id: payload.sessionId },
+      where: {
+        refreshToken,
+        status: EntityStatus.ACTIVE,
+      },
     });
 
-    if (!authSession || authSession.status !== EntityStatus.ACTIVE) {
+    if (!authSession) {
       throw new UnauthorizedException(
         ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
       );
@@ -241,6 +243,7 @@ export class AuthService {
     if (Number(authSession.expiresAt) <= dayjs().valueOf()) {
       authSession.status = EntityStatus.INACTIVE;
       await this.authSessionRepository.save(authSession);
+
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.SESSION_EXPIRED);
     }
 
@@ -252,7 +255,7 @@ export class AuthService {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
     }
 
-    const tokens = await this.generateTokens(user, authSession.id);
+    const tokens = await this.generateTokens(user);
 
     authSession.accessToken = tokens.accessToken;
     authSession.refreshToken = tokens.refreshToken;
@@ -261,6 +264,7 @@ export class AuthService {
       ...(authSession.metadata || {}),
       refreshedAt: dayjs().unix(),
     };
+
     await this.authSessionRepository.save(authSession);
 
     return {
@@ -346,10 +350,10 @@ export class AuthService {
       };
     }
 
-    await this.verificationOtpRepository.update(
+    await this.userCodeRepository.update(
       {
         userId: user.id,
-        type: VerificationType.FORGOT_PASSWORD,
+        codeType: CODE_TYPE.FORGOT_PASSWORD,
         verifiedAt: IsNull(),
       },
       {
@@ -361,10 +365,10 @@ export class AuthService {
 
     const otpHash = await bcrypt.hash(otp, 10);
 
-    await this.verificationOtpRepository.save(
-      this.verificationOtpRepository.create({
+    await this.userCodeRepository.save(
+      this.userCodeRepository.create({
         userId: user.id,
-        type: VerificationType.FORGOT_PASSWORD,
+        codeType: CODE_TYPE.FORGOT_PASSWORD,
         otpHash,
         expiresAt: dayjs().add(10, "minute").unix(),
         attempts: 0,
@@ -375,7 +379,6 @@ export class AuthService {
      * TODO
      * Send email here.
      */
-    console.log(`OTP: ${otp}`);
 
     return {
       message: SUCCESS_MESSAGES.AUTH.OTP_SENT,
@@ -401,10 +404,10 @@ export class AuthService {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
     }
 
-    const otpRecord = await this.verificationOtpRepository.findOne({
+    const otpRecord = await this.userCodeRepository.findOne({
       where: {
         userId: user.id,
-        type: VerificationType.FORGOT_PASSWORD,
+        codeType: CODE_TYPE.FORGOT_PASSWORD,
         status: EntityStatus.ACTIVE,
       },
       order: {
@@ -429,14 +432,14 @@ export class AuthService {
     if (!isValid) {
       otpRecord.attempts += 1;
 
-      await this.verificationOtpRepository.save(otpRecord);
+      await this.userCodeRepository.save(otpRecord);
 
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
     }
 
     otpRecord.verifiedAt = dayjs().unix();
 
-    await this.verificationOtpRepository.save(otpRecord);
+    await this.userCodeRepository.save(otpRecord);
 
     return {
       message: SUCCESS_MESSAGES.AUTH.OTP_VERIFIED,
@@ -459,10 +462,10 @@ export class AuthService {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
     }
 
-    const otpRecord = await this.verificationOtpRepository.findOne({
+    const otpRecord = await this.userCodeRepository.findOne({
       where: {
         userId: user.id,
-        type: VerificationType.FORGOT_PASSWORD,
+        codeType: CODE_TYPE.FORGOT_PASSWORD,
         status: EntityStatus.ACTIVE,
       },
       order: {
@@ -482,7 +485,7 @@ export class AuthService {
 
     otpRecord.status = EntityStatus.INACTIVE;
 
-    await this.verificationOtpRepository.save(otpRecord);
+    await this.userCodeRepository.save(otpRecord);
 
     await this.authSessionRepository.update(
       {

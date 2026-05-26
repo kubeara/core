@@ -10,15 +10,17 @@ import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
 import { OrganizationEntity } from "@control-panel/modules/organizations/entities/organization.entity";
 import { AuthSessionsEntity } from "./entities/auth-sessions.entity";
 import { JwtStrategy } from "./strategies/jwt.strategy";
-import { VerificationOtpEntity } from "./entities/verification-otp.entity";
+import { UserCodeEntity } from "./entities/user-codes.entity";
+import { UsersModule } from "../users/users.module";
 
 @Module({
   imports: [
+    UsersModule,
     TypeOrmModule.forFeature([
       UserEntity,
       OrganizationEntity,
       AuthSessionsEntity,
-      VerificationOtpEntity,
+      UserCodeEntity,
     ]),
     PassportModule.register({ defaultStrategy: "jwt" }),
     JwtModule.registerAsync({

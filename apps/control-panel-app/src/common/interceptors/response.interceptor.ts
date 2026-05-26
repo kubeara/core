@@ -6,18 +6,10 @@ import {
 } from "@nestjs/common";
 import { Response } from "express";
 import { map, Observable } from "rxjs";
-
-export interface SuccessResponse<T> {
-  success: true;
-  statusCode: number;
-  message: string;
-  data: T;
-}
-
-interface ServiceResponse<T> {
-  message: string;
-  data: T;
-}
+import {
+  ServiceResponse,
+  SuccessResponse,
+} from "../interfaces/success-response.interface";
 
 function isServiceResponse<T>(value: unknown): value is ServiceResponse<T> {
   return (

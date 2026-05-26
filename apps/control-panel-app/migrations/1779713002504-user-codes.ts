@@ -2,15 +2,15 @@ import {
   MigrationInterface,
   QueryRunner,
   Table,
+  TableForeignKey,
   TableIndex,
-  TableUnique,
 } from "typeorm";
 
-export class Users1779689842806 implements MigrationInterface {
+export class UserCodes1779713002504 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.createTable(
       new Table({
-        name: "users",
+        name: "userCodes",
         columns: [
           {
             name: "id",
@@ -20,59 +20,35 @@ export class Users1779689842806 implements MigrationInterface {
             default: "uuid_generate_v4()",
           },
           {
-            name: "organizationId",
+            name: "userId",
             type: "uuid",
             isNullable: false,
           },
           {
-            name: "name",
-            type: "varchar",
-            length: "255",
+            name: "codeType",
+            type: "enum",
+            enumName: "verificationTypeEnum",
+            enum: ["EMAIL_VERIFICATION", "FORGOT_PASSWORD", "LOGIN_OTP"],
             isNullable: false,
           },
           {
-            name: "email",
-            type: "varchar",
-            length: "255",
-            isNullable: false,
-          },
-          {
-            name: "passwordHash",
+            name: "otpHash",
             type: "text",
             isNullable: false,
           },
           {
-            name: "profilePictureUrl",
-            type: "varchar",
-            isNullable: true,
-          },
-          {
-            name: "dateOfBirth",
-            type: "bigint",
-            isNullable: true,
-          },
-          {
-            name: "signUpAt",
+            name: "expiresAt",
             type: "bigint",
             isNullable: false,
           },
           {
-            name: "lastLoginAt",
-            type: "bigint",
-            isNullable: true,
+            name: "attempts",
+            type: "integer",
+            default: 0,
+            isNullable: false,
           },
           {
-            name: "lastPasswordResetAt",
-            type: "bigint",
-            isNullable: true,
-          },
-          {
-            name: "isEmailVerified",
-            type: "boolean",
-            default: false,
-          },
-          {
-            name: "emailVerifiedAt",
+            name: "verifiedAt",
             type: "bigint",
             isNullable: true,
           },
@@ -108,28 +84,31 @@ export class Users1779689842806 implements MigrationInterface {
       true,
     );
 
-    await queryRunner.createIndex(
-      "users",
-      new TableIndex({
-        name: "IDX_users_email",
-        columnNames: ["email"],
+    await queryRunner.createForeignKey(
+      "userCodes",
+      new TableForeignKey({
+        columnNames: ["userId"],
+        referencedTableName: "users",
+        referencedColumnNames: ["id"],
+        onDelete: "CASCADE",
+        name: "FK_user_codes_userId",
       }),
     );
 
-    await queryRunner.createUniqueConstraint(
-      "users",
-      new TableUnique({
-        name: "UQ_users_email",
-        columnNames: ["email"],
+    await queryRunner.createIndex(
+      "userCodes",
+      new TableIndex({
+        name: "IDX_user_codes_userId",
+        columnNames: ["userId"],
       }),
     );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.dropIndex("users", "IDX_users_email");
+    await queryRunner.dropIndex("userCodes", "IDX_user_codes_userId");
 
-    await queryRunner.dropUniqueConstraint("users", "UQ_users_email");
+    await queryRunner.dropForeignKey("userCodes", "FK_user_codes_userId");
 
-    await queryRunner.dropTable("users");
+    await queryRunner.dropTable("userCodes");
   }
 }
