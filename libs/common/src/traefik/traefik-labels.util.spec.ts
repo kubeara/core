@@ -4,6 +4,7 @@ import {
   buildTraefikLabels,
   discoverTraefikRoutes,
   applyTraefikRoutingToCompose,
+  isSafePropertyKey,
   KUBEARA_PROXY_NETWORK,
 } from "./traefik-labels.util";
 
@@ -74,5 +75,43 @@ services:
     expect(services.n8n.ports).toBeUndefined();
     expect(services.n8n.networks).toEqual([KUBEARA_PROXY_NETWORK, "default"]);
     expect(networks[KUBEARA_PROXY_NETWORK]).toEqual({ external: true });
+  });
+
+  it("isSafePropertyKey rejects prototype-pollution keys", () => {
+    expect(isSafePropertyKey("n8n")).toBe(true);
+    expect(isSafePropertyKey("__proto__")).toBe(false);
+    expect(isSafePropertyKey("constructor")).toBe(false);
+    expect(isSafePropertyKey("prototype")).toBe(false);
+  });
+
+  it("applyTraefikRoutingToCompose ignores unsafe service keys", () => {
+    const compose: Record<string, unknown> = {
+      services: {
+        n8n: { ports: ["5678:5678"], labels: {} },
+        __proto__: { ports: ["1:1"] },
+      },
+    };
+
+    applyTraefikRoutingToCompose(compose, [
+      {
+        serviceKey: "__proto__",
+        host: "evil.local",
+        internalPort: 80,
+        routerId: "evil",
+      },
+      {
+        serviceKey: "n8n",
+        host: "n8n.local",
+        internalPort: 5678,
+        routerId: "dep",
+      },
+    ]);
+
+    const services = compose.services as Record<
+      string,
+      Record<string, unknown>
+    >;
+    expect(services.n8n.ports).toBeUndefined();
+    expect(services.__proto__.ports).toEqual(["1:1"]);
   });
 });

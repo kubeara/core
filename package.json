@@ -8,7 +8,7 @@
   "scripts": {
     "clean": "rm -rf dist",
     "build:apps": "npm run clean && npm run build:control-panel-app && npm run build:agent-app",
-    "build:control-panel-app": "nest build control-panel-app && cp -R apps/control-panel-app/deploy dist/apps/control-panel-app/deploy && cp -R apps/control-panel-app/scripts dist/apps/control-panel-app/scripts",
+    "build:control-panel-app": "nest build control-panel-app",
     "build:agent-app": "nest build agent-app",
     "start": "nest start",
     "start:control-panel-app": "nest start control-panel-app",

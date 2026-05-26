@@ -22,8 +22,6 @@ COPY package*.json ./
 RUN npm ci --omit=dev --ignore-scripts
 
 COPY --from=builder /app/dist ./dist
-COPY apps/control-panel-app/deploy ./apps/control-panel-app/deploy
-COPY apps/control-panel-app/scripts ./apps/control-panel-app/scripts
 
 EXPOSE 3000
 

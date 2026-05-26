@@ -14,7 +14,19 @@
       "sourceRoot": "apps/control-panel-app/src",
       "compilerOptions": {
         "deleteOutDir": false,
-        "tsConfigPath": "apps/control-panel-app/tsconfig.json"
+        "tsConfigPath": "apps/control-panel-app/tsconfig.json",
+        "assets": [
+          {
+            "include": "../deploy/**/*",
+            "outDir": "dist/apps/control-panel-app/deploy",
+            "watchAssets": true
+          },
+          {
+            "include": "../scripts/**/*",
+            "outDir": "dist/apps/control-panel-app/scripts",
+            "watchAssets": true
+          }
+        ]
       }
     },
     "agent-app": {
@@ -27,7 +39,8 @@
         "tsConfigPath": "apps/agent-app/tsconfig.json",
         "assets": [
           {
-            "include": "proxy/**/*",
+            "include": "../proxy/**/*",
+            "outDir": "dist/apps/agent-app/proxy",
             "watchAssets": true
           }
         ]
