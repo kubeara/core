@@ -23,6 +23,7 @@ import {
   DeploymentStatus,
   SchemaFieldDetails,
   TemplateSchema,
+  SocketDeployMessage,
   SocketRemoveMessage,
 } from "@shared/socket-events";
 
@@ -39,6 +40,12 @@ export interface PrepareDeploymentInput {
   existingDeploymentId?: string;
   /** Agent/server context for SERVICE_URL_* / SERVICE_FQDN_* generation (deploymentId added internally). */
   serverUrlContext?: Omit<ServerUrlContext, "deploymentId">;
+}
+
+export interface BuildServerUrlContextInput {
+  useTraefikRequest?: boolean;
+  requestEnv?: Record<string, unknown>;
+  requestPorts?: Record<string, unknown>;
 }
 
 export interface PreparedDeployment {
@@ -83,6 +90,90 @@ export class DeploymentsService {
 
   generateDeploymentId(): string {
     return `deployment-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+  }
+
+  /**
+   * Builds URL generation context for SERVICE_URL_* / SERVICE_FQDN_* and Traefik-oriented resolution.
+   *
+   * Precedence:
+   * - If the client sends `useTraefik`, that value wins.
+   * - Else if the client passes any `SERVICE_PORT_*` host binding in `ports` or `env`, Traefik is off
+   *   so declared ports are not stripped for that deploy.
+   * - Else default from `TRAEFIK_ENABLED` on the **control panel** process (not the agent `.env`).
+   *
+   * Templates such as n8n with `SERVICE_URL_*` / `SERVICE_FQDN_*` work without Traefik when
+   * `useTraefik` is false and a `SERVICE_PORT_*` is supplied (or auto-filled). To force direct
+   * host ports: `"useTraefik": false` and `"ports": { "SERVICE_PORT_N8N": 5678 }`.
+   */
+  buildServerUrlContext(
+    options: BuildServerUrlContextInput,
+  ): Omit<ServerUrlContext, "deploymentId"> {
+    const { useTraefikRequest, requestEnv = {}, requestPorts = {} } = options;
+
+    const publicIp =
+      this.deploymentGateway.getPrimaryAgentPublicIp() ?? "127.0.0.1";
+
+    let useTraefik: boolean;
+    if (useTraefikRequest !== undefined) {
+      useTraefik = Boolean(useTraefikRequest);
+    } else if (
+      this.requestContainsExplicitServiceHostPorts(requestPorts, requestEnv)
+    ) {
+      useTraefik = false;
+    } else {
+      useTraefik = process.env.TRAEFIK_ENABLED === "true";
+    }
+
+    return {
+      publicIp,
+      wildcardDomain: process.env.WILDCARD_DOMAIN ?? null,
+      forceHttps: process.env.FORCE_HTTPS === "true",
+      useTraefik,
+    };
+  }
+
+  /**
+   * Encrypts prepared deployment payload and emits DEPLOY to connected agents.
+   */
+  emitPreparedDeployment(
+    prepared: PreparedDeployment,
+    isRedeploy: boolean,
+  ): { message: string; template: string; deploymentId: string } {
+    this.logger.debug(
+      `[emitPreparedDeployment] deploymentId=${prepared.deploymentId} mergedPorts=${JSON.stringify(prepared.mergedPorts)}`,
+    );
+
+    const encryptedCompose = this.encryptionService.encrypt(
+      prepared.encodedCompose,
+    );
+    const encryptedEnv = this.encryptionService.encrypt(
+      JSON.stringify(prepared.mergedEnv),
+    );
+    const encryptedPorts = this.encryptionService.encrypt(
+      JSON.stringify(prepared.mergedPorts),
+    );
+
+    const message: SocketDeployMessage = {
+      type: "DEPLOY",
+      payload: {
+        name: prepared.templateSlug,
+        compose: encryptedCompose,
+        env: encryptedEnv,
+        ports: encryptedPorts,
+        deploymentId: prepared.deploymentId,
+        schema: prepared.schema,
+        composeOnly: prepared.composeOnly,
+        useTraefik: prepared.useTraefik,
+      },
+    };
+
+    this.deploymentGateway.emitDeploy(message);
+
+    return {
+      message: isRedeploy ? "Redeployment initiated" : "Deployment initiated",
+      template: prepared.templateSlug,
+      deploymentId: prepared.deploymentId,
+    };
   }
 
   async prepareDeployment(
@@ -639,5 +730,29 @@ export class DeploymentsService {
     await this.deploymentRepository.softDelete({ id: deploymentId });
 
     this.logger.log(`Soft-deleted deployment record '${deploymentId}'`);
+  }
+
+  /**
+   * Returns true when the deploy request supplies at least one SERVICE_PORT_* value
+   * (host publish intent). Used to avoid Traefik mode stripping those keys.
+   */
+  private requestContainsExplicitServiceHostPorts(
+    requestPorts: Record<string, unknown>,
+    requestEnv: Record<string, unknown>,
+  ): boolean {
+    const hasServicePortValue = (value: unknown): boolean =>
+      value !== undefined && value !== null && value !== "";
+
+    for (const [key, value] of Object.entries(requestPorts)) {
+      if (key.startsWith("SERVICE_PORT_") && hasServicePortValue(value)) {
+        return true;
+      }
+    }
+    for (const [key, value] of Object.entries(requestEnv)) {
+      if (key.startsWith("SERVICE_PORT_") && hasServicePortValue(value)) {
+        return true;
+      }
+    }
+    return false;
   }
 }
