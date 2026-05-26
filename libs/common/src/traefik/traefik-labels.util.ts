@@ -3,6 +3,34 @@ import { extractUrlFqdnDeclarations } from "../compose-parser/compose-parser.uti
 
 export const KUBEARA_PROXY_NETWORK = "kubeara-proxy";
 
+const DANGEROUS_PROPERTY_KEYS = new Set([
+  "__proto__",
+  "constructor",
+  "prototype",
+]);
+
+/** Rejects keys that can alter Object.prototype when used as property names. */
+export function isSafePropertyKey(key: string): boolean {
+  return key.length > 0 && !DANGEROUS_PROPERTY_KEYS.has(key);
+}
+
+function copySafeStringLabels(labels: unknown): Record<string, string> {
+  if (!labels || typeof labels !== "object" || Array.isArray(labels)) {
+    return {};
+  }
+
+  const safe: Record<string, string> = {};
+  for (const [key, value] of Object.entries(
+    labels as Record<string, unknown>,
+  )) {
+    if (!isSafePropertyKey(key) || typeof value !== "string") {
+      continue;
+    }
+    safe[key] = value;
+  }
+  return safe;
+}
+
 export interface TraefikRouteTarget {
   /** docker-compose service key (e.g. n8n) */
   serviceKey: string;
@@ -176,16 +204,22 @@ export function applyTraefikRoutingToCompose(
     networks[KUBEARA_PROXY_NETWORK] = { external: true };
 
     for (const route of routes) {
+      if (!isSafePropertyKey(route.serviceKey)) {
+        continue;
+      }
+      if (!Object.hasOwn(services, route.serviceKey)) {
+        continue;
+      }
+
       const service = services[route.serviceKey];
-      if (!service) {
+      if (!service || typeof service !== "object" || Array.isArray(service)) {
         continue;
       }
 
       delete service.ports;
 
-      const existingLabels = (service.labels ?? {}) as Record<string, string>;
       service.labels = {
-        ...existingLabels,
+        ...copySafeStringLabels(service.labels),
         ...buildTraefikLabels({
           routerId: route.routerId,
           host: route.host,
