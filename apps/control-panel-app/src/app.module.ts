@@ -31,9 +31,7 @@ import { DeploymentsModule } from "./modules/deployments/deployments.module";
             synchronize: false,
             migrationsRun: false,
             entities: [__dirname + "/modules/**/entities/*{.ts,.js}"],
-            migrations: [
-              "dist/apps/control-panel-app/src/database/migrations/*.js",
-            ],
+            migrations: [path.join(__dirname, "../../migrations/*{.js,.ts}")],
           };
         } catch (error) {
           throw new Error(

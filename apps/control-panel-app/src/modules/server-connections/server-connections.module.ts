@@ -7,6 +7,7 @@ import { ServerEntity } from "./entities/server.entity";
 import { ServerSshCredentialEntity } from "./entities/server-ssh-credential.entity";
 
 import { ServerConnectionsService } from "./services/server-connections.service";
+import { RemoteAgentInstallService } from "./services/remote-agent-install.service";
 import { SshModule } from "@shared/ssh";
 
 @Module({
@@ -15,7 +16,7 @@ import { SshModule } from "@shared/ssh";
     SshModule,
   ],
   controllers: [ServersController],
-  providers: [ServerConnectionsService],
+  providers: [ServerConnectionsService, RemoteAgentInstallService],
   exports: [ServerConnectionsService],
 })
 export class ServerConnectionsModule {}
