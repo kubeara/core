@@ -25,9 +25,6 @@ export class EnvironmentVariableEntity {
   @ManyToOne(
     () => ServiceDeploymentEntity,
     (deployment) => deployment.environment_variables,
-    {
-      onDelete: "CASCADE",
-    },
   )
   @JoinColumn({ name: "deployment_id" })
   deployment!: ServiceDeploymentEntity;

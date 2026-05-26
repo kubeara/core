@@ -5,10 +5,19 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   Min,
 } from "class-validator";
-import { Column, Entity, Index, OneToMany, Unique } from "typeorm";
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  Unique,
+} from "typeorm";
 import { BaseEntity } from "../../../common/entity/base.entity";
 import { ServerProvider } from "../enums/server-provider.enum";
 import { ServerType } from "../enums/server-type.enum";
@@ -21,12 +30,23 @@ import {
   SSH_USERNAME_MAX_LENGTH,
 } from "../server-connections.constants";
 import { ServerSshCredentialEntity } from "./server-ssh-credential.entity";
+import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
 
 @Entity({ name: "servers" })
 @Unique("UQ_servers_host_port", ["host", "username"])
 @Index("IDX_servers_host", ["host"])
 @Index("IDX_servers_status", ["status"])
+@Index("IDX_servers_userId", ["userId"])
 export class ServerEntity extends BaseEntity {
+  @IsUUID()
+  @IsNotEmpty()
+  @ManyToOne(() => UserEntity)
+  @JoinColumn({ name: "userId" })
+  user!: UserEntity;
+
+  @Column({ type: "uuid" })
+  userId!: string;
+
   @IsString()
   @IsNotEmpty()
   @Column({ type: "varchar", length: SERVER_NAME_MAX_LENGTH })

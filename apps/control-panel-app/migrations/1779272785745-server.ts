@@ -2,6 +2,7 @@ import {
   MigrationInterface,
   QueryRunner,
   Table,
+  TableForeignKey,
   TableIndex,
   TableUnique,
 } from "typeorm";
@@ -18,6 +19,11 @@ export class Server1779272785745 implements MigrationInterface {
             isPrimary: true,
             generationStrategy: "uuid",
             default: "uuid_generate_v4()",
+          },
+          {
+            name: "userId",
+            type: "uuid",
+            isNullable: false,
           },
           {
             name: "name",
@@ -140,6 +146,16 @@ export class Server1779272785745 implements MigrationInterface {
         columnNames: ["host", "username"],
       }),
     );
+
+    await queryRunner.createForeignKey(
+      "servers",
+      new TableForeignKey({
+        name: "FK_servers_userId",
+        columnNames: ["userId"],
+        referencedTableName: "users",
+        referencedColumnNames: ["id"],
+      }),
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
@@ -151,6 +167,8 @@ export class Server1779272785745 implements MigrationInterface {
       "servers",
       "servers_host_username_unique",
     );
+
+    await queryRunner.dropForeignKey("servers", "FK_servers_userId");
 
     await queryRunner.dropTable("servers");
 
