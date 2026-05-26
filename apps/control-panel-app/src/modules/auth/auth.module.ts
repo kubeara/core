@@ -3,7 +3,6 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-
 import { AuthService } from "./auth.service";
 import { AuthController } from "./auth.controller";
 import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
@@ -12,6 +11,7 @@ import { AuthSessionsEntity } from "./entities/auth-sessions.entity";
 import { JwtStrategy } from "./strategies/jwt.strategy";
 import { UserCodeEntity } from "./entities/user-codes.entity";
 import { UsersModule } from "../users/users.module";
+import { StringValue } from "ms";
 
 @Module({
   imports: [
@@ -29,7 +29,9 @@ import { UsersModule } from "../users/users.module";
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>("JWT_SECRET"),
         signOptions: {
-          expiresIn: "1h",
+          expiresIn: configService.get<StringValue>(
+            "JWT_ACCESS_TOKEN_EXPIRES_IN",
+          ),
         },
       }),
     }),

@@ -25,7 +25,6 @@ export class ServerSshCredentialEntity extends BaseEntity {
     (server: ServerEntity) => server.sshCredentials,
     {
       nullable: false,
-      onDelete: "CASCADE",
     },
   )
   @JoinColumn({ name: "serverId" })
@@ -33,7 +32,7 @@ export class ServerSshCredentialEntity extends BaseEntity {
 
   @IsUUID()
   @IsNotEmpty()
-  @ManyToOne(() => UserEntity, { onDelete: "CASCADE" })
+  @ManyToOne(() => UserEntity)
   @JoinColumn({ name: "userId" })
   user!: UserEntity;
 

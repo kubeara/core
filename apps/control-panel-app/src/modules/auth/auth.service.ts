@@ -26,6 +26,7 @@ import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { GenerateOTP } from "@control-panel/common/utils/generate-otp";
 import { CODE_TYPE } from "./enum/codeType.enum";
 import { ConfigService } from "@nestjs/config";
+import { SALT_ROUNDS } from "@control-panel/constants/env.constant";
 
 @Injectable()
 export class AuthService {
@@ -67,13 +68,11 @@ export class AuthService {
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(accessPayload, {
-        expiresIn: this.configService.getOrThrow("JWT_ACCESS_TOKEN_EXPIRES_IN"),
+        expiresIn: this.configService.get("JWT_ACCESS_TOKEN_EXPIRES_IN"),
       }),
       this.jwtService.signAsync(refreshPayload, {
-        secret: this.configService.getOrThrow("JWT_REFRESH_SECRET"),
-        expiresIn: this.configService.getOrThrow(
-          "JWT_REFRESH_TOKEN_EXPIRES_IN",
-        ),
+        secret: this.configService.get("JWT_REFRESH_SECRET"),
+        expiresIn: this.configService.get("JWT_REFRESH_TOKEN_EXPIRES_IN"),
       }),
     ]);
 
@@ -423,7 +422,7 @@ export class AuthService {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.OTP_EXPIRED);
     }
 
-    if (otpRecord.attempts >= 5) {
+    if (otpRecord.attempts >= 3) {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.MAX_OTP_ATTEMPTS);
     }
 
@@ -477,7 +476,10 @@ export class AuthService {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.OTP_NOT_VERIFIED);
     }
 
-    user.passwordHash = await bcrypt.hash(resetPasswordDto.newPassword, 10);
+    user.passwordHash = await bcrypt.hash(
+      resetPasswordDto.newPassword,
+      SALT_ROUNDS,
+    );
 
     user.lastPasswordResetAt = dayjs().unix();
 

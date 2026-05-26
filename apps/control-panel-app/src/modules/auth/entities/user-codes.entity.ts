@@ -8,7 +8,7 @@ import { CODE_TYPE } from "../enum/codeType.enum";
 @Entity({ name: "userCodes" })
 @Index("IDX_verification_otps_userId", ["userId"])
 export class UserCodeEntity extends BaseEntity {
-  @ManyToOne(() => UserEntity, { onDelete: "CASCADE" })
+  @ManyToOne(() => UserEntity)
   @JoinColumn({ name: "userId" })
   user!: UserEntity;
 

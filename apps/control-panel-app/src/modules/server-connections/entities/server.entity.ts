@@ -40,7 +40,7 @@ import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
 export class ServerEntity extends BaseEntity {
   @IsUUID()
   @IsNotEmpty()
-  @ManyToOne(() => UserEntity, { onDelete: "CASCADE" })
+  @ManyToOne(() => UserEntity)
   @JoinColumn({ name: "userId" })
   user!: UserEntity;
 

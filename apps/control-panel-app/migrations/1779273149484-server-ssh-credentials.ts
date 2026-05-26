@@ -112,7 +112,6 @@ export class ServerSshCredentials1779273149484 implements MigrationInterface {
         columnNames: ["serverId"],
         referencedColumnNames: ["id"],
         referencedTableName: "servers",
-        onDelete: "CASCADE",
       }),
     );
 
@@ -123,7 +122,6 @@ export class ServerSshCredentials1779273149484 implements MigrationInterface {
         columnNames: ["userId"],
         referencedColumnNames: ["id"],
         referencedTableName: "users",
-        onDelete: "CASCADE",
       }),
     );
   }

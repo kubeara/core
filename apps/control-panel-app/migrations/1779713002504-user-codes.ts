@@ -87,11 +87,10 @@ export class UserCodes1779713002504 implements MigrationInterface {
     await queryRunner.createForeignKey(
       "userCodes",
       new TableForeignKey({
+        name: "FK_user_codes_userId",
         columnNames: ["userId"],
         referencedTableName: "users",
         referencedColumnNames: ["id"],
-        onDelete: "CASCADE",
-        name: "FK_user_codes_userId",
       }),
     );
 

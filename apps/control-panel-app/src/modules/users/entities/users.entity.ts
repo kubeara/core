@@ -17,7 +17,7 @@ import { Exclude } from "class-transformer";
 export class UserEntity extends BaseEntity {
   @IsUUID()
   @IsNotEmpty()
-  @ManyToOne(() => OrganizationEntity, { onDelete: "CASCADE" })
+  @ManyToOne(() => OrganizationEntity)
   @JoinColumn({ name: "organizationId" })
   organization!: OrganizationEntity;
 

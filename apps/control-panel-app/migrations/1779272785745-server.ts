@@ -154,7 +154,6 @@ export class Server1779272785745 implements MigrationInterface {
         columnNames: ["userId"],
         referencedTableName: "users",
         referencedColumnNames: ["id"],
-        onDelete: "CASCADE",
       }),
     );
   }

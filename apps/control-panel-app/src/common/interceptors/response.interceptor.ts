@@ -21,6 +21,9 @@ function isServiceResponse<T>(value: unknown): value is ServiceResponse<T> {
   );
 }
 
+/**
+ * Success Response handler
+ */
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<
   T,
