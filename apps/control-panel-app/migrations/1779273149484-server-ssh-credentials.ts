@@ -25,6 +25,11 @@ export class ServerSshCredentials1779273149484 implements MigrationInterface {
             isNullable: false,
           },
           {
+            name: "userId",
+            type: "uuid",
+            isNullable: false,
+          },
+          {
             name: "authType",
             type: "enum",
             enumName: "serverSshAuthTypeEnum",
@@ -103,28 +108,25 @@ export class ServerSshCredentials1779273149484 implements MigrationInterface {
     await queryRunner.createForeignKey(
       "serverSshCredentials",
       new TableForeignKey({
+        name: "FK_server_ssh_credentials_serverId",
         columnNames: ["serverId"],
         referencedColumnNames: ["id"],
         referencedTableName: "servers",
-        onDelete: "CASCADE",
-        onUpdate: "CASCADE",
+      }),
+    );
+
+    await queryRunner.createForeignKey(
+      "serverSshCredentials",
+      new TableForeignKey({
+        name: "FK_server_ssh_credentials_userId",
+        columnNames: ["userId"],
+        referencedColumnNames: ["id"],
+        referencedTableName: "users",
       }),
     );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    const table = await queryRunner.getTable("serverSshCredentials");
-
-    if (table) {
-      const foreignKey = table.foreignKeys.find(
-        (fk) => fk.columnNames.indexOf("serverId") !== -1,
-      );
-
-      if (foreignKey) {
-        await queryRunner.dropForeignKey("serverSshCredentials", foreignKey);
-      }
-    }
-
     await queryRunner.dropIndex(
       "serverSshCredentials",
       "IDX_serverSshCredentials_authType",
@@ -133,6 +135,16 @@ export class ServerSshCredentials1779273149484 implements MigrationInterface {
     await queryRunner.dropIndex(
       "serverSshCredentials",
       "IDX_serverSshCredentials_serverId",
+    );
+
+    await queryRunner.dropForeignKey(
+      "servers",
+      "FK_server_ssh_credentials_serverId",
+    );
+
+    await queryRunner.dropForeignKey(
+      "servers",
+      "FK_server_ssh_credentials_userId",
     );
 
     await queryRunner.dropTable("serverSshCredentials");
