@@ -60,7 +60,6 @@ import { OperationFailedException } from "@control-panel/common/exceptions/opera
 import { ExistingServerCheck } from "../interfaces/existing-server-check.interface";
 import { OnboardFailureParams } from "../interfaces/onboard-failure-params.interface";
 import { RunAgentInstallAfterOnboardParams } from "../interfaces/run-agent-install-after-onboard-params.interface";
-import { OnboardStep } from "../enums/onboard-step.enum";
 import { ServerErrorCode } from "../enums/server-error-code.enum";
 import { mapSshTestErrorCode } from "../utils/map-ssh-test-error-code.util";
 import { runSshHealthTestWithTimeout } from "../utils/run-ssh-health-test.util";
@@ -296,11 +295,7 @@ export class ServerConnectionsService {
       params.message,
       params.error,
       HttpStatus.BAD_REQUEST,
-      {
-        errorCode: params.code,
-        step: params.step ?? OnboardStep.SSH_TEST,
-        logs: params.logs,
-      },
+      { errorCode: params.code },
     );
   }
 
@@ -330,7 +325,6 @@ export class ServerConnectionsService {
         message: ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
         error: ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
         code: ServerErrorCode.CREDENTIALS_NOT_FOUND,
-        logs: [ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND],
       });
     }
 
@@ -348,10 +342,6 @@ export class ServerConnectionsService {
         message: ERROR_MESSAGES.SERVER.SSH_CONNECTION_FAILED,
         error: result.message,
         code: result.code ?? mapSshTestErrorCode(result.message),
-        logs: [
-          SERVER_ONBOARD_LOGS.DELETED_SERVER_FOUND,
-          SERVER_ONBOARD_LOGS.SSH_VALIDATION_FAILED,
-        ],
       });
     }
 
@@ -364,7 +354,6 @@ export class ServerConnectionsService {
         message: ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
         error: ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
         code: ServerErrorCode.CREDENTIALS_NOT_FOUND,
-        logs: [SERVER_ONBOARD_LOGS.CREDENTIALS_MISSING_AFTER_RESTORE],
       });
     }
 
@@ -513,7 +502,6 @@ export class ServerConnectionsService {
         message: ERROR_MESSAGES.SERVER.SSH_CONNECTION_FAILED,
         error: message,
         code,
-        logs,
       });
     } catch (err) {
       if (err instanceof HttpException) {
@@ -541,7 +529,6 @@ export class ServerConnectionsService {
             ? err.message
             : ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
         code: ServerErrorCode.UNKNOWN_ERROR,
-        logs,
       });
     } finally {
       await queryRunner.release();
@@ -833,23 +820,6 @@ export class ServerConnectionsService {
       message: SUCCESS_MESSAGES.SERVER.UPDATED,
       data: toServerResponseDto(server, this.sshManager),
     };
-  }
-
-  /**
-   * List servers
-   * @deprecated Use listServers instead.
-   */
-  async list(userId: string): Promise<ServerEntity[]> {
-    return await this.serverRepository.find({
-      where: {
-        userId,
-        status: EntityStatus.ACTIVE,
-        deletedAt: IsNull(),
-      },
-      order: {
-        createdAt: "DESC",
-      },
-    });
   }
 
   /**

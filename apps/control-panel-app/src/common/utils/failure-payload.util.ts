@@ -7,69 +7,34 @@ type FailurePayload = {
   error?: string;
   code?: string;
   errorCode?: string;
-  step?: string;
-  logs?: string[];
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object";
-}
-
-export function isFailurePayload(value: unknown): value is FailurePayload {
-  return isRecord(value) && value.success === false;
-}
-
-function resolveFailureMessage(payload: FailurePayload): string {
-  if (typeof payload.message === "string" && payload.message.trim()) {
-    return payload.message.trim();
-  }
-
-  if (typeof payload.error === "string" && payload.error.trim()) {
-    return "Operation failed";
-  }
-
-  return "Operation failed";
-}
-
-function resolveFailureError(payload: FailurePayload): string {
-  if (typeof payload.error === "string" && payload.error.trim()) {
-    return payload.error.trim();
-  }
-
-  if (typeof payload.message === "string" && payload.message.trim()) {
-    return payload.message.trim();
-  }
-
-  return "Operation failed";
+function nonEmptyString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 /**
  * Converts legacy `{ success: false }` payloads into HTTP exceptions.
  */
 export function throwIfFailurePayload(value: unknown): void {
-  if (!isFailurePayload(value)) {
+  if (
+    value === null ||
+    typeof value !== "object" ||
+    (value as FailurePayload).success !== false
+  ) {
     return;
   }
 
+  const payload = value as FailurePayload;
+  const error = nonEmptyString(payload.error);
+  const message = nonEmptyString(payload.message) ?? "Operation failed";
   const errorCode =
-    typeof value.code === "string"
-      ? value.code
-      : typeof value.errorCode === "string"
-        ? value.errorCode
-        : undefined;
+    nonEmptyString(payload.errorCode) ?? nonEmptyString(payload.code);
 
   throw new OperationFailedException(
-    resolveFailureMessage(value),
-    resolveFailureError(value),
+    message,
+    error ?? nonEmptyString(payload.message) ?? "Operation failed",
     HttpStatus.BAD_REQUEST,
-    {
-      errorCode,
-      step: typeof value.step === "string" ? value.step : undefined,
-      logs: Array.isArray(value.logs)
-        ? value.logs.filter(
-            (entry): entry is string => typeof entry === "string",
-          )
-        : undefined,
-    },
+    errorCode ? { errorCode } : undefined,
   );
 }

@@ -10,10 +10,6 @@ import {
 import { Request, Response } from "express";
 import { ErrorResponse } from "../interfaces/error-response.interface";
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object";
-}
-
 const GENERIC_HTTP_ERRORS = new Set([
   "Bad Request",
   "Unauthorized",
@@ -48,21 +44,29 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
       if (typeof errorResponse === "string") {
         message = errorResponse;
-      } else if (isRecord(errorResponse)) {
-        if ("message" in errorResponse) {
-          const raw = errorResponse.message;
-          message = Array.isArray(raw) ? raw.join(", ") : String(raw);
+      } else if (errorResponse && typeof errorResponse === "object") {
+        const body = errorResponse as Record<string, unknown>;
+
+        if (body.message !== undefined) {
+          const raw = body.message;
+
+          if (Array.isArray(raw)) {
+            message = raw.map(String).join(", ");
+          } else if (
+            typeof raw === "string" ||
+            typeof raw === "number" ||
+            typeof raw === "boolean"
+          ) {
+            message = String(raw);
+          }
         }
 
-        if (
-          "errorCode" in errorResponse &&
-          typeof errorResponse.errorCode === "string"
-        ) {
-          errorCode = errorResponse.errorCode;
+        if (typeof body.errorCode === "string") {
+          errorCode = body.errorCode;
         }
 
-        if (typeof errorResponse.error === "string") {
-          const candidate = errorResponse.error.trim();
+        if (typeof body.error === "string") {
+          const candidate = body.error.trim();
           if (
             candidate &&
             !GENERIC_HTTP_ERRORS.has(candidate) &&
@@ -74,7 +78,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
     } else if (exception instanceof Error) {
       message = exception.message;
-      errorDetail = exception.message;
     }
 
     const logContext = `[${request.method}] ${request.url} → ${status}`;
@@ -102,9 +105,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
     });
   }
 
-  /**
-   * Code maps for error type status code
-   */
   private statusToCode(status: number): string {
     const map: Record<number, string> = {
       400: "BAD_REQUEST",
