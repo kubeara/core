@@ -91,6 +91,9 @@ jobs:
           - name: agent
             dockerfile: apps/agent-app/Dockerfile
             image: agent
+          - name: console
+            dockerfile: spa/Dockerfile
+            image: console
     steps:
       - name: Checkout
         uses: actions/checkout@v4

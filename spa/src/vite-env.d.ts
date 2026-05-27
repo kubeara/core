@@ -8,3 +8,9 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+interface Window {
+  __KUBEARA_CONFIG__?: {
+    VITE_API_URL?: string;
+  };
+}

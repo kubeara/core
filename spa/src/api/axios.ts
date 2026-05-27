@@ -8,7 +8,9 @@ import {
 import { getStoredAccessToken } from "@/features/auth/utils/token-storage";
 
 function getApiBaseUrl(): string {
-    const base = import.meta.env.VITE_API_URL?.trim() ?? "";
+    const runtime = window.__KUBEARA_CONFIG__?.VITE_API_URL?.trim();
+    const buildTime = import.meta.env.VITE_API_URL?.trim();
+    const base = runtime || buildTime || "";
     return base.replace(/\/$/, "");
 }
 
