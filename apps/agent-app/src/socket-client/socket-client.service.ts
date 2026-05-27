@@ -139,17 +139,6 @@ export class SocketClientService {
         },
       );
 
-      this.socket.on(DeploymentEvents.AGENT_CONNECTED, (data) => {
-        this.logger.debug(
-          `Agent connected notification: ${JSON.stringify(data)}`,
-        );
-      });
-
-      this.socket.on(DeploymentEvents.AGENT_DISCONNECTED, (data) => {
-        this.logger.debug(
-          `Agent disconnected notification: ${JSON.stringify(data)}`,
-        );
-      });
     } catch (error) {
       this.logger.error(
         `Failed to setup socket event listeners: ${error instanceof Error ? error.message : String(error)}`,
