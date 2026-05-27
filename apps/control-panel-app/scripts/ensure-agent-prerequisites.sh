@@ -249,6 +249,16 @@ log_check_docker_compose() {
     return 0
 }
 
+# Tools the agent stack needs (Homebrew is only an install helper on macOS, not a runtime requirement).
+agent_core_prerequisites_met() {
+    require_command node || return 1
+    require_command npm || return 1
+    require_command docker || return 1
+    docker_compose_available || return 1
+    docker_daemon_reachable || return 1
+    return 0
+}
+
 run_prerequisite_checks() {
     info "Running prerequisite checks..."
     log_check "curl" curl || true
@@ -355,6 +365,11 @@ install_homebrew_if_missing() {
 }
 
 install_on_macos() {
+    if agent_core_prerequisites_met; then
+        info "macOS: node, docker, and docker compose already available — skipping Homebrew."
+        return 0
+    fi
+
     install_homebrew_if_missing
 
     if ! require_command node; then
@@ -549,6 +564,12 @@ main() {
     fi
 
     info "Starting install phase for missing prerequisites (if any)..."
+
+    if agent_core_prerequisites_met; then
+        info "Required agent prerequisites already satisfied — skipping install phase."
+        verify_prerequisites
+        return
+    fi
 
     case "${os_name}" in
         macos) install_on_macos ;;

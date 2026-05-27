@@ -7,10 +7,9 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import { TemplatePayloadService } from "@shared/common";
-
-import { ServiceTemplateEntity } from "../modules/templates/entities/service-template.entity";
-
 import * as yaml from "js-yaml";
+
+import { ServiceTemplateEntity } from "../entities/service-template.entity";
 
 type ComposeJson = Record<string, unknown>;
 
@@ -25,24 +24,13 @@ export type TemplateResponse =
     };
 
 @Injectable()
-export class TemplatesService {
-  /**
-   * Creates service with template repository and payload utilities.
-   * @param serviceTemplateRepository TypeORM repository for templates.
-   * @param templatePayloadService Helper to decode compose payloads.
-   */
+export class ServiceTemplateService {
   constructor(
     @InjectRepository(ServiceTemplateEntity)
     private readonly serviceTemplateRepository: Repository<ServiceTemplateEntity>,
     private readonly templatePayloadService: TemplatePayloadService,
   ) {}
 
-  /**
-   * Retrieves a template by slug and returns it in the requested format.
-   * @param slug Template slug identifier.
-   * @param format Response format: yml, yaml, json, or base64.
-   * @returns Template payload in requested format.
-   */
   async getTemplate(
     slug: string,
     format: string = "yml",
@@ -96,11 +84,6 @@ export class TemplatesService {
     }
   }
 
-  /**
-   * Retrieves a template entity from the database.
-   * @param slug Template slug identifier.
-   * @returns Template entity from persistence.
-   */
   async getTemplateEntity(slug: string): Promise<ServiceTemplateEntity> {
     try {
       const template = await this.serviceTemplateRepository.findOne({

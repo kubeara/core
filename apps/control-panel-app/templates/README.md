@@ -1,8 +1,8 @@
 # Service templates (`docker-compose.yml`)
 
-Templates in this folder are built with `npm run build:templates` (from the monorepo `core` root), producing JSON under `generated-templates/`, then seeded into Postgres with `npm run seed`.
+Templates in this folder are read directly from disk and upserted into Postgres with `npm run seed` (from the monorepo `core` root, after `npm run build:control-panel-app`).
 
-This document describes how the **Docker Compose parser** resolves **environment variables and host ports** for **compose-only** templates (templates without `template.config.json`, deployed via `POST /deploy/compose` or auto-routed when the template has no schema). The logic lives in:
+This document describes how the **Docker Compose parser** resolves **environment variables and host ports** for **compose-only** templates (templates without `template.config.json`, deployed via `POST /deployments/compose` or auto-routed when the template has no schema). The logic lives in:
 
 - `libs/common/src/compose-parser/compose-parser.util.ts`
 - `libs/common/src/server-url/server-url.util.ts`
@@ -143,9 +143,9 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 2. For auto secrets, use **`SERVICE_PASSWORD_{APP}`**, **`SERVICE_USER_{APP}`**, etc. (§4).
 3. For Coolify-style public URLs, add a bare line **`SERVICE_URL_{NAME}_{internalPort}`** and reference `${SERVICE_URL_{NAME}}` / `${SERVICE_FQDN_{NAME}}` in app env as needed.
 4. Prefer **`${VAR:-sensible}`** for optional tuning knobs so deploy works without passing every key.
-5. Run **`npm run build:templates && npm run seed`** from `core` after editing.
+5. Run **`npm run build:control-panel-app && npm run seed`** from `core` after editing.
 6. Run **`npm run test:templates`** from `core` to validate compose structure, env/port rules, resource limits, and logging limits.
-7. Register display metadata for new **slug** folders in `apps/control-panel-app/src/scripts/build-templates.ts` (`metadataBySlug`).
+7. Register display metadata for new **slug** folders in `apps/control-panel-app/src/templates/build-template-records.util.ts` (`metadataBySlug`).
 
 ---
 

@@ -2,7 +2,7 @@
  * Seeds service templates directly from source files under apps/control-panel-app/templates.
  * Reads docker-compose.yml (and optional template.config.json), then upserts rows by slug.
  *
- * Run via: npm run seed:templates
+ * Run via: npm run seed (after build) or npm run seed:dev
  */
 import "reflect-metadata";
 import * as fs from "fs";
@@ -15,7 +15,7 @@ import {
   buildServiceTemplateRecords,
   getDefaultTemplatesDir,
 } from "../src/templates/build-template-records.util";
-import { ServiceTemplateEntity } from "../src/modules/templates/entities/service-template.entity";
+import { ServiceTemplateEntity } from "../src/modules/service-template/entities/service-template.entity";
 import { EntityStatus } from "../src/common/entity/base.entity";
 
 const ROOT_DIR = process.cwd();
@@ -248,11 +248,11 @@ async function seedFromTemplates(configService: ConfigService): Promise<void> {
           documentation: templateRecord.documentation || null,
           logo: templateRecord.logo || null,
           compose: templateRecord.compose,
-          env_schema: templateRecord.env_schema ?? null,
-          port_schema: templateRecord.port_schema ?? null,
+          envSchema: templateRecord.envSchema ?? null,
+          portSchema: templateRecord.portSchema ?? null,
           port: templateRecord.port || null,
           version: templateRecord.version || null,
-          is_active: templateRecord.is_active,
+          isActive: templateRecord.isActive,
           status: EntityStatus.ACTIVE,
           createdAt: dayjs().unix(),
           updatedAt: dayjs().unix(),

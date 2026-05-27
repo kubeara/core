@@ -106,7 +106,7 @@ describe("service template compose files", () => {
       expect(record).toBeDefined();
       expect(record?.compose).toBeTruthy();
       expect(record?.name).toBeTruthy();
-      expect(record?.is_active).toBe(true);
+      expect(record?.isActive).toBe(true);
 
       const decoded = Buffer.from(record!.compose, "base64").toString("utf8");
       const parsed = JSON.parse(decoded) as Record<string, unknown>;

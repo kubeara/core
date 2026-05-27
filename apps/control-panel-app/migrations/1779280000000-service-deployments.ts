@@ -11,7 +11,7 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.createTable(
       new Table({
-        name: "service_deployments",
+        name: "serviceDeployments",
         columns: [
           {
             name: "id",
@@ -20,40 +20,63 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
             isPrimary: true,
           },
           {
-            name: "template_slug",
+            name: "templateSlug",
             type: "varchar",
             length: "255",
             isNullable: false,
           },
           {
+            name: "serverId",
+            type: "uuid",
+            isNullable: true,
+          },
+          {
+            name: "userId",
+            type: "uuid",
+            isNullable: true,
+          },
+          {
             name: "status",
+            type: "varchar",
+            length: "50",
+            default: "'ACTIVE'",
+            isNullable: false,
+          },
+          {
+            name: "deploymentStatus",
             type: "varchar",
             length: "32",
             default: "'pending'",
+            isNullable: false,
           },
           {
-            name: "status_message",
+            name: "statusMessage",
             type: "text",
             isNullable: true,
           },
           {
-            name: "last_error",
+            name: "lastError",
             type: "text",
             isNullable: true,
           },
           {
-            name: "created_at",
-            type: "timestamptz",
-            default: "now()",
+            name: "metadata",
+            type: "jsonb",
+            isNullable: true,
           },
           {
-            name: "updated_at",
-            type: "timestamptz",
-            default: "now()",
+            name: "createdAt",
+            type: "bigint",
+            isNullable: false,
           },
           {
-            name: "deleted_at",
-            type: "timestamptz",
+            name: "updatedAt",
+            type: "bigint",
+            isNullable: false,
+          },
+          {
+            name: "deletedAt",
+            type: "bigint",
             isNullable: true,
           },
         ],
@@ -61,35 +84,70 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
     );
 
     await queryRunner.createIndex(
-      "service_deployments",
+      "serviceDeployments",
       new TableIndex({
-        name: "IDX_service_deployments_template_slug",
-        columnNames: ["template_slug"],
+        name: "IDX_service_deployments_templateSlug",
+        columnNames: ["templateSlug"],
       }),
     );
 
     await queryRunner.createIndex(
-      "service_deployments",
+      "serviceDeployments",
       new TableIndex({
-        name: "IDX_service_deployments_status",
-        columnNames: ["status"],
+        name: "IDX_service_deployments_deploymentStatus",
+        columnNames: ["deploymentStatus"],
+      }),
+    );
+
+    await queryRunner.createIndex(
+      "serviceDeployments",
+      new TableIndex({
+        name: "IDX_service_deployments_serverId",
+        columnNames: ["serverId"],
+      }),
+    );
+
+    await queryRunner.createIndex(
+      "serviceDeployments",
+      new TableIndex({
+        name: "IDX_service_deployments_userId",
+        columnNames: ["userId"],
       }),
     );
 
     await queryRunner.createForeignKey(
-      "service_deployments",
+      "serviceDeployments",
       new TableForeignKey({
-        columnNames: ["template_slug"],
+        name: "FK_service_deployments_templateSlug",
+        columnNames: ["templateSlug"],
         referencedColumnNames: ["slug"],
         referencedTableName: "serviceTemplates",
-        onDelete: "RESTRICT",
-        onUpdate: "CASCADE",
+      }),
+    );
+
+    await queryRunner.createForeignKey(
+      "serviceDeployments",
+      new TableForeignKey({
+        name: "FK_service_deployments_serverId",
+        columnNames: ["serverId"],
+        referencedTableName: "servers",
+        referencedColumnNames: ["id"],
+      }),
+    );
+
+    await queryRunner.createForeignKey(
+      "serviceDeployments",
+      new TableForeignKey({
+        name: "FK_service_deployments_userId",
+        columnNames: ["userId"],
+        referencedTableName: "users",
+        referencedColumnNames: ["id"],
       }),
     );
 
     await queryRunner.createTable(
       new Table({
-        name: "environment_variables",
+        name: "environmentVariables",
         columns: [
           {
             name: "id",
@@ -99,7 +157,7 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
             default: "uuid_generate_v4()",
           },
           {
-            name: "deployment_id",
+            name: "deploymentId",
             type: "varchar",
             length: "128",
             isNullable: false,
@@ -116,12 +174,12 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
             isNullable: false,
           },
           {
-            name: "is_required",
+            name: "isRequired",
             type: "boolean",
             default: false,
           },
           {
-            name: "is_generated",
+            name: "isGenerated",
             type: "boolean",
             default: false,
           },
@@ -131,77 +189,102 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
             isNullable: true,
           },
           {
-            name: "created_at",
-            type: "timestamptz",
-            default: "now()",
+            name: "status",
+            type: "varchar",
+            length: "50",
+            default: "'ACTIVE'",
+            isNullable: false,
           },
           {
-            name: "updated_at",
-            type: "timestamptz",
-            default: "now()",
+            name: "metadata",
+            type: "jsonb",
+            isNullable: true,
+          },
+          {
+            name: "createdAt",
+            type: "bigint",
+            isNullable: false,
+          },
+          {
+            name: "updatedAt",
+            type: "bigint",
+            isNullable: false,
+          },
+          {
+            name: "deletedAt",
+            type: "bigint",
+            isNullable: true,
           },
         ],
       }),
     );
 
     await queryRunner.createIndex(
-      "environment_variables",
+      "environmentVariables",
       new TableIndex({
-        name: "IDX_environment_variables_deployment_id",
-        columnNames: ["deployment_id"],
+        name: "IDX_environment_variables_deploymentId",
+        columnNames: ["deploymentId"],
       }),
     );
 
     await queryRunner.createUniqueConstraint(
-      "environment_variables",
+      "environmentVariables",
       new TableUnique({
-        name: "UQ_environment_variables_deployment_id_key",
-        columnNames: ["deployment_id", "key"],
+        name: "UQ_environment_variables_deploymentId_key",
+        columnNames: ["deploymentId", "key"],
       }),
     );
 
     await queryRunner.createForeignKey(
-      "environment_variables",
+      "environmentVariables",
       new TableForeignKey({
-        columnNames: ["deployment_id"],
+        name: "FK_environment_variables_deploymentId",
+        columnNames: ["deploymentId"],
         referencedColumnNames: ["id"],
-        referencedTableName: "service_deployments",
-        onUpdate: "CASCADE",
+        referencedTableName: "serviceDeployments",
       }),
     );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    const envTable = await queryRunner.getTable("environment_variables");
+    const envTable = await queryRunner.getTable("environmentVariables");
     if (envTable) {
       for (const fk of envTable.foreignKeys) {
-        await queryRunner.dropForeignKey("environment_variables", fk);
+        await queryRunner.dropForeignKey("environmentVariables", fk);
       }
     }
     await queryRunner.dropIndex(
-      "environment_variables",
-      "IDX_environment_variables_deployment_id",
+      "environmentVariables",
+      "IDX_environment_variables_deploymentId",
     );
     await queryRunner.dropUniqueConstraint(
-      "environment_variables",
-      "UQ_environment_variables_deployment_id_key",
+      "environmentVariables",
+      "UQ_environment_variables_deploymentId_key",
     );
-    await queryRunner.dropTable("environment_variables");
+    await queryRunner.dropTable("environmentVariables");
 
-    const depTable = await queryRunner.getTable("service_deployments");
+    const depTable = await queryRunner.getTable("serviceDeployments");
     if (depTable) {
       for (const fk of depTable.foreignKeys) {
-        await queryRunner.dropForeignKey("service_deployments", fk);
+        await queryRunner.dropForeignKey("serviceDeployments", fk);
       }
     }
     await queryRunner.dropIndex(
-      "service_deployments",
-      "IDX_service_deployments_status",
+      "serviceDeployments",
+      "IDX_service_deployments_userId",
     );
     await queryRunner.dropIndex(
-      "service_deployments",
-      "IDX_service_deployments_template_slug",
+      "serviceDeployments",
+      "IDX_service_deployments_serverId",
     );
-    await queryRunner.dropTable("service_deployments");
+    await queryRunner.dropIndex(
+      "serviceDeployments",
+      "IDX_service_deployments_deploymentStatus",
+    );
+    await queryRunner.dropIndex(
+      "serviceDeployments",
+      "IDX_service_deployments_templateSlug",
+    );
+    await queryRunner.dropTable("serviceDeployments");
   }
 }

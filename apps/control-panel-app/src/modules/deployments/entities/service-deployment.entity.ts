@@ -2,38 +2,52 @@ import {
   Entity,
   Column,
   PrimaryColumn,
-  CreateDateColumn,
-  UpdateDateColumn,
-  DeleteDateColumn,
   ManyToOne,
   OneToMany,
   JoinColumn,
 } from "typeorm";
 
+import { AuditableEntity } from "@control-panel/common/entity/auditable.entity";
 import { EnvironmentVariableEntity } from "./environment-variable.entity";
-import { ServiceTemplateEntity } from "../../templates/entities/service-template.entity";
+import { ServiceTemplateEntity } from "../../service-template/entities/service-template.entity";
+import { ServerEntity } from "@control-panel/modules/server-connections/entities/server.entity";
+import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
 import type { DeploymentStatus } from "@shared/socket-events";
 
-@Entity("service_deployments")
-export class ServiceDeploymentEntity {
+@Entity("serviceDeployments")
+export class ServiceDeploymentEntity extends AuditableEntity {
   @PrimaryColumn({ type: "varchar", length: 128 })
   id!: string;
 
   @Column({ type: "varchar", length: 255 })
-  template_slug!: string;
+  templateSlug!: string;
 
-  @ManyToOne(() => ServiceTemplateEntity, { onDelete: "RESTRICT" })
-  @JoinColumn({ name: "template_slug", referencedColumnName: "slug" })
+  @Column({ type: "uuid", nullable: true })
+  serverId!: string | null;
+
+  @Column({ type: "uuid", nullable: true })
+  userId!: string | null;
+
+  @ManyToOne(() => ServerEntity, { nullable: true })
+  @JoinColumn({ name: "serverId" })
+  server?: ServerEntity | null;
+
+  @ManyToOne(() => UserEntity, { nullable: true })
+  @JoinColumn({ name: "userId" })
+  user?: UserEntity | null;
+
+  @ManyToOne(() => ServiceTemplateEntity)
+  @JoinColumn({ name: "templateSlug", referencedColumnName: "slug" })
   template?: ServiceTemplateEntity;
 
   @Column({ type: "varchar", length: 32, default: "pending" })
-  status!: DeploymentStatus;
+  deploymentStatus!: DeploymentStatus;
 
   @Column({ type: "text", nullable: true })
-  status_message!: string | null;
+  statusMessage!: string | null;
 
   @Column({ type: "text", nullable: true })
-  last_error!: string | null;
+  lastError!: string | null;
 
   @OneToMany(
     () => EnvironmentVariableEntity,
@@ -42,14 +56,5 @@ export class ServiceDeploymentEntity {
       cascade: true,
     },
   )
-  environment_variables?: EnvironmentVariableEntity[];
-
-  @CreateDateColumn({ type: "timestamptz" })
-  created_at!: Date;
-
-  @UpdateDateColumn({ type: "timestamptz" })
-  updated_at!: Date;
-
-  @DeleteDateColumn({ type: "timestamptz", nullable: true })
-  deleted_at?: Date | null;
+  environmentVariables?: EnvironmentVariableEntity[];
 }

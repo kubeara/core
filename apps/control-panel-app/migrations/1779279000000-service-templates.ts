@@ -59,12 +59,12 @@ export class ServiceTemplates1779279000000 implements MigrationInterface {
             isNullable: false,
           },
           {
-            name: "env_schema",
+            name: "envSchema",
             type: "json",
             isNullable: true,
           },
           {
-            name: "port_schema",
+            name: "portSchema",
             type: "json",
             isNullable: true,
           },
@@ -80,7 +80,7 @@ export class ServiceTemplates1779279000000 implements MigrationInterface {
             isNullable: true,
           },
           {
-            name: "is_active",
+            name: "isActive",
             type: "boolean",
             default: true,
             isNullable: false,
@@ -128,8 +128,8 @@ export class ServiceTemplates1779279000000 implements MigrationInterface {
     await queryRunner.createIndex(
       "serviceTemplates",
       new TableIndex({
-        name: "IDX_serviceTemplates_is_active",
-        columnNames: ["is_active"],
+        name: "IDX_serviceTemplates_isActive",
+        columnNames: ["isActive"],
       }),
     );
   }
@@ -137,7 +137,7 @@ export class ServiceTemplates1779279000000 implements MigrationInterface {
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.dropIndex(
       "serviceTemplates",
-      "IDX_serviceTemplates_is_active",
+      "IDX_serviceTemplates_isActive",
     );
 
     await queryRunner.dropIndex(
