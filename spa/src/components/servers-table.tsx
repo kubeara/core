@@ -3,10 +3,10 @@ import { useMemo, useState } from "react";
 import {
   useDeleteServerMutation,
   useServersQuery,
-} from "@/api/hooks/use-servers";
+} from "@/features/servers/hooks";
 import { ServerFormModal } from "./server-form-modal";
 import { formatRelativeTime } from "@/lib/format-relative-time";
-import type { Server, ServerStatus } from "@/lib/types";
+import type { Server, ServerStatus } from "@/types";
 import "./servers-table.css";
 
 type SortKey = "name" | "host" | "status" | "createdAt";
@@ -462,7 +462,7 @@ export function ServersTable() {
           setModalOpen(false);
           setEditingServer(null);
         }}
-        onSaved={() => {}}
+        onSaved={() => { }}
       />
 
       {deleteTarget && (

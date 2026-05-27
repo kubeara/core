@@ -1,43 +1,29 @@
-import { Navigate, Route, Routes } from "react-router-dom";
-import { AppLayout } from "@/layouts/AppLayout";
-import { AuthLayout } from "@/layouts/AuthLayout";
-import { DeployLogsPage } from "@/pages/DeployLogsPage";
-import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage";
-import { HomeRedirect } from "@/pages/HomeRedirect";
-import { LoginPage } from "@/pages/LoginPage";
-import { NotFoundPage } from "@/pages/NotFoundPage";
-import { ProfilePage } from "@/pages/ProfilePage";
-import { RegisterPage } from "@/pages/RegisterPage";
-import { ResetPasswordPage } from "@/pages/ResetPasswordPage";
-import { ServerDetailPage } from "@/pages/ServerDetailPage";
-import { ServersPage } from "@/pages/ServersPage";
-import { TemplatesPage } from "@/pages/TemplatesPage";
+import { Providers } from "@/app/providers";
+import { AuthProvider } from "@/features/auth/context/auth-context";
+import { AppRoutes } from "@/app/router";
 
-export function AppRoutes() {
+/**
+ * Root application component.
+ * 
+ * Provides the application with:
+ * - TanStack Query client (via Providers)
+ * - Theme provider (via Providers)
+ * - Authentication context (via AuthProvider)
+ * - Application routes (via AppRoutes)
+ * 
+ * The provider hierarchy is important:
+ * 1. Providers → Sets up Query Client and Theme
+ * 2. AuthProvider → Fetches current user for persistent login
+ * 3. AppRoutes → Renders routes with auth guards
+ * 
+ * Note: BrowserRouter is provided in main.tsx
+ */
+export function App() {
   return (
-    <Routes>
-      <Route path="/" element={<HomeRedirect />} />
-      <Route path="/dashboard" element={<Navigate to="/templates" replace />} />
-
-      <Route element={<AuthLayout />}>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-      </Route>
-
-      <Route element={<AppLayout />}>
-        <Route path="/servers" element={<ServersPage />} />
-        <Route path="/servers/:id" element={<ServerDetailPage />} />
-        <Route path="/templates" element={<TemplatesPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route
-          path="/deploy/:templateId/logs"
-          element={<DeployLogsPage />}
-        />
-      </Route>
-
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+    <Providers>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
+    </Providers>
   );
 }
