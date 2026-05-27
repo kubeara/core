@@ -33,7 +33,7 @@ Set on the **control panel** (see `.env.control-panel.example`):
 | Variable | Purpose |
 |----------|---------|
 | `CONTROL_PANEL_URL` | URL agents use to reach the API (required for install) |
-| `KUBEARA_AGENT_IMAGE` | Optional; default `kubeara/agent:latest` |
+| `KUBEARA_AGENT_IMAGE` | Optional; default `kubeara/agent:prod` |
 | `KUBEARA_AGENT_DEPLOY_DIR` | Optional; path to bundled `deploy/` in the image |
 
 Request body: `"installAgent": false` skips remote install (SSH + DB only).
@@ -103,7 +103,7 @@ cp .env.agent.example .env.agent
 docker compose -f docker-compose.agent.yml --env-file .env.agent up -d
 ```
 
-Use `--pull always` to refresh `kubeara/agent:latest` from Docker Hub before starting.
+Use `--pull always` to refresh `kubeara/agent:prod` from Docker Hub before starting.
 
 ## `all predefined address pools have been fully subnetted`
 
@@ -120,7 +120,7 @@ The agent compose uses `network_mode: bridge` so it does not allocate another pr
 
 ## Apple Silicon (M1/M2/M3) — `no matching manifest for linux/arm64`
 
-Hub images built on GitHub Actions were **amd64-only**. Macs need **arm64** (or amd64 via emulation).
+Hub images built on GitHub Actions are multi-arch (`linux/amd64`, `linux/arm64`).
 
 **Right now:** compose defaults to `platform: linux/amd64` (runs under emulation on Mac). Set in `.env.control-panel` / `.env.agent`:
 
@@ -136,11 +136,36 @@ DOCKER_PLATFORM=linux/arm64
 
 The agent container mounts `/var/run/docker.sock` so it can run `docker compose` on the **host** for template deployments. The host must have Docker installed.
 
+## Docker image tags (CI/CD)
+
+Docker images are pushed on every commit to:
+
+- `kubeara/control-panel`
+- `kubeara/agent`
+
+Tags are branch-aware:
+
+- `feature/*`: `feature-<branch-name>-<short-sha>` (slashes replaced with `-`)
+- `development`: `dev` and `dev-<short-sha>`
+- `main`: `prod` and `prod-<short-sha>`
+
+Examples:
+
+```text
+kubeara/agent:feature-login-a1b2c3d
+kubeara/agent:dev
+kubeara/agent:dev-a1b2c3d
+kubeara/agent:prod
+kubeara/agent:prod-a1b2c3d
+```
+
+`latest` is intentionally not published.
+
 ## Pull images manually
 
 ```bash
-docker pull kubeara/control-panel:latest
-docker pull kubeara/agent:latest
+docker pull kubeara/control-panel:prod
+docker pull kubeara/agent:prod
 ```
 
 ## Environment
