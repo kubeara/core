@@ -13,7 +13,7 @@ export class ApiError extends Error {
 
     /**
      * Create a new API error.
-     * 
+     *
      * @param message - Human-readable error message
      * @param status - HTTP status code
      * @param body - Response body from the API
@@ -30,38 +30,110 @@ export class ApiError extends Error {
     }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === "object";
+}
+
+/**
+ * Extract a human-readable message from a backend error response body.
+ */
+export function extractMessageFromBody(
+    data: Record<string, unknown> | undefined,
+): string | null {
+    if (!data) {
+        return null;
+    }
+
+    if (data.success === false) {
+        const failureMessage =
+            typeof data.message === "string" && data.message.trim()
+                ? data.message.trim()
+                : null;
+        const failureError =
+            typeof data.error === "string" && data.error.trim()
+                ? data.error.trim()
+                : null;
+
+        if (failureMessage && failureError && failureMessage !== failureError) {
+            return failureMessage;
+        }
+
+        return failureMessage ?? failureError;
+    }
+
+    const messageField = data.message;
+    if (typeof messageField === "string" && messageField.trim()) {
+        return messageField.trim();
+    }
+
+    if (Array.isArray(messageField)) {
+        const messages = messageField.filter(
+            (entry): entry is string =>
+                typeof entry === "string" && entry.trim().length > 0,
+        );
+        if (messages.length > 0) {
+            return messages.join(", ");
+        }
+    }
+
+    if (typeof data.error === "string" && data.error.trim()) {
+        return data.error.trim();
+    }
+
+    const nestedData = data.data;
+    if (isRecord(nestedData)) {
+        if (typeof nestedData.error === "string" && nestedData.error.trim()) {
+            return nestedData.error.trim();
+        }
+        if (
+            typeof nestedData.message === "string" &&
+            nestedData.message.trim()
+        ) {
+            return nestedData.message.trim();
+        }
+    }
+
+    return null;
+}
+
 /**
  * Extract a human-readable error message from various error types.
- * 
+ *
  * Handles:
- * - Axios errors with response data
+ * - ApiError instances
+ * - Axios errors with response data (including validation arrays)
+ * - Network failures
  * - Standard Error objects
  * - Unknown error types
- * 
- * @param error - The error to extract a message from
- * @returns A human-readable error message
- * 
- * @example
- * try {
- *   await apiClient.post('/auth/login', data);
- * } catch (error) {
- *   const message = getErrorMessage(error);
- *   console.error(message); // "Invalid credentials"
- * }
  */
 export function getErrorMessage(error: unknown): string {
+    if (error instanceof ApiError) {
+        return error.message;
+    }
+
     if (error instanceof AxiosError) {
-        const data = error.response?.data as Record<string, unknown> | undefined;
-
-        // Try to extract message from common response formats
-        if (typeof data?.message === "string") {
-            return data.message;
-        }
-        if (typeof data?.error === "string") {
-            return data.error;
+        if (!error.response) {
+            if (error.code === "ERR_CANCELED") {
+                return "Request was canceled.";
+            }
+            return "Network error. Please check your connection and try again.";
         }
 
-        // Fall back to Axios error message
+        const extracted = extractMessageFromBody(
+            error.response.data as Record<string, unknown> | undefined,
+        );
+        if (extracted) {
+            return extracted;
+        }
+
+        if (error.response.status === 401) {
+            return "Your session has expired. Please sign in again.";
+        }
+
+        if (error.response.status === 403) {
+            return "You do not have permission to perform this action.";
+        }
+
         return error.message || "Request failed";
     }
 
@@ -74,35 +146,23 @@ export function getErrorMessage(error: unknown): string {
 
 /**
  * Convert any error type to a structured ApiError instance.
- * 
- * This is useful for consistent error handling in mutation hooks.
- * 
- * @param error - The error to convert
- * @returns An ApiError instance with status and body information
- * 
- * @example
- * export function useLoginMutation() {
- *   return useMutation({
- *     mutationFn: login,
- *     onError: (error) => {
- *       const apiError = toApiError(error);
- *       if (apiError.status === 401) {
- *         console.error('Invalid credentials');
- *       }
- *     },
- *   });
- * }
  */
 export function toApiError(error: unknown): ApiError {
+    if (error instanceof ApiError) {
+        return error;
+    }
+
     if (error instanceof AxiosError) {
         const status = error.response?.status ?? 500;
-        const data = (error.response?.data ?? {}) as Record<string, unknown>;
+        const data = isRecord(error.response?.data)
+            ? error.response.data
+            : {};
         const message = getErrorMessage(error);
         return new ApiError(message, status, data);
     }
 
-    if (error instanceof ApiError) {
-        return error;
+    if (error instanceof Error) {
+        return new ApiError(error.message, 500);
     }
 
     return new ApiError(getErrorMessage(error), 500);

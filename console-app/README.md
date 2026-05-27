@@ -1,6 +1,6 @@
-# Kubeara SPA
+# Kubeara Console App
 
-React + TypeScript single-page app for deploying infrastructure templates.
+React + TypeScript console application for deploying infrastructure templates.
 
 ## Getting started
 

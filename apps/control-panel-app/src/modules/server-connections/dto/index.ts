@@ -1,3 +1,5 @@
+export * from "./list-servers-query.dto";
+export * from "./update-server.dto";
 export * from "./create-server.dto";
 export * from "./create-server-ssh-credential.dto";
 export * from "./create-server-ssh-credential.request.dto";

@@ -6,37 +6,33 @@ import {
 } from "@/features/servers/hooks";
 import { ServerFormModal } from "./server-form-modal";
 import { formatRelativeTime } from "@/lib/format-relative-time";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import {
+  mapServerApiToServer,
+  mapStatusFilterToQuery,
+  type ServerListSortField,
+} from "@/features/servers/types";
 import type { Server, ServerStatus } from "@/types";
+import { getErrorMessage } from "@/api/api-error";
+import { ServerFeedbackMessage } from "@/features/servers/components/server-feedback-message";
 import "./servers-table.css";
 
-type SortKey = "name" | "host" | "status" | "createdAt";
 type SortDir = "asc" | "desc";
 
 const PAGE_SIZES = [5, 10, 25] as const;
 const STATUSES: ServerStatus[] = ["online", "offline", "pending", "error"];
+const SEARCH_DEBOUNCE_MS = 300;
 
-const TABLE_COLUMNS: { key: SortKey; label: string; pill?: boolean }[] = [
+const TABLE_COLUMNS: {
+  key: ServerListSortField;
+  label: string;
+  pill?: boolean;
+}[] = [
   { key: "name", label: "Name" },
   { key: "host", label: "Host" },
   { key: "createdAt", label: "Created", pill: true },
   { key: "status", label: "Status" },
 ];
-
-function compareServers(a: Server, b: Server, key: SortKey, dir: SortDir): number {
-  let aVal: string;
-  let bVal: string;
-
-  if (key === "createdAt") {
-    aVal = a.createdAt;
-    bVal = b.createdAt;
-  } else {
-    aVal = String(a[key]);
-    bVal = String(b[key]);
-  }
-
-  const result = aVal.localeCompare(bVal, undefined, { sensitivity: "base" });
-  return dir === "asc" ? result : -result;
-}
 
 function CopyIcon() {
   return (
@@ -157,17 +153,19 @@ function SortHeader({
   onSort,
 }: {
   label: string;
-  sortKey: SortKey;
-  activeKey: SortKey;
+  sortKey: ServerListSortField;
+  activeKey: ServerListSortField;
   dir: SortDir;
   pill?: boolean;
-  onSort: (key: SortKey) => void;
+  onSort: (key: ServerListSortField) => void;
 }) {
   const isActive = activeKey === sortKey;
   const content = (
     <>
       <span className="servers-th-label">{label}</span>
-      <span className="servers-th-sort-icon">{isActive ? (dir === "asc" ? "▲" : "▼") : "▲"}</span>
+      <span className="servers-th-sort-icon">
+        {isActive ? (dir === "asc" ? "▲" : "▼") : "▲"}
+      </span>
     </>
   );
 
@@ -195,66 +193,73 @@ function SortHeader({
 }
 
 export function ServersTable() {
-  const { data: servers = [], isPending: loading } = useServersQuery();
-  const deleteMutation = useDeleteServerMutation();
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [searchInput, setSearchInput] = useState("");
+  const debouncedSearch = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
+  const [statusFilter, setStatusFilter] = useState<ServerStatus | "">("");
+  const [sortKey, setSortKey] = useState<ServerListSortField>("createdAt");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(10);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<Server | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Server | null>(null);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return servers.filter((server) => {
-      if (statusFilter && server.status !== statusFilter) return false;
-      if (!q) return true;
-      return (
-        server.name.toLowerCase().includes(q) ||
-        server.host.toLowerCase().includes(q) ||
-        server.username.toLowerCase().includes(q) ||
-        server.id.toLowerCase().includes(q)
-      );
-    });
-  }, [servers, search, statusFilter]);
+  const listParams = useMemo(
+    () => ({
+      page,
+      limit: pageSize,
+      search: debouncedSearch.trim() || undefined,
+      sortBy: sortKey,
+      sortOrder: sortDir,
+      ...mapStatusFilterToQuery(statusFilter),
+    }),
+    [page, pageSize, debouncedSearch, sortKey, sortDir, statusFilter],
+  );
 
-  const sorted = useMemo(() => {
-    return [...filtered].sort((a, b) => compareServers(a, b, sortKey, sortDir));
-  }, [filtered, sortKey, sortDir]);
+  const {
+    data: listResponse,
+    isPending: loading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useServersQuery(listParams);
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const currentPage = Math.min(page, totalPages);
+  const deleteMutation = useDeleteServerMutation();
 
-  const paginated = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return sorted.slice(start, start + pageSize);
-  }, [sorted, currentPage, pageSize]);
+  const servers = useMemo(
+    () => (listResponse?.data ?? []).map(mapServerApiToServer),
+    [listResponse?.data],
+  );
 
-  function handleSort(key: SortKey) {
+  const pagination = listResponse?.pagination;
+  const total = pagination?.total ?? 0;
+  const totalPages = Math.max(1, pagination?.totalPages ?? 1);
+  const currentPage = pagination?.page ?? page;
+
+  function handleSort(key: ServerListSortField) {
     if (sortKey === key) {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(key);
       setSortDir("asc");
     }
+    setPage(1);
   }
 
   function clearFilters() {
-    setSearch("");
+    setSearchInput("");
     setStatusFilter("");
     setPage(1);
   }
 
   function handleSearchChange(value: string) {
-    setSearch(value);
+    setSearchInput(value);
     setPage(1);
   }
 
   function handleStatusFilterChange(value: string) {
-    setStatusFilter(value);
+    setStatusFilter(value as ServerStatus | "");
     setPage(1);
   }
 
@@ -273,28 +278,49 @@ export function ServersTable() {
     setModalOpen(true);
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget) return;
-    deleteMutation.mutate(deleteTarget.id, {
-      onSettled: () => setDeleteTarget(null),
-    });
+    try {
+      await deleteMutation.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch {
+      /* errors surfaced via mutation onError toast */
+    }
+  }
+
+  function closeDeleteModal() {
+    if (deleting) return;
+    setDeleteTarget(null);
   }
 
   const deleting = deleteMutation.isPending;
-
-  const rangeStart = sorted.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const rangeEnd = Math.min(currentPage * pageSize, sorted.length);
-  const hasFilters = search.trim() !== "" || statusFilter !== "";
+  const rangeStart = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const rangeEnd = Math.min(currentPage * pageSize, total);
+  const hasFilters = searchInput.trim() !== "" || statusFilter !== "";
+  const listErrorMessage = isError ? getErrorMessage(error) : null;
+  const emptyMessage = hasFilters
+    ? "No servers match your search."
+    : "No servers yet. Add your first server to get started.";
 
   return (
     <div className="servers-table-wrap">
+      {listErrorMessage && (
+        <ServerFeedbackMessage
+          variant="error"
+          message={listErrorMessage}
+          onRetry={() => {
+            void refetch();
+          }}
+        />
+      )}
+
       <div className="servers-table-toolbar">
         <div className="servers-table-filters">
           <input
             type="search"
             className="servers-search"
             placeholder="Search by name, host, or username…"
-            value={search}
+            value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             aria-label="Search servers"
           />
@@ -354,15 +380,16 @@ export function ServersTable() {
                   </td>
                 </tr>
               )}
-              {!loading && paginated.length === 0 && (
+              {!loading && !isError && servers.length === 0 && (
                 <tr>
                   <td colSpan={5} className="servers-table-empty">
-                    No servers match your search.
+                    {emptyMessage}
                   </td>
                 </tr>
               )}
               {!loading &&
-                paginated.map((server) => (
+                !isError &&
+                servers.map((server) => (
                   <tr key={server.id}>
                     <td>
                       <ServerNameCell server={server} />
@@ -415,8 +442,8 @@ export function ServersTable() {
 
       <div className="servers-pagination">
         <div>
-          Showing {rangeStart}–{rangeEnd} of {sorted.length}
-          {sorted.length !== servers.length && ` (${servers.length} total)`}
+          Showing {rangeStart}–{rangeEnd} of {total}
+          {isFetching && !loading ? " · Updating…" : ""}
         </div>
         <div className="servers-pagination-controls">
           <label className="servers-page-size">
@@ -435,8 +462,8 @@ export function ServersTable() {
           <button
             type="button"
             className="servers-page-btn"
-            disabled={currentPage <= 1}
-            onClick={() => setPage((p) => p - 1)}
+            disabled={currentPage <= 1 || loading}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
           >
             Previous
           </button>
@@ -446,7 +473,7 @@ export function ServersTable() {
           <button
             type="button"
             className="servers-page-btn"
-            disabled={currentPage >= totalPages}
+            disabled={currentPage >= totalPages || loading}
             onClick={() => setPage((p) => p + 1)}
           >
             Next
@@ -462,14 +489,14 @@ export function ServersTable() {
           setModalOpen(false);
           setEditingServer(null);
         }}
-        onSaved={() => { }}
+        onSaved={() => {}}
       />
 
       {deleteTarget && (
         <div
           className="modal-overlay"
           role="presentation"
-          onClick={() => !deleting && setDeleteTarget(null)}
+          onClick={closeDeleteModal}
         >
           <div
             className="modal-dialog modal-dialog-sm"
@@ -488,16 +515,17 @@ export function ServersTable() {
               <button
                 type="button"
                 className="btn-secondary"
-                onClick={() => setDeleteTarget(null)}
+                onClick={closeDeleteModal}
                 disabled={deleting}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="btn-danger"
-                onClick={confirmDelete}
+                className={`btn-danger${deleting ? " is-loading" : ""}`}
+                onClick={() => void confirmDelete()}
                 disabled={deleting}
+                aria-busy={deleting}
               >
                 {deleting ? "Deleting…" : "Delete"}
               </button>

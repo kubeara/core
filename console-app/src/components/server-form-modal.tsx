@@ -3,10 +3,8 @@ import {
   useCreateServerMutation,
   useUpdateServerMutation,
 } from "@/features/servers/hooks";
-import { getErrorMessage } from "@/api/api-error";
-import type { Server, ServerStatus } from "@/types";
-
-const STATUSES: ServerStatus[] = ["online", "offline", "pending", "error"];
+import type { Server } from "@/types";
+import type { ServerSshAuthType } from "@/features/servers/types";
 
 type ServerFormModalProps = {
   open: boolean;
@@ -16,23 +14,26 @@ type ServerFormModalProps = {
   onSaved: () => void;
 };
 
-type FormState = {
+type AddFormState = {
   name: string;
   username: string;
   host: string;
-  status: ServerStatus;
+  port: string;
+  authType: ServerSshAuthType;
+  password: string;
+  privateKey: string;
 };
 
-function getInitialForm(mode: "add" | "edit", server?: Server | null): FormState {
-  if (mode === "edit" && server) {
-    return {
-      name: server.name,
-      username: server.username,
-      host: server.host,
-      status: server.status,
-    };
-  }
-  return { name: "", username: "", host: "", status: "pending" };
+function getInitialAddForm(): AddFormState {
+  return {
+    name: "",
+    username: "",
+    host: "",
+    port: "22",
+    authType: "PASSWORD",
+    password: "",
+    privateKey: "",
+  };
 }
 
 function ServerFormContent({
@@ -48,31 +49,42 @@ function ServerFormContent({
 }) {
   const createMutation = useCreateServerMutation();
   const updateMutation = useUpdateServerMutation();
-  const initial = getInitialForm(mode, server);
-  const [name, setName] = useState(initial.name);
-  const [username, setUsername] = useState(initial.username);
-  const [host, setHost] = useState(initial.host);
-  const [status, setStatus] = useState<ServerStatus>(initial.status);
-  const [error, setError] = useState<string | null>(null);
-
+  const [name, setName] = useState(server?.name ?? "");
+  const [addForm, setAddForm] = useState<AddFormState>(getInitialAddForm);
   const loading = createMutation.isPending || updateMutation.isPending;
+  const isPasswordAuth = addForm.authType === "PASSWORD";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-
-    const payload = { name, username, host, status };
 
     try {
       if (mode === "edit" && server) {
-        await updateMutation.mutateAsync({ id: server.id, input: payload });
+        await updateMutation.mutateAsync({
+          id: server.id,
+          input: { name: name.trim() },
+        });
       } else {
-        await createMutation.mutateAsync(payload);
+        const port = Number(addForm.port);
+        await createMutation.mutateAsync({
+          server: {
+            name: addForm.name.trim(),
+            host: addForm.host.trim(),
+            username: addForm.username.trim(),
+            ...(Number.isFinite(port) && port > 0 ? { port } : {}),
+          },
+          ssh: {
+            authType: addForm.authType,
+            ...(isPasswordAuth
+              ? { password: addForm.password }
+              : { privateKey: addForm.privateKey }),
+          },
+          installAgent: true,
+        });
       }
       onSaved();
       onClose();
-    } catch (err) {
-      setError(getErrorMessage(err));
+    } catch {
+      /* errors surfaced via mutation onError toast */
     }
   }
 
@@ -96,51 +108,131 @@ function ServerFormContent({
           <label htmlFor="server-name">Name</label>
           <input
             id="server-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={mode === "edit" ? name : addForm.name}
+            onChange={(e) =>
+              mode === "edit"
+                ? setName(e.target.value)
+                : setAddForm((prev) => ({ ...prev, name: e.target.value }))
+            }
             required
             disabled={loading}
             placeholder="Production API"
           />
         </div>
-        <div className="form-field">
-          <label htmlFor="server-username">Username</label>
-          <input
-            id="server-username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            disabled={loading}
-            placeholder="deploy"
-          />
-        </div>
-        <div className="form-field">
-          <label htmlFor="server-host">Host</label>
-          <input
-            id="server-host"
-            value={host}
-            onChange={(e) => setHost(e.target.value)}
-            required
-            disabled={loading}
-            placeholder="api.example.com"
-          />
-        </div>
-        <div className="form-field">
-          <label htmlFor="server-status">Status</label>
-          <select
-            id="server-status"
-            value={status}
-            onChange={(e) => setStatus(e.target.value as ServerStatus)}
-            disabled={loading}
-          >
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-              </option>
-            ))}
-          </select>
-        </div>
-        {error && <p className="form-message error">{error}</p>}
+
+        {mode === "add" ? (
+          <>
+            <div className="form-field">
+              <label htmlFor="server-username">Username</label>
+              <input
+                id="server-username"
+                value={addForm.username}
+                onChange={(e) =>
+                  setAddForm((prev) => ({ ...prev, username: e.target.value }))
+                }
+                required
+                disabled={loading}
+                placeholder="deploy"
+              />
+            </div>
+            <div className="form-field">
+              <label htmlFor="server-host">Host</label>
+              <input
+                id="server-host"
+                value={addForm.host}
+                onChange={(e) =>
+                  setAddForm((prev) => ({ ...prev, host: e.target.value }))
+                }
+                required
+                disabled={loading}
+                placeholder="api.example.com"
+              />
+            </div>
+            <div className="form-field">
+              <label htmlFor="server-port">SSH port</label>
+              <input
+                id="server-port"
+                type="number"
+                min={1}
+                max={65535}
+                value={addForm.port}
+                onChange={(e) =>
+                  setAddForm((prev) => ({ ...prev, port: e.target.value }))
+                }
+                disabled={loading}
+              />
+            </div>
+            <div className="form-field">
+              <label htmlFor="server-auth-type">Authentication</label>
+              <select
+                id="server-auth-type"
+                value={addForm.authType}
+                onChange={(e) =>
+                  setAddForm((prev) => ({
+                    ...prev,
+                    authType: e.target.value as ServerSshAuthType,
+                  }))
+                }
+                disabled={loading}
+              >
+                <option value="PASSWORD">Password</option>
+                <option value="PRIVATE_KEY">Private key</option>
+              </select>
+            </div>
+            {isPasswordAuth ? (
+              <div className="form-field">
+                <label htmlFor="server-password">Password</label>
+                <input
+                  id="server-password"
+                  type="password"
+                  value={addForm.password}
+                  onChange={(e) =>
+                    setAddForm((prev) => ({ ...prev, password: e.target.value }))
+                  }
+                  required
+                  disabled={loading}
+                  autoComplete="new-password"
+                />
+              </div>
+            ) : (
+              <div className="form-field">
+                <label htmlFor="server-private-key">Private key</label>
+                <textarea
+                  id="server-private-key"
+                  value={addForm.privateKey}
+                  onChange={(e) =>
+                    setAddForm((prev) => ({
+                      ...prev,
+                      privateKey: e.target.value,
+                    }))
+                  }
+                  required
+                  disabled={loading}
+                  rows={5}
+                  placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                />
+              </div>
+            )}
+          </>
+        ) : (
+          server && (
+            <>
+              <div className="form-field">
+                <label htmlFor="server-username">Username</label>
+                <input
+                  id="server-username"
+                  value={server.username}
+                  disabled
+                />
+              </div>
+              <div className="form-field">
+                <label htmlFor="server-host">Host</label>
+                <input id="server-host" value={server.host} disabled />
+              </div>
+            </>
+          )
+        )}
+
         <div className="modal-actions">
           <button
             type="button"
@@ -150,7 +242,12 @@ function ServerFormContent({
           >
             Cancel
           </button>
-          <button type="submit" className="btn-primary" disabled={loading}>
+          <button
+            type="submit"
+            className={`btn-primary${loading ? " is-loading" : ""}`}
+            disabled={loading}
+            aria-busy={loading}
+          >
             {loading ? "Saving…" : mode === "add" ? "Add server" : "Save"}
           </button>
         </div>

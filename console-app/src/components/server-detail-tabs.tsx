@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useMemo, useState } from "react";
-import { useDeleteServerMutation } from "@/features/servers/hooks";
+import { useDeleteServerMutation, useConnectServerMutation, useDisconnectServerMutation } from "@/features/servers/hooks";
 import { TemplateCard } from "@/components/template-card";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import {
@@ -207,16 +207,48 @@ function ActivityTab({
 function SettingsTab({ server }: { server: Server }) {
   const navigate = useNavigate();
   const deleteMutation = useDeleteServerMutation();
+  const connectMutation = useConnectServerMutation();
+  const disconnectMutation = useDisconnectServerMutation();
   const settings = useMemo(() => getServerSettings(server), [server]);
   const [destroyOpen, setDestroyOpen] = useState(false);
 
-  function handleDestroy() {
-    deleteMutation.mutate(server.id, {
-      onSuccess: () => {
-        setDestroyOpen(false);
-        navigate("/servers", { replace: true });
-      },
-    });
+  const isOnline = server.status === "online";
+  const connectionLoading =
+    connectMutation.isPending || disconnectMutation.isPending;
+
+  async function handleConnect() {
+    try {
+      await connectMutation.mutateAsync(server.id);
+    } catch {
+      /* errors surfaced via mutation onError toast */
+    }
+  }
+
+  async function handleDisconnect() {
+    try {
+      await disconnectMutation.mutateAsync(server.id);
+    } catch {
+      /* errors surfaced via mutation onError toast */
+    }
+  }
+
+  async function handleDestroy() {
+    try {
+      await deleteMutation.mutateAsync(server.id);
+      setDestroyOpen(false);
+      navigate("/servers", { replace: true });
+    } catch {
+      /* errors surfaced via mutation onError toast */
+    }
+  }
+
+  function openDestroyModal() {
+    setDestroyOpen(true);
+  }
+
+  function closeDestroyModal() {
+    if (destroying) return;
+    setDestroyOpen(false);
   }
 
   const destroying = deleteMutation.isPending;
@@ -276,6 +308,30 @@ function SettingsTab({ server }: { server: Server }) {
           </div>
         </dl>
 
+        <div className="settings-connection-actions">
+          {isOnline ? (
+            <button
+              type="button"
+              className={`btn-danger-outline${connectionLoading ? " is-loading" : ""}`}
+              onClick={() => void handleDisconnect()}
+              disabled={connectionLoading}
+              aria-busy={connectionLoading}
+            >
+              {connectionLoading ? "Disconnecting…" : "Disconnect SSH"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`btn-primary${connectionLoading ? " is-loading" : ""}`}
+              onClick={() => void handleConnect()}
+              disabled={connectionLoading}
+              aria-busy={connectionLoading}
+            >
+              {connectionLoading ? "Connecting…" : "Connect SSH"}
+            </button>
+          )}
+        </div>
+
         <div className="settings-toggles">
           <div className="settings-toggle-row">
             <div>
@@ -311,7 +367,7 @@ function SettingsTab({ server }: { server: Server }) {
         <button
           type="button"
           className="btn-danger"
-          onClick={() => setDestroyOpen(true)}
+          onClick={openDestroyModal}
         >
           Destroy server
         </button>
@@ -331,7 +387,7 @@ function SettingsTab({ server }: { server: Server }) {
                 type="button"
                 className="modal-close"
                 aria-label="Close"
-                onClick={() => setDestroyOpen(false)}
+                onClick={closeDestroyModal}
               >
                 ×
               </button>
@@ -345,14 +401,15 @@ function SettingsTab({ server }: { server: Server }) {
                 type="button"
                 className="btn-secondary"
                 disabled={destroying}
-                onClick={() => setDestroyOpen(false)}
+                onClick={closeDestroyModal}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="btn-danger"
+                className={`btn-danger${destroying ? " is-loading" : ""}`}
                 disabled={destroying}
+                aria-busy={destroying}
                 onClick={() => void handleDestroy()}
               >
                 {destroying ? "Destroying…" : "Destroy server"}

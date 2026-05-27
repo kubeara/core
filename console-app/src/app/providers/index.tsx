@@ -1,6 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/api/query-client";
 import { ThemeProvider } from "@/components/shared/theme-provider";
+import { ToastContainer } from "@/components/toast/toast-container";
 
 /**
  * Root providers component.
@@ -27,7 +28,10 @@ import { ThemeProvider } from "@/components/shared/theme-provider";
 export function Providers({ children }: { children: React.ReactNode }) {
     return (
         <QueryClientProvider client={queryClient}>
-            <ThemeProvider>{children}</ThemeProvider>
+            <ThemeProvider>
+                {children}
+                <ToastContainer />
+            </ThemeProvider>
         </QueryClientProvider>
     );
 }

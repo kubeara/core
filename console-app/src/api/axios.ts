@@ -1,4 +1,5 @@
-import axios, { AxiosError, AxiosInstance } from "axios";
+import axios, { AxiosError, AxiosInstance, AxiosResponse } from "axios";
+import { ApiError, extractMessageFromBody } from "@/api/api-error";
 import {
     clearTokens,
     getAccessToken,
@@ -6,6 +7,24 @@ import {
     setTokens,
 } from "@/features/auth/utils/token-manager";
 import { getStoredAccessToken } from "@/features/auth/utils/token-storage";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === "object";
+}
+
+function rejectEnvelopeFailure(response: AxiosResponse): AxiosResponse {
+    const data = response.data;
+    if (!isRecord(data) || data.success !== false) {
+        return response;
+    }
+
+    const status =
+        typeof data.statusCode === "number" ? data.statusCode : response.status;
+    const message =
+        extractMessageFromBody(data) ?? "Request failed";
+
+    throw new ApiError(message, status, data);
+}
 
 function getApiBaseUrl(): string {
     const base = import.meta.env.VITE_API_URL?.trim() ?? "";
@@ -39,7 +58,7 @@ function createApiClient(): AxiosInstance {
     });
 
     client.interceptors.response.use(
-        (response) => response,
+        (response) => rejectEnvelopeFailure(response),
         (error: AxiosError) => Promise.reject(error),
     );
 

@@ -33,8 +33,15 @@ export const QUERY_KEYS = {
      * Server-related queries
      */
     servers: {
-        /** All servers list query key */
-        all: ["servers"] as const,
+        /** Prefix for all server list queries */
+        lists: () => ["servers", "list"] as const,
+
+        /** Paginated servers list query key */
+        list: (params: Record<string, unknown>) =>
+            ["servers", "list", params] as const,
+
+        /** Legacy alias for list invalidation */
+        all: ["servers", "list"] as const,
 
         /**
          * Single server detail query key

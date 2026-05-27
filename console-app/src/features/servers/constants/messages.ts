@@ -1,0 +1,14 @@
+export const SERVER_API_FALLBACK_MESSAGES = {
+  LOAD_LIST: "Failed to load servers",
+  LOAD_ONE: "Failed to load server",
+  ONBOARD: "Failed to add server",
+  UPDATE: "Failed to update server",
+  CONNECT: "Failed to connect server",
+  DISCONNECT: "Failed to disconnect server",
+  DELETE: "Failed to delete server",
+  ONBOARD_SUCCESS: "Server added successfully",
+  UPDATE_SUCCESS: "Server updated successfully",
+  CONNECT_SUCCESS: "Server connected successfully",
+  DISCONNECT_SUCCESS: "Server disconnected successfully",
+  DELETE_SUCCESS: "Server deleted successfully",
+} as const;

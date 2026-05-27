@@ -8,6 +8,22 @@ import {
   Logger,
 } from "@nestjs/common";
 import { Request, Response } from "express";
+import { ErrorResponse } from "../interfaces/error-response.interface";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object";
+}
+
+const GENERIC_HTTP_ERRORS = new Set([
+  "Bad Request",
+  "Unauthorized",
+  "Forbidden",
+  "Not Found",
+  "Conflict",
+  "Unprocessable Entity",
+  "Too Many Requests",
+  "Internal Server Error",
+]);
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -22,6 +38,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = "Internal server error";
     let errorCode = "INTERNAL_SERVER_ERROR";
+    let errorDetail: string | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -31,18 +48,33 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
       if (typeof errorResponse === "string") {
         message = errorResponse;
-      } else if (typeof errorResponse === "object" && errorResponse) {
-        const res = errorResponse as Record<string, unknown>;
-
-        if ("message" in res) {
-          const raw = res.message;
+      } else if (isRecord(errorResponse)) {
+        if ("message" in errorResponse) {
+          const raw = errorResponse.message;
           message = Array.isArray(raw) ? raw.join(", ") : String(raw);
         }
 
-        if ("errorCode" in res && typeof res.errorCode === "string") {
-          errorCode = res.errorCode;
+        if (
+          "errorCode" in errorResponse &&
+          typeof errorResponse.errorCode === "string"
+        ) {
+          errorCode = errorResponse.errorCode;
+        }
+
+        if (typeof errorResponse.error === "string") {
+          const candidate = errorResponse.error.trim();
+          if (
+            candidate &&
+            !GENERIC_HTTP_ERRORS.has(candidate) &&
+            candidate !== message
+          ) {
+            errorDetail = candidate;
+          }
         }
       }
+    } else if (exception instanceof Error) {
+      message = exception.message;
+      errorDetail = exception.message;
     }
 
     const logContext = `[${request.method}] ${request.url} → ${status}`;
@@ -55,11 +87,16 @@ export class HttpExceptionFilter implements ExceptionFilter {
       this.logger.warn(`${logContext}: ${message}`);
     }
 
-    response.status(status).json({
+    const body: ErrorResponse = {
       success: false,
       statusCode: status,
       errorCode,
       message,
+      ...(errorDetail ? { error: errorDetail } : {}),
+    };
+
+    response.status(status).json({
+      ...body,
       ...(this.isDev &&
         exception instanceof Error && { stack: exception.stack }),
     });
@@ -67,8 +104,6 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
   /**
    * Code maps for error type status code
-   * @param status
-   * @returns
    */
   private statusToCode(status: number): string {
     const map: Record<number, string> = {
