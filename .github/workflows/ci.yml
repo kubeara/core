@@ -85,12 +85,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: control-panel-app
+          - name: control-panel
             dockerfile: apps/control-panel-app/Dockerfile
-            image: control-panel-app
-          - name: agent-app
+            image: control-panel
+          - name: agent
             dockerfile: apps/agent-app/Dockerfile
-            image: agent-app
+            image: agent
     steps:
       - name: Checkout
         uses: actions/checkout@v4

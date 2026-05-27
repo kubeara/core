@@ -33,7 +33,7 @@ Set on the **control panel** (see `.env.control-panel.example`):
 | Variable | Purpose |
 |----------|---------|
 | `CONTROL_PANEL_URL` | URL agents use to reach the API (required for install) |
-| `KUBEARA_AGENT_IMAGE` | Optional; default `kubeara/agent-app:latest` |
+| `KUBEARA_AGENT_IMAGE` | Optional; default `kubeara/agent:latest` |
 | `KUBEARA_AGENT_DEPLOY_DIR` | Optional; path to bundled `deploy/` in the image |
 
 Request body: `"installAgent": false` skips remote install (SSH + DB only).
@@ -103,7 +103,7 @@ cp .env.agent.example .env.agent
 docker compose -f docker-compose.agent.yml --env-file .env.agent up -d
 ```
 
-Use `--pull always` to refresh `kubeara/agent-app:latest` from Docker Hub before starting.
+Use `--pull always` to refresh `kubeara/agent:latest` from Docker Hub before starting.
 
 ## `all predefined address pools have been fully subnetted`
 
@@ -139,8 +139,8 @@ The agent container mounts `/var/run/docker.sock` so it can run `docker compose`
 ## Pull images manually
 
 ```bash
-docker pull kubeara/control-panel-app:latest
-docker pull kubeara/agent-app:latest
+docker pull kubeara/control-panel:latest
+docker pull kubeara/agent:latest
 ```
 
 ## Environment

@@ -12,7 +12,7 @@ export class CreateServerOnboardRequestDto {
   @Type(() => CreateServerSshCredentialRequestDto)
   ssh!: CreateServerSshCredentialRequestDto;
 
-  /** When true (default), install kubeara/agent-app on the server after SSH succeeds. */
+  /** When true (default), install kubeara/agent on the server after SSH succeeds. */
   @IsOptional()
   @IsBoolean()
   installAgent?: boolean;
