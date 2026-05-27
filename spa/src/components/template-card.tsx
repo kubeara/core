@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import type { Template } from "@/lib/types";
+import type { Template } from "@/types";
 
 type TemplateCardProps = {
   template: Template;

@@ -8,9 +8,9 @@ import {
   forwardRef,
   type CSSProperties,
 } from "react";
-import { apiUrl } from "@/lib/api-client";
+import { buildApiUrl } from "@/api/axios";
 import type { DeployLogLevel } from "@/lib/deploy-logs";
-import type { Template } from "@/lib/types";
+import type { Template } from "@/types";
 import "./deployment-logs.css";
 
 type LogLine = {
@@ -66,7 +66,7 @@ const LogStream = forwardRef<LogStreamHandle, LogStreamProps>(
     useImperativeHandle(ref, () => ({ disconnect }), [disconnect]);
 
     useEffect(() => {
-      const es = new EventSource(apiUrl(`/api/deploy/${templateId}/logs`));
+      const es = new EventSource(buildApiUrl(`/deploy/${templateId}/logs`));
       eventSourceRef.current = es;
 
       es.onopen = () => onStatusChange("streaming");

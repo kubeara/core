@@ -7,19 +7,13 @@ import "@fontsource/geist-sans/600.css";
 import "@fontsource/geist-sans/700.css";
 import "@fontsource/geist-mono/400.css";
 import "@fontsource/geist-mono/500.css";
-import { Providers } from "@/components/providers";
-import { AuthProvider } from "@/contexts/auth-context";
-import { AppRoutes } from "@/App";
+import { App } from "@/App";
 import "@/index.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
-      <Providers>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
-      </Providers>
+      <App />
     </BrowserRouter>
   </StrictMode>,
 );

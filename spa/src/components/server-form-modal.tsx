@@ -2,9 +2,9 @@ import { useState } from "react";
 import {
   useCreateServerMutation,
   useUpdateServerMutation,
-} from "@/api/hooks/use-servers";
-import { getMutationErrorMessage } from "@/api/hooks/use-auth";
-import type { Server, ServerStatus } from "@/lib/types";
+} from "@/features/servers/hooks";
+import { getErrorMessage } from "@/api/api-error";
+import type { Server, ServerStatus } from "@/types";
 
 const STATUSES: ServerStatus[] = ["online", "offline", "pending", "error"];
 
@@ -72,7 +72,7 @@ function ServerFormContent({
       onSaved();
       onClose();
     } catch (err) {
-      setError(getMutationErrorMessage(err, "Failed to save server."));
+      setError(getErrorMessage(err));
     }
   }
 
