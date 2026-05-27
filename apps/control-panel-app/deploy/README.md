@@ -15,7 +15,9 @@ No source code required — only Docker and these compose files.
 
 1. Start the **control panel** stack (includes Postgres).
 2. Run **database migrations** once.
-3. Start the **agent** on the deployment host — manually (compose below) or automatically via **`POST /servers/onboard`** with `installAgent: true` (default).
+3. Start the **agent** on the deployment host — manually (compose below), automatically via **`POST /servers/onboard`** with `installAgent: true` (default), or on first **`POST /deployments/compose`** with `deployOnLocal: true` (installs prerequisites + agent locally).
+
+Set `CONTROL_PANEL_URL` on the control panel (e.g. `http://host.docker.internal:3000` when the agent runs in Docker and the panel on the host). Local agent files default to `~/.kubeara/agent` (override with `KUBEARA_AGENT_LOCAL_DIR`).
 
 ## Remote agent install (onboard API)
 
@@ -72,11 +74,13 @@ docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel
 docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel up -d
 ```
 
-Run migrations once (before using the UI):
+Run migrations and seed service templates once (before using the UI):
 
 ```bash
 docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel --profile migrate run --rm migrate
 ```
+
+This runs TypeORM migrations, then `npm run seed` (template upserts from `apps/control-panel-app/templates`).
 
 Pulls images from Docker Hub automatically if they are not on the machine. To force the latest tag from Hub:
 

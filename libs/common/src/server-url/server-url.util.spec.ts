@@ -6,6 +6,7 @@ import {
   generateServiceUrl,
   generateServiceUrlFqdnPairs,
   parseServiceEnvironmentVariable,
+  resolvePrimaryServicePublicUrl,
   sslipWildcard,
 } from "./server-url.util";
 
@@ -46,5 +47,18 @@ describe("server-url.util", () => {
     expect(pairs.SERVICE_FQDN_N8N).toBe(fqdn);
     expect(pairs.SERVICE_URL_N8N_5678).toBe(`${url}:5678`);
     expect(pairs.SERVICE_FQDN_N8N_5678).toBe(`${fqdn}:5678`);
+  });
+
+  it("resolvePrimaryServicePublicUrl prefers host-only URL over port-suffixed", () => {
+    const env = {
+      SERVICE_URL_N8N_5678: "http://n8n.example:5678",
+      SERVICE_URL_N8N: "http://n8n.example",
+      SERVICE_URL_POSTGRES: "http://postgres.example",
+    };
+
+    expect(resolvePrimaryServicePublicUrl(env, "n8n")).toBe(
+      "http://n8n.example",
+    );
+    expect(resolvePrimaryServicePublicUrl(env)).toBe("http://n8n.example");
   });
 });

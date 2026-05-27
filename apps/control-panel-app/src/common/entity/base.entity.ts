@@ -1,63 +1,15 @@
-import {
-  BeforeInsert,
-  BeforeSoftRemove,
-  BeforeUpdate,
-  Column,
-  PrimaryGeneratedColumn,
-} from "typeorm";
-import { IsEnum, IsOptional, IsUUID } from "class-validator";
-import dayjs from "dayjs";
+import { PrimaryGeneratedColumn } from "typeorm";
+import { IsUUID } from "class-validator";
 
-export enum EntityStatus {
-  ACTIVE = "ACTIVE",
-  INACTIVE = "INACTIVE",
-}
+import { AuditableEntity } from "./auditable.entity";
 
-export abstract class BaseEntity {
+export { EntityStatus } from "./entity-status";
+
+/**
+ * UUID primary key plus standard auditable columns.
+ */
+export abstract class BaseEntity extends AuditableEntity {
   @IsUUID()
   @PrimaryGeneratedColumn("uuid")
   id!: string;
-
-  @IsEnum(EntityStatus)
-  @Column({
-    type: "varchar",
-    enum: EntityStatus,
-    enumName: "entityStatusEnum",
-    default: EntityStatus.ACTIVE,
-  })
-  status!: EntityStatus;
-
-  @IsOptional()
-  @Column({
-    type: "jsonb",
-    nullable: true,
-  })
-  metadata!: Record<string, unknown> | null;
-
-  @Column({ type: "bigint" })
-  createdAt!: number;
-
-  @Column({ type: "bigint" })
-  updatedAt!: number;
-
-  @Column({ type: "bigint", nullable: true })
-  deletedAt!: number | null;
-
-  @BeforeInsert()
-  setCreatedAt() {
-    const now = dayjs().unix();
-    this.createdAt = now;
-    this.updatedAt = now;
-  }
-
-  @BeforeUpdate()
-  setUpdatedAt() {
-    this.updatedAt = dayjs().unix();
-  }
-
-  @BeforeSoftRemove()
-  setDeletedAt() {
-    this.deletedAt = dayjs().unix();
-    this.status = EntityStatus.INACTIVE;
-  }
 }

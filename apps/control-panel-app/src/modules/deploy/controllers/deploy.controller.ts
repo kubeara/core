@@ -9,19 +9,18 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 
-import { TemplatesService } from "../../templates/services/templates.service";
+import { ServiceTemplateService } from "../../service-template/services/service-template.service";
 import { DeploymentGateway } from "../../../websocket/websocket.gateway";
 import { SocketDeployMessage } from "@shared/socket-events";
 import { EncryptionService, TemplateConfigService } from "@shared/common";
 import { DeployTemplateDto } from "../dto/deploy-template.dto";
 import { TemplateSchema, SchemaFieldDetails } from "@shared/socket-events";
-
 @Controller("deploy")
 export class DeployController {
   private readonly logger = new Logger(DeployController.name);
 
   constructor(
-    private readonly templatesService: TemplatesService,
+    private readonly serviceTemplateService: ServiceTemplateService,
     private readonly deploymentGateway: DeploymentGateway,
     private readonly encryptionService: EncryptionService,
     private readonly templateConfigService: TemplateConfigService,
@@ -30,9 +29,12 @@ export class DeployController {
   @Post()
   @HttpCode(202)
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-  async deploy(
-    @Body() body: DeployTemplateDto,
-  ): Promise<{ message: string; template: string; deploymentId: string }> {
+  async deploy(@Body() body: DeployTemplateDto): Promise<{
+    message: string;
+    template: string;
+    deploymentId: string;
+    serverId: string;
+  }> {
     const {
       templateSlug,
       env: requestEnv = {},
@@ -42,7 +44,7 @@ export class DeployController {
     this.logger.log(`Received deployment request for '${templateSlug}'`);
 
     const tplEntity =
-      await this.templatesService.getTemplateEntity(templateSlug);
+      await this.serviceTemplateService.getTemplateEntity(templateSlug);
     const encodedCompose = tplEntity.compose;
 
     if (!encodedCompose) {
@@ -50,8 +52,8 @@ export class DeployController {
     }
 
     const schema: TemplateSchema = {
-      env_schema: tplEntity.env_schema as Record<string, SchemaFieldDetails>,
-      port_schema: tplEntity.port_schema as Record<string, SchemaFieldDetails>,
+      env_schema: tplEntity.envSchema as Record<string, SchemaFieldDetails>,
+      port_schema: tplEntity.portSchema as Record<string, SchemaFieldDetails>,
     };
 
     const normalized = this.templateConfigService.normalizeSchema(schema);
@@ -83,12 +85,26 @@ export class DeployController {
       },
     };
 
-    this.deploymentGateway.emitDeploy(message);
+    try {
+      if (!body.serverId) {
+        throw new BadRequestException(
+          "serverId is required. Use POST /deploy/compose with deployOnLocal for local deploy.",
+        );
+      }
 
-    return {
-      message: "Deployment initiated",
-      template: templateSlug,
-      deploymentId,
-    };
+      this.deploymentGateway.emitDeploy(message, body.serverId);
+
+      return {
+        message: "Deployment initiated",
+        template: templateSlug,
+        deploymentId,
+        serverId: body.serverId,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Legacy deploy emit failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 }

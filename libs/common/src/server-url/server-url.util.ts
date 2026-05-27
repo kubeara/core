@@ -208,3 +208,40 @@ export function generateServiceUrlFqdnPairs(
     );
   }
 }
+
+/**
+ * Picks the best public URL for a deploy API response from generated env vars.
+ *
+ * Prefer host-only `SERVICE_URL_{NAME}` (no `_{port}` suffix), e.g. `SERVICE_URL_N8N`
+ * over `SERVICE_URL_N8N_5678`. Optionally tries `SERVICE_URL_{SLUG}` from template slug first.
+ */
+export function resolvePrimaryServicePublicUrl(
+  env: Record<string, string>,
+  templateSlug?: string,
+): string | undefined {
+  if (templateSlug) {
+    const slugKey = `SERVICE_URL_${templateSlug.replace(/-/g, "_").toUpperCase()}`;
+    if (env[slugKey]) {
+      return env[slugKey];
+    }
+  }
+
+  const entries = Object.keys(env)
+    .filter((key) => key.startsWith("SERVICE_URL_"))
+    .map((key) => ({
+      key,
+      value: env[key],
+      parsed: parseServiceEnvironmentVariable(key),
+    }))
+    .filter((entry) => entry.value.length > 0);
+
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  const hostOnly = entries.filter((entry) => !entry.parsed.hasPort);
+  const pool = hostOnly.length > 0 ? hostOnly : entries;
+  pool.sort((a, b) => a.key.localeCompare(b.key));
+
+  return pool[0]?.value;
+}
