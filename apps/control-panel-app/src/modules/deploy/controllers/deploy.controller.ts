@@ -9,7 +9,7 @@ import {
   BadRequestException,
 } from "@nestjs/common";
 
-import { TemplatesService } from "../../templates/services/templates.service";
+import { ServiceTemplateService } from "../../service-template/services/service-template.service";
 import { DeploymentGateway } from "../../../websocket/websocket.gateway";
 import { SocketDeployMessage } from "@shared/socket-events";
 import { EncryptionService, TemplateConfigService } from "@shared/common";
@@ -20,7 +20,7 @@ export class DeployController {
   private readonly logger = new Logger(DeployController.name);
 
   constructor(
-    private readonly templatesService: TemplatesService,
+    private readonly serviceTemplateService: ServiceTemplateService,
     private readonly deploymentGateway: DeploymentGateway,
     private readonly encryptionService: EncryptionService,
     private readonly templateConfigService: TemplateConfigService,
@@ -44,7 +44,7 @@ export class DeployController {
     this.logger.log(`Received deployment request for '${templateSlug}'`);
 
     const tplEntity =
-      await this.templatesService.getTemplateEntity(templateSlug);
+      await this.serviceTemplateService.getTemplateEntity(templateSlug);
     const encodedCompose = tplEntity.compose;
 
     if (!encodedCompose) {
@@ -52,8 +52,8 @@ export class DeployController {
     }
 
     const schema: TemplateSchema = {
-      env_schema: tplEntity.env_schema as Record<string, SchemaFieldDetails>,
-      port_schema: tplEntity.port_schema as Record<string, SchemaFieldDetails>,
+      env_schema: tplEntity.envSchema as Record<string, SchemaFieldDetails>,
+      port_schema: tplEntity.portSchema as Record<string, SchemaFieldDetails>,
     };
 
     const normalized = this.templateConfigService.normalizeSchema(schema);

@@ -11,11 +11,10 @@ import {
 import { EnvironmentVariableEntity } from "./entities/environment-variable.entity";
 import { ServiceDeploymentEntity } from "./entities/service-deployment.entity";
 import { DeploymentsService } from "./deployments.service";
-import { DeployController } from "./deploy.controller";
 import { DeploymentsController } from "./deployments.controller";
 import { WebsocketModule } from "@control-panel/websocket/websocket.module";
 import { ServerConnectionsModule } from "../server-connections/server-connections.module";
-import { ServiceTemplateEntity } from "../templates";
+import { ServiceTemplateEntity } from "../service-template/entities/service-template.entity";
 
 @Module({
   imports: [
@@ -31,7 +30,7 @@ import { ServiceTemplateEntity } from "../templates";
     TemplateConfigModule,
     ComposeParserModule,
   ],
-  controllers: [DeployController, DeploymentsController],
+  controllers: [DeploymentsController],
   providers: [DeploymentsService],
   exports: [DeploymentsService],
 })

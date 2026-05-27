@@ -8,6 +8,9 @@ export const AGENT_INSTALL = {
   DEFAULT_PORT: 3001,
   PULL_TIMEOUT_MS: 600_000,
   PREREQ_TIMEOUT_MS: 900_000,
+  /** How long compose deploy waits for agent WebSocket after install. */
+  CONNECT_WAIT_MS: 120_000,
+  CONNECT_POLL_MS: 2_000,
 } as const;
 
 export const AGENT_INSTALL_ENV_KEYS = {

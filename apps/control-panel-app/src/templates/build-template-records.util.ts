@@ -41,9 +41,9 @@ export interface ServiceTemplateRecord {
   compose: string;
   port: number;
   version: string;
-  is_active: boolean;
-  env_schema?: unknown;
-  port_schema?: unknown;
+  isActive: boolean;
+  envSchema?: unknown;
+  portSchema?: unknown;
 }
 
 /**
@@ -297,15 +297,15 @@ export function buildServiceTemplateRecords(
         compose: composeBase64,
         port: metadata.port,
         version: metadata.version,
-        is_active: true,
+        isActive: true,
       };
 
       if (configData?.env_schema) {
-        record.env_schema = configData.env_schema;
+        record.envSchema = configData.env_schema;
       }
 
       if (configData?.port_schema) {
-        record.port_schema = configData.port_schema;
+        record.portSchema = configData.port_schema;
       }
 
       records.push(record);

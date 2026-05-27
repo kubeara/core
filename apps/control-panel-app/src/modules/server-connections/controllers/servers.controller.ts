@@ -26,7 +26,7 @@ export class ServersController {
 
   /**
    * Returns the current user's local machine server when it already exists.
-   * Create it via deploy with `deployOnLocal: true` (POST /deploy/compose).
+   * Create it via deploy with `deployOnLocal: true` (POST /deployments/compose).
    */
   @Get("local")
   async getLocalServer(@Req() req: { user: UserEntity }) {

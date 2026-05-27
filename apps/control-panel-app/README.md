@@ -42,7 +42,7 @@ When a template declares `SERVICE_URL_*` (e.g. n8n), the control panel auto-gene
 Deploy **n8n** (agent must be connected with `AGENT_PUBLIC_IP` set):
 
 ```bash
-curl -X POST http://localhost:3000/deploy/compose \
+curl -X POST http://localhost:3000/deployments/compose \
   -H 'Content-Type: application/json' \
   -d '{"templateSlug":"n8n"}'
 ```
@@ -58,7 +58,7 @@ Without Traefik/HTTPS, the template sets `N8N_SECURE_COOKIE=false` so n8n works 
 Each folder contains:
 
 - `docker-compose.yml` — compose with Coolify-style `SERVICE_*` magic variables
-- `template.config.json` — optional schema for legacy `POST /deploy` (not used by postgresV2)
+- `template.config.json` — optional schema for legacy `POST /deployments` (not used by postgresV2)
 
 Build the control panel and seed templates into the database:
 
@@ -70,7 +70,7 @@ npm run seed
 Deploy **postgresV2** via compose-only endpoint (user/password auto-generated; host port defaults to 5432):
 
 ```bash
-curl -X POST http://localhost:3000/deploy/compose \
+curl -X POST http://localhost:3000/deployments/compose \
   -H 'Content-Type: application/json' \
   -d '{"templateSlug":"postgresV2"}'
 ```
@@ -78,7 +78,7 @@ curl -X POST http://localhost:3000/deploy/compose \
 Override the host port if needed:
 
 ```bash
-curl -X POST http://localhost:3000/deploy/compose \
+curl -X POST http://localhost:3000/deployments/compose \
   -H 'Content-Type: application/json' \
   -d '{"templateSlug":"postgresV2","ports":{"SERVICE_PORT_POSTGRES":5435}}'
 ```
@@ -88,7 +88,7 @@ Note: the port key is `SERVICE_PORT_POSTGRES` (not `SERVICE_PORT_POSTGRESV2`).
 Legacy schema-based deploy (templates with `template.config.json`):
 
 ```bash
-curl -X POST http://localhost:3000/deploy \
+curl -X POST http://localhost:3000/deployments \
   -H 'Content-Type: application/json' \
   -d '{"templateSlug":"postgresql","ports":{"SERVICE_PORT_POSTGRESQL":5432}}'
 ```

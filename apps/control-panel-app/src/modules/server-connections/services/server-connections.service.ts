@@ -19,10 +19,10 @@ import {
   SshConnectionManager,
   SshConnectionOptions,
 } from "@shared/ssh";
-import {
-  RemoteAgentInstallService,
-  AgentInstallResult,
-} from "./remote-agent-install.service";
+import { AgentInstallResult } from "./agent-install.service";
+import { AgentInstallService } from "./agent-install.service";
+import { RemoteAgentInstallService } from "./remote-agent-install.service";
+import { ServerType } from "../enums/server-type.enum";
 import { DEFAULT_SSH_PORT } from "../server-connections.constants";
 import { EntityStatus } from "@control-panel/common/entity/base.entity";
 import dayjs from "dayjs";
@@ -48,7 +48,56 @@ export class ServerConnectionsService {
     private readonly executor: SshCommandExecutorService,
     private readonly sshManager: SshConnectionManager,
     private readonly remoteAgentInstall: RemoteAgentInstallService,
+    private readonly agentInstall: AgentInstallService,
   ) {}
+
+  /**
+   * Installs (or refreshes) the agent on the target host when it is not connected.
+   * Local servers use the same prerequisite + docker-compose flow as remote SSH onboard.
+   */
+  async ensureAgentInstalledForServer(
+    serverId: string,
+    options?: { plainPrivateKey?: string },
+  ): Promise<AgentInstallResult> {
+    const server = await this.serverRepository.findOne({
+      where: { id: serverId, status: EntityStatus.ACTIVE, deletedAt: IsNull() },
+    });
+
+    if (!server) {
+      return {
+        success: false,
+        logs: [],
+        error: `Server '${serverId}' not found or inactive`,
+      };
+    }
+
+    if (server.serverType === ServerType.LOCAL) {
+      return this.agentInstall.installOnLocal({ serverId });
+    }
+
+    const credential = await this.credentialRepository.findOne({
+      where: { serverId, status: EntityStatus.ACTIVE, deletedAt: IsNull() },
+    });
+
+    if (!credential) {
+      return {
+        success: false,
+        logs: [],
+        error:
+          "No SSH credentials for this server. Onboard the server first (POST /servers/onboard) or set installAgent on onboard.",
+      };
+    }
+
+    return this.remoteAgentInstall.install({
+      connection: this.buildSshOptions(
+        server,
+        credential,
+        options?.plainPrivateKey,
+      ),
+      serverHost: server.host,
+      plainPrivateKey: options?.plainPrivateKey,
+    });
+  }
 
   private shouldInstallAgent(installAgent: boolean | undefined): boolean {
     return installAgent !== false;

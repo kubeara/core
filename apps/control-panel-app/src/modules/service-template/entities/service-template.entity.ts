@@ -28,10 +28,11 @@ export class ServiceTemplateEntity extends BaseEntity {
   compose!: string;
 
   @Column("json", { nullable: true })
-  env_schema!: Record<string, unknown> | null;
+  envSchema!: Record<string, unknown> | null;
 
   @Column("json", { nullable: true })
-  port_schema!: Record<string, unknown> | null;
+  portSchema!: Record<string, unknown> | null;
+
   @Column({ type: "integer", nullable: true })
   port!: number | null;
 
@@ -39,5 +40,5 @@ export class ServiceTemplateEntity extends BaseEntity {
   version!: string | null;
 
   @Column({ type: "boolean", default: true })
-  is_active!: boolean;
+  isActive!: boolean;
 }

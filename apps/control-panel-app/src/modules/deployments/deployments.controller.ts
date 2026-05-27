@@ -1,20 +1,224 @@
 import {
+  BadRequestException,
+  Body,
   Controller,
   Delete,
   Get,
-  Patch,
+  HttpCode,
+  Logger,
   Param,
-  Body,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
   UsePipes,
   ValidationPipe,
 } from "@nestjs/common";
 
+import { resolvePrimaryServicePublicUrl } from "@shared/common";
+
+import { JwtAuthGuard } from "@control-panel/modules/auth/guards/jwt-auth.guard";
+import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
+
+import { DeployTemplateDto } from "./dto/deploy-template.dto";
 import { DeploymentsService } from "./deployments.service";
 import { UpdateEnvironmentVariablesDto } from "./dto/update-environment-variables.dto";
 
 @Controller("deployments")
+@UseGuards(JwtAuthGuard)
 export class DeploymentsController {
+  private readonly logger = new Logger(DeploymentsController.name);
+
   constructor(private readonly deploymentsService: DeploymentsService) {}
+
+  /**
+   * Coolify-style deploy: compose is the single source of truth for env/ports.
+   * Templates do not need template.config.json.
+   */
+  @Post("compose")
+  @HttpCode(202)
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  async deployCompose(
+    @Req() req: { user: UserEntity },
+    @Body() body: DeployTemplateDto,
+  ): Promise<{
+    message: string;
+    template: string;
+    deploymentId: string;
+    serverId: string;
+    mode: "compose";
+    publicUrl?: string;
+  }> {
+    try {
+      const {
+        templateSlug,
+        env: requestEnv = {},
+        ports: requestPorts = {},
+        deploymentId,
+      } = body;
+
+      this.logger.log(
+        deploymentId
+          ? `Compose redeploy '${deploymentId}' for template '${templateSlug}'`
+          : `New compose deployment for template '${templateSlug}'`,
+      );
+
+      const { serverId, userId } =
+        await this.deploymentsService.resolveDeploymentTarget({
+          userId: req.user.id,
+          serverId: body.serverId,
+          deployOnLocal: body.deployOnLocal,
+          existingDeploymentId: deploymentId,
+        });
+
+      const serverUrlContext =
+        await this.deploymentsService.buildServerUrlContext({
+          userId: req.user.id,
+          serverId,
+          useTraefikRequest: body.useTraefik,
+          requestEnv,
+          requestPorts,
+        });
+
+      const prepared = await this.deploymentsService.prepareComposeDeployment({
+        templateSlug,
+        serverId,
+        userId,
+        requestEnv,
+        requestPorts,
+        existingDeploymentId: deploymentId,
+        serverUrlContext,
+      });
+
+      const result = await this.deploymentsService.emitPreparedDeployment(
+        prepared,
+        Boolean(deploymentId),
+      );
+
+      const publicUrl = resolvePrimaryServicePublicUrl(
+        prepared.mergedEnv,
+        prepared.templateSlug,
+      );
+
+      return { ...result, mode: "compose", publicUrl };
+    } catch (error) {
+      this.logger.error(
+        `Compose deploy failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  @Post()
+  @HttpCode(202)
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  async deploy(
+    @Req() req: { user: UserEntity },
+    @Body() body: DeployTemplateDto,
+  ): Promise<{
+    message: string;
+    template: string;
+    deploymentId: string;
+    serverId: string;
+  }> {
+    try {
+      const {
+        templateSlug,
+        env: requestEnv = {},
+        ports: requestPorts = {},
+        deploymentId,
+      } = body;
+
+      this.logger.log(
+        deploymentId
+          ? `Redeploy '${deploymentId}' for template '${templateSlug}'`
+          : `New deployment for template '${templateSlug}'`,
+      );
+
+      const { serverId, userId } =
+        await this.deploymentsService.resolveDeploymentTarget({
+          userId: req.user.id,
+          serverId: body.serverId,
+          deployOnLocal: body.deployOnLocal,
+          existingDeploymentId: deploymentId,
+        });
+
+      const serverUrlContext =
+        await this.deploymentsService.buildServerUrlContext({
+          userId: req.user.id,
+          serverId,
+          useTraefikRequest: body.useTraefik,
+          requestEnv,
+          requestPorts,
+        });
+
+      const prepared = await this.deploymentsService.prepareDeployment({
+        templateSlug,
+        serverId,
+        userId,
+        requestEnv,
+        requestPorts,
+        existingDeploymentId: deploymentId,
+        serverUrlContext,
+      });
+
+      return await this.deploymentsService.emitPreparedDeployment(
+        prepared,
+        Boolean(deploymentId),
+      );
+    } catch (error) {
+      this.logger.error(
+        `Deploy failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  @Post(":deploymentId/redeploy")
+  @HttpCode(202)
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  async redeploy(
+    @Req() req: { user: UserEntity },
+    @Param("deploymentId") deploymentId: string,
+    @Body() body: DeployTemplateDto,
+  ): Promise<{
+    message: string;
+    template: string;
+    deploymentId: string;
+    serverId: string;
+  }> {
+    try {
+      const deployment =
+        await this.deploymentsService.getDeployment(deploymentId);
+
+      if (body.templateSlug && body.templateSlug !== deployment.templateSlug) {
+        throw new BadRequestException(
+          `Template slug mismatch: deployment uses '${deployment.templateSlug}'`,
+        );
+      }
+
+      return this.deploy(req, {
+        ...body,
+        templateSlug: deployment.templateSlug,
+        deploymentId,
+        serverId: body.serverId ?? deployment.serverId ?? undefined,
+        deployOnLocal:
+          body.deployOnLocal ?? (!body.serverId && !deployment.serverId),
+      });
+    } catch (error) {
+      this.logger.error(
+        `Redeploy failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  @Get(":deploymentId/env")
+  async listEnvironmentVariables(@Param("deploymentId") deploymentId: string) {
+    return this.deploymentsService.listEnvironmentVariables(deploymentId, {
+      maskSecrets: true,
+    });
+  }
 
   @Get(":deploymentId")
   async getDeployment(@Param("deploymentId") deploymentId: string) {
@@ -27,23 +231,17 @@ export class DeploymentsController {
 
     return {
       id: deployment.id,
-      template_slug: deployment.template_slug,
-      server_id: deployment.server_id,
+      templateSlug: deployment.templateSlug,
+      serverId: deployment.serverId,
       userId: deployment.userId,
       status: deployment.status,
-      status_message: deployment.status_message,
-      last_error: deployment.last_error,
-      created_at: deployment.created_at,
-      updated_at: deployment.updated_at,
+      deploymentStatus: deployment.deploymentStatus,
+      statusMessage: deployment.statusMessage,
+      lastError: deployment.lastError,
+      createdAt: deployment.createdAt,
+      updatedAt: deployment.updatedAt,
       environmentVariables,
     };
-  }
-
-  @Get(":deploymentId/env")
-  async listEnvironmentVariables(@Param("deploymentId") deploymentId: string) {
-    return this.deploymentsService.listEnvironmentVariables(deploymentId, {
-      maskSecrets: true,
-    });
   }
 
   @Patch(":deploymentId/env")

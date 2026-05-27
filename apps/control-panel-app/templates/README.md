@@ -2,7 +2,7 @@
 
 Templates in this folder are read directly from disk and upserted into Postgres with `npm run seed` (from the monorepo `core` root, after `npm run build:control-panel-app`).
 
-This document describes how the **Docker Compose parser** resolves **environment variables and host ports** for **compose-only** templates (templates without `template.config.json`, deployed via `POST /deploy/compose` or auto-routed when the template has no schema). The logic lives in:
+This document describes how the **Docker Compose parser** resolves **environment variables and host ports** for **compose-only** templates (templates without `template.config.json`, deployed via `POST /deployments/compose` or auto-routed when the template has no schema). The logic lives in:
 
 - `libs/common/src/compose-parser/compose-parser.util.ts`
 - `libs/common/src/server-url/server-url.util.ts`

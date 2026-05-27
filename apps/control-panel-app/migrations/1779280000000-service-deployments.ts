@@ -20,40 +20,63 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
             isPrimary: true,
           },
           {
-            name: "template_slug",
+            name: "templateSlug",
             type: "varchar",
             length: "255",
             isNullable: false,
           },
           {
+            name: "serverId",
+            type: "uuid",
+            isNullable: true,
+          },
+          {
+            name: "userId",
+            type: "uuid",
+            isNullable: true,
+          },
+          {
             name: "status",
+            type: "varchar",
+            length: "50",
+            default: "'ACTIVE'",
+            isNullable: false,
+          },
+          {
+            name: "deploymentStatus",
             type: "varchar",
             length: "32",
             default: "'pending'",
+            isNullable: false,
           },
           {
-            name: "status_message",
+            name: "statusMessage",
             type: "text",
             isNullable: true,
           },
           {
-            name: "last_error",
+            name: "lastError",
             type: "text",
             isNullable: true,
           },
           {
-            name: "created_at",
-            type: "timestamptz",
-            default: "now()",
+            name: "metadata",
+            type: "jsonb",
+            isNullable: true,
           },
           {
-            name: "updated_at",
-            type: "timestamptz",
-            default: "now()",
+            name: "createdAt",
+            type: "bigint",
+            isNullable: false,
           },
           {
-            name: "deleted_at",
-            type: "timestamptz",
+            name: "updatedAt",
+            type: "bigint",
+            isNullable: false,
+          },
+          {
+            name: "deletedAt",
+            type: "bigint",
             isNullable: true,
           },
         ],
@@ -63,27 +86,62 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
     await queryRunner.createIndex(
       "serviceDeployments",
       new TableIndex({
-        name: "IDX_service_deployments_template_slug",
-        columnNames: ["template_slug"],
+        name: "IDX_service_deployments_templateSlug",
+        columnNames: ["templateSlug"],
       }),
     );
 
     await queryRunner.createIndex(
       "serviceDeployments",
       new TableIndex({
-        name: "IDX_service_deployments_status",
-        columnNames: ["status"],
+        name: "IDX_service_deployments_deploymentStatus",
+        columnNames: ["deploymentStatus"],
+      }),
+    );
+
+    await queryRunner.createIndex(
+      "serviceDeployments",
+      new TableIndex({
+        name: "IDX_service_deployments_serverId",
+        columnNames: ["serverId"],
+      }),
+    );
+
+    await queryRunner.createIndex(
+      "serviceDeployments",
+      new TableIndex({
+        name: "IDX_service_deployments_userId",
+        columnNames: ["userId"],
       }),
     );
 
     await queryRunner.createForeignKey(
       "serviceDeployments",
       new TableForeignKey({
-        columnNames: ["template_slug"],
+        name: "FK_service_deployments_templateSlug",
+        columnNames: ["templateSlug"],
         referencedColumnNames: ["slug"],
         referencedTableName: "serviceTemplates",
-        onDelete: "RESTRICT",
-        onUpdate: "CASCADE",
+      }),
+    );
+
+    await queryRunner.createForeignKey(
+      "serviceDeployments",
+      new TableForeignKey({
+        name: "FK_service_deployments_serverId",
+        columnNames: ["serverId"],
+        referencedTableName: "servers",
+        referencedColumnNames: ["id"],
+      }),
+    );
+
+    await queryRunner.createForeignKey(
+      "serviceDeployments",
+      new TableForeignKey({
+        name: "FK_service_deployments_userId",
+        columnNames: ["userId"],
+        referencedTableName: "users",
+        referencedColumnNames: ["id"],
       }),
     );
 
@@ -99,7 +157,7 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
             default: "uuid_generate_v4()",
           },
           {
-            name: "deployment_id",
+            name: "deploymentId",
             type: "varchar",
             length: "128",
             isNullable: false,
@@ -116,12 +174,12 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
             isNullable: false,
           },
           {
-            name: "is_required",
+            name: "isRequired",
             type: "boolean",
             default: false,
           },
           {
-            name: "is_generated",
+            name: "isGenerated",
             type: "boolean",
             default: false,
           },
@@ -131,14 +189,31 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
             isNullable: true,
           },
           {
-            name: "created_at",
-            type: "timestamptz",
-            default: "now()",
+            name: "status",
+            type: "varchar",
+            length: "50",
+            default: "'ACTIVE'",
+            isNullable: false,
           },
           {
-            name: "updated_at",
-            type: "timestamptz",
-            default: "now()",
+            name: "metadata",
+            type: "jsonb",
+            isNullable: true,
+          },
+          {
+            name: "createdAt",
+            type: "bigint",
+            isNullable: false,
+          },
+          {
+            name: "updatedAt",
+            type: "bigint",
+            isNullable: false,
+          },
+          {
+            name: "deletedAt",
+            type: "bigint",
+            isNullable: true,
           },
         ],
       }),
@@ -147,26 +222,26 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
     await queryRunner.createIndex(
       "environmentVariables",
       new TableIndex({
-        name: "IDX_environment_variables_deployment_id",
-        columnNames: ["deployment_id"],
+        name: "IDX_environment_variables_deploymentId",
+        columnNames: ["deploymentId"],
       }),
     );
 
     await queryRunner.createUniqueConstraint(
       "environmentVariables",
       new TableUnique({
-        name: "UQ_environment_variables_deployment_id_key",
-        columnNames: ["deployment_id", "key"],
+        name: "UQ_environment_variables_deploymentId_key",
+        columnNames: ["deploymentId", "key"],
       }),
     );
 
     await queryRunner.createForeignKey(
       "environmentVariables",
       new TableForeignKey({
-        columnNames: ["deployment_id"],
+        name: "FK_environment_variables_deploymentId",
+        columnNames: ["deploymentId"],
         referencedColumnNames: ["id"],
         referencedTableName: "serviceDeployments",
-        onUpdate: "CASCADE",
       }),
     );
   }
@@ -180,11 +255,11 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
     }
     await queryRunner.dropIndex(
       "environmentVariables",
-      "IDX_environment_variables_deployment_id",
+      "IDX_environment_variables_deploymentId",
     );
     await queryRunner.dropUniqueConstraint(
       "environmentVariables",
-      "UQ_environment_variables_deployment_id_key",
+      "UQ_environment_variables_deploymentId_key",
     );
     await queryRunner.dropTable("environmentVariables");
 
@@ -196,11 +271,19 @@ export class ServiceDeployments1779280000000 implements MigrationInterface {
     }
     await queryRunner.dropIndex(
       "serviceDeployments",
-      "IDX_service_deployments_status",
+      "IDX_service_deployments_userId",
     );
     await queryRunner.dropIndex(
       "serviceDeployments",
-      "IDX_service_deployments_template_slug",
+      "IDX_service_deployments_serverId",
+    );
+    await queryRunner.dropIndex(
+      "serviceDeployments",
+      "IDX_service_deployments_deploymentStatus",
+    );
+    await queryRunner.dropIndex(
+      "serviceDeployments",
+      "IDX_service_deployments_templateSlug",
     );
     await queryRunner.dropTable("serviceDeployments");
   }

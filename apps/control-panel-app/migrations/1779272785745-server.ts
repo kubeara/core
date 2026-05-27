@@ -82,7 +82,7 @@ export class Server1779272785745 implements MigrationInterface {
             name: "serverType",
             type: "enum",
             enumName: "serverTypeEnum",
-            enum: ["VIRTUAL_MACHINE", "CONTAINER", "BARE_METAL"],
+            enum: ["VIRTUAL_MACHINE", "CONTAINER", "BARE_METAL", "LOCAL"],
             default: "'VIRTUAL_MACHINE'",
             isNullable: false,
           },

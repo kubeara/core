@@ -2,7 +2,7 @@ import { Module } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { TypeOrmModule } from "@nestjs/typeorm";
 
-import { TemplatesModule } from "./templates/templates.module";
+import { ServiceTemplateModule } from "./modules/service-template/service-template.module";
 import { WebsocketModule } from "./websocket/websocket.module";
 import { EncryptionModule } from "@shared/common";
 import path from "path";
@@ -43,9 +43,8 @@ import { OrganizationsModule } from "./modules/organizations/organizations.modul
         }
       },
     }),
-    TemplatesModule,
+    ServiceTemplateModule,
     DeploymentsModule,
-    TemplatesModule,
     ServerConnectionsModule,
     SshModule,
     EncryptionModule,

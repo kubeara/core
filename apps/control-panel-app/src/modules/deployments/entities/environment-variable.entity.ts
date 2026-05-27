@@ -1,32 +1,20 @@
-import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  CreateDateColumn,
-  UpdateDateColumn,
-  ManyToOne,
-  JoinColumn,
-  Unique,
-  Index,
-} from "typeorm";
+import { Entity, Column, ManyToOne, JoinColumn, Unique, Index } from "typeorm";
 
+import { BaseEntity } from "@control-panel/common/entity/base.entity";
 import { ServiceDeploymentEntity } from "./service-deployment.entity";
 
 @Entity("environmentVariables")
-@Unique(["deployment_id", "key"])
-@Index(["deployment_id"])
-export class EnvironmentVariableEntity {
-  @PrimaryGeneratedColumn("uuid")
-  id!: string;
-
+@Unique(["deploymentId", "key"])
+@Index(["deploymentId"])
+export class EnvironmentVariableEntity extends BaseEntity {
   @Column({ type: "varchar", length: 128 })
-  deployment_id!: string;
+  deploymentId!: string;
 
   @ManyToOne(
     () => ServiceDeploymentEntity,
     (deployment) => deployment.environmentVariables,
   )
-  @JoinColumn({ name: "deployment_id" })
+  @JoinColumn({ name: "deploymentId" })
   deployment!: ServiceDeploymentEntity;
 
   @Column({ type: "varchar", length: 255 })
@@ -37,18 +25,12 @@ export class EnvironmentVariableEntity {
   value!: string;
 
   @Column({ type: "boolean", default: false })
-  is_required!: boolean;
+  isRequired!: boolean;
 
   /** True when Coolify-style SERVICE_* value was auto-generated */
   @Column({ type: "boolean", default: false })
-  is_generated!: boolean;
+  isGenerated!: boolean;
 
   @Column({ type: "text", nullable: true })
   comment!: string | null;
-
-  @CreateDateColumn({ type: "timestamptz" })
-  created_at!: Date;
-
-  @UpdateDateColumn({ type: "timestamptz" })
-  updated_at!: Date;
 }

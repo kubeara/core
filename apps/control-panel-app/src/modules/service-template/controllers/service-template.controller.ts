@@ -1,10 +1,13 @@
 import { Controller, Get, Param, Query, Res } from "@nestjs/common";
 import type { Response } from "express";
-import { TemplatesService } from "../services/templates.service";
+
+import { ServiceTemplateService } from "../services/service-template.service";
 
 @Controller("templates")
-export class TemplatesController {
-  constructor(private readonly templatesService: TemplatesService) {}
+export class ServiceTemplateController {
+  constructor(
+    private readonly serviceTemplateService: ServiceTemplateService,
+  ) {}
 
   @Get(":slug")
   async getTemplate(
@@ -14,7 +17,7 @@ export class TemplatesController {
   ): Promise<void> {
     const normalized = (format || "yml").toLowerCase();
 
-    const tpl = await this.templatesService.getTemplate(slug, format);
+    const tpl = await this.serviceTemplateService.getTemplate(slug, format);
 
     if (normalized === "yml" || normalized === "yaml") {
       const yamlContent = (tpl as { compose: string }).compose;

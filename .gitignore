@@ -24,7 +24,6 @@ lerna-debug.log*
 !.env.control-panel.example
 
 # Runtime assets and deployments
-generated-templates/
 /deployments/
 docker-compose.override.yml
 docker-compose.generated.yml
