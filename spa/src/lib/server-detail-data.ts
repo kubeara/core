@@ -1,5 +1,5 @@
 import { templates } from "./templates";
-import type { Server, Template } from "./types";
+import type { Server, Template } from "@/types";
 
 export type ConnectedService = {
   templateId: string;

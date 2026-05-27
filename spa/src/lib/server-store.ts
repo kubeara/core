@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import type { Server, ServerStatus } from "./types";
+import type { Server, ServerStatus } from "@/types";
 
 const servers = new Map<string, Server>();
 

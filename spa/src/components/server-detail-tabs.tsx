@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useMemo, useState } from "react";
-import { useDeleteServerMutation } from "@/api/hooks/use-servers";
+import { useDeleteServerMutation } from "@/features/servers/hooks";
 import { TemplateCard } from "@/components/template-card";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import {
@@ -12,7 +12,7 @@ import {
   type ActivityEntry,
   type ConnectedService,
 } from "@/lib/server-detail-data";
-import type { Server } from "@/lib/types";
+import type { Server } from "@/types";
 import "./server-detail-tabs.css";
 
 type TabId = "overview" | "templates" | "insights" | "activity" | "settings";
