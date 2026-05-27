@@ -41,7 +41,10 @@ import { AgentInstallResult } from "./agent-install.service";
 import { AgentInstallService } from "./agent-install.service";
 import { RemoteAgentInstallService } from "./remote-agent-install.service";
 import { ServerType } from "../enums/server-type.enum";
-import { DEFAULT_SSH_PORT } from "../server-connections.constants";
+import {
+  DEFAULT_SSH_PORT,
+  ONBOARD_SSH_TEST_SERVER_ID,
+} from "../server-connections.constants";
 import {
   DEFAULT_LIST_LIMIT,
   DEFAULT_LIST_PAGE,
@@ -65,8 +68,10 @@ import { mapSshTestErrorCode } from "../utils/map-ssh-test-error-code.util";
 import { runSshHealthTestWithTimeout } from "../utils/run-ssh-health-test.util";
 import {
   assertOnboardSshInput,
+  buildOnboardServerConnectionInfo,
   buildOnboardSshTestOptions,
   encryptCredentialFields,
+  OnboardSshServerInfo,
 } from "../utils/server-ssh-credential.util";
 
 @Injectable()
@@ -299,6 +304,30 @@ export class ServerConnectionsService {
     );
   }
 
+  private async assertOnboardSshConnection(
+    server: OnboardSshServerInfo,
+    ssh: CreateServerSshCredentialRequestDto,
+    options?: { releaseConnectionAfterSuccess?: boolean },
+  ): Promise<void> {
+    const result = await runSshHealthTestWithTimeout(
+      this.health,
+      buildOnboardSshTestOptions(this.encryptionService, server, ssh),
+    );
+
+    if (!result.success) {
+      this.sshManager.disconnect(server.id);
+      this.throwOnboardFailure({
+        message: ERROR_MESSAGES.SERVER.SSH_CONNECTION_FAILED,
+        error: result.message || ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
+        code: result.code ?? mapSshTestErrorCode(result.message),
+      });
+    }
+
+    if (options?.releaseConnectionAfterSuccess) {
+      this.sshManager.disconnect(server.id);
+    }
+  }
+
   private requireOnboardSshPayload(
     ssh: CreateServerSshCredentialRequestDto | undefined,
   ): CreateServerSshCredentialRequestDto {
@@ -331,19 +360,7 @@ export class ServerConnectionsService {
     const ssh = this.requireOnboardSshPayload(input.ssh);
     assertOnboardSshInput(ssh);
 
-    const result = await runSshHealthTestWithTimeout(
-      this.health,
-      buildOnboardSshTestOptions(this.encryptionService, existingServer, ssh),
-    );
-
-    if (!result.success) {
-      this.sshManager.disconnect(existingServer.id);
-      this.throwOnboardFailure({
-        message: ERROR_MESSAGES.SERVER.SSH_CONNECTION_FAILED,
-        error: result.message,
-        code: result.code ?? mapSshTestErrorCode(result.message),
-      });
-    }
+    await this.assertOnboardSshConnection(existingServer, ssh);
 
     await this.updateInactiveCredentialFromInput(credential.id, ssh);
 
@@ -391,7 +408,7 @@ export class ServerConnectionsService {
       username: input.server.username,
       userId,
     });
-    console.log("existing server", existingServer);
+
     if (existingServer) {
       // Active server already exists
       if (
@@ -411,18 +428,36 @@ export class ServerConnectionsService {
     }
 
     const logs: string[] = [];
+
+    const ssh = this.requireOnboardSshPayload(input.ssh);
+    assertOnboardSshInput(ssh);
+
+    await this.assertOnboardSshConnection(
+      buildOnboardServerConnectionInfo(
+        input.server,
+        ONBOARD_SSH_TEST_SERVER_ID,
+      ),
+      ssh,
+      { releaseConnectionAfterSuccess: true },
+    );
+
+    logs.push(SERVER_ONBOARD_LOGS.SSH_CONNECTION_SUCCESS);
+    logs.push(SERVER_ONBOARD_LOGS.VALIDATION_EXECUTED);
+
     const queryRunner = this.dataSource.createQueryRunner();
+
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
       const serverRepo = queryRunner.manager.getRepository(ServerEntity);
+
       const credentialRepo = queryRunner.manager.getRepository(
         ServerSshCredentialEntity,
       );
 
-      // STEP 2: create server
       const serverPayload: CreateServerDto = input.server;
+
       const serverEntity = serverRepo.create({
         userId,
         name: serverPayload.name,
@@ -438,10 +473,8 @@ export class ServerConnectionsService {
       });
 
       const savedServer = await serverRepo.save(serverEntity);
-      logs.push(SERVER_ONBOARD_LOGS.SERVER_CREATED);
 
-      const ssh = this.requireOnboardSshPayload(input.ssh);
-      assertOnboardSshInput(ssh);
+      logs.push(SERVER_ONBOARD_LOGS.SERVER_CREATED);
 
       const { encryptedPassword, encryptedPrivateKey, encryptedPassphrase } =
         encryptCredentialFields(this.encryptionService, ssh);
@@ -459,61 +492,37 @@ export class ServerConnectionsService {
       });
 
       const savedCredential = await credentialRepo.save(credEntity);
+
       logs.push(SERVER_ONBOARD_LOGS.SSH_CREDENTIALS_CREATED);
 
-      const result = await runSshHealthTestWithTimeout(
-        this.health,
-        buildOnboardSshTestOptions(this.encryptionService, savedServer, ssh),
-      );
+      await queryRunner.commitTransaction();
 
-      if (result.success) {
-        await queryRunner.commitTransaction();
-        logs.push(SERVER_ONBOARD_LOGS.SSH_CONNECTION_SUCCESS);
-        logs.push(SERVER_ONBOARD_LOGS.VALIDATION_EXECUTED);
-
-        const agentInstall = await this.runAgentInstallAfterOnboard({
-          installAgent: input.installAgent,
-          server: savedServer,
-          credential: savedCredential,
-          plainPrivateKey: ssh.privateKey,
-          logs,
-        });
-
-        return {
-          message: SUCCESS_MESSAGES.SERVER.CREATED,
-          data: {
-            serverId: savedServer.id,
-            sshCredentialId: savedCredential.id,
-            sshTest: { success: true },
-            agentInstall,
-          },
-        };
-      }
-
-      this.sshManager.disconnect(savedServer.id);
-      await queryRunner.rollbackTransaction();
-      logs.push(SERVER_ONBOARD_LOGS.SSH_TEST_FAILED);
-      logs.push(SERVER_ONBOARD_LOGS.TRANSACTION_ROLLED_BACK);
-
-      const message = result.message || ERROR_MESSAGES.SERVER.SSH_TEST_FAILED;
-      const code = result.code ?? mapSshTestErrorCode(message);
-
-      this.throwOnboardFailure({
-        message: ERROR_MESSAGES.SERVER.SSH_CONNECTION_FAILED,
-        error: message,
-        code,
+      const agentInstall = await this.runAgentInstallAfterOnboard({
+        installAgent: input.installAgent,
+        server: savedServer,
+        credential: savedCredential,
+        plainPrivateKey: ssh.privateKey,
+        logs,
       });
-    } catch (err) {
-      if (err instanceof HttpException) {
-        throw err;
-      }
 
+      return {
+        message: SUCCESS_MESSAGES.SERVER.CREATED,
+        data: {
+          serverId: savedServer.id,
+          sshCredentialId: savedCredential.id,
+          sshTest: { success: true },
+          agentInstall,
+        },
+      };
+    } catch (err) {
       try {
         await queryRunner.rollbackTransaction();
       } catch (rollbackErr) {
         console.warn("rollback failed:", (rollbackErr as Error).message);
       }
+
       logs.push(SERVER_ONBOARD_LOGS.TRANSACTION_ROLLED_BACK);
+
       if (
         err &&
         typeof err === "object" &&
@@ -522,14 +531,21 @@ export class ServerConnectionsService {
       ) {
         throw new ConflictException(ERROR_MESSAGES.SERVER.HOST_ALREADY_EXISTS);
       }
-      this.throwOnboardFailure({
-        message: ERROR_MESSAGES.SERVER.SSH_CONNECTION_FAILED,
-        error:
-          err instanceof Error
-            ? err.message
-            : ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
-        code: ServerErrorCode.UNKNOWN_ERROR,
-      });
+
+      if (err instanceof HttpException) {
+        throw err;
+      }
+
+      throw new OperationFailedException(
+        err instanceof Error
+          ? err.message
+          : ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
+        err instanceof Error
+          ? err.message
+          : ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
+        HttpStatus.BAD_REQUEST,
+        { errorCode: ServerErrorCode.UNKNOWN_ERROR },
+      );
     } finally {
       await queryRunner.release();
     }

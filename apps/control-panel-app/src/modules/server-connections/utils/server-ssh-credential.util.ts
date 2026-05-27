@@ -6,6 +6,24 @@ import { CreateServerSshCredentialRequestDto } from "../dto/create-server-ssh-cr
 import { ServerEntity } from "../entities/server.entity";
 import { ServerSshAuthType } from "../enums/server-ssh-auth-type.enum";
 import { EncryptedCredentialFields } from "../interfaces/encrypted-credential-fields.interface";
+import { DEFAULT_SSH_PORT } from "../server-connections.constants";
+
+export type OnboardSshServerInfo = Pick<
+  ServerEntity,
+  "id" | "host" | "port" | "username"
+>;
+
+export function buildOnboardServerConnectionInfo(
+  server: Pick<ServerEntity, "host" | "username"> & { port?: number },
+  serverId: string,
+): OnboardSshServerInfo {
+  return {
+    id: serverId,
+    host: server.host,
+    port: server.port ?? DEFAULT_SSH_PORT,
+    username: server.username,
+  };
+}
 
 export function assertOnboardSshInput(
   ssh: CreateServerSshCredentialRequestDto,
@@ -42,7 +60,7 @@ export function encryptCredentialFields(
 
 export function buildOnboardSshTestOptions(
   encryptionService: EncryptionService,
-  server: ServerEntity,
+  server: OnboardSshServerInfo,
   ssh: CreateServerSshCredentialRequestDto,
 ): SshConnectionOptions {
   const { encryptedPassword, encryptedPassphrase } = encryptCredentialFields(
