@@ -138,7 +138,6 @@ export class SocketClientService {
           void this.handleDeployAction(message);
         },
       );
-
     } catch (error) {
       this.logger.error(
         `Failed to setup socket event listeners: ${error instanceof Error ? error.message : String(error)}`,
