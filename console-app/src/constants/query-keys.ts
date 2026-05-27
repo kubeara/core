@@ -1,0 +1,53 @@
+/**
+ * Centralized query keys for TanStack Query.
+ * 
+ * Benefits:
+ * - Type-safe query keys
+ * - Easy to find all queries in one place
+ * - Consistent key structure across the app
+ * - Easier cache invalidation
+ * 
+ * @example
+ * // In a query hook
+ * useQuery({
+ *   queryKey: QUERY_KEYS.auth.me,
+ *   queryFn: getCurrentUser,
+ * });
+ * 
+ * // Invalidate all server queries
+ * queryClient.invalidateQueries({ queryKey: QUERY_KEYS.servers.all });
+ * 
+ * // Invalidate a specific server
+ * queryClient.invalidateQueries({ queryKey: QUERY_KEYS.servers.detail(serverId) });
+ */
+export const QUERY_KEYS = {
+    /**
+     * Authentication-related queries
+     */
+    auth: {
+        /** Current user query key */
+        me: ["auth", "me"] as const,
+    },
+
+    /**
+     * Server-related queries
+     */
+    servers: {
+        /** All servers list query key */
+        all: ["servers"] as const,
+
+        /**
+         * Single server detail query key
+         * @param id - Server ID
+         */
+        detail: (id: string) => ["servers", id] as const,
+    },
+
+    /**
+     * Profile-related queries
+     */
+    profile: {
+        /** User profile query key (same as auth.me) */
+        me: ["auth", "me"] as const,
+    },
+} as const;
