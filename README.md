@@ -1,7 +1,3 @@
-[![GitHub stars](https://img.shields.io/github/stars/kubeara/core?style=flat&color=7C3AED&label=stars)](https://github.com/kubeara/core)
-[![MIT License](https://img.shields.io/badge/license-MIT-7C3AED.svg)](https://github.com/kubeara/core/blob/main/LICENSE)
-[![Docker Pulls](https://img.shields.io/docker/pulls/kubeara/control-panel?style=flat&color=7C3AED)](https://github.com/kubeara/core/pkgs/container/control-panel)
-
 <div align="center">
 
 # Kubeara
@@ -48,7 +44,7 @@ No feature limits. No time limits.
 **Kubeara Cloud — managed for you**  
 We run the control plane.  
 You connect your servers.  
-Free For available. No credit card.
+Free tier available. No credit card. Try now !
 
 ## Why Kubeara
 
@@ -66,7 +62,7 @@ must run on your own servers.
 | **VRAM checker** | Validates available GPU memory before every model pull. Prevents failed deployments before they start. |
 | **AI model management** | Pull, switch, and delete AI models from the dashboard. No SSH. No terminal commands. |
 | **MCP integration** | Native MCP server. Manage infrastructure through Claude, Cursor, or any MCP-compatible client. |
-| **Agent-based security** | Agent runs on your server and initiates outbound connections only. No SSH keys stored in any database. |
+| **Agent-based security** | Agent runs on your server and initiates outbound connections only. No Plain text SSH keys stored in any database. |
 | **Framework deployment** | Framework-specific Dockerfiles for NestJS, Next.js, and React. Works first time without Nixpacks errors. |
 | **200+ templates** | Every template validated through automated testing including live deployment verification. |
 | **Free cloud tier** | One server free on Kubeara Cloud. No credit card. No time limit. No other platform offers this. |
@@ -80,7 +76,7 @@ must run on your own servers.
 | **Private AI deployment** | Run Ollama, Open WebUI, and local LLMs on your own server. Data never leaves your infrastructure. |
 | **Compliance-driven teams** | Healthcare, fintech, and legal teams that cannot send data to third-party AI providers. |
 | **Agencies and MSPs** | Manage multiple client servers from one dashboard. Deploy the same stack across all clients in minutes. |
-| **Heroku and Render refugees** | Same deployment experience. Your infrastructure. Fraction of the cost. |
+| **Versal, Heroku and Render refugees** | Same deployment experience. Your infrastructure. Fraction of the cost. |
 | **DevOps teams** | Replace manual Docker Compose management with a proper control plane and monitoring. |
 
 ## Quick Start
@@ -99,7 +95,7 @@ Open dashboard: http://your-server-ip:3000
 **Manual install:**
 ```bash
 git clone https://github.com/kubeara/core
-cd core
+cd control-panel
 cp .env.example .env
 docker compose up -d
 ```
@@ -118,35 +114,11 @@ Free tier — one server, no credit card, no time limit.
 
 1. Open the dashboard
 2. Click **Add Server**
-3. Paste server IP and SSH key
+3. Provide server IP and SSH key
 4. Click **Validate and Connect**
 5. Deploy your first service
 
-**Manual install:**
-```bash
-git clone https://github.com/kubeara/core
-cd core
-cp .env.example .env
-docker compose up -d
-```
-
 ---
-
-### Kubeara Cloud (no setup required)
-
-[→ Start free at app.kubeara.dev](https://app.kubeara.dev)
-
-Free Forver No Hidden Charges.
-
----
-
-### After install
-
-1. Open the dashboard
-2. Click **Add Server**
-3. Paste server IP and SSH key
-4. Click **Validate and Connect**
-5. Deploy your first service
 
 ## Why should I use the Cloud version?
 
@@ -157,7 +129,7 @@ Both options deploy to servers you connect. We only manage the Kubeara dashboard
 
 ### Cloud is the right choice if
 
-- You want automatic Kubeara updates
+- You want automatic Kubeara updates that includes latest security patches, bug fixes and new services
 - You want backups handled automatically
 - You want email or priority support
 - You do not want to maintain the control plane yourself
@@ -174,7 +146,7 @@ Both options deploy to servers you connect. We only manage the Kubeara dashboard
 
 ## Features
 
-### Core — free forever
+### Free forever
 
 **Deployment**
 - 🚀 One-click deployment from 200+ templates
@@ -190,11 +162,10 @@ Both options deploy to servers you connect. We only manage the Kubeara dashboard
 - 🔍 Automatic server validation on connect
 - 📊 Real-time CPU, RAM, and disk monitoring
 - 🌍 Multi-region server management
-- 🔒 Agent-based security — no SSH key storage
+- 🔒 Agent-based security — No Plain text SSH key storage
 
 **AI and Models**
-- 🤖 Ollama deployment in one click
-- 🧠 AI model browser — pull any model
+- 🤖 Ollama and other AI models deployment in one click
 - ⚡ VRAM checker before every model pull
 - 📈 GPU utilization per container
 - 🌡️ GPU temperature monitoring
@@ -206,7 +177,6 @@ Both options deploy to servers you connect. We only manage the Kubeara dashboard
 - 🛠️ NestJS and Next.js framework support
 - 🔑 API key management
 - 👥 Team members Management
-- 🏢 Workspace Management
 
 ---
 
@@ -218,7 +188,6 @@ Both options deploy to servers you connect. We only manage the Kubeara dashboard
 - 🛡️ Advanced RBAC — custom roles
 - 📄 Compliance documentation
 - 👥 Unlimited team members
-- 🏢 Unlimited workspaces
 - 🤝 SLA guarantee
 - 💬 Priority support
 - 🏷️ White-label rights
@@ -235,7 +204,7 @@ Kubeara uses an agent-based architecture designed to eliminate the attack surfac
 **How it works:**
 - Agent runs on your server
 - Agent initiates outbound connections only
-- No SSH keys stored in any database
+- No Plain text SSH keys stored in any database
 - No persistent access to your server after initial bootstrap
 - All agent communication encrypted in transit
 
@@ -274,3 +243,7 @@ We recommend always running the latest version.
 ✅ Rate limiting on all API endpoints  
 ✅ Automatic security updates via Docker  
 ✅ HTTPS enforced on all connections  
+
+[![GitHub stars](https://img.shields.io/github/stars/kubeara/core?style=flat&color=7C3AED&label=stars)](https://github.com/kubeara/core)
+[![MIT License](https://img.shields.io/badge/license-MIT-7C3AED.svg)](https://github.com/kubeara/core/blob/main/LICENSE)
+[![Docker Pulls](https://img.shields.io/docker/pulls/kubeara/control-panel?style=flat&color=7C3AED)](https://github.com/kubeara/core/pkgs/container/control-panel)
