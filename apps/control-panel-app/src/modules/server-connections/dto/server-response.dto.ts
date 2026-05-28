@@ -9,11 +9,13 @@ export interface ServerResponseDto {
   name: string;
   host: string;
   port: number;
+  username: string;
   provider: ServerProvider;
   region: string | null;
   operatingSystem: string | null;
   serverType: ServerType;
   lastConnectedAt: number | null;
+  connected: boolean;
   createdAt: number;
   updatedAt: number;
   deletedAt: number | null;

@@ -10,6 +10,7 @@ import {
   ServiceResponse,
   SuccessResponse,
 } from "../interfaces/success-response.interface";
+import { throwIfFailurePayload } from "../utils/failure-payload.util";
 
 function isServiceResponse<T>(value: unknown): value is ServiceResponse<T> {
   return (
@@ -22,7 +23,8 @@ function isServiceResponse<T>(value: unknown): value is ServiceResponse<T> {
 }
 
 /**
- * Success Response handler
+ * Wraps successful controller/service responses in a standard envelope.
+ * Legacy `{ success: false }` payloads are rejected as HTTP errors.
  */
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<
@@ -38,7 +40,11 @@ export class ResponseInterceptor<T> implements NestInterceptor<
 
     return next.handle().pipe(
       map((data) => {
+        throwIfFailurePayload(data);
+
         if (isServiceResponse<T>(data)) {
+          throwIfFailurePayload(data.data);
+
           return {
             success: true as const,
             statusCode: response.statusCode,
@@ -50,7 +56,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<
         return {
           success: true as const,
           statusCode: response.statusCode,
-          message: "Request successful",
+          message: "Request completed successfully",
           data: data,
         };
       }),

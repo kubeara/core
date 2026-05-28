@@ -3,7 +3,7 @@
 
 npm run lint
 npm run build:apps
-npm run spa:lint
-npm run build:spa
+npm run console-app:lint
+npm run build:console-app
 
 # npx lint-staged
