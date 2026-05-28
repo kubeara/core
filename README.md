@@ -48,4 +48,37 @@ No feature limits. No time limits.
 **Kubeara Cloud — managed for you**  
 We run the control plane.  
 You connect your servers.  
-Free For available. No credit card.  
+Free For available. No credit card.
+
+## Why Kubeara
+
+Most deployment platforms were built for 
+web applications. Kubeara was built 
+specifically for private infrastructure — 
+databases, AI models, and services that 
+must run on your own servers.
+
+### What is built in
+
+| Capability | What it does |
+|---|---|
+| **GPU monitoring** | Real-time utilization, VRAM usage, and temperature per container. Not just server-wide — per service. |
+| **VRAM checker** | Validates available GPU memory before every model pull. Prevents failed deployments before they start. |
+| **AI model management** | Pull, switch, and delete AI models from the dashboard. No SSH. No terminal commands. |
+| **MCP integration** | Native MCP server. Manage infrastructure through Claude, Cursor, or any MCP-compatible client. |
+| **Agent-based security** | Agent runs on your server and initiates outbound connections only. No SSH keys stored in any database. |
+| **Framework deployment** | Framework-specific Dockerfiles for NestJS, Next.js, and React. Works first time without Nixpacks errors. |
+| **200+ templates** | Every template validated through automated testing including live deployment verification. |
+| **Free cloud tier** | One server free on Kubeara Cloud. No credit card. No time limit. No other platform offers this. |
+
+---
+
+### Who uses Kubeara
+
+| Use case | Why Kubeara |
+|---|---|
+| **Private AI deployment** | Run Ollama, Open WebUI, and local LLMs on your own server. Data never leaves your infrastructure. |
+| **Compliance-driven teams** | Healthcare, fintech, and legal teams that cannot send data to third-party AI providers. |
+| **Agencies and MSPs** | Manage multiple client servers from one dashboard. Deploy the same stack across all clients in minutes. |
+| **Heroku and Render refugees** | Same deployment experience. Your infrastructure. Fraction of the cost. |
+| **DevOps teams** | Replace manual Docker Compose management with a proper control plane and monitoring. |
