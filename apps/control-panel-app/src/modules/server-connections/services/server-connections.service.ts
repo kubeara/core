@@ -73,6 +73,7 @@ import {
   encryptCredentialFields,
   OnboardSshServerInfo,
 } from "../utils/server-ssh-credential.util";
+import { isUUID } from "class-validator";
 
 @Injectable()
 export class ServerConnectionsService {
@@ -750,8 +751,9 @@ export class ServerConnectionsService {
 
     let searchWhere: FindOptionsWhere<ServerEntity>[] | undefined;
 
-    if (query.search) {
-      const search = ILike(`%${query.search}%`);
+    if (query.search?.trim()) {
+      const searchTerm = query.search.trim();
+      const search = ILike(`%${searchTerm}%`);
 
       searchWhere = [
         {
@@ -768,12 +770,10 @@ export class ServerConnectionsService {
         },
       ];
 
-      const searchId = String(query.search);
-
-      if (!Number.isNaN(searchId)) {
+      if (isUUID(searchTerm)) {
         searchWhere.push({
           ...where,
-          id: searchId,
+          id: searchTerm,
         });
       }
     }
