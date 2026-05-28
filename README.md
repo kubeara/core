@@ -171,3 +171,57 @@ Both options deploy to servers you connect. We only manage the Kubeara dashboard
 | Pro | $29/month | 25 |
 | Max | $99/month | Unlimited |
 | Enterprise | $199/month | Unlimited + SSO |
+
+## Features
+
+### Core — free forever
+
+**Deployment**
+- 🚀 One-click deployment from 200+ templates
+- 🐳 Docker Compose and Dockerfile support
+- 🌐 Automatic SSL via Let's Encrypt
+- 🔀 Custom domain configuration
+- ♻️ Automatic container restarts
+- 📦 Volume and persistent storage management
+- 🔄 Rolling updates with zero downtime
+
+**Servers**
+- 🖥️ Connect any server via SSH
+- 🔍 Automatic server validation on connect
+- 📊 Real-time CPU, RAM, and disk monitoring
+- 🌍 Multi-region server management
+- 🔒 Agent-based security — no SSH key storage
+
+**AI and Models**
+- 🤖 Ollama deployment in one click
+- 🧠 AI model browser — pull any model
+- ⚡ VRAM checker before every model pull
+- 📈 GPU utilization per container
+- 🌡️ GPU temperature monitoring
+- 💾 VRAM usage per service
+
+**Developer Experience**
+- 🔗 Native MCP server integration
+- 📝 Real-time deployment logs
+- 🛠️ NestJS and Next.js framework support
+- 🔑 API key management
+- 👥 Team members Management
+- 🏢 Workspace Management
+
+---
+
+### Enterprise
+
+- 🔑 SSO / SAML / OIDC
+- 📂 LDAP / Active Directory
+- 📋 Full audit logs with export
+- 🛡️ Advanced RBAC — custom roles
+- 📄 Compliance documentation
+- 👥 Unlimited team members
+- 🏢 Unlimited workspaces
+- 🤝 SLA guarantee
+- 💬 Priority support
+- 🏷️ White-label rights
+
+[→ Enterprise pricing](https://kubeara.dev/pricing)  
+[→ Request enterprise trial](mailto:bhushan.lilapra@kubeara.dev)
