@@ -82,3 +82,69 @@ must run on your own servers.
 | **Agencies and MSPs** | Manage multiple client servers from one dashboard. Deploy the same stack across all clients in minutes. |
 | **Heroku and Render refugees** | Same deployment experience. Your infrastructure. Fraction of the cost. |
 | **DevOps teams** | Replace manual Docker Compose management with a proper control plane and monitoring. |
+
+## Quick Start
+
+### Self-hosted (free forever)
+
+```bash
+curl -fsSL https://get.kubeara.dev | sh
+```
+
+> View the install script before running:
+> [install.sh](https://github.com/kubeara/core/blob/main/install.sh)
+
+Open dashboard: http://your-server-ip:3000
+
+**Manual install:**
+```bash
+git clone https://github.com/kubeara/core
+cd core
+cp .env.example .env
+docker compose up -d
+```
+
+---
+
+### Kubeara Cloud (no setup required)
+
+[→ Start free at app.kubeara.dev](https://app.kubeara.dev)
+
+Free tier — one server, no credit card, no time limit.
+
+---
+
+### After install
+
+1. Open the dashboard
+2. Click **Add Server**
+3. Paste server IP and SSH key
+4. Click **Validate and Connect**
+5. Deploy your first service
+
+**Manual install:**
+```bash
+git clone https://github.com/kubeara/core
+cd core
+cp .env.example .env
+docker compose up -d
+```
+
+---
+
+### Kubeara Cloud (no setup required)
+
+[→ Start free at app.kubeara.dev](https://app.kubeara.dev)
+
+Free Forver No Hidden Charges.
+
+---
+
+### After install
+
+1. Open the dashboard
+2. Click **Add Server**
+3. Paste server IP and SSH key
+4. Click **Validate and Connect**
+5. Deploy your first service
+
