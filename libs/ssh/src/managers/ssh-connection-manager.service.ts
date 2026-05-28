@@ -108,6 +108,10 @@ export class SshConnectionManager {
     return this.clients.has(serverId);
   }
 
+  getConnectedServerIds(): string[] {
+    return Array.from(this.clients.keys());
+  }
+
   disconnect(serverId: string) {
     const client = this.clients.get(serverId);
     if (!client) return;

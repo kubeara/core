@@ -32,6 +32,5 @@ docker-compose.generated.yml
 .temp
 .tmp
 
-
-spa/dist
-spa/node_modules
+console-app/dist
+console-app/node_modules
