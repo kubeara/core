@@ -148,3 +148,26 @@ Free Forver No Hidden Charges.
 4. Click **Validate and Connect**
 5. Deploy your first service
 
+## Why should I use the Cloud version?
+
+Self-hosted is free and always will be. Cloud is for teams who want the same experience without managing the Kubeara control plane themselves.
+
+**Your application data never touches our infrastructure on any plan.**
+Both options deploy to servers you connect. We only manage the Kubeara dashboard.
+
+### Cloud is the right choice if
+
+- You want automatic Kubeara updates
+- You want backups handled automatically
+- You want email or priority support
+- You do not want to maintain the control plane yourself
+
+### Pricing
+
+| Plan | Price | Servers |
+|---|---|---|
+| Free | $0 | 1 |
+| Starter | $5/month | 5 |
+| Pro | $29/month | 25 |
+| Max | $99/month | Unlimited |
+| Enterprise | $199/month | Unlimited + SSO |
