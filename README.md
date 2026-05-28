@@ -225,3 +225,54 @@ Both options deploy to servers you connect. We only manage the Kubeara dashboard
 
 [→ Enterprise pricing](https://kubeara.dev/pricing)  
 [→ Request enterprise trial](mailto:bhushan.lilapra@kubeara.dev)
+
+## Security
+
+### Security model
+
+Kubeara uses an agent-based architecture designed to eliminate the attack surface that caused the January 2026 Coolify vulnerabilities.
+
+**How it works:**
+- Agent runs on your server
+- Agent initiates outbound connections only
+- No SSH keys stored in any database
+- No persistent access to your server
+  after initial bootstrap
+- All agent communication encrypted in transit
+
+---
+
+### Reporting a vulnerability
+
+**Please do not open a public GitHub issue for security vulnerabilities.**
+
+Email: bhushan.lilapra@kubeara.dev
+
+We will respond within 48 hours.
+We follow responsible disclosure.
+We credit researchers in our changelog.
+
+---
+
+### Supported versions
+
+| Version | Supported |
+|---|---|
+| Latest | ✅ |
+| Previous minor | ✅ |
+| Older versions | ❌ |
+
+We recommend always running
+the latest version.
+
+---
+
+### Known security measures
+
+- ✅ SSH keys never stored in database
+- ✅ All secrets encrypted at rest
+- ✅ Agent outbound connections only
+- ✅ No persistent SSH access after bootstrap
+- ✅ Rate limiting on all API endpoints
+- ✅ Automatic security updates via Docker
+- ✅ HTTPS enforced on all connections
