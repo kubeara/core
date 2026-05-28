@@ -267,10 +267,10 @@ We recommend always running the latest version.
 
 ### Known security measures
 
-✅ SSH keys never stored in database
-✅ All secrets encrypted at rest
-✅ Agent outbound connections only
-✅ No persistent SSH access after bootstrap
-✅ Rate limiting on all API endpoints
-✅ Automatic security updates via Docker
-✅ HTTPS enforced on all connections
+✅ Plain text SSH keys never stored in database  
+✅ All secrets encrypted at rest  
+✅ Agent outbound connections only  
+✅ No persistent SSH access after bootstrap  
+✅ Rate limiting on all API endpoints  
+✅ Automatic security updates via Docker  
+✅ HTTPS enforced on all connections  
