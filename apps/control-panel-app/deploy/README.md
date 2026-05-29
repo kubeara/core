@@ -218,6 +218,10 @@ docker pull kubeara/agent:prod
 | `KUBEARA_CONSOLE_IMAGE` | Console SPA Docker image (default `kubeara/console:prod`) |
 | `DOCKER_PLATFORM` | `linux/amd64` or `linux/arm64` (optional) |
 | `ENCRYPTION_SECRET` | App encryption key (must match agent) |
+| `JWT_SECRET` | Access token signing secret (required) |
+| `JWT_REFRESH_SECRET` | Refresh token signing secret (required) |
+| `JWT_ACCESS_TOKEN_EXPIRES_IN` | Access token TTL (default `15m`) |
+| `JWT_REFRESH_TOKEN_EXPIRES_IN` | Refresh token TTL (default `7d`) |
 | `CONTROL_PANEL_URL` | Public URL for remote agents / onboard install |
 | `PORT` | Control panel port (default 3000) |
 | `CONSOLE_PORT` | Console SPA host port (default 8080) |

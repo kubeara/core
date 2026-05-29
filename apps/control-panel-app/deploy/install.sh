@@ -251,6 +251,30 @@ create_env_file() {
   fi
 
   apply_console_image "${env_path}"
+  ensure_jwt_config "${env_path}"
+}
+
+ensure_jwt_config() {
+  local env_path="$1"
+  local current
+
+  current="$(grep -E '^[[:space:]]*JWT_SECRET=' "${env_path}" 2>/dev/null | head -n1 | cut -d= -f2- || true)"
+  if [[ -z "${current}" || "${current}" == change-me-jwt-secret ]]; then
+    set_env_var "JWT_SECRET" "${JWT_SECRET:-$(openssl rand -hex 32)}" "${env_path}"
+  fi
+
+  current="$(grep -E '^[[:space:]]*JWT_REFRESH_SECRET=' "${env_path}" 2>/dev/null | head -n1 | cut -d= -f2- || true)"
+  if [[ -z "${current}" || "${current}" == change-me-jwt-refresh-secret ]]; then
+    set_env_var "JWT_REFRESH_SECRET" "${JWT_REFRESH_SECRET:-$(openssl rand -hex 32)}" "${env_path}"
+  fi
+
+  if ! grep -qE '^[[:space:]]*JWT_ACCESS_TOKEN_EXPIRES_IN=' "${env_path}"; then
+    set_env_var "JWT_ACCESS_TOKEN_EXPIRES_IN" "${JWT_ACCESS_TOKEN_EXPIRES_IN:-15m}" "${env_path}"
+  fi
+
+  if ! grep -qE '^[[:space:]]*JWT_REFRESH_TOKEN_EXPIRES_IN=' "${env_path}"; then
+    set_env_var "JWT_REFRESH_TOKEN_EXPIRES_IN" "${JWT_REFRESH_TOKEN_EXPIRES_IN:-7d}" "${env_path}"
+  fi
 }
 
 compose() {
