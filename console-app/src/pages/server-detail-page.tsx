@@ -1,4 +1,5 @@
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
+import { BackLink } from "@/components/shared/back-link";
 import { ServerDetailTabs } from "@/components/server-detail-tabs";
 import { useServerQuery } from "@/features/servers/hooks";
 import { ApiError, getErrorMessage } from "@/api/api-error";
@@ -9,7 +10,7 @@ import { NotFoundPage } from "./not-found-page";
  * Server detail page.
  *
  * Displays detailed information about a specific server:
- * - Server name, host, username, status
+ * - Server name, host, username
  * - Tabs for Overview, Deployments, and Settings
  * - Back link to servers list
  */
@@ -28,9 +29,7 @@ export function ServerDetailPage() {
   if (isError) {
     return (
       <div className="dashboard server-detail">
-        <Link to="/servers" className="deploy-logs-back">
-          ← Back to Servers
-        </Link>
+        <BackLink to="/servers" label="Back to Servers" />
         <ServerFeedbackMessage
           variant="error"
           message={getErrorMessage(error)}
@@ -48,9 +47,7 @@ export function ServerDetailPage() {
 
   return (
     <div className="dashboard server-detail">
-      <Link to="/servers" className="deploy-logs-back">
-        ← Back to Servers
-      </Link>
+      <BackLink to="/servers" label="Back to Servers" />
 
       <header className="dashboard-header">
         <div>
@@ -59,9 +56,6 @@ export function ServerDetailPage() {
             <code>{server.host}</code> · {server.username}
           </p>
         </div>
-        <span className={`status-pill status-${server.status}`}>
-          {server.status}
-        </span>
       </header>
 
       <ServerDetailTabs server={server} />

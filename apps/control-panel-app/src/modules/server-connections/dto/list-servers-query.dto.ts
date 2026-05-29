@@ -17,7 +17,7 @@ export const SERVER_LIST_SORT_FIELDS = [
   "name",
   "host",
   "status",
-  "createdAt",
+  "lastConnectedAt",
 ] as const;
 
 export type ServerListSortField = (typeof SERVER_LIST_SORT_FIELDS)[number];
@@ -66,7 +66,7 @@ export class ListServersQueryDto {
 
   @IsOptional()
   @IsIn(SERVER_LIST_SORT_FIELDS)
-  sortBy: ServerListSortField = "createdAt";
+  sortBy: ServerListSortField = "lastConnectedAt";
 
   @IsOptional()
   @IsIn(["asc", "desc"])

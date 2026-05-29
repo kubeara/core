@@ -1,8 +1,9 @@
-.profile-page-layout {
+.profile-page-body {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  /* max-width: 640px; */
+  width: 100%;
+  margin-top: 1.5rem;
 }
 
 .profile-section-card {
@@ -11,6 +12,18 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: var(--shadow);
+}
+
+.profile-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.profile-section-header .profile-section-desc {
+  margin-bottom: 0;
 }
 
 .profile-section-card h2 {
@@ -29,7 +42,32 @@
 .profile-section-form {
   display: flex;
   flex-direction: column;
+  gap: 1.25rem;
+}
+
+.profile-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.profile-field-group + .profile-field-group {
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
+}
+
+.profile-form-grid--narrow {
+  max-width: 48rem;
+}
+
+.profile-form-grid-span-2 {
+  grid-column: 1 / -1;
 }
 
 .profile-section-form .form-field input {
@@ -180,4 +218,29 @@
 
 .profile-section-actions .btn-primary {
   min-width: 7rem;
+}
+
+@media (max-width: 768px) {
+  .profile-page-body {
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .profile-section-card {
+    padding: 1.25rem;
+  }
+
+  .profile-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-form-grid-span-2 {
+    grid-column: auto;
+  }
+
+  .profile-avatar-block,
+  .profile-logo-block {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
