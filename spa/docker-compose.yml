@@ -1,9 +1,0 @@
-services:
-  spa:
-    image: kubeara/console:latest
-    build:
-      context: ..
-      dockerfile: spa/Dockerfile
-      args:
-        GITHUB_REPOSITORY: local/kubeara
-        GITHUB_SHA: local

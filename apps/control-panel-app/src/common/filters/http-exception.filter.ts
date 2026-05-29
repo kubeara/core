@@ -8,6 +8,18 @@ import {
   Logger,
 } from "@nestjs/common";
 import { Request, Response } from "express";
+import { ErrorResponse } from "../interfaces/error-response.interface";
+
+const GENERIC_HTTP_ERRORS = new Set([
+  "Bad Request",
+  "Unauthorized",
+  "Forbidden",
+  "Not Found",
+  "Conflict",
+  "Unprocessable Entity",
+  "Too Many Requests",
+  "Internal Server Error",
+]);
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -22,6 +34,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = "Internal server error";
     let errorCode = "INTERNAL_SERVER_ERROR";
+    let errorDetail: string | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -31,18 +44,40 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
       if (typeof errorResponse === "string") {
         message = errorResponse;
-      } else if (typeof errorResponse === "object" && errorResponse) {
-        const res = errorResponse as Record<string, unknown>;
+      } else if (errorResponse && typeof errorResponse === "object") {
+        const body = errorResponse as Record<string, unknown>;
 
-        if ("message" in res) {
-          const raw = res.message;
-          message = Array.isArray(raw) ? raw.join(", ") : String(raw);
+        if (body.message !== undefined) {
+          const raw = body.message;
+
+          if (Array.isArray(raw)) {
+            message = raw.map(String).join(", ");
+          } else if (
+            typeof raw === "string" ||
+            typeof raw === "number" ||
+            typeof raw === "boolean"
+          ) {
+            message = String(raw);
+          }
         }
 
-        if ("errorCode" in res && typeof res.errorCode === "string") {
-          errorCode = res.errorCode;
+        if (typeof body.errorCode === "string") {
+          errorCode = body.errorCode;
+        }
+
+        if (typeof body.error === "string") {
+          const candidate = body.error.trim();
+          if (
+            candidate &&
+            !GENERIC_HTTP_ERRORS.has(candidate) &&
+            candidate !== message
+          ) {
+            errorDetail = candidate;
+          }
         }
       }
+    } else if (exception instanceof Error) {
+      message = exception.message;
     }
 
     const logContext = `[${request.method}] ${request.url} → ${status}`;
@@ -55,21 +90,21 @@ export class HttpExceptionFilter implements ExceptionFilter {
       this.logger.warn(`${logContext}: ${message}`);
     }
 
-    response.status(status).json({
+    const body: ErrorResponse = {
       success: false,
       statusCode: status,
       errorCode,
       message,
+      ...(errorDetail ? { error: errorDetail } : {}),
+    };
+
+    response.status(status).json({
+      ...body,
       ...(this.isDev &&
         exception instanceof Error && { stack: exception.stack }),
     });
   }
 
-  /**
-   * Code maps for error type status code
-   * @param status
-   * @returns
-   */
   private statusToCode(status: number): string {
     const map: Record<number, string> = {
       400: "BAD_REQUEST",
