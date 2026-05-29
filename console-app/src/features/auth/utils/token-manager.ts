@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getApiBaseUrl } from "@/lib/api-config";
 import {
     ACCESS_TOKEN_KEY,
     AUTH_ENDPOINTS_WITHOUT_REFRESH,
@@ -31,11 +32,6 @@ function notifyTokenChanges(): void {
     for (const listener of tokenChangeListeners) {
         listener();
     }
-}
-
-function getApiBaseUrl(): string {
-    const base = import.meta.env.VITE_API_URL?.trim() ?? "";
-    return base.replace(/\/$/, "");
 }
 
 function buildAuthUrl(path: string): string {
