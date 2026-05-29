@@ -1,5 +1,10 @@
 # Kubeara control panel — pull image from Docker Hub (no source code required).
-# Includes Postgres. Usage:
+# Includes Postgres.
+#
+# One-line install:
+#   curl -fsSL https://kubeara.dev/control-panel/install.sh | bash
+#
+# Manual usage:
 #   cp .env.control-panel.example .env.control-panel
 #   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel pull
 #   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel up -d
@@ -47,7 +52,7 @@ services:
       [
         "sh",
         "-c",
-        "node ./node_modules/typeorm/cli.js migration:run -d dist/apps/control-panel-app/config/typeorm.config.js && npm run seed",
+        "node ./node_modules/typeorm/cli.js migration:run -d dist/apps/control-panel-app/config/typeorm.config.js && node dist/apps/control-panel-app/seeders/seed.js",
       ]
     depends_on:
       postgres:

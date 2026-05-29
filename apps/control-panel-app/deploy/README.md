@@ -2,10 +2,44 @@
 
 No source code required — only Docker and these compose files.
 
+## One-line install
+
+Review the script before piping to your shell:
+
+```bash
+curl -fsSL https://kubeara.dev/control-panel/install.sh | bash
+```
+
+Same installer from GitHub (pinned to `main` by default; set `KUBEARA_VERSION=v1.0.0` to pin a release):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kubeara/core/main/apps/control-panel-app/deploy/install.sh | bash
+```
+
+Optional environment variables:
+
+| Variable | Purpose |
+|----------|---------|
+| `KUBEARA_INSTALL_DIR` | Where compose and `.env` are stored (default `/opt/kubeara/control-panel` or `~/.kubeara/control-panel`) |
+| `KUBEARA_CHANNEL` | Docker image tag (`prod`, `dev`, …) |
+| `KUBEARA_PUBLIC_URL` | Public control panel URL for console + remote agents |
+| `ENCRYPTION_SECRET` | Use a fixed secret instead of auto-generating |
+| `SKIP_MIGRATE=1` | Skip migrations/seed on re-run |
+
+Uninstall (keeps volumes unless `KUBEARA_REMOVE_VOLUMES=1`):
+
+```bash
+curl -fsSL https://kubeara.dev/control-panel/uninstall.sh | bash
+```
+
+**Hosting:** publish `install.sh`, `uninstall.sh`, `docker-compose.control-panel.yml`, and `.env.control-panel.example` under `https://kubeara.dev/control-panel/` (or redirect to tagged GitHub raw URLs on each release).
+
 ## Files
 
 | File | What it starts |
 |------|----------------|
+| `install.sh` | One-line self-hosted installer |
+| `uninstall.sh` | Stop the control panel stack |
 | `docker-compose.control-panel.yml` | Postgres + control panel + console (SPA) |
 | `docker-compose.agent.yml` | Agent only (connects to an existing control panel) |
 | `.env.control-panel.example` | Example env for the control panel stack |
@@ -80,7 +114,7 @@ Run migrations and seed service templates once (before using the UI):
 docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel --profile migrate run --rm migrate
 ```
 
-This runs TypeORM migrations, then `npm run seed` (template upserts from `apps/control-panel-app/templates`).
+This runs TypeORM migrations, then `npm run seed:prod` (template upserts from `apps/control-panel-app/templates`; uses prebuilt `dist` in the image).
 
 Pulls images from Docker Hub automatically if they are not on the machine. To force the latest tag from Hub:
 
@@ -181,7 +215,7 @@ docker pull kubeara/agent:prod
 | Variable | Purpose |
 |----------|---------|
 | `KUBEARA_CONTROL_PANEL_IMAGE` | Docker Hub image |
-| `KUBEARA_CONSOLE_IMAGE` | Console SPA Docker image |
+| `KUBEARA_CONSOLE_IMAGE` | Console SPA Docker image (default `kubeara/console:prod`) |
 | `DOCKER_PLATFORM` | `linux/amd64` or `linux/arm64` (optional) |
 | `ENCRYPTION_SECRET` | App encryption key (must match agent) |
 | `CONTROL_PANEL_URL` | Public URL for remote agents / onboard install |
