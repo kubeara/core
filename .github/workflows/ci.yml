@@ -92,7 +92,7 @@ jobs:
             dockerfile: apps/agent-app/Dockerfile
             image: agent
           - name: console
-            dockerfile: spa/Dockerfile
+            dockerfile: console-app/Dockerfile
             image: console
     steps:
       - name: Checkout
