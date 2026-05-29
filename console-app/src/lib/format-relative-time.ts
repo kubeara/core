@@ -1,5 +1,20 @@
-export function formatRelativeTime(iso: string): string {
+import { unixTimestampToIso } from "@/lib/unix-timestamp";
+
+export function formatRelativeTime(
+  value: number | string | null | undefined,
+  fallback = "Never",
+): string {
+  if (value == null || value === "") return fallback;
+
+  const iso =
+    typeof value === "string" && value.includes("T")
+      ? value
+      : unixTimestampToIso(value);
+
+  if (!iso) return fallback;
+
   const then = new Date(iso).getTime();
+  if (Number.isNaN(then) || then <= 0) return fallback;
   const now = Date.now();
   const diffSec = Math.floor((now - then) / 1000);
 

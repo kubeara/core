@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useDeleteServerMutation, useConnectServerMutation, useDisconnectServerMutation } from "@/features/servers/hooks";
 import { TemplateCard } from "@/components/template-card";
 import { formatRelativeTime } from "@/lib/format-relative-time";
+import { formatApiTimestamp } from "@/lib/unix-timestamp";
 import {
   getAllTemplatesForServer,
   getConnectedServices,
@@ -212,7 +213,7 @@ function SettingsTab({ server }: { server: Server }) {
   const settings = useMemo(() => getServerSettings(server), [server]);
   const [destroyOpen, setDestroyOpen] = useState(false);
 
-  const isOnline = server.status === "online";
+  const isConnected = server.connected;
   const connectionLoading =
     connectMutation.isPending || disconnectMutation.isPending;
 
@@ -259,12 +260,6 @@ function SettingsTab({ server }: { server: Server }) {
         <h2>Server configuration</h2>
         <dl className="server-detail-grid">
           <div>
-            <dt>Server ID</dt>
-            <dd>
-              <code>{server.id}</code>
-            </dd>
-          </div>
-          <div>
             <dt>Name</dt>
             <dd>{server.name}</dd>
           </div>
@@ -279,16 +274,20 @@ function SettingsTab({ server }: { server: Server }) {
             <dd>{server.username}</dd>
           </div>
           <div>
-            <dt>Status</dt>
+            <dt>Last Connected At</dt>
             <dd>
-              <span className={`status-pill status-${server.status}`}>
-                {server.status}
-              </span>
+              <time dateTime={server.lastConnectedAt ?? undefined}>
+                {formatApiTimestamp(server.lastConnectedAt)}
+              </time>
             </dd>
           </div>
           <div>
             <dt>Created</dt>
-            <dd>{new Date(server.createdAt).toLocaleString()}</dd>
+            <dd>
+              <time dateTime={server.createdAt}>
+                {formatApiTimestamp(server.createdAt, "Unknown")}
+              </time>
+            </dd>
           </div>
           <div>
             <dt>Region</dt>
@@ -309,7 +308,7 @@ function SettingsTab({ server }: { server: Server }) {
         </dl>
 
         <div className="settings-connection-actions">
-          {isOnline ? (
+          {isConnected ? (
             <button
               type="button"
               className={`btn-danger-outline${connectionLoading ? " is-loading" : ""}`}

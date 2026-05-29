@@ -4,6 +4,7 @@ import { AuthCard } from "@/features/auth/components/auth-card";
 import { AuthForm } from "@/features/auth/components/auth-form";
 import { useLoginMutation } from "@/features/auth/hooks";
 import { getErrorMessage } from "@/api/api-error";
+import { validateEmail } from "@/lib/validation";
 
 /**
  * Login page component.
@@ -20,9 +21,17 @@ export function LoginPage() {
     const [searchParams] = useSearchParams();
     const loginMutation = useLoginMutation();
     const [error, setError] = useState<string | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
     async function handleSubmit(formData: FormData) {
         setError(null);
+        const email = String(formData.get("email") ?? "");
+        const emailError = validateEmail(email);
+        if (emailError) {
+            setFieldErrors({ email: emailError });
+            return;
+        }
+        setFieldErrors({});
 
         try {
             await loginMutation.mutateAsync({
@@ -55,6 +64,7 @@ export function LoginPage() {
                         id: "email",
                         label: "Email",
                         type: "email",
+                        validateAsEmail: true,
                         autoComplete: "email",
                         placeholder: "you@company.com",
                     },
@@ -69,6 +79,7 @@ export function LoginPage() {
                 submitLabel="Sign in"
                 onSubmit={handleSubmit}
                 error={error}
+                fieldErrors={fieldErrors}
                 loading={loginMutation.isPending}
             >
                 <p className="auth-form-link">

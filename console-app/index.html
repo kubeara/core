@@ -13,9 +13,7 @@
         try {
           var t = localStorage.getItem("kubeara-theme");
           if (t !== "light" && t !== "dark") {
-            t = matchMedia("(prefers-color-scheme:dark)").matches
-              ? "dark"
-              : "light";
+            t = "dark";
           }
           document.documentElement.setAttribute("data-theme", t);
         } catch (e) {}

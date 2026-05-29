@@ -1,4 +1,5 @@
-import type { Server, ServerStatus } from "@/types";
+import { unixTimestampToIso } from "@/lib/unix-timestamp";
+import type { Server } from "@/types";
 
 export type EntityStatus = "ACTIVE" | "INACTIVE";
 
@@ -16,7 +17,7 @@ export type ServerType = "BARE_METAL" | "VIRTUAL_MACHINE" | "CONTAINER_HOST";
 
 export type ServerSshAuthType = "PASSWORD" | "PRIVATE_KEY";
 
-export type ServerListSortField = "name" | "host" | "status" | "createdAt";
+export type ServerListSortField = "name" | "host" | "lastConnectedAt";
 
 export type ServerApiResponse = {
   id: string;
@@ -30,11 +31,11 @@ export type ServerApiResponse = {
   region: string | null;
   operatingSystem: string | null;
   serverType: ServerType;
-  lastConnectedAt: number | null;
+  lastConnectedAt: number | string | null;
   connected: boolean;
-  createdAt: number;
-  updatedAt: number;
-  deletedAt: number | null;
+  createdAt: number | string;
+  updatedAt: number | string;
+  deletedAt: number | string | null;
 };
 
 export type ServersListParams = {
@@ -115,24 +116,8 @@ export function mapServerApiToServer(api: ServerApiResponse): Server {
     name: api.name,
     username: api.username,
     host: api.host,
-    status: api.connected ? "online" : "offline",
-    createdAt: new Date(api.createdAt * 1000).toISOString(),
+    connected: api.connected,
+    createdAt: unixTimestampToIso(api.createdAt) ?? new Date(0).toISOString(),
+    lastConnectedAt: unixTimestampToIso(api.lastConnectedAt),
   };
-}
-
-export function mapStatusFilterToQuery(
-  status: ServerStatus | "",
-): Partial<ServersListParams> {
-  switch (status) {
-    case "online":
-      return { connected: true };
-    case "offline":
-      return { connected: false };
-    case "error":
-      return { status: "INACTIVE" };
-    case "pending":
-      return { connected: false };
-    default:
-      return {};
-  }
 }
