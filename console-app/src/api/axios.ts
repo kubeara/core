@@ -7,6 +7,7 @@ import {
     setTokens,
 } from "@/features/auth/utils/token-manager";
 import { getStoredAccessToken } from "@/features/auth/utils/token-storage";
+import { getApiBaseUrl } from "@/lib/api-config";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return value !== null && typeof value === "object";
@@ -26,13 +27,6 @@ function rejectEnvelopeFailure(response: AxiosResponse): AxiosResponse {
     throw new ApiError(message, status, data);
 }
 
-function getApiBaseUrl(): string {
-    const runtime = window.__KUBEARA_CONFIG__?.VITE_API_URL?.trim();
-    const buildTime = import.meta.env.VITE_API_URL?.trim();
-    const base = runtime || buildTime || "";
-    return base.replace(/\/$/, "");
-}
-
 export function buildApiUrl(path: string): string {
     const normalized = path.startsWith("/") ? path : `/${path}`;
     const base = getApiBaseUrl();
@@ -41,7 +35,6 @@ export function buildApiUrl(path: string): string {
 
 function createApiClient(): AxiosInstance {
     const client = axios.create({
-        baseURL: getApiBaseUrl(),
         headers: {
             "Content-Type": "application/json",
         },
@@ -52,6 +45,10 @@ function createApiClient(): AxiosInstance {
     client.getAccessToken = getAccessToken;
 
     client.interceptors.request.use((config) => {
+        const baseURL = getApiBaseUrl();
+        if (baseURL) {
+            config.baseURL = baseURL;
+        }
         const token = getAccessToken() ?? getStoredAccessToken();
         if (token) {
             config.headers.set("Authorization", `Bearer ${token}`);
