@@ -3,8 +3,31 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
+/** Ensures /env.js runs before the Vite bundle (runtime API URL in Docker). */
+function injectRuntimeEnvScript(): import("vite").Plugin {
+  return {
+    name: "inject-runtime-env-script",
+    transformIndexHtml: {
+      order: "pre",
+      handler(html) {
+        const withoutEnv = html.replace(
+          /\s*<script src="\/env\.js"><\/script>\s*/g,
+          "\n",
+        );
+        if (withoutEnv.includes('src="/env.js"')) {
+          return withoutEnv;
+        }
+        return withoutEnv.replace(
+          "<head>",
+          '<head>\n    <script src="/env.js"></script>',
+        );
+      },
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react(), tailwindcss(), injectRuntimeEnvScript()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),

@@ -6,7 +6,7 @@ No source code required — only Docker and these compose files.
 
 | File | What it starts |
 |------|----------------|
-| `docker-compose.control-panel.yml` | Postgres + control panel |
+| `docker-compose.control-panel.yml` | Postgres + control panel + console (SPA) |
 | `docker-compose.agent.yml` | Agent only (connects to an existing control panel) |
 | `.env.control-panel.example` | Example env for the control panel stack |
 | `.env.agent.example` | Example env for the agent |
@@ -88,7 +88,13 @@ Pulls images from Docker Hub automatically if they are not on the machine. To fo
 docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel up -d --pull always
 ```
 
-Open http://localhost:3000
+Open:
+
+- Control panel API: http://localhost:3000
+- Console SPA: http://localhost:8080
+
+When console and API run on different origins/ports, set `VITE_API_URL` in `.env.control-panel`
+so browser calls go to the control panel API origin.
 
 ## Agent
 
@@ -175,10 +181,13 @@ docker pull kubeara/agent:prod
 | Variable | Purpose |
 |----------|---------|
 | `KUBEARA_CONTROL_PANEL_IMAGE` | Docker Hub image |
+| `KUBEARA_CONSOLE_IMAGE` | Console SPA Docker image |
 | `DOCKER_PLATFORM` | `linux/amd64` or `linux/arm64` (optional) |
 | `ENCRYPTION_SECRET` | App encryption key (must match agent) |
 | `CONTROL_PANEL_URL` | Public URL for remote agents / onboard install |
 | `PORT` | Control panel port (default 3000) |
+| `CONSOLE_PORT` | Console SPA host port (default 8080) |
+| `VITE_API_URL` | Console runtime API URL (e.g. `http://localhost:3000` or public panel URL) |
 | `DB_HOST` | `postgres` inside compose (do not use `127.0.0.1`) |
 | `DB_*` | Postgres credentials and database name |
 

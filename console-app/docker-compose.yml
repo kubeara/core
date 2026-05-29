@@ -1,0 +1,15 @@
+services:
+  console:
+    image: kubeara/console:latest
+    build:
+      context: ..
+      dockerfile: console-app/Dockerfile
+    container_name: kubeara-console
+    ports:
+      - "${CONSOLE_PORT:-8080}:80"
+    env_file:
+      - .env
+    environment:
+      # Read by the browser via /env.js — use a URL reachable from your machine, not from inside the container.
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+    restart: unless-stopped

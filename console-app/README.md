@@ -28,6 +28,12 @@ VITE_API_URL=https://api.example.com
 
 Paths stay relative (`/api/auth/me`, `/api/servers`, etc.); only the origin changes.
 
+### Docker runtime config
+
+In Docker/Nginx deployments, `VITE_API_URL` is injected at container startup into `/env.js`
+and read by the app at runtime (`window.__KUBEARA_CONFIG__.VITE_API_URL`), so the same image
+can be reused across environments.
+
 ## Scripts
 
 | Script | Description |
