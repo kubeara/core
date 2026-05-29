@@ -1,29 +1,29 @@
-.profile-page {
+.profile-page-body {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-}
-
-.profile-page .dashboard-header {
-  margin: 0;
-}
-
-.profile-page-layout {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 1.25rem;
-  align-items: start;
+  width: 100%;
+  margin-top: 1.5rem;
 }
 
 .profile-section-card {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
   padding: 1.5rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: var(--shadow);
+}
+
+.profile-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.profile-section-header .profile-section-desc {
+  margin-bottom: 0;
 }
 
 .profile-section-card h2 {
@@ -42,16 +42,32 @@
 .profile-section-form {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  gap: 1.25rem;
+}
+
+.profile-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.profile-field-group + .profile-field-group {
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
 }
 
-.profile-section-form .form-field {
-  margin: 0;
+.profile-form-grid--narrow {
+  max-width: 48rem;
 }
 
-.profile-section-form .form-field label {
-  display: block;
+.profile-form-grid-span-2 {
+  grid-column: 1 / -1;
 }
 
 .profile-section-form .form-field input {
@@ -78,8 +94,7 @@
   font-size: 0.9375rem;
 }
 
-.profile-avatar-block,
-.profile-logo-block {
+.profile-avatar-block {
   display: flex;
   align-items: center;
   gap: 1.25rem;
@@ -123,16 +138,13 @@
 .profile-avatar-actions {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   gap: 0.5rem;
-  min-width: 0;
 }
 
 .profile-avatar-hint {
   margin: 0;
   font-size: 0.8125rem;
   color: var(--muted);
-  line-height: 1.45;
 }
 
 .profile-text-btn {
@@ -153,6 +165,12 @@
 .profile-text-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.profile-logo-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
 }
 
 .profile-logo-upload {
@@ -195,77 +213,31 @@
 .profile-section-actions {
   display: flex;
   justify-content: flex-end;
-  align-items: center;
-  margin-top: auto;
-  padding-top: 0.5rem;
+  margin-top: 0.25rem;
 }
 
 .profile-section-actions .btn-primary {
-  min-width: 8rem;
+  min-width: 7rem;
 }
 
-.theme-toggle-profile {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-  padding: 0.375rem;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--foreground) 4%, var(--background));
-}
+@media (max-width: 768px) {
+  .profile-page-body {
+    gap: 1rem;
+    margin-top: 1rem;
+  }
 
-.theme-toggle-profile-option {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: color 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
-}
+  .profile-section-card {
+    padding: 1.25rem;
+  }
 
-.theme-toggle-profile-option:hover {
-  color: var(--foreground);
-  background: color-mix(in srgb, var(--foreground) 4%, transparent);
-}
+  .profile-form-grid {
+    grid-template-columns: 1fr;
+  }
 
-.theme-toggle-profile-option:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
-}
+  .profile-form-grid-span-2 {
+    grid-column: auto;
+  }
 
-.theme-toggle-profile-option.is-active {
-  color: var(--foreground);
-  background: var(--surface);
-  border-color: var(--border);
-  box-shadow: var(--shadow);
-}
-
-.theme-toggle-profile-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--foreground) 6%, transparent);
-  color: var(--foreground);
-  transition: background 0.15s, color 0.15s;
-}
-
-.theme-toggle-profile-option.is-active .theme-toggle-profile-icon {
-  background: color-mix(in srgb, var(--primary) 14%, transparent);
-  color: var(--primary);
-}
-
-@media (max-width: 640px) {
   .profile-avatar-block,
   .profile-logo-block {
     flex-direction: column;

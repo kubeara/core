@@ -1,3 +1,4 @@
+import { unixTimestampToIso } from "@/lib/unix-timestamp";
 import type { Server } from "@/types";
 
 export type EntityStatus = "ACTIVE" | "INACTIVE";
@@ -30,11 +31,11 @@ export type ServerApiResponse = {
   region: string | null;
   operatingSystem: string | null;
   serverType: ServerType;
-  lastConnectedAt: number | null;
+  lastConnectedAt: number | string | null;
   connected: boolean;
-  createdAt: number;
-  updatedAt: number;
-  deletedAt: number | null;
+  createdAt: number | string;
+  updatedAt: number | string;
+  deletedAt: number | string | null;
 };
 
 export type ServersListParams = {
@@ -110,16 +111,13 @@ export type ServersApiResponse<T = unknown> = {
 };
 
 export function mapServerApiToServer(api: ServerApiResponse): Server {
-  const lastConnectedMs =
-    api.lastConnectedAt != null ? api.lastConnectedAt * 1000 : 0;
-
   return {
     id: api.id,
     name: api.name,
     username: api.username,
     host: api.host,
     connected: api.connected,
-    createdAt: new Date(api.createdAt * 1000).toISOString(),
-    lastConnectedAt: new Date(lastConnectedMs).toISOString(),
+    createdAt: unixTimestampToIso(api.createdAt) ?? new Date(0).toISOString(),
+    lastConnectedAt: unixTimestampToIso(api.lastConnectedAt),
   };
 }

@@ -44,6 +44,6 @@ export type Server = {
     username: string;
     host: string;
     connected: boolean;
-    lastConnectedAt: string;
+    lastConnectedAt: string | null;
     createdAt: string;
 };

@@ -17,7 +17,7 @@ const NAV_ITEMS = [
  * Features:
  * - Logo and brand name
  * - Navigation links (Servers, Templates)
- * - User profile menu (profile, logout)
+ * - User profile menu (Profile, Logout)
  *
  * @param user - Current authenticated user
  */

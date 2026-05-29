@@ -5,8 +5,8 @@ import {
   useServersQuery,
 } from "@/features/servers/hooks";
 import { ServerFormModal } from "./server-form-modal";
-import { Dropdown } from "@/components/shared/dropdown";
 import { formatRelativeTime } from "@/lib/format-relative-time";
+import { formatApiTimestamp } from "@/lib/unix-timestamp";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   mapServerApiToServer,
@@ -29,7 +29,7 @@ const TABLE_COLUMNS: {
 }[] = [
   { key: "name", label: "Name" },
   { key: "host", label: "Host" },
-  { key: "lastConnectedAt", label: "Last Connected At", pill: true },
+  { key: "lastConnectedAt", label: "Last connected", pill: true },
 ];
 
 function CopyIcon() {
@@ -88,8 +88,6 @@ function DeleteIcon() {
 }
 
 function ServerNameCell({ server }: { server: Server }) {
-  const connectionLabel = server.connected ? "Connected" : "Disconnected";
-
   return (
     <div className="server-name-cell">
       <div className="server-avatar">
@@ -98,17 +96,14 @@ function ServerNameCell({ server }: { server: Server }) {
             {server.name.charAt(0).toUpperCase()}
           </span>
         </div>
-        <span
-          className={`server-connection-dot ${server.connected ? "is-connected" : "is-disconnected"}`}
-          title={connectionLabel}
-          aria-label={connectionLabel}
-        />
       </div>
       <div className="server-name-block">
         <Link to={`/servers/${server.id}`} className="server-name-link">
           {server.name}
         </Link>
-        <p className="server-name-meta">{server.username}</p>
+        <p className="server-name-meta">
+          {server.username}
+        </p>
       </div>
     </div>
   );
@@ -191,14 +186,6 @@ function SortHeader({
   );
 }
 
-function formatLastConnected(iso: string): string {
-  const ms = new Date(iso).getTime();
-  if (!ms || Number.isNaN(ms)) {
-    return "Never";
-  }
-  return formatRelativeTime(iso);
-}
-
 export function ServersTable() {
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
@@ -241,11 +228,6 @@ export function ServersTable() {
   const total = pagination?.total ?? 0;
   const totalPages = Math.max(1, pagination?.totalPages ?? 1);
   const currentPage = pagination?.page ?? page;
-
-  const pageSizeOptions = PAGE_SIZES.map((size) => ({
-    value: String(size),
-    label: String(size),
-  }));
 
   function handleSort(key: ServerListSortField) {
     if (sortKey === key) {
@@ -305,7 +287,6 @@ export function ServersTable() {
   const emptyMessage = hasFilters
     ? "No servers match your search."
     : "No servers yet. Add your first server to get started.";
-  const columnCount = TABLE_COLUMNS.length + 1;
 
   return (
     <div className="servers-table-wrap">
@@ -329,6 +310,12 @@ export function ServersTable() {
             onChange={(e) => handleSearchChange(e.target.value)}
             aria-label="Search servers"
           />
+          <select
+            className="servers-status-filter"
+            aria-label="Filter by status"
+          >
+            <option value="">All</option>
+          </select>
           {hasFilters && (
             <button
               type="button"
@@ -361,20 +348,20 @@ export function ServersTable() {
                     />
                   </th>
                 ))}
-                <th className="servers-th-actions" aria-label="Actions" />
+                <th className="servers-th-actions">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={columnCount} className="servers-table-empty">
+                  <td colSpan={5} className="servers-table-empty">
                     Loading servers…
                   </td>
                 </tr>
               )}
               {!loading && !isError && servers.length === 0 && (
                 <tr>
-                  <td colSpan={columnCount} className="servers-table-empty">
+                  <td colSpan={5} className="servers-table-empty">
                     {emptyMessage}
                   </td>
                 </tr>
@@ -391,15 +378,11 @@ export function ServersTable() {
                     </td>
                     <td>
                       <time
-                        className="server-last-connected"
-                        dateTime={server.lastConnectedAt}
-                        title={
-                          server.lastConnectedAt
-                            ? new Date(server.lastConnectedAt).toLocaleString()
-                            : "Never"
-                        }
+                        className="server-created-link"
+                        dateTime={server.lastConnectedAt ?? undefined}
+                        title={formatApiTimestamp(server.lastConnectedAt)}
                       >
-                        {formatLastConnected(server.lastConnectedAt)}
+                        {formatRelativeTime(server.lastConnectedAt)}
                       </time>
                     </td>
                     <td>
@@ -439,14 +422,16 @@ export function ServersTable() {
         <div className="servers-pagination-controls">
           <label className="servers-page-size">
             Rows
-            <Dropdown
-              value={String(pageSize)}
-              options={pageSizeOptions}
-              onChange={(value) => handlePageSizeChange(Number(value))}
-              disabled={loading}
-              ariaLabel="Rows per page"
-              className="servers-page-size-dropdown"
-            />
+            <select
+              value={pageSize}
+              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+            >
+              {PAGE_SIZES.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
           </label>
           <button
             type="button"

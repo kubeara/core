@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useDeleteServerMutation, useConnectServerMutation, useDisconnectServerMutation } from "@/features/servers/hooks";
 import { TemplateCard } from "@/components/template-card";
 import { formatRelativeTime } from "@/lib/format-relative-time";
+import { formatApiTimestamp } from "@/lib/unix-timestamp";
 import {
   getAllTemplatesForServer,
   getConnectedServices,
@@ -275,15 +276,18 @@ function SettingsTab({ server }: { server: Server }) {
           <div>
             <dt>Last Connected At</dt>
             <dd>
-              {server.lastConnectedAt &&
-              new Date(server.lastConnectedAt).getTime() > 0
-                ? new Date(server.lastConnectedAt).toLocaleString()
-                : "Never"}
+              <time dateTime={server.lastConnectedAt ?? undefined}>
+                {formatApiTimestamp(server.lastConnectedAt)}
+              </time>
             </dd>
           </div>
           <div>
             <dt>Created</dt>
-            <dd>{new Date(server.createdAt).toLocaleString()}</dd>
+            <dd>
+              <time dateTime={server.createdAt}>
+                {formatApiTimestamp(server.createdAt, "Unknown")}
+              </time>
+            </dd>
           </div>
           <div>
             <dt>Region</dt>
