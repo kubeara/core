@@ -4,7 +4,13 @@ import {
   useUpdateServerMutation,
 } from "@/features/servers/hooks";
 import type { Server } from "@/types";
+import { Dropdown } from "@/components/shared/dropdown";
 import type { ServerSshAuthType } from "@/features/servers/types";
+
+const AUTH_TYPE_OPTIONS: { value: ServerSshAuthType; label: string }[] = [
+  { value: "PASSWORD", label: "Password" },
+  { value: "PRIVATE_KEY", label: "Private key" },
+];
 
 type ServerFormModalProps = {
   open: boolean;
@@ -162,23 +168,16 @@ function ServerFormContent({
                 disabled={loading}
               />
             </div>
-            <div className="form-field">
-              <label htmlFor="server-auth-type">Authentication</label>
-              <select
-                id="server-auth-type"
-                value={addForm.authType}
-                onChange={(e) =>
-                  setAddForm((prev) => ({
-                    ...prev,
-                    authType: e.target.value as ServerSshAuthType,
-                  }))
-                }
-                disabled={loading}
-              >
-                <option value="PASSWORD">Password</option>
-                <option value="PRIVATE_KEY">Private key</option>
-              </select>
-            </div>
+            <Dropdown
+              id="server-auth-type"
+              label="Authentication"
+              value={addForm.authType}
+              options={AUTH_TYPE_OPTIONS}
+              onChange={(authType) =>
+                setAddForm((prev) => ({ ...prev, authType }))
+              }
+              disabled={loading}
+            />
             {isPasswordAuth ? (
               <div className="form-field">
                 <label htmlFor="server-password">Password</label>

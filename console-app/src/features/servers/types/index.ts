@@ -1,4 +1,4 @@
-import type { Server, ServerStatus } from "@/types";
+import type { Server } from "@/types";
 
 export type EntityStatus = "ACTIVE" | "INACTIVE";
 
@@ -16,7 +16,7 @@ export type ServerType = "BARE_METAL" | "VIRTUAL_MACHINE" | "CONTAINER_HOST";
 
 export type ServerSshAuthType = "PASSWORD" | "PRIVATE_KEY";
 
-export type ServerListSortField = "name" | "host" | "status" | "createdAt";
+export type ServerListSortField = "name" | "host" | "lastConnectedAt";
 
 export type ServerApiResponse = {
   id: string;
@@ -110,29 +110,16 @@ export type ServersApiResponse<T = unknown> = {
 };
 
 export function mapServerApiToServer(api: ServerApiResponse): Server {
+  const lastConnectedMs =
+    api.lastConnectedAt != null ? api.lastConnectedAt * 1000 : 0;
+
   return {
     id: api.id,
     name: api.name,
     username: api.username,
     host: api.host,
-    status: api.connected ? "online" : "offline",
+    connected: api.connected,
     createdAt: new Date(api.createdAt * 1000).toISOString(),
+    lastConnectedAt: new Date(lastConnectedMs).toISOString(),
   };
-}
-
-export function mapStatusFilterToQuery(
-  status: ServerStatus | "",
-): Partial<ServersListParams> {
-  switch (status) {
-    case "online":
-      return { connected: true };
-    case "offline":
-      return { connected: false };
-    case "error":
-      return { status: "INACTIVE" };
-    case "pending":
-      return { connected: false };
-    default:
-      return {};
-  }
 }

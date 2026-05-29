@@ -14,13 +14,12 @@ import {
  *
  * Priority:
  * 1. Stored theme in localStorage
- * 2. System preference (prefers-color-scheme)
- * 3. Default to light
+ * 2. Default to dark
  *
  * @returns The initial theme
  */
 function getInitialTheme(): Theme {
-    if (typeof window === "undefined") return "light";
+    if (typeof window === "undefined") return "dark";
 
     const stored = localStorage.getItem("kubeara-theme") as Theme | null;
 
@@ -28,9 +27,7 @@ function getInitialTheme(): Theme {
         return stored;
     }
 
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
+    return "dark";
 }
 
 /**

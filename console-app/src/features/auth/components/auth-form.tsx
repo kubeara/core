@@ -4,6 +4,8 @@ type Field = {
     type: string;
     autoComplete?: string;
     placeholder?: string;
+    /** When true, runs client-side email validation instead of browser defaults. */
+    validateAsEmail?: boolean;
 };
 
 type AuthFormProps = {
@@ -14,24 +16,11 @@ type AuthFormProps = {
     success?: string | null;
     loading?: boolean;
     children?: React.ReactNode;
+    fieldErrors?: Record<string, string>;
 };
 
 /**
  * Reusable authentication form component.
- * 
- * Features:
- * - Dynamic field rendering
- * - Error and success message display
- * - Loading state with disabled inputs
- * - Form submission handling
- * 
- * @param fields - Array of form fields to render
- * @param submitLabel - Text for submit button
- * @param onSubmit - Form submission handler
- * @param error - Error message to display
- * @param success - Success message to display
- * @param loading - Whether form is submitting
- * @param children - Additional content (e.g., forgot password link)
  */
 export function AuthForm({
     fields,
@@ -41,6 +30,7 @@ export function AuthForm({
     success,
     loading,
     children,
+    fieldErrors = {},
 }: AuthFormProps) {
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -49,21 +39,40 @@ export function AuthForm({
     }
 
     return (
-        <form onSubmit={handleSubmit} className="auth-form">
-            {fields.map((field) => (
-                <div key={field.id} className="form-field">
-                    <label htmlFor={field.id}>{field.label}</label>
-                    <input
-                        id={field.id}
-                        name={field.id}
-                        type={field.type}
-                        autoComplete={field.autoComplete}
-                        placeholder={field.placeholder}
-                        required
-                        disabled={loading}
-                    />
-                </div>
-            ))}
+        <form onSubmit={handleSubmit} className="auth-form" noValidate>
+            {fields.map((field) => {
+                const inputType = field.validateAsEmail ? "text" : field.type;
+                const inputMode = field.validateAsEmail ? "email" : undefined;
+                const fieldError = fieldErrors[field.id];
+
+                return (
+                    <div key={field.id} className="form-field">
+                        <label htmlFor={field.id}>{field.label}</label>
+                        <input
+                            id={field.id}
+                            name={field.id}
+                            type={inputType}
+                            inputMode={inputMode}
+                            autoComplete={field.autoComplete}
+                            placeholder={field.placeholder}
+                            required
+                            disabled={loading}
+                            aria-invalid={fieldError ? true : undefined}
+                            aria-describedby={
+                                fieldError ? `${field.id}-error` : undefined
+                            }
+                        />
+                        {fieldError && (
+                            <p
+                                id={`${field.id}-error`}
+                                className="form-field-error"
+                            >
+                                {fieldError}
+                            </p>
+                        )}
+                    </div>
+                );
+            })}
             {error && <p className="form-message error">{error}</p>}
             {success && <p className="form-message success">{success}</p>}
             <button type="submit" className="btn-primary" disabled={loading}>

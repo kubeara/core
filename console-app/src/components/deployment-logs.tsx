@@ -1,11 +1,13 @@
-import { Link } from "react-router-dom";
+import { BackLink } from "@/components/shared/back-link";
 import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useRef,
   useState,
   forwardRef,
+  memo,
   type CSSProperties,
 } from "react";
 import { buildApiUrl } from "@/api/axios";
@@ -48,13 +50,29 @@ type LogStreamProps = {
   onStatusChange: (status: StreamStatus) => void;
 };
 
+const MAX_LOG_LINES = 2000;
+const SCROLL_BATCH_MS = 80;
+
+const LogLineRow = memo(function LogLineRow({ line }: { line: LogLine }) {
+  return (
+    <div className={`log-line log-line-${line.level}`}>
+      <span className="log-timestamp">{line.timestamp} </span>
+      <span className="log-level">[{line.level.toUpperCase()}]</span>{" "}
+      <span className="log-message">{line.message}</span>
+    </div>
+  );
+});
+
 const LogStream = forwardRef<LogStreamHandle, LogStreamProps>(
   function LogStream({ templateId, onStatusChange }, ref) {
     const [lines, setLines] = useState<LogLine[]>([]);
     const [isActive, setIsActive] = useState(true);
     const eventSourceRef = useRef<EventSource | null>(null);
-    const logEndRef = useRef<HTMLDivElement>(null);
+    const screenRef = useRef<HTMLDivElement>(null);
     const lineIdRef = useRef(0);
+    const pendingLinesRef = useRef<LogLine[]>([]);
+    const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const shouldStickToBottomRef = useRef(true);
 
     const disconnect = useCallback(() => {
       eventSourceRef.current?.close();
@@ -64,6 +82,29 @@ const LogStream = forwardRef<LogStreamHandle, LogStreamProps>(
     }, [onStatusChange]);
 
     useImperativeHandle(ref, () => ({ disconnect }), [disconnect]);
+
+    const flushPendingLines = useCallback(() => {
+      flushTimerRef.current = null;
+      const batch = pendingLinesRef.current;
+      if (batch.length === 0) return;
+      pendingLinesRef.current = [];
+
+      setLines((prev) => {
+        const next = [...prev, ...batch];
+        if (next.length <= MAX_LOG_LINES) return next;
+        return next.slice(next.length - MAX_LOG_LINES);
+      });
+    }, []);
+
+    const queueLine = useCallback(
+      (line: LogLine) => {
+        pendingLinesRef.current.push(line);
+        if (flushTimerRef.current == null) {
+          flushTimerRef.current = setTimeout(flushPendingLines, SCROLL_BATCH_MS);
+        }
+      },
+      [flushPendingLines],
+    );
 
     useEffect(() => {
       const es = new EventSource(buildApiUrl(`/deploy/${templateId}/logs`));
@@ -75,20 +116,17 @@ const LogStream = forwardRef<LogStreamHandle, LogStreamProps>(
         const data = JSON.parse(event.data) as SsePayload;
 
         if (data.type === "log" && data.message && data.timestamp) {
-          const { message, timestamp } = data;
           lineIdRef.current += 1;
-          setLines((prev) => [
-            ...prev,
-            {
-              id: `${data.index ?? lineIdRef.current}`,
-              level: data.level ?? "info",
-              message,
-              timestamp,
-            },
-          ]);
+          queueLine({
+            id: `${data.index ?? lineIdRef.current}`,
+            level: data.level ?? "info",
+            message: data.message,
+            timestamp: data.timestamp,
+          });
         }
 
         if (data.type === "complete") {
+          flushPendingLines();
           setIsActive(false);
           onStatusChange("complete");
           es.close();
@@ -96,6 +134,7 @@ const LogStream = forwardRef<LogStreamHandle, LogStreamProps>(
         }
 
         if (data.type === "error") {
+          flushPendingLines();
           setIsActive(false);
           onStatusChange("error");
           es.close();
@@ -105,6 +144,7 @@ const LogStream = forwardRef<LogStreamHandle, LogStreamProps>(
 
       es.onerror = () => {
         if (!eventSourceRef.current) return;
+        flushPendingLines();
         setIsActive(false);
         onStatusChange("error");
         es.close();
@@ -112,17 +152,44 @@ const LogStream = forwardRef<LogStreamHandle, LogStreamProps>(
       };
 
       return () => {
+        if (flushTimerRef.current != null) {
+          clearTimeout(flushTimerRef.current);
+        }
         es.close();
         eventSourceRef.current = null;
       };
-    }, [templateId, onStatusChange]);
+    }, [templateId, onStatusChange, queueLine, flushPendingLines]);
 
     useEffect(() => {
-      logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      const screen = screenRef.current;
+      if (!screen) return;
+
+      function handleScroll() {
+        const el = screenRef.current;
+        if (!el) return;
+        const distanceFromBottom =
+          el.scrollHeight - el.scrollTop - el.clientHeight;
+        shouldStickToBottomRef.current = distanceFromBottom < 48;
+      }
+
+      screen.addEventListener("scroll", handleScroll, { passive: true });
+      return () => screen.removeEventListener("scroll", handleScroll);
+    }, []);
+
+    useLayoutEffect(() => {
+      if (!shouldStickToBottomRef.current) return;
+      const screen = screenRef.current;
+      if (!screen) return;
+      screen.scrollTop = screen.scrollHeight;
     }, [lines]);
 
     return (
-      <div className="deploy-terminal-screen" role="log" aria-live="polite">
+      <div
+        ref={screenRef}
+        className="deploy-terminal-screen"
+        role="log"
+        aria-live="polite"
+      >
         {lines.length === 0 && (
           <p className="deploy-terminal-waiting">
             <span className="deploy-terminal-prompt-char">$</span>
@@ -130,11 +197,7 @@ const LogStream = forwardRef<LogStreamHandle, LogStreamProps>(
           </p>
         )}
         {lines.map((line) => (
-          <div key={line.id} className={`log-line log-line-${line.level}`}>
-            <span className="log-timestamp">{line.timestamp} </span>
-            <span className="log-level">[{line.level.toUpperCase()}]</span>{" "}
-            <span className="log-message">{line.message}</span>
-          </div>
+          <LogLineRow key={line.id} line={line} />
         ))}
         {isActive && lines.length > 0 && (
           <div className="log-line log-line-cursor">
@@ -142,7 +205,6 @@ const LogStream = forwardRef<LogStreamHandle, LogStreamProps>(
             <span className="log-cursor">▋</span>
           </div>
         )}
-        <div ref={logEndRef} />
       </div>
     );
   },
@@ -204,9 +266,7 @@ export function DeploymentLogs({ template }: DeploymentLogsProps) {
       className="deploy-logs-page"
       style={{ "--deploy-accent": template.color } as CSSProperties}
     >
-      <Link to="/templates" className="deploy-logs-back">
-        ← Back to Templates
-      </Link>
+      <BackLink to="/templates" label="Back to Templates" />
 
       <article className="deploy-service-card">
         <div
@@ -234,10 +294,8 @@ export function DeploymentLogs({ template }: DeploymentLogsProps) {
             <p className="deploy-service-description">{template.description}</p>
             <dl className="deploy-service-meta-grid">
               <div className="deploy-service-meta-item">
-                <dt>Template ID</dt>
-                <dd>
-                  <code>{template.id}</code>
-                </dd>
+                <dt>Template</dt>
+                <dd>{template.name}</dd>
               </div>
               <div className="deploy-service-meta-item">
                 <dt>Deployment</dt>

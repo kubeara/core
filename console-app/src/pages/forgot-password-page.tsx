@@ -4,6 +4,7 @@ import { AuthCard } from "@/features/auth/components/auth-card";
 import { AuthForm } from "@/features/auth/components/auth-form";
 import { useForgotPasswordMutation } from "@/features/auth/hooks";
 import { getErrorMessage } from "@/api/api-error";
+import { validateEmail } from "@/lib/validation";
 
 /**
  * Forgot password page component.
@@ -18,10 +19,19 @@ export function ForgotPasswordPage() {
     const forgotMutation = useForgotPasswordMutation();
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
     async function handleSubmit(formData: FormData) {
         setError(null);
         setSuccess(null);
+
+        const email = String(formData.get("email") ?? "");
+        const emailError = validateEmail(email);
+        if (emailError) {
+            setFieldErrors({ email: emailError });
+            return;
+        }
+        setFieldErrors({});
 
         try {
             const data = await forgotMutation.mutateAsync({
@@ -49,6 +59,7 @@ export function ForgotPasswordPage() {
                         id: "email",
                         label: "Email",
                         type: "email",
+                        validateAsEmail: true,
                         autoComplete: "email",
                         placeholder: "you@company.com",
                     },
@@ -56,6 +67,7 @@ export function ForgotPasswordPage() {
                 submitLabel="Send reset link"
                 onSubmit={handleSubmit}
                 error={error}
+                fieldErrors={fieldErrors}
                 success={success}
                 loading={forgotMutation.isPending}
             />
