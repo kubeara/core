@@ -13,6 +13,8 @@ import { DeploymentsModule } from "./modules/deployments/deployments.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
+import { AppController } from "./app.controller";
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -53,6 +55,7 @@ import { OrganizationsModule } from "./modules/organizations/organizations.modul
     UsersModule,
     OrganizationsModule,
   ],
+  controllers: [AppController],
   providers: [],
   exports: [],
 })
