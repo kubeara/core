@@ -295,12 +295,12 @@ wait_for_control_panel() {
   local i
   info "Waiting for control panel on port ${port}…"
   for i in $(seq 1 60); do
-    if curl -fsS "http://127.0.0.1:${port}/" -o /dev/null 2>/dev/null; then
+    if curl -fsS "http://127.0.0.1:${port}/api/health" -o /dev/null 2>/dev/null; then
       return 0
     fi
     sleep 2
   done
-  warn "Control panel did not respond on http://127.0.0.1:${port}/ within 2 minutes. Check: docker compose -f ${COMPOSE_FILE} logs"
+  warn "Control panel did not respond on http://127.0.0.1:${port}/api/health within 2 minutes. Check: docker compose -f ${COMPOSE_FILE} logs"
 }
 
 print_success() {
