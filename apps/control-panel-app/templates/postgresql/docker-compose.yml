@@ -1,32 +1,47 @@
+# documentation: https://www.postgresql.org
+# slogan: Advanced open source relational database
+# category: database
+# tags: postgres,postgresql,database,sql
+# port: 5432
+
 services:
   postgres:
-    image: ${POSTGRES_IMAGE}
-    restart: ${POSTGRES_RESTART_POLICY}
+    image: ${POSTGRES_IMAGE:-postgres:16}
+    restart: ${POSTGRES_RESTART_POLICY:-unless-stopped}
 
     ports:
-      - '${POSTGRES_PORT}:5432'
+      - '${SERVICE_PORT_POSTGRES}:5432'
 
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      PGDATA: ${POSTGRES_DATA_PATH}
-      TZ: ${TZ}
-      PGTZ: ${PGTZ}
+      POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      PGDATA: ${POSTGRES_DATA_PATH:-/var/lib/postgresql/data}
 
     volumes:
-      - postgres_data:${POSTGRES_DATA_PATH}
+      - postgres_data:/var/lib/postgresql/data
 
     healthcheck:
-      test:
-        [
-          'CMD-SHELL',
-          'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'
-        ]
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   postgres_data:

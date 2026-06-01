@@ -4,7 +4,7 @@
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
 HCLOUD_LOCATION="${HCLOUD_LOCATION:-nbg1}"
-HCLOUD_SERVER_TYPE="${HCLOUD_SERVER_TYPE:-cx22}"
+HCLOUD_SERVER_TYPE="${HCLOUD_SERVER_TYPE:-cx23}"
 HCLOUD_IMAGE="${HCLOUD_IMAGE:-ubuntu-22.04}"
 SSH_WAIT_TIMEOUT_SEC="${SSH_WAIT_TIMEOUT_SEC:-300}"
 
@@ -38,6 +38,8 @@ hetzner_wait_for_ssh() {
   local ip=$1
   local elapsed=0
 
+  # Hetzner can reassign a recently released IP to a new VM; clear stale key.
+  e2e_forget_host_key "${ip}"
   log "Waiting for SSH on ${ip} (timeout ${SSH_WAIT_TIMEOUT_SEC}s)..."
 
   while (( elapsed < SSH_WAIT_TIMEOUT_SEC )); do

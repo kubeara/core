@@ -1,18 +1,53 @@
 {
   "extends": "../../tsconfig.json",
-
   "compilerOptions": {
-    "outDir": "../../dist/apps/control-panel-app",
-    "rootDir": "../../"
+    "outDir": "../../dist",
+    "rootDir": "../../",
+    "baseUrl": "../../",
+    "paths": {
+      "@shared/common": [
+        "libs/common/src"
+      ],
+      "@shared/common/*": [
+        "libs/common/src/*"
+      ],
+      "@shared/socket-events": [
+        "libs/socket-events/src"
+      ],
+      "@shared/socket-events/*": [
+        "libs/socket-events/src/*"
+      ],
+      "@shared/types": [
+        "libs/shared-types/src"
+      ],
+      "@shared/types/*": [
+        "libs/shared-types/src/*"
+      ],
+      "@shared/ssh": [
+        "libs/ssh/src"
+      ],
+      "@shared/ssh/*": [
+        "libs/ssh/src/*"
+      ],
+      "@control-panel/*": [
+        "apps/control-panel-app/src/*"
+      ],
+      "@control-panel": [
+        "apps/control-panel-app/src"
+      ]
+    }
   },
-
   "include": [
+    "../../apps/control-panel-app/*",
+    "../../apps/control-panel-app/config/**/*",
+    "../../apps/control-panel-app/migrations/**/*",
     "src/**/*",
-    "../../libs/**/*"
+    "../../libs/**/*",
+    "seeders/**/*.ts"
   ],
-
   "exclude": [
     "../../apps/agent-app/**/*",
+    "../../libs/**/*.spec.ts",
     "node_modules",
     "dist"
   ]

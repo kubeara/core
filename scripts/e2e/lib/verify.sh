@@ -65,7 +65,10 @@ verify_postgresql() {
 
   load_env_into_shell
 
-  ssh_cmd "${ip}" "cd ${DEPLOY_REMOTE_DIR} && docker compose --env-file .env -p ${COMPOSE_PROJECT} exec -T postgres pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" \
+  local pg_user="${SERVICE_USER_POSTGRES:-${POSTGRES_USER:-postgres}}"
+  local pg_db="${POSTGRES_DB:-postgres}"
+
+  ssh_cmd "${ip}" "cd ${DEPLOY_REMOTE_DIR} && docker compose --env-file .env -p ${COMPOSE_PROJECT} exec -T postgres pg_isready -U ${pg_user} -d ${pg_db}" \
     >/dev/null
 
   log "PostgreSQL pg_isready check passed"

@@ -1,36 +1,59 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { TypeOrmModule } from "@nestjs/typeorm";
 
-import { TemplatesModule } from './templates/templates.module';
-import { WebsocketModule } from './websocket/websocket.module';
-import { ServiceTemplateEntity } from './templates/entities/service-template.entity';
-import { EncryptionModule } from '@shared/common';
+import { ServiceTemplateModule } from "./modules/service-template/service-template.module";
+import { WebsocketModule } from "./websocket/websocket.module";
+import { EncryptionModule } from "@shared/common";
+import path from "path";
+
+import { ServerConnectionsModule } from "./modules/server-connections/server-connections.module";
+import { SshModule } from "@shared/ssh";
+import { DeploymentsModule } from "./modules/deployments/deployments.module";
+import { AuthModule } from "./modules/auth/auth.module";
+import { UsersModule } from "./modules/users/users.module";
+import { OrganizationsModule } from "./modules/organizations/organizations.module";
 @Module({
-    imports: [
-        ConfigModule.forRoot({
-            isGlobal: true,
-        }),
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: path.join(__dirname, "../.env"),
+    }),
 
-        TypeOrmModule.forRootAsync({
-            inject: [ConfigService],
-            useFactory: (configService: ConfigService) => ({
-                type: 'postgres',
-                host: configService.get<string>('DB_HOST'),
-                port: Number(configService.get<string>('DB_PORT')),
-                username: configService.get<string>('DB_USERNAME'),
-                password: configService.get<string>('DB_PASSWORD'),
-                database: configService.get<string>('DB_DATABASE'),
-                synchronize: true,
-                entities: [ServiceTemplateEntity],
-            }),
-        }),
-
-        TemplatesModule,
-        WebsocketModule,
-        EncryptionModule,
-    ],
-    providers: [],
-    exports: [],
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        try {
+          return {
+            type: "postgres",
+            host: configService.get<string>("DB_HOST"),
+            port: Number(configService.get<string>("DB_PORT")),
+            username: configService.get<string>("DB_USERNAME", "postgres"),
+            password: configService.get<string>("DB_PASSWORD", "postgres"),
+            database: configService.get<string>("DB_DATABASE", "templates"),
+            synchronize: false,
+            migrationsRun: false,
+            entities: [__dirname + "/modules/**/entities/*{.ts,.js}"],
+            migrations: [path.join(__dirname, "../../migrations/*{.js,.ts}")],
+          };
+        } catch (error) {
+          throw new Error(
+            `Failed to build TypeORM configuration: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+      },
+    }),
+    ServiceTemplateModule,
+    DeploymentsModule,
+    ServerConnectionsModule,
+    SshModule,
+    EncryptionModule,
+    WebsocketModule,
+    AuthModule,
+    UsersModule,
+    OrganizationsModule,
+  ],
+  providers: [],
+  exports: [],
 })
-export class AppModule { }
+export class AppModule {}

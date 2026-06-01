@@ -27,6 +27,21 @@ discover_template_slugs() {
   printf '%s\n' "${slugs[@]}" | sort
 }
 
+template_slug_exists() {
+  local slug=$1
+  [[ -f "${TEMPLATES_DIR}/${slug}/docker-compose.yml" ]]
+}
+
+require_template_slug() {
+  local slug=$1
+
+  if template_slug_exists "${slug}"; then
+    return 0
+  fi
+
+  die "Unknown template slug '${slug}'. Available: $(discover_template_slugs | tr '\n' ' ')"
+}
+
 prepare_workdir() {
   WORK_DIR="$(mktemp -d)"
   log "Using work directory: ${WORK_DIR}"
@@ -74,7 +89,7 @@ prepare_compose_from_generated() {
 
 prepare_compose() {
   local slug=$1
-  local source="${TEMPLATE_SOURCE:-generated}"
+  local source="${TEMPLATE_SOURCE:-repo}"
 
   case "${source}" in
     repo)
@@ -152,6 +167,13 @@ prepare_env_file() {
     [[ -f "${ENV_FILE}" ]] || die "ENV_FILE not found: ${ENV_FILE}"
     cp "${ENV_FILE}" "${WORK_DIR}/.env"
     log "Using env file: ${ENV_FILE}"
+    return
+  fi
+
+  local template_example="${TEMPLATES_DIR}/${slug}/.env.example"
+  if [[ -f "${template_example}" ]]; then
+    cp "${template_example}" "${WORK_DIR}/.env"
+    log "Using template env example: ${template_example}"
     return
   fi
 

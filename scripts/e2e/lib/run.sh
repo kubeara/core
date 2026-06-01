@@ -65,12 +65,10 @@ run_template_e2e() {
   SERVER_NAME="${SERVER_NAME:-selfhost-e2e-${slug}-$(date +%s)}"
   SERVER_IP=""
 
-  local template_dir="${TEMPLATES_DIR}/${slug}"
-  [[ -d "${template_dir}" ]] || die "Unknown template slug: ${slug}"
-  [[ -f "${template_dir}/docker-compose.yml" ]] || die "Missing docker-compose.yml for slug: ${slug}"
+  require_template_slug "${slug}"
 
   log "========================================"
-  log "Hetzner E2E: ${slug} (source: ${TEMPLATE_SOURCE:-generated})"
+  log "Hetzner E2E: ${slug} (source: ${TEMPLATE_SOURCE:-repo})"
   log "Server name: ${SERVER_NAME}"
   log "========================================"
 

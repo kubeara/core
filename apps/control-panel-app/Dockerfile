@@ -1,24 +1,33 @@
-FROM node:20-alpine
+ARG NODE_VERSION=24.15.0
+
+FROM node:${NODE_VERSION}-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
-COPY tsconfig*.json ./
-COPY nest-cli.json ./
-
-# Copy app and library source
+COPY tsconfig*.json nest-cli.json ./
 COPY apps/control-panel-app ./apps/control-panel-app
 COPY libs ./libs
 
-# Install dependencies
-RUN npm ci --only=production
-
-# Build the control-panel app (Nest will compile libs referenced by the app)
+RUN npm ci --ignore-scripts
 RUN npm run build:control-panel-app
 
-# Expose port
+FROM node:${NODE_VERSION}-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ARG GITHUB_REPOSITORY=unknown
+ARG GITHUB_SHA=unknown
+LABEL org.opencontainers.image.source=$GITHUB_REPOSITORY
+LABEL org.opencontainers.image.revision=$GITHUB_SHA
+
+COPY package*.json ./
+RUN npm ci --omit=dev --ignore-scripts
+
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/apps/control-panel-app/templates ./apps/control-panel-app/templates
+
 EXPOSE 3000
 
-# Run the application
-CMD ["npm", "run", "start:control-panel-app:prod"]
+CMD ["node", "dist/apps/control-panel-app/src/main.js"]

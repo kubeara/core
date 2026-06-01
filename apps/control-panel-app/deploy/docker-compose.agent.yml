@@ -1,0 +1,40 @@
+# Kubeara agent — pull image from Docker Hub (no source code required).
+# Requires Docker on the host: mount docker.sock so the agent can run compose deployments.
+#
+# Usage:
+#   cp .env.agent.example .env.agent
+#   docker compose -f docker-compose.agent.yml --env-file .env.agent pull
+#   docker compose -f docker-compose.agent.yml --env-file .env.agent up -d
+
+services:
+  agent-app:
+    image: ${KUBEARA_AGENT_IMAGE}
+    # Use amd64 on Apple Silicon until multi-arch Hub images exist; remove to auto-select arch.
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    container_name: kubeara-agent
+    ports:
+      - "${AGENT_PORT:-3001}:3001"
+    env_file:
+      - .env.agent
+    environment:
+      NODE_ENV: production
+      PORT: ${AGENT_PORT:-3001}
+      CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:?Set CONTROL_PANEL_URL in .env.agent}
+      ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?Set ENCRYPTION_SECRET in .env.agent}
+      AGENT_PUBLIC_IP: ${AGENT_PUBLIC_IP:-}
+      TRAEFIK_ENABLED: ${TRAEFIK_ENABLED:-false}
+    volumes:
+      # Agent bootstrap reads env from this path inside the container
+      - ./.env.agent:/app/apps/agent-app/.env:ro
+      # Deployment workspaces (compose files written here)
+      - agent_deployments:/app/deployments
+      # Use host Docker to run template deployments
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Avoid creating a new compose network (helps when Docker IP pools are exhausted).
+    network_mode: bridge
+    restart: unless-stopped
+
+volumes:
+  agent_deployments:

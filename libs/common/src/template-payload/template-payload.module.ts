@@ -1,8 +1,8 @@
-import { Module } from '@nestjs/common';
-import { TemplatePayloadService } from './template-payload.service';
+import { Module } from "@nestjs/common";
+import { TemplatePayloadService } from "./template-payload.service";
 
 @Module({
-    providers: [TemplatePayloadService],
-    exports: [TemplatePayloadService],
+  providers: [TemplatePayloadService],
+  exports: [TemplatePayloadService],
 })
-export class TemplatePayloadModule { }
+export class TemplatePayloadModule {}

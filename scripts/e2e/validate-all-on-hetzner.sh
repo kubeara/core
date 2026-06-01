@@ -12,7 +12,8 @@ E2E_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/run.sh
 source "${E2E_DIR}/lib/run.sh"
 
-TEMPLATE_SOURCE="${TEMPLATE_SOURCE:-generated}"
+TEMPLATE_SOURCE="${TEMPLATE_SOURCE:-repo}"
+SCENARIOS="${SCENARIOS:-default,user_input}"
 FAILED_SLUGS=()
 PASSED_SLUGS=()
 
@@ -33,14 +34,42 @@ if [[ "${TEMPLATE_SOURCE}" == "generated" ]]; then
 fi
 
 for slug in "${TEMPLATE_SLUGS[@]}"; do
-  unset ENV_FILE SERVER_NAME SERVER_IP
+  IFS=',' read -r -a _scenarios <<< "${SCENARIOS}"
+  for _scenario in "${_scenarios[@]}"; do
+    _scenario="$(echo "${_scenario}" | xargs)"
+    [[ -n "${_scenario}" ]] || continue
 
-  # Subshell so a failed template does not abort the full run (set -e + die).
-  if ( run_template_e2e "${slug}" ); then
-    PASSED_SLUGS+=("${slug}")
-  else
-    FAILED_SLUGS+=("${slug}")
-  fi
+    unset ENV_FILE SERVER_NAME SERVER_IP
+
+    case "${_scenario}" in
+      default)
+        SERVER_NAME="${SERVER_NAME_PREFIX:-selfhost-e2e}-${slug}-default-$(date +%s)"
+        ;;
+      user_input)
+        ENV_FILE="${USER_INPUT_ENV_FILE:-${TEMPLATES_DIR}/${slug}/.env.user}"
+        if [[ ! -f "${ENV_FILE}" ]]; then
+          FAILED_SLUGS+=("${slug}:${_scenario}")
+          log "Skipping ${slug}:${_scenario} (missing env file: ${ENV_FILE})"
+          continue
+        fi
+        SERVER_NAME="${SERVER_NAME_PREFIX:-selfhost-e2e}-${slug}-user-$(date +%s)"
+        ;;
+      *)
+        FAILED_SLUGS+=("${slug}:${_scenario}")
+        log "Skipping ${slug}:${_scenario} (unsupported scenario)"
+        continue
+        ;;
+    esac
+
+    log "Running scenario '${_scenario}' for template '${slug}'"
+
+    # Subshell so a failed template/scenario does not abort the full run.
+    if ( run_template_e2e "${slug}" ); then
+      PASSED_SLUGS+=("${slug}:${_scenario}")
+    else
+      FAILED_SLUGS+=("${slug}:${_scenario}")
+    fi
+  done
 done
 
 log "========================================"
