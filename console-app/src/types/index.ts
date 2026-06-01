@@ -36,11 +36,6 @@ export type Template = {
 };
 
 /**
- * Server status enum
- */
-export type ServerStatus = "online" | "offline" | "pending" | "error";
-
-/**
  * Server entity
  */
 export type Server = {
@@ -48,6 +43,7 @@ export type Server = {
     name: string;
     username: string;
     host: string;
-    status: ServerStatus;
+    connected: boolean;
+    lastConnectedAt: string | null;
     createdAt: string;
 };

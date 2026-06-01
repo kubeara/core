@@ -1,5 +1,5 @@
 import { randomBytes } from "crypto";
-import type { Server, ServerStatus } from "@/types";
+import type { Server } from "@/types";
 
 const servers = new Map<string, Server>();
 
@@ -21,15 +21,17 @@ export function createServer(input: {
   name: string;
   username: string;
   host: string;
-  status: ServerStatus;
+  connected?: boolean;
 }): Server {
+  const now = new Date().toISOString();
   const server: Server = {
     id: generateId(),
     name: input.name.trim(),
     username: input.username.trim(),
     host: input.host.trim(),
-    status: input.status,
-    createdAt: new Date().toISOString(),
+    connected: input.connected ?? false,
+    createdAt: now,
+    lastConnectedAt: now,
   };
   servers.set(server.id, server);
   return server;
@@ -37,7 +39,7 @@ export function createServer(input: {
 
 export function updateServer(
   id: string,
-  input: Partial<Pick<Server, "name" | "username" | "host" | "status">>,
+  input: Partial<Pick<Server, "name" | "username" | "host" | "connected">>,
 ): Server | null {
   const existing = servers.get(id);
   if (!existing) return null;
@@ -47,7 +49,7 @@ export function updateServer(
     name: input.name?.trim() ?? existing.name,
     username: input.username?.trim() ?? existing.username,
     host: input.host?.trim() ?? existing.host,
-    status: input.status ?? existing.status,
+    connected: input.connected ?? existing.connected,
   };
   servers.set(id, updated);
   return updated;
@@ -60,78 +62,78 @@ export function deleteServer(id: string): boolean {
 function seedServers() {
   if (servers.size > 0) return;
 
-  const seed: Omit<Server, "id" | "createdAt">[] = [
+  const seed: Omit<Server, "id" | "createdAt" | "lastConnectedAt">[] = [
     {
       name: "Production API",
       username: "deploy",
       host: "api.prod.kubeara.io",
-      status: "online",
+      connected: true,
     },
     {
       name: "Staging Cluster",
       username: "admin",
       host: "staging.internal.local",
-      status: "online",
+      connected: true,
     },
     {
       name: "Dev Sandbox",
       username: "devuser",
       host: "192.168.1.42",
-      status: "offline",
+      connected: false,
     },
     {
       name: "Legacy DB Host",
       username: "postgres",
       host: "db-legacy.example.com",
-      status: "pending",
+      connected: false,
     },
     {
       name: "CI Runner",
       username: "ci-bot",
       host: "runner-01.ci.kubeara.io",
-      status: "error",
+      connected: false,
     },
     {
       name: "Analytics Node",
       username: "analytics",
       host: "analytics-east.kubeara.io",
-      status: "online",
+      connected: true,
     },
     {
       name: "Backup Server",
       username: "backup",
       host: "backup-02.kubeara.io",
-      status: "offline",
+      connected: false,
     },
     {
       name: "Edge Gateway",
       username: "gateway",
       host: "edge.us-west.kubeara.io",
-      status: "online",
+      connected: true,
     },
     {
       name: "Test VM",
       username: "test",
       host: "10.0.0.15",
-      status: "pending",
+      connected: false,
     },
     {
       name: "Monitoring",
       username: "monitor",
       host: "grafana.kubeara.io",
-      status: "online",
+      connected: true,
     },
     {
       name: "Queue Worker",
       username: "worker",
       host: "queue.internal.local",
-      status: "offline",
+      connected: false,
     },
     {
       name: "Archive Node",
       username: "archive",
       host: "archive.kubeara.io",
-      status: "online",
+      connected: true,
     },
   ];
 

@@ -261,6 +261,97 @@ a:hover {
   background: var(--surface-elevated);
 }
 
+.theme-toggle--compact {
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.theme-switch-control {
+  position: relative;
+  flex-shrink: 0;
+  width: 3.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #828fa1;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.theme-switch-control.is-on {
+  background: #4976b5;
+  border-color: #475569;
+}
+
+.theme-switch-control:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.theme-switch-icon {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.45;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.theme-switch-icon--sun {
+  left: 0.4375rem;
+  color: #eab308;
+  filter: drop-shadow(0 0 1px rgb(0 0 0 / 30%));
+}
+
+.theme-switch-icon--moon {
+  right: 0.4375rem;
+  color: #000000;
+  filter: drop-shadow(0 0 1px rgb(255 255 255 / 70%));
+}
+
+.theme-switch-control:not(.is-on) .theme-switch-icon--moon {
+  opacity: 1;
+}
+
+.theme-switch-control.is-on .theme-switch-icon--sun {
+  opacity: 1;
+}
+
+.theme-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  z-index: 2;
+  width: 1.3125rem;
+  height: 1.3125rem;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 20%);
+  transition: transform 0.2s;
+}
+
+.theme-switch-control.is-on .theme-switch-thumb {
+  transform: translateX(2rem);
+}
+
+.theme-switch-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
 /* Top bar */
 .top-bar {
   position: sticky;

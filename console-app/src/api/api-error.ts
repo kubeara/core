@@ -1,4 +1,5 @@
 import { AxiosError } from "axios";
+import { normalizeValidationMessage, normalizeValidationMessages } from "@/lib/validation";
 
 /**
  * Custom error class for API-related errors.
@@ -63,7 +64,7 @@ export function extractMessageFromBody(
 
     const messageField = data.message;
     if (typeof messageField === "string" && messageField.trim()) {
-        return messageField.trim();
+        return normalizeValidationMessage(messageField.trim());
     }
 
     if (Array.isArray(messageField)) {
@@ -72,7 +73,7 @@ export function extractMessageFromBody(
                 typeof entry === "string" && entry.trim().length > 0,
         );
         if (messages.length > 0) {
-            return messages.join(", ");
+            return normalizeValidationMessages(messages.join(", "));
         }
     }
 
@@ -108,7 +109,7 @@ export function extractMessageFromBody(
  */
 export function getErrorMessage(error: unknown): string {
     if (error instanceof ApiError) {
-        return error.message;
+        return normalizeValidationMessage(error.message);
     }
 
     if (error instanceof AxiosError) {
@@ -123,7 +124,7 @@ export function getErrorMessage(error: unknown): string {
             error.response.data as Record<string, unknown> | undefined,
         );
         if (extracted) {
-            return extracted;
+            return normalizeValidationMessage(extracted);
         }
 
         if (error.response.status === 401) {

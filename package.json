@@ -33,6 +33,7 @@
     "prereq:agent": "bash apps/control-panel-app/scripts/ensure-agent-prerequisites.sh",
     "prereq:agent:check": "bash apps/control-panel-app/scripts/ensure-agent-prerequisites.sh --check-only",
     "seed": "npm run build:apps && node dist/apps/control-panel-app/seeders/seed.js",
+    "seed:prod": "node dist/apps/control-panel-app/seeders/seed.js",
     "migration:create": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:create apps/control-panel-app/migrations/$npm_config_name",
     "migration:generate": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate apps/control-panel-app/migrations/GeneratedMigration -d apps/control-panel-app/config/typeorm.config.ts",
     "migration:run": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d apps/control-panel-app/config/typeorm.config.ts",
@@ -43,7 +44,8 @@
     "migration:show:dist": "node ./node_modules/typeorm/cli.js migration:show -d dist/apps/control-panel-app/config/typeorm.config.js",
     "docker:build:control-panel": "docker compose -f apps/control-panel-app/docker-compose.yml build",
     "docker:build:agent": "docker compose -f apps/agent-app/docker-compose.yml build",
-    "docker:build": "npm run docker:build:control-panel && npm run docker:build:agent",
+    "docker:build:spa": "docker compose -f console-app/docker-compose.yml build",
+    "docker:build": "npm run docker:build:control-panel && npm run docker:build:agent && npm run docker:build:spa",
     "docker:up:control-panel": "docker compose -f apps/control-panel-app/docker-compose.yml up -d",
     "docker:up:agent": "docker compose -f apps/agent-app/docker-compose.yml up -d",
     "prepare": "husky"
