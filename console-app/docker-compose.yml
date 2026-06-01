@@ -11,5 +11,5 @@ services:
       - .env
     environment:
       # Read by the browser via /env.js — use a URL reachable from your machine, not from inside the container.
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
     restart: unless-stopped

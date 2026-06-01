@@ -26,7 +26,7 @@ VITE_API_URL=
 VITE_API_URL=https://api.example.com
 ```
 
-Paths stay relative (`/api/auth/me`, `/api/servers`, etc.); only the origin changes.
+Set the base URL to the control panel origin plus `/api` (e.g. `http://localhost:3000/api`). Request paths in code are `/auth/me`, `/servers`, etc. If you omit `/api`, the app appends it automatically.
 
 ### Docker runtime config
 

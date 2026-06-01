@@ -1,19 +1,23 @@
 #!/usr/bin/env bash
 #
 # Kubeara control panel — self-hosted installer (Docker Compose).
+#
+# Fully standalone for curl | bash: only requires Docker + Compose + openssl + curl.
+# Embeds docker-compose.control-panel.yml and generates .env.control-panel (no git clone).
+# Images are pulled from Docker Hub (kubeara/control-panel, kubeara/console, postgres).
+#
 # Usage:
 #   curl -fsSL https://kubeara.dev/control-panel/install.sh | bash
-#   curl -fsSL https://raw.githubusercontent.com/kubeara/core/main/apps/control-panel-app/deploy/install.sh | bash
 #
 # Environment:
 #   KUBEARA_INSTALL_DIR     Install directory (default: /opt/kubeara/control-panel or ~/.kubeara/control-panel)
-#   KUBEARA_INSTALL_BASE    Base URL for compose + env example (default: GitHub raw for KUBEARA_VERSION)
-#   KUBEARA_VERSION         Git ref for remote files (default: main)
+#   KUBEARA_INSTALL_BASE    Optional URL to download compose/env instead of embedded defaults
+#   KUBEARA_VERSION         Git ref when using KUBEARA_INSTALL_BASE (default: main)
 #   KUBEARA_CHANNEL         Docker image tag when KUBEARA_SET_IMAGE_TAGS=1 (default: prod)
 #   KUBEARA_SET_IMAGE_TAGS  1 = set all images to KUBEARA_CHANNEL; 0 = keep .env.example tags (local default)
 #   KUBEARA_CONSOLE_IMAGE_OVERRIDE  Explicit console image (do not export KUBEARA_CONSOLE_IMAGE — same name as .env key)
 #   KUBEARA_CONTROL_PANEL_IMAGE / KUBEARA_AGENT_IMAGE  Override API/agent images
-#   KUBEARA_PUBLIC_URL      Public control panel URL (default: auto-detect)
+#   KUBEARA_PUBLIC_URL      Public panel URL for remote agents (optional; console API defaults to localhost)
 #   ENCRYPTION_SECRET       Pre-set secret (default: auto-generate)
 #   SKIP_MIGRATE=1          Skip database migrations + seed
 #   KUBEARA_FORCE_ENV=1     Regenerate .env.control-panel from example
@@ -140,27 +144,22 @@ set_env_var() {
   fi
 }
 
-detect_public_url() {
+default_local_api_url() {
+  echo "http://127.0.0.1:${PORT:-3000}"
+}
+
+# Console SPA calls this from the browser — localhost avoids broken NAT/public-IP routing on the same host.
+default_vite_api_url() {
+  echo "http://localhost:${PORT:-3000}/api"
+}
+
+# Remote agents / onboard SSH install; set KUBEARA_PUBLIC_URL when the panel has a public hostname.
+default_control_panel_url() {
   if [[ -n "${KUBEARA_PUBLIC_URL:-}" ]]; then
     echo "${KUBEARA_PUBLIC_URL}"
     return 0
   fi
-
-  local port="${PORT:-3000}"
-  local host=""
-
-  if command -v curl >/dev/null 2>&1; then
-    host="$(curl -fsSL --max-time 5 https://api.ipify.org 2>/dev/null || true)"
-  fi
-  if [[ -z "${host}" ]]; then
-    host="$(hostname -I 2>/dev/null | awk '{print $1}' || true)"
-  fi
-  if [[ -z "${host}" ]]; then
-    host="127.0.0.1"
-    warn "Could not detect public IP; using ${host}. Set KUBEARA_PUBLIC_URL for remote access."
-  fi
-
-  echo "http://${host}:${port}"
+  default_local_api_url
 }
 
 generate_encryption_secret() {
@@ -197,27 +196,189 @@ prepare_install_dir() {
   cd "${KUBEARA_INSTALL_DIR}"
 }
 
-download_compose_files() {
-  fetch_deploy_file "${COMPOSE_FILE}" "${KUBEARA_INSTALL_DIR}/${COMPOSE_FILE}"
-  fetch_deploy_file "${ENV_EXAMPLE}" "${KUBEARA_INSTALL_DIR}/${ENV_EXAMPLE}"
+# Keep in sync with docker-compose.control-panel.yml in this directory.
+write_embedded_compose_file() {
+  local dest="$1"
+  cat >"${dest}" <<'COMPOSE_EOF'
+# Kubeara control panel — pull images from Docker Hub (no source code required).
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kubeara-postgres
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_DATABASE:-kubeara}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    profiles: ["migrate"]
+    image: ${KUBEARA_CONTROL_PANEL_IMAGE}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    env_file:
+      - .env.control-panel
+    environment:
+      NODE_ENV: production
+      DOCKER_ENV: "true"
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_DATABASE: ${DB_DATABASE:-kubeara}
+      ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?Set ENCRYPTION_SECRET in .env.control-panel}
+    volumes:
+      - ./.env.control-panel:/app/apps/control-panel-app/.env:ro
+    working_dir: /app
+    command:
+      [
+        "sh",
+        "-c",
+        "node ./node_modules/typeorm/cli.js migration:run -d dist/apps/control-panel-app/config/typeorm.config.js && node dist/apps/control-panel-app/seeders/seed.js",
+      ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  control-panel-app:
+    image: ${KUBEARA_CONTROL_PANEL_IMAGE}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    container_name: kubeara-control-panel
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env.control-panel
+    environment:
+      NODE_ENV: production
+      DOCKER_ENV: "true"
+      PORT: ${PORT:-3000}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_DATABASE: ${DB_DATABASE:-kubeara}
+      ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?Set ENCRYPTION_SECRET in .env.control-panel}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.control-panel}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET in .env.control-panel}
+      JWT_ACCESS_TOKEN_EXPIRES_IN: ${JWT_ACCESS_TOKEN_EXPIRES_IN:-15m}
+      JWT_REFRESH_TOKEN_EXPIRES_IN: ${JWT_REFRESH_TOKEN_EXPIRES_IN:-7d}
+      CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:-}
+      KUBEARA_AGENT_IMAGE: ${KUBEARA_AGENT_IMAGE:-kubeara/agent:latest}
+    volumes:
+      - ./.env.control-panel:/app/apps/control-panel-app/.env:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  console:
+    image: ${KUBEARA_CONSOLE_IMAGE:-kubeara/console:prod}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    container_name: kubeara-console
+    ports:
+      - "${CONSOLE_PORT:-8080}:80"
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
+    depends_on:
+      control-panel-app:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+COMPOSE_EOF
+}
+
+materialize_deploy_files() {
+  local compose_dest="${KUBEARA_INSTALL_DIR}/${COMPOSE_FILE}"
+
+  if [[ "${KUBEARA_INSTALL_SOURCE}" == "local" ]]; then
+    cp "${KUBEARA_DEPLOY_DIR}/${COMPOSE_FILE}" "${compose_dest}"
+    if [[ -f "${KUBEARA_DEPLOY_DIR}/${ENV_EXAMPLE}" ]]; then
+      cp "${KUBEARA_DEPLOY_DIR}/${ENV_EXAMPLE}" "${KUBEARA_INSTALL_DIR}/${ENV_EXAMPLE}"
+    fi
+    return 0
+  fi
+
+  if [[ -n "${KUBEARA_INSTALL_BASE:-}" ]]; then
+    info "Downloading compose files from ${KUBEARA_INSTALL_BASE}…"
+    fetch_deploy_file "${COMPOSE_FILE}" "${compose_dest}"
+    fetch_deploy_file "${ENV_EXAMPLE}" "${KUBEARA_INSTALL_DIR}/${ENV_EXAMPLE}" || true
+    return 0
+  fi
+
+  info "Writing embedded ${COMPOSE_FILE} (no external download)"
+  write_embedded_compose_file "${compose_dest}"
+}
+
+write_fresh_env_file() {
+  local env_path="$1"
+  local secret platform vite_api_url control_panel_url port console_port
+  local jwt_access jwt_refresh
+  local cp_image console_image agent_image
+
+  secret="$(generate_encryption_secret)"
+  platform="${DOCKER_PLATFORM:-$(detect_docker_platform)}"
+  port="${PORT:-3000}"
+  console_port="${CONSOLE_PORT:-8080}"
+  vite_api_url="$(default_vite_api_url)"
+  control_panel_url="$(default_control_panel_url)"
+  jwt_access="${JWT_SECRET:-$(openssl rand -hex 32)}"
+  jwt_refresh="${JWT_REFRESH_SECRET:-$(openssl rand -hex 32)}"
+  cp_image="${KUBEARA_CONTROL_PANEL_IMAGE:-kubeara/control-panel:${KUBEARA_CHANNEL}}"
+  console_image="${KUBEARA_CONSOLE_IMAGE_OVERRIDE:-kubeara/console:${KUBEARA_CHANNEL}}"
+  agent_image="${KUBEARA_AGENT_IMAGE:-kubeara/agent:${KUBEARA_CHANNEL}}"
+
+  cat >"${env_path}" <<EOF
+# Generated by kubeara install.sh
+KUBEARA_CONTROL_PANEL_IMAGE=${cp_image}
+KUBEARA_CONSOLE_IMAGE=${console_image}
+KUBEARA_AGENT_IMAGE=${agent_image}
+DOCKER_PLATFORM=${platform}
+PORT=${port}
+CONSOLE_PORT=${console_port}
+VITE_API_URL=${vite_api_url}
+CONTROL_PANEL_URL=${control_panel_url}
+ENCRYPTION_SECRET=${secret}
+JWT_SECRET=${jwt_access}
+JWT_REFRESH_SECRET=${jwt_refresh}
+JWT_ACCESS_TOKEN_EXPIRES_IN=${JWT_ACCESS_TOKEN_EXPIRES_IN:-15m}
+JWT_REFRESH_TOKEN_EXPIRES_IN=${JWT_REFRESH_TOKEN_EXPIRES_IN:-7d}
+DB_HOST=postgres
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=postgres
+DB_DATABASE=kubeara
+EOF
+
+  info "Wrote ${env_path}"
+  info "Save ENCRYPTION_SECRET — use the same value if you install agents later."
 }
 
 create_env_file() {
   local env_path="${KUBEARA_INSTALL_DIR}/${ENV_FILE}"
-  local env_is_new=0
+  local example_path="${KUBEARA_INSTALL_DIR}/${ENV_EXAMPLE}"
 
   if [[ -f "${env_path}" && "${KUBEARA_FORCE_ENV:-}" != "1" ]]; then
     info "Using existing ${env_path} (secrets and DB settings kept)"
-  else
-    env_is_new=1
-    cp "${KUBEARA_INSTALL_DIR}/${ENV_EXAMPLE}" "${env_path}"
+  elif [[ -f "${example_path}" ]]; then
+    cp "${example_path}" "${env_path}"
 
-    local secret platform public_url
+    local secret platform vite_api_url control_panel_url
     secret="$(generate_encryption_secret)"
     platform="${DOCKER_PLATFORM:-$(detect_docker_platform)}"
-    public_url="$(detect_public_url)"
+    vite_api_url="$(default_vite_api_url)"
+    control_panel_url="$(default_control_panel_url)"
 
-    # Remote installs default to Hub channel tags (prod) for API/agent.
     local set_image_tags="${KUBEARA_SET_IMAGE_TAGS:-}"
     if [[ -z "${set_image_tags}" ]]; then
       if [[ "${KUBEARA_INSTALL_SOURCE}" == "remote" ]]; then
@@ -241,13 +402,13 @@ create_env_file() {
 
     set_env_var "DOCKER_PLATFORM" "${platform}" "${env_path}"
     set_env_var "ENCRYPTION_SECRET" "${secret}" "${env_path}"
-    set_env_var "CONTROL_PANEL_URL" "${public_url}" "${env_path}"
-    set_env_var "VITE_API_URL" "${public_url}" "${env_path}"
+    set_env_var "CONTROL_PANEL_URL" "${control_panel_url}" "${env_path}"
+    set_env_var "VITE_API_URL" "${vite_api_url}" "${env_path}"
 
     info "Wrote ${env_path}"
-    if [[ "${env_is_new}" -eq 1 ]]; then
-      info "Save ENCRYPTION_SECRET — use the same value if you install agents later."
-    fi
+    info "Save ENCRYPTION_SECRET — use the same value if you install agents later."
+  else
+    write_fresh_env_file "${env_path}"
   fi
 
   apply_console_image "${env_path}"
@@ -304,11 +465,9 @@ wait_for_control_panel() {
 }
 
 print_success() {
-  # shellcheck source=/dev/null
-  local port console_port public_url
+  local port console_port
   port="$(grep -E '^PORT=' "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" | cut -d= -f2- || echo 3000)"
   console_port="$(grep -E '^CONSOLE_PORT=' "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" | cut -d= -f2- || echo 8080)"
-  public_url="$(grep -E '^CONTROL_PANEL_URL=' "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" | cut -d= -f2- || echo "http://127.0.0.1:${port}")"
 
   cat <<EOF
 
@@ -317,20 +476,6 @@ ${LOG_PREFIX} Kubeara control panel is running.
   Install directory: ${KUBEARA_INSTALL_DIR}
   Control panel API: http://127.0.0.1:${port}
   Console (SPA):     http://127.0.0.1:${console_port}
-  Public API URL:    ${public_url}
-
-Next steps:
-  1. Open the console URL in your browser.
-  2. Register / sign in and add a server from the dashboard.
-  3. For remote agents, ensure CONTROL_PANEL_URL in .env.control-panel is reachable from target hosts.
-
-Manage stack:
-  cd ${KUBEARA_INSTALL_DIR}
-  docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} ps
-  docker compose -f ${COMPOSE_FILE} --env-file ${ENV_FILE} logs -f
-
-Uninstall:
-  curl -fsSL https://kubeara.dev/control-panel/uninstall.sh | bash
 
 EOF
 }
@@ -340,7 +485,7 @@ main() {
   default_install_dir
   require_docker
   prepare_install_dir
-  download_compose_files
+  materialize_deploy_files
   create_env_file
 
   info "Console image: $(grep -E '^KUBEARA_CONSOLE_IMAGE=' "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" | cut -d= -f2-)"
