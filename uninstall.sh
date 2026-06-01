@@ -2,6 +2,7 @@
 #
 # Kubeara control panel — remove the Docker Compose stack.
 # Usage:
+#   curl -fsSL https://get.kubeara.dev/uninstall.sh | bash
 #   curl -fsSL https://kubeara.dev/control-panel/uninstall.sh | bash
 #
 # Environment:

@@ -2,14 +2,22 @@
 
 No source code required — only Docker, Docker Compose, `curl`, and `openssl`.
 
-`install.sh` is **self-contained** for `curl | bash`: it embeds `docker-compose.control-panel.yml`, generates `.env.control-panel`, and pulls images from **Docker Hub**. It does not download other files unless you set `KUBEARA_INSTALL_BASE`.
+The installer lives at the **repo root**: [`install.sh`](../../../install.sh) and [`uninstall.sh`](../../../uninstall.sh).
+
+`install.sh` is **self-contained** for `curl | bash`: it embeds `docker-compose.control-panel.yml`, generates `.env.control-panel`, and pulls images from **Docker Hub**. Compose files in this directory are used for manual installs and when running `./install.sh` from a git clone.
 
 ## One-line install
 
 Review the script before piping to your shell:
 
 ```bash
-curl -fsSL https://kubeara.dev/control-panel/install.sh | bash
+curl -fsSL https://get.kubeara.dev | sh
+```
+
+Or:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kubeara/core/main/install.sh | bash
 ```
 
 Optional environment variables:
@@ -28,14 +36,14 @@ Uninstall (keeps volumes unless `KUBEARA_REMOVE_VOLUMES=1`):
 curl -fsSL https://kubeara.dev/control-panel/uninstall.sh | bash
 ```
 
-**Hosting:** publish `install.sh` (and `uninstall.sh`) at `https://kubeara.dev/control-panel/`. Compose/env in the repo are for manual installs and dev; keep the embedded compose inside `install.sh` in sync when you change `docker-compose.control-panel.yml`.
+**Hosting:** publish root `install.sh` at `https://get.kubeara.dev` (and optionally `uninstall.sh`). Keep the embedded compose inside root `install.sh` in sync when you change `docker-compose.control-panel.yml` here.
 
 ## Files
 
 | File | What it starts |
 |------|----------------|
-| `install.sh` | One-line self-hosted installer |
-| `uninstall.sh` | Stop the control panel stack |
+| `../../../install.sh` | One-line self-hosted installer (repo root) |
+| `../../../uninstall.sh` | Stop the control panel stack (repo root) |
 | `docker-compose.control-panel.yml` | Postgres + control panel + console (SPA) |
 | `docker-compose.agent.yml` | Agent only (connects to an existing control panel) |
 | `.env.control-panel.example` | Example env for the control panel stack |

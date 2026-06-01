@@ -2,7 +2,7 @@
 # Includes Postgres.
 #
 # One-line install:
-#   curl -fsSL https://kubeara.dev/control-panel/install.sh | bash
+#   curl -fsSL https://get.kubeara.dev | sh
 #
 # Manual usage:
 #   cp .env.control-panel.example .env.control-panel
