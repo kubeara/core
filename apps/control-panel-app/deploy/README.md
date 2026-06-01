@@ -1,6 +1,8 @@
 # Run Kubeara from Docker Hub
 
-No source code required — only Docker and these compose files.
+No source code required — only Docker, Docker Compose, `curl`, and `openssl`.
+
+`install.sh` is **self-contained** for `curl | bash`: it embeds `docker-compose.control-panel.yml`, generates `.env.control-panel`, and pulls images from **Docker Hub**. It does not download other files unless you set `KUBEARA_INSTALL_BASE`.
 
 ## One-line install
 
@@ -8,12 +10,6 @@ Review the script before piping to your shell:
 
 ```bash
 curl -fsSL https://kubeara.dev/control-panel/install.sh | bash
-```
-
-Same installer from GitHub (pinned to `main` by default; set `KUBEARA_VERSION=v1.0.0` to pin a release):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/kubeara/core/main/apps/control-panel-app/deploy/install.sh | bash
 ```
 
 Optional environment variables:
@@ -32,7 +28,7 @@ Uninstall (keeps volumes unless `KUBEARA_REMOVE_VOLUMES=1`):
 curl -fsSL https://kubeara.dev/control-panel/uninstall.sh | bash
 ```
 
-**Hosting:** publish `install.sh`, `uninstall.sh`, `docker-compose.control-panel.yml`, and `.env.control-panel.example` under `https://kubeara.dev/control-panel/` (or redirect to tagged GitHub raw URLs on each release).
+**Hosting:** publish `install.sh` (and `uninstall.sh`) at `https://kubeara.dev/control-panel/`. Compose/env in the repo are for manual installs and dev; keep the embedded compose inside `install.sh` in sync when you change `docker-compose.control-panel.yml`.
 
 ## Files
 
@@ -225,7 +221,7 @@ docker pull kubeara/agent:prod
 | `CONTROL_PANEL_URL` | Public URL for remote agents / onboard install |
 | `PORT` | Control panel port (default 3000) |
 | `CONSOLE_PORT` | Console SPA host port (default 8080) |
-| `VITE_API_URL` | Console runtime API URL (e.g. `http://localhost:3000` or public panel URL) |
+| `VITE_API_URL` | Console API base URL incl. `/api` (e.g. `http://localhost:3000/api`; origin-only also works — SPA normalizes) |
 | `DB_HOST` | `postgres` inside compose (do not use `127.0.0.1`) |
 | `DB_*` | Postgres credentials and database name |
 
