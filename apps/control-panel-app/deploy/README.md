@@ -1,11 +1,49 @@
 # Run Kubeara from Docker Hub
 
-No source code required — only Docker and these compose files.
+No source code required — only Docker, Docker Compose, `curl`, and `openssl`.
+
+The installer lives at the **repo root**: [`install.sh`](../../../install.sh) and [`uninstall.sh`](../../../uninstall.sh).
+
+`install.sh` is **self-contained** for `curl | bash`: it embeds `docker-compose.control-panel.yml`, generates `.env.control-panel`, and pulls images from **Docker Hub**. Compose files in this directory are used for manual installs and when running `./install.sh` from a git clone.
+
+## One-line install
+
+Review the script before piping to your shell:
+
+```bash
+curl -fsSL https://get.kubeara.dev | sh
+```
+
+Or:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/kubeara/core/main/install.sh | bash
+```
+
+Optional environment variables:
+
+| Variable | Purpose |
+|----------|---------|
+| `KUBEARA_INSTALL_DIR` | Where compose and `.env` are stored (default `/opt/kubeara/control-panel` or `~/.kubeara/control-panel`) |
+| `KUBEARA_CHANNEL` | Docker image tag (`prod`, `dev`, …) |
+| `KUBEARA_PUBLIC_URL` | Public control panel URL for console + remote agents |
+| `ENCRYPTION_SECRET` | Use a fixed secret instead of auto-generating |
+| `SKIP_MIGRATE=1` | Skip migrations/seed on re-run |
+
+Uninstall (keeps volumes unless `KUBEARA_REMOVE_VOLUMES=1`):
+
+```bash
+curl -fsSL https://kubeara.dev/control-panel/uninstall.sh | bash
+```
+
+**Hosting:** publish root `install.sh` at `https://get.kubeara.dev` (and optionally `uninstall.sh`). Keep the embedded compose inside root `install.sh` in sync when you change `docker-compose.control-panel.yml` here.
 
 ## Files
 
 | File | What it starts |
 |------|----------------|
+| `../../../install.sh` | One-line self-hosted installer (repo root) |
+| `../../../uninstall.sh` | Stop the control panel stack (repo root) |
 | `docker-compose.control-panel.yml` | Postgres + control panel + console (SPA) |
 | `docker-compose.agent.yml` | Agent only (connects to an existing control panel) |
 | `.env.control-panel.example` | Example env for the control panel stack |
@@ -80,7 +118,7 @@ Run migrations and seed service templates once (before using the UI):
 docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel --profile migrate run --rm migrate
 ```
 
-This runs TypeORM migrations, then `npm run seed` (template upserts from `apps/control-panel-app/templates`).
+This runs TypeORM migrations, then `npm run seed:prod` (template upserts from `apps/control-panel-app/templates`; uses prebuilt `dist` in the image).
 
 Pulls images from Docker Hub automatically if they are not on the machine. To force the latest tag from Hub:
 
@@ -181,13 +219,17 @@ docker pull kubeara/agent:prod
 | Variable | Purpose |
 |----------|---------|
 | `KUBEARA_CONTROL_PANEL_IMAGE` | Docker Hub image |
-| `KUBEARA_CONSOLE_IMAGE` | Console SPA Docker image |
+| `KUBEARA_CONSOLE_IMAGE` | Console SPA Docker image (default `kubeara/console:prod`) |
 | `DOCKER_PLATFORM` | `linux/amd64` or `linux/arm64` (optional) |
 | `ENCRYPTION_SECRET` | App encryption key (must match agent) |
+| `JWT_SECRET` | Access token signing secret (required) |
+| `JWT_REFRESH_SECRET` | Refresh token signing secret (required) |
+| `JWT_ACCESS_TOKEN_EXPIRES_IN` | Access token TTL (default `15m`) |
+| `JWT_REFRESH_TOKEN_EXPIRES_IN` | Refresh token TTL (default `7d`) |
 | `CONTROL_PANEL_URL` | Public URL for remote agents / onboard install |
 | `PORT` | Control panel port (default 3000) |
 | `CONSOLE_PORT` | Console SPA host port (default 8080) |
-| `VITE_API_URL` | Console runtime API URL (e.g. `http://localhost:3000` or public panel URL) |
+| `VITE_API_URL` | Console API base URL incl. `/api` (e.g. `http://localhost:3000/api`; origin-only also works — SPA normalizes) |
 | `DB_HOST` | `postgres` inside compose (do not use `127.0.0.1`) |
 | `DB_*` | Postgres credentials and database name |
 

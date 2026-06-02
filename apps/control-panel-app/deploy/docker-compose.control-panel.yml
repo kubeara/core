@@ -1,5 +1,10 @@
 # Kubeara control panel — pull image from Docker Hub (no source code required).
-# Includes Postgres. Usage:
+# Includes Postgres.
+#
+# One-line install:
+#   curl -fsSL https://get.kubeara.dev | sh
+#
+# Manual usage:
 #   cp .env.control-panel.example .env.control-panel
 #   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel pull
 #   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel up -d
@@ -47,7 +52,7 @@ services:
       [
         "sh",
         "-c",
-        "node ./node_modules/typeorm/cli.js migration:run -d dist/apps/control-panel-app/config/typeorm.config.js && npm run seed",
+        "node ./node_modules/typeorm/cli.js migration:run -d dist/apps/control-panel-app/config/typeorm.config.js && node dist/apps/control-panel-app/seeders/seed.js",
       ]
     depends_on:
       postgres:
@@ -72,6 +77,11 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_DATABASE: ${DB_DATABASE:-kubeara}
       ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?Set ENCRYPTION_SECRET in .env.control-panel}
+      # Defaults for local/dev; install.sh replaces with openssl-generated secrets. Override in .env.control-panel for production.
+      JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-jwt-refresh-secret}
+      JWT_ACCESS_TOKEN_EXPIRES_IN: ${JWT_ACCESS_TOKEN_EXPIRES_IN:-15m}
+      JWT_REFRESH_TOKEN_EXPIRES_IN: ${JWT_REFRESH_TOKEN_EXPIRES_IN:-7d}
       CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:-}
       KUBEARA_AGENT_IMAGE: ${KUBEARA_AGENT_IMAGE:-kubeara/agent:latest}
     volumes:
@@ -88,7 +98,7 @@ services:
     ports:
       - "${CONSOLE_PORT:-8080}:80"
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
     depends_on:
       control-panel-app:
         condition: service_started
