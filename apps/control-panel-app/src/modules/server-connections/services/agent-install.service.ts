@@ -37,10 +37,17 @@ export interface AgentInstallResult {
   skipped?: boolean;
 }
 
+export type AgentInstallLogCallback = (line: string) => void;
+
 interface AgentInstallOnHostInput {
   serverId: string;
   serverHost: string;
   installDir: string;
+  onLogLine?: AgentInstallLogCallback;
+}
+
+interface AgentInstallOptions {
+  onLogLine?: AgentInstallLogCallback;
 }
 
 @Injectable()
@@ -61,19 +68,24 @@ export class AgentInstallService {
     return path.join(os.homedir(), ".kubeara", "agent");
   }
 
-  async installOnLocal(input: {
-    serverId: string;
-  }): Promise<AgentInstallResult> {
+  async installOnLocal(
+    input: {
+      serverId: string;
+    },
+    options?: AgentInstallOptions,
+  ): Promise<AgentInstallResult> {
     const adapter = new LocalAgentHostAdapter();
     return this.installOnHost(adapter, {
       serverId: input.serverId,
       serverHost: LOCAL_SERVER.HOST,
       installDir: this.resolveLocalInstallDir(),
+      onLogLine: options?.onLogLine,
     });
   }
 
   async installOnRemote(
     input: RemoteAgentInstallInput,
+    options?: AgentInstallOptions,
   ): Promise<AgentInstallResult> {
     const logs: string[] = [];
     const remoteDir = AGENT_INSTALL.REMOTE_DIR.replace(/\/+$/, "");
@@ -85,7 +97,7 @@ export class AgentInstallService {
       const existing = this.sshManager.getConnection(input.connection.serverId);
       if (existing) {
         client = existing;
-        logs.push("Reusing open SSH session");
+        this.pushLog(logs, "Reusing open SSH session", options?.onLogLine);
       } else {
         const connectOptions: SshConnectionOptions = {
           ...input.connection,
@@ -93,7 +105,11 @@ export class AgentInstallService {
         };
         client = await this.sshManager.connect(connectOptions);
         connectedHere = true;
-        logs.push("SSH connected for agent install");
+        this.pushLog(
+          logs,
+          "SSH connected for agent install",
+          options?.onLogLine,
+        );
       }
 
       const adapter = new SshAgentHostAdapter(client, this.executor);
@@ -101,6 +117,7 @@ export class AgentInstallService {
         serverId: input.connection.serverId,
         serverHost: input.serverHost.trim(),
         installDir: remoteDir,
+        onLogLine: options?.onLogLine,
       });
 
       return {
@@ -125,11 +142,22 @@ export class AgentInstallService {
   /**
    * Prerequisites, compose files, and docker compose up — shared by local and SSH hosts.
    */
+  private pushLog(
+    logs: string[],
+    line: string,
+    onLogLine?: AgentInstallLogCallback,
+  ): void {
+    logs.push(line);
+    onLogLine?.(line);
+  }
+
   async installOnHost(
     host: AgentHostAdapter,
     input: AgentInstallOnHostInput,
   ): Promise<AgentInstallResult> {
-    const logs: string[] = [`Agent install via ${host.label} host`];
+    const { onLogLine } = input;
+    const logs: string[] = [];
+    this.pushLog(logs, `Agent install via ${host.label} host`, onLogLine);
     const installDir = input.installDir.replace(/\/+$/, "");
     const composePath = `${installDir}/${AGENT_INSTALL.COMPOSE_FILE}`;
     const envPath = `${installDir}/${AGENT_INSTALL.ENV_FILE}`;
@@ -151,7 +179,7 @@ export class AgentInstallService {
         };
       }
 
-      const prereq = await this.ensurePrerequisites(host, logs);
+      const prereq = await this.ensurePrerequisites(host, logs, onLogLine);
       if (!prereq.ok) {
         return {
           success: false,
@@ -160,32 +188,35 @@ export class AgentInstallService {
         };
       }
 
-      await this.ensureDockerDaemonRunning(host, logs);
+      await this.ensureDockerDaemonRunning(host, logs, onLogLine);
 
-      const dockerCli = await this.resolveDockerCli(host, logs);
+      const dockerCli = await this.resolveDockerCli(host, logs, onLogLine);
       if (!dockerCli) {
+        this.pushLog(
+          logs,
+          "Docker still unavailable after prerequisite install",
+          onLogLine,
+        );
         return {
           success: false,
-          logs: [
-            ...logs,
-            "Docker still unavailable after prerequisite install",
-          ],
+          logs,
           error:
             "Docker CLI is installed but not reachable (daemon down or socket permissions). Check agentInstall.logs; try reconnecting SSH or use sudo docker on the host.",
         };
       }
-      logs.push(`Docker CLI ready (${dockerCli.label})`);
+      this.pushLog(logs, `Docker CLI ready (${dockerCli.label})`, onLogLine);
 
       const composeCmd = await this.detectComposeCommand(host, dockerCli);
       if (!composeCmd) {
+        this.pushLog(logs, "Docker Compose plugin not found", onLogLine);
         return {
           success: false,
-          logs: [...logs, "Docker Compose plugin not found"],
+          logs,
           error:
             "Docker Compose is not available on the host after prerequisite install",
         };
       }
-      logs.push(`Using ${composeCmd}`);
+      this.pushLog(logs, `Using ${composeCmd}`, onLogLine);
 
       const writeCompose = await host.writeTextFile(
         composePath,
@@ -198,7 +229,7 @@ export class AgentInstallService {
           error: writeCompose.error ?? `Failed to write ${composePath}`,
         };
       }
-      logs.push(`Wrote ${composePath}`);
+      this.pushLog(logs, `Wrote ${composePath}`, onLogLine);
 
       const writeEnv = await host.writeTextFile(envPath, envBuild.content);
       if (!writeEnv.ok) {
@@ -208,25 +239,32 @@ export class AgentInstallService {
           error: writeEnv.error ?? `Failed to write ${envPath}`,
         };
       }
-      logs.push(`Wrote ${envPath}`);
+      this.pushLog(logs, `Wrote ${envPath}`, onLogLine);
 
       const pull = await host.executeCommand(
         this.buildComposeCommand(installDir, composeCmd, "pull"),
         AGENT_INSTALL.PULL_TIMEOUT_MS,
       );
+      this.appendCommandOutput(logs, pull, onLogLine);
       if (!pull.success) {
-        return this.failFromCommand(logs, "docker compose pull", pull);
+        return this.failFromCommand(
+          logs,
+          "docker compose pull",
+          pull,
+          onLogLine,
+        );
       }
-      logs.push("Pulled agent image");
+      this.pushLog(logs, "Pulled agent image", onLogLine);
 
       const up = await host.executeCommand(
         this.buildComposeCommand(installDir, composeCmd, "up -d"),
         AGENT_INSTALL.PULL_TIMEOUT_MS,
       );
+      this.appendCommandOutput(logs, up, onLogLine);
       if (!up.success) {
-        return this.failFromCommand(logs, "docker compose up", up);
+        return this.failFromCommand(logs, "docker compose up", up, onLogLine);
       }
-      logs.push("Agent container started");
+      this.pushLog(logs, "Agent container started", onLogLine);
 
       this.logger.log(
         `Agent installed serverId=${input.serverId} dir=${installDir} host=${host.label}`,
@@ -290,9 +328,22 @@ export class AgentInstallService {
     return { ok: true, content };
   }
 
+  private emitCommandChunks(
+    chunk: string,
+    logs: string[],
+    onLogLine?: AgentInstallLogCallback,
+  ): void {
+    for (const line of chunk.split(/\r?\n/)) {
+      const trimmed = line.trimEnd();
+      if (!trimmed) continue;
+      this.pushLog(logs, trimmed, onLogLine);
+    }
+  }
+
   private async ensurePrerequisites(
     host: AgentHostAdapter,
     logs: string[],
+    onLogLine?: AgentInstallLogCallback,
   ): Promise<{ ok: boolean; error?: string }> {
     let script: string;
     try {
@@ -305,10 +356,12 @@ export class AgentInstallService {
     if (!elevation.ok) {
       return { ok: false, error: elevation.error };
     }
-    logs.push(elevation.log);
+    this.pushLog(logs, elevation.log, onLogLine);
 
-    logs.push(
+    this.pushLog(
+      logs,
       "Running ensure-agent-prerequisites.sh (may take several minutes)...",
+      onLogLine,
     );
 
     const write = await host.writeTextFile(
@@ -324,11 +377,22 @@ export class AgentInstallService {
 
     await host.executeCommand(`chmod +x ${AGENT_INSTALL.PREREQ_REMOTE_PATH}`);
 
-    const run = await host.executeCommand(
-      `bash ${AGENT_INSTALL.PREREQ_REMOTE_PATH}`,
-      AGENT_INSTALL.PREREQ_TIMEOUT_MS,
-    );
-    this.appendCommandOutput(logs, run);
+    const prereqCommand = `bash ${AGENT_INSTALL.PREREQ_REMOTE_PATH}`;
+    const run =
+      host instanceof SshAgentHostAdapter
+        ? await host.executeCommandStreaming(
+            prereqCommand,
+            AGENT_INSTALL.PREREQ_TIMEOUT_MS,
+            (chunk) => this.emitCommandChunks(chunk, logs, onLogLine),
+          )
+        : await host.executeCommand(
+            prereqCommand,
+            AGENT_INSTALL.PREREQ_TIMEOUT_MS,
+          );
+
+    if (!(host instanceof SshAgentHostAdapter)) {
+      this.appendCommandOutput(logs, run, onLogLine);
+    }
 
     if (!run.success) {
       const needsSudoPassword =
@@ -346,7 +410,7 @@ export class AgentInstallService {
       };
     }
 
-    logs.push("Prerequisites OK");
+    this.pushLog(logs, "Prerequisites OK", onLogLine);
     return { ok: true };
   }
 
@@ -381,6 +445,7 @@ export class AgentInstallService {
   private async ensureDockerDaemonRunning(
     host: AgentHostAdapter,
     logs: string[],
+    onLogLine?: AgentInstallLogCallback,
   ): Promise<void> {
     const start = await host.executeCommand(
       [
@@ -393,20 +458,23 @@ export class AgentInstallService {
       ].join(""),
     );
     if (start.success) {
-      logs.push("Attempted to start Docker daemon");
+      this.pushLog(logs, "Attempted to start Docker daemon", onLogLine);
     }
   }
 
   private async resolveDockerCli(
     host: AgentHostAdapter,
     logs: string[],
+    onLogLine?: AgentInstallLogCallback,
   ): Promise<{ mode: "direct" | "sudo" | "sg"; label: string } | null> {
     if (await this.dockerPs(host, "docker")) {
       return { mode: "direct", label: "docker" };
     }
 
-    logs.push(
+    this.pushLog(
+      logs,
       "docker ps failed as current user (often needs new login for docker group)",
+      onLogLine,
     );
 
     if (await this.dockerPs(host, "sudo -n docker")) {
@@ -417,8 +485,10 @@ export class AgentInstallService {
       'command -v docker >/dev/null 2>&1 && sg docker -c "docker ps >/dev/null 2>&1" && echo ok',
     );
     if (sg.success) {
-      logs.push(
+      this.pushLog(
+        logs,
         "Using sg docker for docker compose (docker group not active in this session)",
+        onLogLine,
       );
       return { mode: "sg", label: "sg docker" };
     }
@@ -426,7 +496,7 @@ export class AgentInstallService {
     const diag = await host.executeCommand(
       "command -v docker; sudo -n docker ps 2>&1; id; groups 2>&1",
     );
-    this.appendCommandOutput(logs, diag);
+    this.appendCommandOutput(logs, diag, onLogLine);
 
     return null;
   }
@@ -475,16 +545,19 @@ export class AgentInstallService {
     }
   }
 
-  private appendCommandOutput(logs: string[], result: ExecuteResult): void {
+  private appendCommandOutput(
+    logs: string[],
+    result: ExecuteResult,
+    onLogLine?: AgentInstallLogCallback,
+  ): void {
     const combined = [result.stdout, result.stderr]
       .join("\n")
       .split("\n")
       .map((line) => line.trimEnd())
       .filter((line) => line.length > 0);
 
-    const tail = combined.slice(-40);
-    for (const line of tail) {
-      logs.push(line);
+    for (const line of combined) {
+      this.pushLog(logs, line, onLogLine);
     }
   }
 
@@ -492,14 +565,20 @@ export class AgentInstallService {
     logs: string[],
     step: string,
     result: ExecuteResult,
+    onLogLine?: AgentInstallLogCallback,
   ): AgentInstallResult {
     const detail = [result.stderr, result.stdout]
       .map((s) => s.trim())
       .filter(Boolean)
       .join("\n");
+    this.pushLog(
+      logs,
+      `${step} failed (exit ${result.exitCode ?? "?"})`,
+      onLogLine,
+    );
     return {
       success: false,
-      logs: [...logs, `${step} failed (exit ${result.exitCode ?? "?"})`],
+      logs,
       error: detail || `${step} failed`,
     };
   }

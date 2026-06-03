@@ -1,7 +1,9 @@
 import {
+  ConnectedSocket,
+  MessageBody,
+  SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
-  SubscribeMessage,
   OnGatewayConnection,
   OnGatewayDisconnect,
   OnGatewayInit,
@@ -12,6 +14,9 @@ import {
   DeploymentStatusPayload,
   DeploymentLogPayload,
   DeploymentEvents,
+  DeploymentLogStreamPayload,
+  DeploymentLogStreamType,
+  LogsSubscribePayload,
   SocketDeployMessage,
   SocketRemoveMessage,
 } from "@shared/socket-events";
@@ -19,6 +24,13 @@ import { DeploymentsService } from "@control-panel/modules/deployments/deploymen
 import { AgentServerBindingService } from "@control-panel/modules/server-connections/services/agent-server-binding.service";
 
 const SERVER_ID_HEADER = "x-kubeara-server-id";
+const STREAM_DEBUG =
+  process.env.KUBEARA_STREAM_DEBUG === "true" ||
+  process.env.KUBEARA_STREAM_DEBUG === "1";
+
+function deploymentRoom(deploymentId: string): string {
+  return `deployment:${deploymentId}`;
+}
 
 @Injectable()
 @WebSocketGateway({
@@ -30,10 +42,6 @@ export class DeploymentGateway
 {
   private readonly logger = new Logger(DeploymentGateway.name);
 
-  /**
-   * Creates deployment websocket gateway with deployment status persistence service.
-   * @param deploymentsService Service used to persist deployment status updates.
-   */
   constructor(
     @Inject(forwardRef(() => DeploymentsService))
     private readonly deploymentsService: DeploymentsService,
@@ -43,34 +51,21 @@ export class DeploymentGateway
   @WebSocketServer()
   server!: Server;
 
+  /** Agent socket registry: socketId → socket (multiple agents). */
   private connectedAgents = new Map<string, Socket>();
   private agentPublicIps = new Map<string, string>();
-  /** Maps Kubeara `servers.id` → active agent socket. */
+  /** serverId → agent socket (one active agent per server). */
   private agentsByServerId = new Map<string, Socket>();
   private serverIdBySocketId = new Map<string, string>();
 
-  /**
-   * Logs gateway initialization event.
-   * @returns Void.
-   */
   afterInit(): void {
-    try {
-      this.logger.log("WebSocket Gateway initialized");
-    } catch (error) {
-      this.logger.error(
-        `Failed during websocket gateway initialization logging: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+    this.logStreamDiagnostics("afterInit");
+    this.logger.log("[stream] WebSocket Gateway initialized");
   }
 
-  /**
-   * Handles agent websocket connection and tracks optional reported public IP.
-   * @param client Connected socket client.
-   * @returns Void.
-   */
   async handleConnection(client: Socket): Promise<void> {
     try {
-      const agentId = client.id;
+      const socketId = client.id;
       const publicIp = this.extractPublicIpFromHandshake(client);
       const explicitServerId = this.extractServerIdFromHandshake(client);
 
@@ -79,114 +74,257 @@ export class DeploymentGateway
         reportedPublicIp: publicIp || null,
       });
 
-      this.connectedAgents.set(agentId, client);
-      if (publicIp) {
-        this.agentPublicIps.set(agentId, publicIp);
-      }
+      const isAgent = this.isLikelyAgentClient(client);
 
-      if (serverId) {
-        const previous = this.agentsByServerId.get(serverId);
-        if (previous && previous.id !== agentId) {
-          this.logger.warn(
-            `Replacing prior agent socket for serverId=${serverId} (old=${previous.id}, new=${agentId})`,
-          );
-          this.unregisterServerBinding(previous.id);
-          previous.disconnect(true);
+      if (isAgent) {
+        this.connectedAgents.set(socketId, client);
+        if (publicIp) {
+          this.agentPublicIps.set(socketId, publicIp);
         }
 
-        this.agentsByServerId.set(serverId, client);
-        this.serverIdBySocketId.set(agentId, serverId);
+        if (serverId) {
+          const previous = this.agentsByServerId.get(serverId);
+          if (previous && previous.id !== socketId) {
+            this.logger.warn(
+              `Replacing prior agent socket for serverId=${serverId} (old=${previous.id}, new=${socketId})`,
+            );
+            this.unregisterServerBinding(previous.id);
+            previous.disconnect(true);
+          }
+
+          this.agentsByServerId.set(serverId, client);
+          this.serverIdBySocketId.set(socketId, serverId);
+        }
+
+        this.logger.log(
+          `Agent connected: ${socketId} (agents=${this.connectedAgents.size})` +
+            (serverId ? ` serverId=${serverId}` : " (unbound)") +
+            (publicIp ? ` publicIp=${publicIp}` : ""),
+        );
+      } else {
+        this.logger.log(
+          `Console client connected: ${socketId} (agents=${this.connectedAgents.size})`,
+        );
       }
 
-      this.logger.log(
-        `Agent connected: ${agentId} (Total: ${this.connectedAgents.size})` +
-          (serverId
-            ? ` serverId=${serverId} (auto-bound)`
-            : " (unbound — deploy to this host will fail until matched)") +
-          (publicIp ? ` publicIp=${publicIp}` : ""),
-      );
-
-      this.server.emit(DeploymentEvents.AGENT_CONNECTED, {
-        agentId,
-        serverId: serverId ?? undefined,
-        timestamp: new Date().toISOString(),
-        totalAgents: this.connectedAgents.size,
-      });
+      const ns = this.getNamespaceServer();
+      if (isAgent) {
+        ns?.emit(DeploymentEvents.AGENT_CONNECTED, {
+          agentId: socketId,
+          serverId: serverId ?? undefined,
+          timestamp: new Date().toISOString(),
+          totalAgents: this.connectedAgents.size,
+        });
+      }
     } catch (error) {
       this.logger.error(
-        `Failed to handle agent connection: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to handle connection: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
 
-  /**
-   * Handles agent websocket disconnection and removes tracked state.
-   * @param client Disconnected socket client.
-   * @returns Void.
-   */
   handleDisconnect(client: Socket): void {
     try {
-      const agentId = client.id;
-      this.connectedAgents.delete(agentId);
-      this.agentPublicIps.delete(agentId);
-      this.unregisterServerBinding(agentId);
+      const socketId = client.id;
+      const wasAgent = this.connectedAgents.has(socketId);
+
+      this.connectedAgents.delete(socketId);
+      this.agentPublicIps.delete(socketId);
+      this.unregisterServerBinding(socketId);
 
       this.logger.log(
-        `Agent disconnected: ${agentId} (Total: ${this.connectedAgents.size})`,
+        `${wasAgent ? "Agent" : "Client"} disconnected: ${socketId} (agents=${this.connectedAgents.size})`,
       );
 
-      this.server.emit(DeploymentEvents.AGENT_DISCONNECTED, {
-        agentId,
-        timestamp: new Date().toISOString(),
-        totalAgents: this.connectedAgents.size,
-      });
+      if (wasAgent) {
+        const ns = this.getNamespaceServer();
+        ns?.emit(DeploymentEvents.AGENT_DISCONNECTED, {
+          agentId: socketId,
+          timestamp: new Date().toISOString(),
+          totalAgents: this.connectedAgents.size,
+        });
+      }
     } catch (error) {
       this.logger.error(
-        `Failed to handle agent disconnect: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to handle disconnect: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  @SubscribeMessage(DeploymentEvents.DEPLOYMENT_LOG)
+  handleDeploymentLog(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: DeploymentLogPayload,
+  ): void {
+    this.processAgentLog(client, payload);
   }
 
   @SubscribeMessage(DeploymentEvents.DEPLOYMENT_STATUS)
-  async handleDeploymentStatus(
+  handleDeploymentStatus(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: DeploymentStatusPayload,
+  ): Promise<void> {
+    return this.processDeploymentStatus(client, payload);
+  }
+
+  @SubscribeMessage(DeploymentEvents.LOGS_SUBSCRIBE)
+  async handleLogsSubscribe(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: LogsSubscribePayload,
+  ): Promise<void> {
+    const deploymentId = body?.deploymentId?.trim();
+    if (!deploymentId) {
+      this.logger.warn(
+        `[stream] logs:subscribe rejected for ${client.id}: missing deploymentId`,
+      );
+      return;
+    }
+
+    const room = deploymentRoom(deploymentId);
+
+    try {
+      await client.join(room);
+    } catch (error) {
+      this.logger.error(
+        `[stream] logs:subscribe join failed client=${client.id} room=${room}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return;
+    }
+
+    this.logger.log(
+      `[stream] client joined room client=${client.id} deploymentId=${deploymentId} room=${room}`,
+    );
+
+    this.logStreamDiagnostics("logs:subscribe", {
+      socketId: client.id,
+      deploymentId,
+      room,
+    });
+  }
+
+  private isLikelyAgentClient(client: Socket): boolean {
+    const headerIp = client.handshake.headers["x-agent-public-ip"];
+    const queryIp = client.handshake.query.publicIp;
+    const hasPublicIp = Boolean(
+      (Array.isArray(headerIp) ? headerIp[0] : headerIp) ??
+      (Array.isArray(queryIp) ? queryIp[0] : queryIp),
+    );
+    const hasServerHeader = Boolean(
+      client.handshake.headers[SERVER_ID_HEADER] ??
+      client.handshake.query.serverId,
+    );
+    return hasPublicIp || hasServerHeader;
+  }
+
+  private processAgentLog(client: Socket, payload: DeploymentLogPayload): void {
+    try {
+      if (!payload?.message) {
+        return;
+      }
+
+      if (!payload.deploymentId) {
+        this.logger.warn(
+          `[stream] agent log missing deploymentId from agent=${client.id}`,
+        );
+        return;
+      }
+
+      const serverId = this.serverIdBySocketId.get(client.id);
+      const isContainer = payload.source === "container";
+      const containerName =
+        isContainer && payload.message.startsWith("[")
+          ? payload.message.match(/^\[([^\]]+)\]/)?.[1]
+          : undefined;
+
+      this.logger.log(
+        `[stream] agent log deploymentId=${payload.deploymentId} source=${payload.source ?? "deployment"}`,
+      );
+
+      this.emitStreamPayload({
+        deploymentId: payload.deploymentId,
+        serverId,
+        containerId: isContainer ? payload.containerId : undefined,
+        containerName: containerName ?? payload.containerId,
+        phase: isContainer ? "container" : "deploy",
+        source: isContainer ? "container" : "deployment",
+        stream: payload.type,
+        timestamp: payload.timestamp ?? new Date().toISOString(),
+        message: payload.message,
+      });
+    } catch (error) {
+      this.logger.error(
+        `[stream] failed to process agent log: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private async processDeploymentStatus(
     client: Socket,
     payload: DeploymentStatusPayload,
   ): Promise<void> {
     try {
-      this.logger.debug(`Status from ${client.id}: ${payload.status}`);
-
-      if (payload.deploymentId) {
-        try {
-          if (payload.status === "removed") {
-            await this.deploymentsService.softDeleteDeploymentRecord(
-              payload.deploymentId,
-              {
-                message: payload.message,
-              },
-            );
-          } else {
-            await this.deploymentsService.updateStatus(
-              payload.deploymentId,
-              payload.status,
-              {
-                message: payload.message,
-                error: payload.error,
-              },
-            );
-          }
-        } catch (error) {
-          this.logger.warn(
-            `Could not persist deployment status for ${payload.deploymentId}: ${error instanceof Error ? error.message : String(error)}`,
-          );
-        }
+      if (!payload?.deploymentId) {
+        this.logger.warn(
+          `Ignoring deployment status without deploymentId from ${client.id}`,
+        );
+        return;
       }
 
-      this.server.emit(DeploymentEvents.DEPLOYMENT_STATUS, {
+      const serverId = this.serverIdBySocketId.get(client.id);
+      const room = deploymentRoom(payload.deploymentId);
+
+      this.logStreamDiagnostics("status:inbound", {
+        socketId: client.id,
+        deploymentId: payload.deploymentId,
+        serverId,
+        status: payload.status,
+        room,
+      });
+
+      try {
+        if (payload.status === "removed") {
+          await this.deploymentsService.softDeleteDeploymentRecord(
+            payload.deploymentId,
+            { message: payload.message },
+          );
+        } else {
+          await this.deploymentsService.updateStatus(
+            payload.deploymentId,
+            payload.status,
+            {
+              message: payload.message,
+              error: payload.error,
+            },
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Could not persist deployment status for ${payload.deploymentId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+
+      const enriched = {
         agentId: client.id,
-        serverId: this.serverIdBySocketId.get(client.id),
+        serverId,
         ...payload,
         receivedAt: new Date().toISOString(),
+      };
+
+      const ns = this.getNamespaceServer();
+      if (!ns) {
+        return;
+      }
+
+      this.logStreamDiagnostics("status:emit", {
+        deploymentId: payload.deploymentId,
+        serverId,
+        status: payload.status,
+        room,
+        event: DeploymentEvents.DEPLOYMENT_STATUS,
       });
+
+      ns.emit(DeploymentEvents.DEPLOYMENT_STATUS, enriched);
+      ns.to(room).emit(DeploymentEvents.DEPLOYMENT_STATUS, enriched);
     } catch (error) {
       this.logger.error(
         `Failed to process deployment status event: ${error instanceof Error ? error.message : String(error)}`,
@@ -194,25 +332,102 @@ export class DeploymentGateway
     }
   }
 
-  @SubscribeMessage(DeploymentEvents.DEPLOYMENT_LOG)
-  handleDeploymentLog(client: Socket, payload: DeploymentLogPayload): void {
+  broadcastDeploymentLog(
+    payload: DeploymentLogPayload & {
+      serverId: string;
+      deploymentId: string;
+    },
+  ): void {
+    const message = payload.message?.trim();
+    if (!message) {
+      return;
+    }
+
+    this.logger.log(
+      `[stream] broadcast install/setup log deploymentId=${payload.deploymentId} serverId=${payload.serverId} bytes=${message.length}`,
+    );
+
+    this.emitStreamPayload({
+      deploymentId: payload.deploymentId,
+      serverId: payload.serverId,
+      phase: "install",
+      source: "install",
+      stream: payload.type,
+      timestamp: payload.timestamp ?? new Date().toISOString(),
+      message,
+    });
+  }
+
+  private emitStreamPayload(
+    input: Omit<DeploymentLogStreamPayload, "stream"> & {
+      stream?: DeploymentLogStreamType;
+    },
+  ): void {
+    const deploymentId = input.deploymentId?.trim();
+    if (!deploymentId) {
+      this.logger.warn("[stream] emit skipped: missing deploymentId");
+      return;
+    }
+
+    const ns = this.getNamespaceServer();
+    if (!ns) {
+      this.logger.error(
+        "[stream] emit skipped: namespace server is not initialized",
+      );
+      return;
+    }
+
     try {
-      this.server.emit(DeploymentEvents.DEPLOYMENT_LOG, {
-        agentId: client.id,
-        serverId: this.serverIdBySocketId.get(client.id),
-        ...payload,
-        receivedAt: new Date().toISOString(),
+      const normalized: DeploymentLogStreamPayload = {
+        deploymentId,
+        serverId: input.serverId,
+        containerId: input.containerId,
+        containerName: input.containerName,
+        phase: input.phase,
+        source: input.source,
+        stream: input.stream ?? "stdout",
+        timestamp: input.timestamp ?? new Date().toISOString(),
+        message: input.message,
+      };
+
+      const room = deploymentRoom(deploymentId);
+
+      this.logStreamDiagnostics("emit", {
+        deploymentId,
+        serverId: normalized.serverId,
+        phase: normalized.phase,
+        room,
+        event: DeploymentEvents.DEPLOYMENT_STREAM,
+        bytes: normalized.message.length,
       });
+
+      ns.emit(DeploymentEvents.DEPLOYMENT_STREAM, normalized);
     } catch (error) {
       this.logger.error(
-        `Failed to process deployment log event: ${error instanceof Error ? error.message : String(error)}`,
+        `[stream] failed to emit log: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
 
-  /**
-   * Emit a remove message to the agent bound to `serverId`.
-   */
+  private getNamespaceServer(): Server | null {
+    return this.server ?? null;
+  }
+
+  private logStreamDiagnostics(
+    context: string,
+    extra?: Record<string, unknown>,
+  ) {
+    if (!STREAM_DEBUG) {
+      return;
+    }
+
+    const ns = this.server;
+
+    this.logger.debug(
+      `[stream][diag] ${context} serverDefined=${Boolean(ns)} trackedAgents=${this.connectedAgents.size} ${extra ? JSON.stringify(extra) : ""}`,
+    );
+  }
+
   emitRemove(message: SocketRemoveMessage, serverId: string): void {
     try {
       const client = this.agentsByServerId.get(serverId);
@@ -234,9 +449,6 @@ export class DeploymentGateway
     }
   }
 
-  /**
-   * Emit a deploy message to the agent bound to `serverId`.
-   */
   emitDeploy(message: SocketDeployMessage, serverId: string): void {
     try {
       const client = this.agentsByServerId.get(serverId);
@@ -246,8 +458,14 @@ export class DeploymentGateway
         );
       }
 
+      if (!client.connected) {
+        throw new Error(
+          `Agent for server '${serverId}' is disconnected (template ${message.payload.name})`,
+        );
+      }
+
       this.logger.log(
-        `Emitting deploy to serverId=${serverId} for template: ${message.payload.name}`,
+        `[DEPLOY_TRACE] emitting deploy deploymentId=${message.payload.deploymentId ?? "n/a"} serverId=${serverId} template=${message.payload.name} agentSocket=${client.id}`,
       );
       client.emit(DeploymentEvents.DEPLOY, message);
     } catch (error) {
@@ -258,9 +476,6 @@ export class DeploymentGateway
     }
   }
 
-  /**
-   * Returns true when an agent registered for the given server is connected.
-   */
   isAgentConnectedForServer(serverId: string): boolean {
     try {
       return this.agentsByServerId.has(serverId);
@@ -272,10 +487,6 @@ export class DeploymentGateway
     }
   }
 
-  /**
-   * Returns currently connected agent IDs.
-   * @returns Array of active agent socket identifiers.
-   */
   getConnectedAgents(): string[] {
     try {
       return Array.from(this.connectedAgents.keys());
@@ -287,25 +498,10 @@ export class DeploymentGateway
     }
   }
 
-  /**
-   * Returns current number of connected agents.
-   * @returns Connected agent count.
-   */
   getConnectedAgentsCount(): number {
-    try {
-      return this.connectedAgents.size;
-    } catch (error) {
-      this.logger.error(
-        `Failed to get connected agent count: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return 0;
-    }
+    return this.connectedAgents.size;
   }
 
-  /**
-   * Public IP reported by the first connected agent (legacy fallback).
-   * Prefer {@link DeploymentsService.buildServerUrlContext} with an explicit serverId.
-   */
   getPrimaryAgentPublicIp(): string | null {
     try {
       const firstEntry = this.agentPublicIps.values().next();
@@ -334,9 +530,6 @@ export class DeploymentGateway
     }
   }
 
-  /**
-   * Optional id from install-generated agent env (not required from users).
-   */
   private extractServerIdFromHandshake(client: Socket): string | null {
     try {
       const headerValue = client.handshake.headers[SERVER_ID_HEADER];

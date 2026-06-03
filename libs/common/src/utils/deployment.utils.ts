@@ -1,4 +1,43 @@
 import { APP_CONFIG } from "../constants";
+import { isPortVariable } from "../compose-parser/compose-parser.util";
+
+export interface NormalizedDeployRequestVariables {
+  /** Unified request env (includes port variables). */
+  env: Record<string, unknown>;
+  /** Port variables extracted for compose resolution (legacy + unified env). */
+  ports: Record<string, unknown>;
+}
+
+/**
+ * Normalizes deploy request input from a unified `env` object and/or legacy `ports`.
+ * Port keys remain in `env` for storage/API simplicity; `ports` is derived for compose resolution.
+ */
+export function normalizeDeployRequestVariables(
+  env: Record<string, unknown> = {},
+  ports: Record<string, unknown> = {},
+): NormalizedDeployRequestVariables {
+  const unifiedEnv: Record<string, unknown> = { ...env };
+  const splitPorts: Record<string, unknown> = { ...ports };
+
+  for (const [key, value] of Object.entries(ports)) {
+    if (unifiedEnv[key] === undefined) {
+      unifiedEnv[key] = value;
+    }
+  }
+
+  for (const [key, value] of Object.entries(unifiedEnv)) {
+    if (
+      isPortVariable(key) &&
+      value !== undefined &&
+      value !== null &&
+      value !== ""
+    ) {
+      splitPorts[key] = value;
+    }
+  }
+
+  return { env: unifiedEnv, ports: splitPorts };
+}
 
 /**
  * Masks sensitive values in an environment map.

@@ -1,11 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { useMemo, useState } from "react";
-import { useDeleteServerMutation, useConnectServerMutation, useDisconnectServerMutation } from "@/features/servers/hooks";
-import { TemplateCard } from "@/components/template-card";
+import { useDeleteServerMutation } from "@/features/servers/hooks";
+import { ServerTemplatesPanel } from "@/features/templates/components/server-templates-panel";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { formatApiTimestamp } from "@/lib/unix-timestamp";
 import {
-  getAllTemplatesForServer,
   getConnectedServices,
   getServerActivity,
   getServerInsights,
@@ -112,25 +111,23 @@ function OverviewTab({ serverId }: { serverId: string }) {
   );
 }
 
-function TemplatesTab({ connectedIds }: { connectedIds: Set<string> }) {
-  const allTemplates = getAllTemplatesForServer();
-
+function TemplatesTab({
+  serverId,
+  connectedIds,
+}: {
+  serverId: string;
+  connectedIds: Set<string>;
+}) {
   return (
     <div className="server-detail-panel server-detail-templates">
-      <h2 className="server-detail-section-title">All services</h2>
+      <h2 className="server-detail-section-title">Deploy a template</h2>
       <p className="server-detail-section-desc">
-        Browse available templates and deploy new services to this server.
+        Browse the marketplace and deploy services directly to this server.
       </p>
-      <div className="template-grid">
-        {allTemplates.map((template) => (
-          <div key={template.id} className="template-card-wrapper">
-            <TemplateCard template={template} />
-            {connectedIds.has(template.id) && (
-              <span className="template-card-connected-badge">Connected</span>
-            )}
-          </div>
-        ))}
-      </div>
+      <ServerTemplatesPanel
+        serverId={serverId}
+        connectedTemplateSlugs={connectedIds}
+      />
     </div>
   );
 }
@@ -208,30 +205,24 @@ function ActivityTab({
 function SettingsTab({ server }: { server: Server }) {
   const navigate = useNavigate();
   const deleteMutation = useDeleteServerMutation();
-  const connectMutation = useConnectServerMutation();
-  const disconnectMutation = useDisconnectServerMutation();
   const settings = useMemo(() => getServerSettings(server), [server]);
   const [destroyOpen, setDestroyOpen] = useState(false);
 
-  const isConnected = server.connected;
-  const connectionLoading =
-    connectMutation.isPending || disconnectMutation.isPending;
+  // async function handleConnect() {
+  //   try {
+  //     await connectMutation.mutateAsync(server.id);
+  //   } catch {
+  //     /* errors surfaced via mutation onError toast */
+  //   }
+  // }
 
-  async function handleConnect() {
-    try {
-      await connectMutation.mutateAsync(server.id);
-    } catch {
-      /* errors surfaced via mutation onError toast */
-    }
-  }
-
-  async function handleDisconnect() {
-    try {
-      await disconnectMutation.mutateAsync(server.id);
-    } catch {
-      /* errors surfaced via mutation onError toast */
-    }
-  }
+  // async function handleDisconnect() {
+  //   try {
+  //     await disconnectMutation.mutateAsync(server.id);
+  //   } catch {
+  //     /* errors surfaced via mutation onError toast */
+  //   }
+  // }
 
   async function handleDestroy() {
     try {
@@ -307,8 +298,8 @@ function SettingsTab({ server }: { server: Server }) {
           </div>
         </dl>
 
-        <div className="settings-connection-actions">
-          {isConnected ? (
+        {/* <div className="settings-connection-actions">
+          {isOnline ? (
             <button
               type="button"
               className={`btn-danger-outline${connectionLoading ? " is-loading" : ""}`}
@@ -329,7 +320,7 @@ function SettingsTab({ server }: { server: Server }) {
               {connectionLoading ? "Connecting…" : "Connect SSH"}
             </button>
           )}
-        </div>
+        </div> */}
 
         <div className="settings-toggles">
           <div className="settings-toggle-row">
@@ -458,7 +449,10 @@ export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
       >
         {activeTab === "overview" && <OverviewTab serverId={server.id} />}
         {activeTab === "templates" && (
-          <TemplatesTab connectedIds={connectedIds} />
+          <TemplatesTab
+            serverId={server.id}
+            connectedIds={connectedIds}
+          />
         )}
         {activeTab === "insights" && <InsightsTab serverId={server.id} />}
         {activeTab === "activity" && (

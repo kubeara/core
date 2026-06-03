@@ -7,8 +7,7 @@ type TopBarProps = {
 };
 
 const NAV_ITEMS = [
-  { href: "/servers", label: "Servers" },
-  { href: "/templates", label: "Templates" },
+    { href: "/servers", label: "Servers" },
 ] as const;
 
 /**

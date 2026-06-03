@@ -37,8 +37,11 @@ import {
   SshConnectionManager,
   SshConnectionOptions,
 } from "@shared/ssh";
-import { AgentInstallResult } from "./agent-install.service";
-import { AgentInstallService } from "./agent-install.service";
+import {
+  AgentInstallLogCallback,
+  AgentInstallResult,
+  AgentInstallService,
+} from "./agent-install.service";
 import { RemoteAgentInstallService } from "./remote-agent-install.service";
 import { ServerType } from "../enums/server-type.enum";
 import {
@@ -97,7 +100,10 @@ export class ServerConnectionsService {
    */
   async ensureAgentInstalledForServer(
     serverId: string,
-    options?: { plainPrivateKey?: string },
+    options?: {
+      plainPrivateKey?: string;
+      onLogLine?: AgentInstallLogCallback;
+    },
   ): Promise<AgentInstallResult> {
     const server = await this.serverRepository.findOne({
       where: { id: serverId, status: EntityStatus.ACTIVE, deletedAt: IsNull() },
@@ -112,7 +118,10 @@ export class ServerConnectionsService {
     }
 
     if (server.serverType === ServerType.LOCAL) {
-      return this.agentInstall.installOnLocal({ serverId });
+      return this.agentInstall.installOnLocal(
+        { serverId },
+        { onLogLine: options?.onLogLine },
+      );
     }
 
     const credential = await this.credentialRepository.findOne({
@@ -127,15 +136,18 @@ export class ServerConnectionsService {
       };
     }
 
-    return this.remoteAgentInstall.install({
-      connection: this.buildSshOptions(
-        server,
-        credential,
-        options?.plainPrivateKey,
-      ),
-      serverHost: server.host,
-      plainPrivateKey: options?.plainPrivateKey,
-    });
+    return this.remoteAgentInstall.install(
+      {
+        connection: this.buildSshOptions(
+          server,
+          credential,
+          options?.plainPrivateKey,
+        ),
+        serverHost: server.host,
+        plainPrivateKey: options?.plainPrivateKey,
+      },
+      { onLogLine: options?.onLogLine },
+    );
   }
 
   private shouldInstallAgent(installAgent: boolean | undefined): boolean {
