@@ -45,7 +45,9 @@
     "docker:build": "npm run docker:build:control-panel && npm run docker:build:agent && npm run docker:build:spa",
     "docker:up:control-panel": "docker compose -f apps/control-panel-app/docker-compose.yml up -d",
     "docker:up:agent": "docker compose -f apps/agent-app/docker-compose.yml up -d",
-    "prepare": "husky"
+    "prepare": "husky",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
   },
   "lint-staged": {
     "*.{ts,js}": [
@@ -120,7 +122,8 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.20.0"
+    "typescript-eslint": "^8.20.0",
+    "wrangler": "^4.97.0"
   },
   "jest": {
     "moduleFileExtensions": [
