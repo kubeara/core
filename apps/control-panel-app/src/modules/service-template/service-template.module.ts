@@ -4,6 +4,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import {
   EncryptionModule,
   TemplateConfigModule,
+  ComposeParserModule,
   TemplatePayloadModule,
 } from "@shared/common";
 
@@ -17,6 +18,7 @@ import { ServiceTemplateService } from "./services/service-template.service";
     TypeOrmModule.forFeature([ServiceTemplateEntity]),
     WebsocketModule,
     TemplatePayloadModule,
+    ComposeParserModule,
     TemplateConfigModule,
     EncryptionModule,
   ],

@@ -15,7 +15,10 @@ import {
   ValidationPipe,
 } from "@nestjs/common";
 
-import { resolvePrimaryServicePublicUrl } from "@shared/common";
+import {
+  normalizeDeployRequestVariables,
+  resolvePrimaryServicePublicUrl,
+} from "@shared/common";
 
 import { JwtAuthGuard } from "@control-panel/modules/auth/guards/jwt-auth.guard";
 import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
@@ -52,10 +55,13 @@ export class DeploymentsController {
     try {
       const {
         templateSlug,
-        env: requestEnv = {},
-        ports: requestPorts = {},
+        env: rawEnv = {},
+        ports: rawPorts = {},
         deploymentId,
       } = body;
+
+      const { env: requestEnv, ports: requestPorts } =
+        normalizeDeployRequestVariables(rawEnv, rawPorts);
 
       this.logger.log(
         deploymentId
@@ -90,7 +96,7 @@ export class DeploymentsController {
         serverUrlContext,
       });
 
-      const result = await this.deploymentsService.emitPreparedDeployment(
+      const result = this.deploymentsService.schedulePreparedDeployment(
         prepared,
         Boolean(deploymentId),
       );
@@ -124,10 +130,13 @@ export class DeploymentsController {
     try {
       const {
         templateSlug,
-        env: requestEnv = {},
-        ports: requestPorts = {},
+        env: rawEnv = {},
+        ports: rawPorts = {},
         deploymentId,
       } = body;
+
+      const { env: requestEnv, ports: requestPorts } =
+        normalizeDeployRequestVariables(rawEnv, rawPorts);
 
       this.logger.log(
         deploymentId
@@ -162,7 +171,7 @@ export class DeploymentsController {
         serverUrlContext,
       });
 
-      return await this.deploymentsService.emitPreparedDeployment(
+      return this.deploymentsService.schedulePreparedDeployment(
         prepared,
         Boolean(deploymentId),
       );

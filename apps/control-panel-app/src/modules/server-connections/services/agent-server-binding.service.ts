@@ -96,7 +96,7 @@ export class AgentServerBindingService {
     try {
       const localServers = await this.serverRepository.find({
         where: {
-          serverType: ServerType.LOCAL,
+          // serverType: ServerType.LOCAL,
           host: LOCAL_SERVER.HOST,
           status: EntityStatus.ACTIVE,
           deletedAt: IsNull(),

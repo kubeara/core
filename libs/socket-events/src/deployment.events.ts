@@ -10,7 +10,36 @@ export enum DeploymentEvents {
   // New MVP events
   DEPLOY = "deploy",
   REMOVE = "deploy:remove",
-  DEPLOYMENT_LOG = "deployment-log",
+  DEPLOYMENT_LOG = "deployment:logs",
+  CONTAINER_LOG = "container:logs",
+  /** Console client joins `deployment:{deploymentId}` before logs arrive. */
+  LOGS_SUBSCRIBE = "logs:subscribe",
+  /** Unified log envelope broadcast on the deployments namespace. */
+  DEPLOYMENT_STREAM = "deployment:stream",
+}
+
+export type DeploymentLogPhase = "install" | "deploy" | "container";
+
+export type DeploymentLogStreamType = "stdout" | "stderr";
+
+/**
+ * Unified log line broadcast on the deployments namespace (console filters by deploymentId).
+ */
+export interface DeploymentLogStreamPayload {
+  deploymentId: string;
+  /** Originating Kubeara server; consoles should ignore mismatched serverId. */
+  serverId?: string;
+  containerId?: string;
+  containerName?: string;
+  phase: DeploymentLogPhase;
+  source: DeploymentLogSource;
+  stream: DeploymentLogStreamType;
+  timestamp: string;
+  message: string;
+}
+
+export interface LogsSubscribePayload {
+  deploymentId: string;
 }
 
 /**
@@ -126,11 +155,16 @@ export type DeploymentStatus =
 /**
  * Deployment Log payload (Agent -> Control Panel)
  */
+export type DeploymentLogSource = "deployment" | "container" | "install";
+
 export interface DeploymentLogPayload {
   deployment: string;
+  deploymentId?: string;
+  containerId?: string;
   type: "stdout" | "stderr";
   message: string;
   timestamp?: string;
+  source?: DeploymentLogSource;
 }
 
 /**

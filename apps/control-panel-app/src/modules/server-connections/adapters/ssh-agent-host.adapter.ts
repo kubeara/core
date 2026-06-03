@@ -17,6 +17,18 @@ export class SshAgentHostAdapter implements AgentHostAdapter {
     return this.executor.executeCommand(this.client, command, timeoutMs);
   }
 
+  executeCommandStreaming(
+    command: string,
+    timeoutMs: number | undefined,
+    onChunk: (chunk: string) => void,
+  ) {
+    return this.executor.executeCommandStreaming(this.client, command, {
+      timeoutMs,
+      onStdout: onChunk,
+      onStderr: onChunk,
+    });
+  }
+
   async writeTextFile(
     filePath: string,
     content: string,

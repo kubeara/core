@@ -33,6 +33,20 @@ export function buildApiUrl(path: string): string {
     return base ? `${base}${normalized}` : normalized;
 }
 
+export function buildDeploymentsSocketUrl(): string {
+    const explicitWs = import.meta.env.VITE_WS_URL?.trim();
+    if (explicitWs) {
+        return explicitWs.replace(/\/$/, "");
+    }
+
+    const base = getApiBaseUrl().replace(/\/api\/?$/, "");
+    if (base) {
+        return `${base}/deployments`;
+    }
+
+    return `${window.location.origin}/deployments`;
+}
+
 function createApiClient(): AxiosInstance {
     const client = axios.create({
         headers: {

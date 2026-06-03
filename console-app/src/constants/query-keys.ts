@@ -51,6 +51,26 @@ export const QUERY_KEYS = {
     },
 
     /**
+     * Template marketplace queries
+     */
+    templates: {
+        all: ["templates"] as const,
+        list: (serverId?: string) =>
+            serverId
+                ? (["templates", "list", serverId] as const)
+                : (["templates", "list"] as const),
+        detail: (slug: string) => ["templates", slug] as const,
+    },
+
+    deployments: {
+        all: ["deployments"] as const,
+        byServer: (serverId: string) =>
+            ["deployments", "server", serverId] as const,
+        detail: (deploymentId: string) =>
+            ["deployments", deploymentId] as const,
+    },
+
+    /**
      * Profile-related queries
      */
     profile: {

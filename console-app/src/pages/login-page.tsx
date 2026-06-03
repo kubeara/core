@@ -73,7 +73,7 @@ export function LoginPage() {
                         label: "Password",
                         type: "password",
                         autoComplete: "current-password",
-                        placeholder: "••••••••",
+                        // placeholder: "••••••••",
                     },
                 ]}
                 submitLabel="Sign in"

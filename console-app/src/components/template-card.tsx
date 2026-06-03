@@ -22,7 +22,7 @@ export function TemplateCard({ template }: TemplateCardProps) {
         <p>{template.description}</p>
       </div>
       <Link
-        to={`/deploy/${template.id}/logs`}
+        to={`/deploy/${template.id}`}
         className="template-card-action"
       >
         Deploy
