@@ -12,7 +12,11 @@ import {
 import { ServiceTemplateService } from "../../service-template/services/service-template.service";
 import { DeploymentGateway } from "../../../websocket/websocket.gateway";
 import { SocketDeployMessage } from "@shared/socket-events";
-import { EncryptionService, TemplateConfigService } from "@shared/common";
+import {
+  EncryptionService,
+  normalizeDeployRequestVariables,
+  TemplateConfigService,
+} from "@shared/common";
 import { DeployTemplateDto } from "../dto/deploy-template.dto";
 import { TemplateSchema, SchemaFieldDetails } from "@shared/socket-events";
 @Controller("deploy")
@@ -35,11 +39,9 @@ export class DeployController {
     deploymentId: string;
     serverId: string;
   }> {
-    const {
-      templateSlug,
-      env: requestEnv = {},
-      ports: requestPorts = {},
-    } = body;
+    const { templateSlug } = body;
+    const { env: requestEnv, ports: requestPorts } =
+      normalizeDeployRequestVariables(body.env ?? {}, body.ports ?? {});
 
     this.logger.log(`Received deployment request for '${templateSlug}'`);
 

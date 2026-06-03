@@ -29,6 +29,10 @@ export class SocketClientService {
   private socket: Socket | null = null;
   private connected = false;
   private readonly agentId: string;
+  private readonly inFlightDeployments = new Set<string>();
+  private readonly pendingLogs: DeploymentLogPayload[] = [];
+  private readonly pendingStatuses: DeploymentStatusPayload[] = [];
+  private static readonly MAX_PENDING_LOGS = 5000;
 
   constructor(
     private readonly configService: ConfigService,
@@ -57,14 +61,10 @@ export class SocketClientService {
         return;
       }
 
-      const controlPanelUrl = this.configService.get<string>(
-        "CONTROL_PANEL_URL",
-        "http://localhost:3000",
-      );
+      const controlPanelUrl =
+        this.configService.get<string>("CONTROL_PANEL_URL");
 
-      let publicIp = this.configService
-        .get<string>("AGENT_PUBLIC_IP", "")
-        .trim();
+      let publicIp = this.configService.get<string>("AGENT_PUBLIC_IP")?.trim();
       if (!publicIp) {
         publicIp = await detectOutboundPublicIp();
         if (publicIp) {
@@ -78,8 +78,8 @@ export class SocketClientService {
       }
 
       const installServerId = this.configService
-        .get<string>("KUBEARA_SERVER_ID", "")
-        .trim();
+        .get<string>("KUBEARA_SERVER_ID")
+        ?.trim();
 
       this.logger.log(`Connecting to control panel at ${controlPanelUrl}`);
 
@@ -121,6 +121,8 @@ export class SocketClientService {
       this.socket.on("connect", () => {
         this.connected = true;
         this.logger.log(`Connected with socket ID: ${this.socket?.id}`);
+        this.flushPendingStatuses();
+        this.flushPendingLogs();
       });
 
       this.socket.on("disconnect", (reason) => {
@@ -161,6 +163,28 @@ export class SocketClientService {
     } = message.payload;
     const deploymentId = providedId || this.generateDeploymentId();
 
+    this.logger.log(
+      `[DEPLOY_TRACE] deploy received deploymentId=${deploymentId} template=${name}`,
+    );
+
+    if (this.inFlightDeployments.has(deploymentId)) {
+      this.logger.warn(
+        `Ignoring duplicate DEPLOY socket message for ${deploymentId}`,
+      );
+      return;
+    }
+
+    this.inFlightDeployments.add(deploymentId);
+
+    this.sendLog({
+      deployment: name,
+      deploymentId,
+      type: "stdout",
+      message: "Agent received deployment command. Starting execution…",
+      timestamp: new Date().toISOString(),
+      source: "deployment",
+    });
+
     this.sendDeploymentStatus({
       deploymentId,
       templateSlug: name,
@@ -192,9 +216,8 @@ export class SocketClientService {
         throw new Error(`Missing deployment schema for template ${name}`);
       }
 
-      // 4. Execute deployment
       this.logger.log(
-        `Starting deployment ${deploymentId} for template ${name}`,
+        `[DEPLOY_TRACE] starting deployment execution deploymentId=${deploymentId}`,
       );
       await this.executor.execute({
         name,
@@ -210,6 +233,15 @@ export class SocketClientService {
       const msg = err instanceof Error ? err.message : String(err);
       this.logger.error(`Deployment initialization failed: ${msg}`);
 
+      this.sendLog({
+        deployment: name,
+        deploymentId,
+        type: "stderr",
+        message: `Deployment failed: ${msg}`,
+        timestamp: new Date().toISOString(),
+        source: "deployment",
+      });
+
       this.sendDeploymentStatus({
         deploymentId,
         templateSlug: name,
@@ -217,6 +249,8 @@ export class SocketClientService {
         message: msg,
         error: msg,
       });
+    } finally {
+      this.inFlightDeployments.delete(deploymentId);
     }
   }
 
@@ -271,17 +305,44 @@ export class SocketClientService {
    */
   private sendDeploymentStatus(payload: DeploymentStatusPayload): void {
     try {
-      if (!this.socket?.connected) return;
+      if (!this.socket?.connected) {
+        this.queuePendingStatus(payload);
+        return;
+      }
 
-      this.socket.emit(DeploymentEvents.DEPLOYMENT_STATUS, {
-        ...payload,
-        agentId: this.agentId,
-        timestamp: new Date().toISOString(),
-      });
+      this.emitDeploymentStatus(payload);
     } catch (error) {
       this.logger.error(
         `Failed to send deployment status: ${error instanceof Error ? error.message : String(error)}`,
       );
+    }
+  }
+
+  private emitDeploymentStatus(payload: DeploymentStatusPayload): void {
+    this.socket?.emit(DeploymentEvents.DEPLOYMENT_STATUS, {
+      ...payload,
+      agentId: this.agentId,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  private queuePendingStatus(payload: DeploymentStatusPayload): void {
+    this.pendingStatuses.push(payload);
+    if (this.pendingStatuses.length > SocketClientService.MAX_PENDING_LOGS) {
+      this.pendingStatuses.shift();
+    }
+  }
+
+  private flushPendingStatuses(): void {
+    if (!this.socket?.connected || this.pendingStatuses.length === 0) {
+      return;
+    }
+
+    const queued = [...this.pendingStatuses];
+    this.pendingStatuses.length = 0;
+
+    for (const payload of queued) {
+      this.emitDeploymentStatus(payload);
     }
   }
 
@@ -291,18 +352,67 @@ export class SocketClientService {
    */
   private sendDeploymentLog(payload: DeploymentLogPayload): void {
     try {
-      if (!this.socket?.connected) return;
+      if (!this.socket?.connected) {
+        this.queuePendingLog(payload);
+        return;
+      }
 
-      this.socket.emit(DeploymentEvents.DEPLOYMENT_LOG, {
-        ...payload,
-        agentId: this.agentId,
-        timestamp: new Date().toISOString(),
-      });
+      this.emitDeploymentLog(payload);
     } catch (error) {
       this.logger.error(
         `Failed to send deployment log: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  private queuePendingLog(payload: DeploymentLogPayload): void {
+    this.logger.warn(
+      `[DEPLOY_TRACE] log queued (socket disconnected) deploymentId=${payload.deploymentId ?? "n/a"} bytes=${payload.message?.length ?? 0}`,
+    );
+    this.pendingLogs.push(payload);
+    if (this.pendingLogs.length > SocketClientService.MAX_PENDING_LOGS) {
+      this.pendingLogs.shift();
+    }
+    this.logger.debug(
+      `Queued deployment log (socket disconnected): deployment=${payload.deployment} deploymentId=${payload.deploymentId ?? "n/a"}`,
+    );
+  }
+
+  private flushPendingLogs(): void {
+    if (!this.socket?.connected || this.pendingLogs.length === 0) {
+      return;
+    }
+
+    const queued = [...this.pendingLogs];
+    this.pendingLogs.length = 0;
+
+    for (const payload of queued) {
+      this.emitDeploymentLog(payload);
+    }
+  }
+
+  private emitDeploymentLog(payload: DeploymentLogPayload): void {
+    if (!payload.deploymentId) {
+      this.logger.warn(
+        `[stream] sendLog skipped: missing deploymentId (deployment=${payload.deployment})`,
+      );
+      return;
+    }
+
+    const source = payload.source === "container" ? "container" : "deployment";
+
+    const outbound: DeploymentLogPayload & { agentId: string } = {
+      ...payload,
+      deploymentId: payload.deploymentId,
+      source,
+      agentId: this.agentId,
+      timestamp: payload.timestamp ?? new Date().toISOString(),
+    };
+
+    this.logger.debug(
+      `[stream] log → control panel deploymentId=${outbound.deploymentId} source=${source}`,
+    );
+    this.socket?.emit(DeploymentEvents.DEPLOYMENT_LOG, outbound);
   }
 
   // ExecutionNotifier interface implementation

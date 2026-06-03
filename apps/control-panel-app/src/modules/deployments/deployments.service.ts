@@ -215,19 +215,46 @@ export class DeploymentsService {
    * Ensures an agent is connected for the given server before emitting deploy/remove.
    * When disconnected, runs the same prerequisite + docker-compose install as onboard (local or SSH).
    */
-  async ensureAgentConnectedForServer(serverId: string): Promise<void> {
+  async ensureAgentConnectedForServer(
+    serverId: string,
+    options?: {
+      deploymentId?: string;
+      onInstallLogLine?: (line: string) => void;
+    },
+  ): Promise<void> {
     try {
       if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
         return;
       }
 
+      const deploymentId = options?.deploymentId?.trim();
+      const streamInstallLine = (line: string) => {
+        options?.onInstallLogLine?.(line);
+        if (deploymentId) {
+          this.deploymentGateway.broadcastDeploymentLog({
+            deploymentId,
+            serverId,
+            deployment: "agent-install",
+            type: "stdout",
+            message: line,
+            timestamp: new Date().toISOString(),
+            source: "install",
+          });
+        }
+      };
+
       this.logger.log(
         `No agent connected for server '${serverId}'; running agent install...`,
       );
 
+      if (deploymentId) {
+        streamInstallLine("No agent connected — starting agent installation…");
+      }
+
       const install =
         await this.serverConnectionsService.ensureAgentInstalledForServer(
           serverId,
+          { onLogLine: streamInstallLine },
         );
 
       if (!install.success) {
@@ -239,6 +266,12 @@ export class DeploymentsService {
         );
       }
 
+      if (deploymentId) {
+        streamInstallLine(
+          "Agent installed — waiting for agent WebSocket connection…",
+        );
+      }
+
       await this.waitForAgentConnection(serverId);
 
       if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
@@ -246,6 +279,10 @@ export class DeploymentsService {
           `Agent was installed for server '${serverId}' but did not connect within ${AGENT_INSTALL.CONNECT_WAIT_MS / 1000}s. ` +
             "Check agent container logs and CONTROL_PANEL_URL (e.g. http://host.docker.internal:3000 for local Docker).",
         );
+      }
+
+      if (deploymentId) {
+        streamInstallLine("Agent connected.");
       }
     } catch (error) {
       if (error instanceof ConflictException) {
@@ -370,8 +407,23 @@ export class DeploymentsService {
         },
       };
 
-      await this.ensureAgentConnectedForServer(prepared.serverId);
+      await this.ensureAgentConnectedForServer(prepared.serverId, {
+        deploymentId: prepared.deploymentId,
+      });
+      this.logger.log(
+        `[DEPLOY_TRACE] emitPreparedDeployment calling emitDeploy deploymentId=${prepared.deploymentId} serverId=${prepared.serverId}`,
+      );
       this.deploymentGateway.emitDeploy(message, prepared.serverId);
+
+      this.deploymentGateway.broadcastDeploymentLog({
+        deploymentId: prepared.deploymentId,
+        serverId: prepared.serverId,
+        deployment: prepared.templateSlug,
+        type: "stdout",
+        message: "Deploy command delivered to agent.",
+        timestamp: new Date().toISOString(),
+        source: "install",
+      });
 
       return {
         message: isRedeploy ? "Redeployment initiated" : "Deployment initiated",
@@ -388,6 +440,38 @@ export class DeploymentsService {
         `Failed to emit deployment: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  /**
+   * Returns immediately after prepare; runs install + deploy in the background so
+   * the console can subscribe to the deployment log stream while work is in progress.
+   */
+  schedulePreparedDeployment(
+    prepared: PreparedDeployment,
+    isRedeploy: boolean,
+  ): {
+    message: string;
+    template: string;
+    deploymentId: string;
+    serverId: string;
+  } {
+    // Defer so the HTTP 202 + deploymentId reach the console before install logs emit.
+    setImmediate(() => {
+      void this.emitPreparedDeployment(prepared, isRedeploy).catch(
+        (error: unknown) => {
+          this.logger.error(
+            `Background deployment ${prepared.deploymentId} failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        },
+      );
+    });
+
+    return {
+      message: isRedeploy ? "Redeployment started" : "Deployment started",
+      template: prepared.templateSlug,
+      deploymentId: prepared.deploymentId,
+      serverId: prepared.serverId,
+    };
   }
 
   async prepareDeployment(

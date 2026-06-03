@@ -18,7 +18,12 @@ export type { ServerUrlContext };
 
 export interface ComposeVariableRef {
   name: string;
+  /** Set when any occurrence uses ${VAR:-...} syntax (may be an empty string). */
   defaultValue?: string;
+  /** True when at least one occurrence is ${VAR} without :- default syntax. */
+  hasRequiredOccurrence?: boolean;
+  /** True when at least one occurrence uses ${VAR:-...} syntax. */
+  hasDefaultSyntax?: boolean;
 }
 
 export interface ResolveComposeEnvOptions {
@@ -69,7 +74,7 @@ function* scanComposeVariablePlaceholders(
 
     if (compose[dollarIndex + 1] === "{") {
       const contentStart = dollarIndex + 2;
-      const closeIndex = compose.indexOf("}", contentStart);
+      const closeIndex = findBalancedBraceClose(compose, contentStart);
       if (closeIndex === -1) {
         index = dollarIndex + 1;
         continue;
@@ -122,6 +127,51 @@ function isEmptyYamlValue(valuePart: string): boolean {
   return value === "" || value === "''" || value === '""';
 }
 
+function findBalancedBraceClose(compose: string, contentStart: number): number {
+  let depth = 1;
+
+  for (let index = contentStart; index < compose.length; index += 1) {
+    const char = compose[index];
+
+    if (char === "{") {
+      depth += 1;
+      continue;
+    }
+
+    if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+
+  return -1;
+}
+
+function mergeComposeVariableRef(
+  existing: ComposeVariableRef,
+  incoming: ComposeVariableRef,
+): void {
+  if (incoming.hasDefaultSyntax) {
+    existing.hasDefaultSyntax = true;
+
+    if (existing.defaultValue === undefined) {
+      existing.defaultValue = incoming.defaultValue;
+    } else if (
+      existing.defaultValue === "" &&
+      incoming.defaultValue !== undefined &&
+      incoming.defaultValue !== ""
+    ) {
+      existing.defaultValue = incoming.defaultValue;
+    }
+  }
+
+  if (incoming.hasRequiredOccurrence) {
+    existing.hasRequiredOccurrence = true;
+  }
+}
+
 /**
  * Extract variable names (and optional defaults) from a compose YAML string.
  */
@@ -135,13 +185,30 @@ export function extractComposeVariables(compose: string): ComposeVariableRef[] {
 
     const existing = byName.get(parsed.name);
     if (!existing) {
-      byName.set(parsed.name, parsed);
-    } else if (!existing.defaultValue && parsed.defaultValue) {
-      existing.defaultValue = parsed.defaultValue;
+      byName.set(parsed.name, { ...parsed });
+      continue;
     }
+
+    mergeComposeVariableRef(existing, parsed);
   }
 
   return Array.from(byName.values());
+}
+
+/**
+ * True when compose defaults may be applied (all occurrences use :- and value is non-empty).
+ */
+export function shouldApplyComposeDefault(
+  variable: ComposeVariableRef,
+): boolean {
+  const { defaultValue } = variable;
+
+  return Boolean(
+    variable.hasDefaultSyntax &&
+    !variable.hasRequiredOccurrence &&
+    defaultValue !== undefined &&
+    defaultValue !== "",
+  );
 }
 
 /**
@@ -221,33 +288,38 @@ function applyServerUrlFqdnGeneration(
 }
 
 function parsePlaceholderContent(content: string): ComposeVariableRef {
+  const name = content.trim();
   const split = splitOnDefaultOperator(content);
+
   if (split) {
-    return { name: split.variable.trim(), defaultValue: split.default };
+    return {
+      name: split.variable.trim(),
+      defaultValue: split.default,
+      hasDefaultSyntax: true,
+    };
   }
 
-  return { name: content.trim() };
+  return {
+    name,
+    hasRequiredOccurrence: true,
+  };
 }
 
 /**
- * Split on :- or - at depth 0 (no nested ${} in template defaults today).
+ * Split on :- only (shell parameter expansion); never on bare `-` in variable names.
  */
 function splitOnDefaultOperator(
   content: string,
 ): { variable: string; default: string } | null {
-  const operators = [":-", "-"] as const;
-
-  for (const op of operators) {
-    const index = content.indexOf(op);
-    if (index > 0) {
-      return {
-        variable: content.slice(0, index),
-        default: content.slice(index + op.length),
-      };
-    }
+  const index = content.indexOf(":-");
+  if (index <= 0) {
+    return null;
   }
 
-  return null;
+  return {
+    variable: content.slice(0, index),
+    default: content.slice(index + 2),
+  };
 }
 
 /**
@@ -389,7 +461,7 @@ export function resolveComposeEnvironment(
         continue;
       }
 
-      if (defaultValue !== undefined && defaultValue !== "") {
+      if (shouldApplyComposeDefault(variable)) {
         const parsed = Number(defaultValue);
         if (!Number.isNaN(parsed)) {
           ports[name] = parsed;
@@ -423,8 +495,8 @@ export function resolveComposeEnvironment(
       continue;
     }
 
-    if (defaultValue !== undefined) {
-      env[name] = defaultValue;
+    if (shouldApplyComposeDefault(variable)) {
+      env[name] = defaultValue as string;
     }
   }
 
@@ -450,40 +522,23 @@ export function resolveComposeEnvironment(
 }
 
 /**
- * Variables the caller must supply (no compose default, not auto-generated magic).
+ * Variables that appear as ${VAR} (no :-) at least once in compose.
  */
 export function inferRequiredComposeVariables(
   compose: string,
-  options: { serverUrlContext?: ServerUrlContext } = {},
+  _options: { serverUrlContext?: ServerUrlContext } = {},
 ): string[] {
   const required: string[] = [];
-
-  for (const { name, defaultValue } of extractComposeVariables(compose)) {
-    if (defaultValue !== undefined && defaultValue !== "") {
+  console.log("options", _options);
+  for (const variable of extractComposeVariables(compose)) {
+    if (!variable.hasRequiredOccurrence) {
       continue;
     }
 
-    const magicCommand = parseMagicEnvCommand(name);
-    if (
-      magicCommand &&
-      magicCommand !== "PORT" &&
-      magicCommand !== "FQDN" &&
-      magicCommand !== "URL"
-    ) {
-      continue;
-    }
-
-    if (
-      options.serverUrlContext &&
-      (magicCommand === "FQDN" || magicCommand === "URL")
-    ) {
-      continue;
-    }
-
-    required.push(name);
+    required.push(variable.name);
   }
 
-  return required;
+  return required.sort();
 }
 
 /**

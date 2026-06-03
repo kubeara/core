@@ -9,6 +9,7 @@ import "@fontsource/geist-mono/400.css";
 import "@fontsource/geist-mono/500.css";
 import { App } from "@/App";
 import "@/index.css";
+import "@/features/templates/templates-ui.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

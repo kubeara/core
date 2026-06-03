@@ -106,9 +106,11 @@ services:
     expect(resolved.generatedKeys).toHaveLength(0);
   });
 
-  it("infers required variables from compose (no default, not auto-generated)", () => {
+  it("infers required variables from compose occurrence analysis only", () => {
     expect(inferRequiredComposeVariables(sampleCompose)).toEqual([
+      "SERVICE_PASSWORD_POSTGRES",
       "SERVICE_PORT_POSTGRES",
+      "SERVICE_USER_POSTGRES",
     ]);
   });
 
@@ -145,13 +147,74 @@ services:
     expect(resolved.ports.SERVICE_PORT_POSTGRES).toBe(5433);
   });
 
+  it("parses nested brace defaults in n8n-style URL placeholders", () => {
+    const compose = `
+services:
+  n8n:
+    environment:
+      - N8N_EDITOR_BASE_URL=\${SERVICE_URL_N8N:-\${SERVICE_URL_N8N_5678}}
+`;
+
+    const vars = extractComposeVariables(compose);
+    const byName = Object.fromEntries(
+      vars.map((variable) => [variable.name, variable]),
+    );
+
+    expect(byName.SERVICE_URL_N8N).toMatchObject({
+      name: "SERVICE_URL_N8N",
+      hasDefaultSyntax: true,
+      defaultValue: "${SERVICE_URL_N8N_5678}",
+    });
+  });
+
+  it("treats ${VAR:-} as optional with empty default", () => {
+    const compose = `
+services:
+  app:
+    environment:
+      EMPTY: \${EMPTY:-}
+`;
+
+    expect(inferRequiredComposeVariables(compose)).toEqual([]);
+  });
+
+  it("does not apply empty :- defaults during resolve", () => {
+    const compose = `
+services:
+  app:
+    environment:
+      EMPTY: \${EMPTY:-}
+      FILLED: \${FILLED:-preset}
+`;
+
+    const resolved = resolveComposeEnvironment({ compose });
+
+    expect(resolved.env.EMPTY).toBeUndefined();
+    expect(resolved.env.FILLED).toBe("preset");
+  });
+
+  it("requires variable when mixed required and default syntax occurrences exist", () => {
+    const compose = `
+services:
+  app:
+    environment:
+      MIXED: \${MIXED}
+      OTHER: \${MIXED:-x}
+`;
+
+    expect(inferRequiredComposeVariables(compose)).toEqual(["MIXED"]);
+  });
+
   it("uses compose default for SERVICE_PORT when present", () => {
     const composeWithDefault = sampleCompose.replace(
       "${SERVICE_PORT_POSTGRES}:5432",
       "${SERVICE_PORT_POSTGRES:-5432}:5432",
     );
 
-    expect(inferRequiredComposeVariables(composeWithDefault)).toEqual([]);
+    expect(inferRequiredComposeVariables(composeWithDefault)).toEqual([
+      "SERVICE_PASSWORD_POSTGRES",
+      "SERVICE_USER_POSTGRES",
+    ]);
 
     const resolved = resolveAndValidateComposeEnvironment({
       compose: composeWithDefault,

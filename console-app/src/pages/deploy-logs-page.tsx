@@ -1,21 +1,153 @@
-import { useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import {
+  Navigate,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
+import { getErrorMessage } from "@/api/api-error";
 import { DeploymentLogs } from "@/components/deployment-logs";
-import { getTemplateById } from "@/lib/templates";
+import { deployTemplate } from "@/features/deployments/api";
+import { useTemplateDetailsQuery } from "@/features/templates/hooks";
+import {
+  getDeploymentSocket,
+  subscribeDeploymentLogs,
+} from "@/lib/socket/deployment-socket-client";
+import { getTemplateAccentColor } from "@/features/templates/utils/deploy-form-schema";
+import type { DeployTemplateRequest } from "@/features/templates/types";
 import { NotFoundPage } from "./not-found-page";
 
+type PendingDeployLocationState = {
+  deployRequest?: Pick<
+    DeployTemplateRequest,
+    "env" | "ports" | "templateSlug" | "serverId"
+  >;
+};
+
 /**
- * Deployment logs page.
- * 
- * Displays real-time logs for a template deployment.
- * Shows 404 if template ID is invalid.
+ * Deployment logs page for a template deployment on a specific server.
+ *
+ * URL:  /servers/:serverId/deploy/:templateSlug/logs
+ * Query: ?deploymentId=... (set after deploy starts)
+ * State: { deployRequest: { serverId, templateSlug, env } } for fresh deploys
  */
 export function DeployLogsPage() {
-    const { templateId } = useParams<{ templateId: string }>();
-    const template = templateId ? getTemplateById(templateId) : undefined;
+  const { serverId, templateSlug } = useParams<{
+    serverId: string;
+    templateSlug: string;
+  }>();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [deploymentId, setDeploymentId] = useState<string | undefined>(
+    () => searchParams.get("deploymentId") ?? undefined,
+  );
+  const [isStarting, setIsStarting] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+  const templateQuery = useTemplateDetailsQuery(templateSlug);
 
-    if (!template) {
-        return <NotFoundPage />;
+  const pendingDeploy = (location.state as PendingDeployLocationState | null)
+    ?.deployRequest;
+  const deployStartedRef = useRef(false);
+
+  useEffect(() => {
+    const socket = getDeploymentSocket();
+    if (!socket.connected) {
+      socket.connect();
+    }
+  }, []);
+
+  useEffect(() => {
+    const fromQuery = searchParams.get("deploymentId");
+    if (fromQuery && fromQuery !== deploymentId) {
+      setDeploymentId(fromQuery);
+    }
+  }, [deploymentId, searchParams]);
+
+  useEffect(() => {
+    if (
+      deploymentId ||
+      !pendingDeploy ||
+      !serverId ||
+      !templateSlug ||
+      deployStartedRef.current
+    ) {
+      return;
     }
 
-    return <DeploymentLogs template={template} />;
+    deployStartedRef.current = true;
+
+    let cancelled = false;
+    setIsStarting(true);
+    setStartError(null);
+
+    void deployTemplate({
+      templateSlug,
+      serverId,
+      env: pendingDeploy.env,
+      ports: pendingDeploy.ports,
+    })
+      .then((result) => {
+        if (cancelled) return;
+        const id = result.deploymentId;
+        setDeploymentId(id);
+        const socket = getDeploymentSocket();
+        if (socket.connected) {
+          subscribeDeploymentLogs(id);
+        } else {
+          socket.once("connect", () => subscribeDeploymentLogs(id));
+        }
+        navigate(
+          `/servers/${serverId}/deploy/${templateSlug}/logs?deploymentId=${encodeURIComponent(id)}`,
+          { replace: true, state: null },
+        );
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setStartError(getErrorMessage(error));
+      })
+      .finally(() => {
+        if (!cancelled) setIsStarting(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [deploymentId, navigate, pendingDeploy, serverId, templateSlug]);
+
+  if (!serverId || !templateSlug) {
+    return <Navigate to="/servers" replace />;
+  }
+
+  if (templateQuery.isPending) {
+    return (
+      <div className="dashboard">
+        <p className="text-sm text-[var(--muted)]">Loading deployment…</p>
+      </div>
+    );
+  }
+
+  if (templateQuery.isError || !templateQuery.data) {
+    return <NotFoundPage />;
+  }
+
+  const template = templateQuery.data;
+
+  return (
+    <DeploymentLogs
+      template={{
+        id: template.slug,
+        name: template.name,
+        description: template.description ?? "",
+        category: template.category ?? "",
+        color: getTemplateAccentColor(template.slug),
+      }}
+      deploymentId={deploymentId}
+      serverId={serverId}
+      backHref={`/servers/${serverId}`}
+      isStarting={isStarting || Boolean(pendingDeploy && !deploymentId)}
+      startError={startError}
+    />
+  );
 }

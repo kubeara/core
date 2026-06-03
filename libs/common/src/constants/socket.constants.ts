@@ -3,7 +3,10 @@ export const SOCKET_EVENTS = {
   REMOVE: "deploy:remove",
   DEPLOY_TEMPLATE: "deploy:template",
   DEPLOYMENT_STATUS: "deployment:status",
-  DEPLOYMENT_LOG: "deployment-log",
+  CONTAINER_LOG: "container:logs",
+  LOGS_SUBSCRIBE: "logs:subscribe",
+  /** Control panel → console (unified log stream). */
+  DEPLOYMENT_STREAM: "deployment:stream",
   AGENT_CONNECTED: "agent:connected",
   AGENT_DISCONNECTED: "agent:disconnected",
 };

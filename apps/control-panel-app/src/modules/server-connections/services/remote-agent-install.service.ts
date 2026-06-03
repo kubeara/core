@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 
 import {
+  AgentInstallLogCallback,
   AgentInstallResult,
   AgentInstallService,
   RemoteAgentInstallInput,
@@ -12,7 +13,10 @@ export type { AgentInstallResult, RemoteAgentInstallInput };
 export class RemoteAgentInstallService {
   constructor(private readonly agentInstall: AgentInstallService) {}
 
-  install(input: RemoteAgentInstallInput): Promise<AgentInstallResult> {
-    return this.agentInstall.installOnRemote(input);
+  install(
+    input: RemoteAgentInstallInput,
+    options?: { onLogLine?: AgentInstallLogCallback },
+  ): Promise<AgentInstallResult> {
+    return this.agentInstall.installOnRemote(input, options);
   }
 }

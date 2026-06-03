@@ -11,6 +11,82 @@ export class SshCommandExecutorService {
 
   constructor(private readonly manager: SshConnectionManager) {}
 
+  async executeCommandStreaming(
+    clientOrId: Client | string,
+    command: string,
+    options: {
+      timeoutMs?: number;
+      onStdout?: (chunk: string) => void;
+      onStderr?: (chunk: string) => void;
+    } = {},
+  ): Promise<ExecuteResult> {
+    const timeoutMs = options.timeoutMs ?? SSH_DEFAULTS.COMMAND_TIMEOUT;
+    const start = Date.now();
+
+    const execOnClient = (client: Client) =>
+      new Promise<ExecuteResult>((resolve, reject) => {
+        let stdout = "";
+        let stderr = "";
+        let exitCode: number | null = null;
+
+        const onError = (err: Error) => {
+          this.logger.warn(`SSH exec error: ${err.message}`);
+          reject(new SshCommandError(err.message));
+        };
+
+        const timer = setTimeout(() => {
+          reject(new SshCommandError("Command timed out"));
+        }, timeoutMs);
+
+        client.exec(command, (err, stream) => {
+          if (err) {
+            clearTimeout(timer);
+            return onError(err);
+          }
+
+          stream
+            .on("close", (code: number) => {
+              clearTimeout(timer);
+              exitCode = code;
+              resolve({
+                success: code === 0,
+                stdout,
+                stderr,
+                exitCode,
+                executionTimeMs: Date.now() - start,
+              });
+            })
+            .on("data", (data: Buffer) => {
+              const chunk = data.toString("utf8");
+              stdout += chunk;
+              options.onStdout?.(chunk);
+            })
+            .stderr.on("data", (data: Buffer) => {
+              const chunk = data.toString("utf8");
+              stderr += chunk;
+              options.onStderr?.(chunk);
+            });
+        });
+      });
+
+    let client: Client | null = null;
+    if (typeof clientOrId === "string") {
+      client = this.manager.getConnection(clientOrId);
+      if (!client) {
+        throw new SshCommandError("No active SSH connection for server");
+      }
+    } else {
+      client = clientOrId;
+    }
+
+    try {
+      return await execOnClient(client);
+    } catch (err) {
+      this.logger.warn(`Command execution failed: ${(err as Error).message}`);
+      throw err;
+    }
+  }
+
   async executeCommand(
     clientOrId: Client | string,
     command: string,
