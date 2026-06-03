@@ -14,6 +14,7 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { AppController } from "./app.controller";
+import { isProductionEnv } from "@control-panel/constants/env.constant";
 
 @Module({
   imports: [
@@ -26,6 +27,10 @@ import { AppController } from "./app.controller";
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         try {
+          const isProduction = isProductionEnv(
+            configService.get<string>("NODE_ENV"),
+          );
+
           return {
             type: "postgres",
             host: configService.get<string>("DB_HOST"),
@@ -37,6 +42,7 @@ import { AppController } from "./app.controller";
             migrationsRun: false,
             entities: [__dirname + "/modules/**/entities/*{.ts,.js}"],
             migrations: [path.join(__dirname, "../../migrations/*{.js,.ts}")],
+            ...(isProduction ? { ssl: { rejectUnauthorized: false } } : {}),
           };
         } catch (error) {
           throw new Error(
