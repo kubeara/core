@@ -236,7 +236,7 @@ services:
     environment:
       NODE_ENV: production
       DOCKER_ENV: "true"
-      DB_HOST: postgres
+      DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -268,7 +268,7 @@ services:
       NODE_ENV: production
       DOCKER_ENV: "true"
       PORT: ${PORT:-3000}
-      DB_HOST: postgres
+      DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
