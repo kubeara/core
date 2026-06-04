@@ -59,6 +59,12 @@
   align-items: stretch;
 }
 
+.connected-services-section-title {
+  margin: 24px 0 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
 .connected-service-card {
   display: flex;
   flex-direction: column;
@@ -331,12 +337,10 @@
 .server-templates-skeleton-card {
   height: 220px;
   border-radius: 12px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--foreground) 6%, var(--surface)) 0%,
-    color-mix(in srgb, var(--foreground) 10%, var(--surface)) 50%,
-    color-mix(in srgb, var(--foreground) 6%, var(--surface)) 100%
-  );
+  background: linear-gradient(90deg,
+      color-mix(in srgb, var(--foreground) 6%, var(--surface)) 0%,
+      color-mix(in srgb, var(--foreground) 10%, var(--surface)) 50%,
+      color-mix(in srgb, var(--foreground) 6%, var(--surface)) 100%);
   background-size: 200% 100%;
   animation: server-templates-shimmer 1.4s ease-in-out infinite;
 }

@@ -79,44 +79,65 @@ function containerStatusClass(container: ServerContainer): string {
   return "degraded";
 }
 
-function formatPortsDisplay(ports: string): string {
-  const trimmed = ports.trim();
-  if (!trimmed) {
-    return "—";
-  }
-  return trimmed.length > 80 ? `${trimmed.slice(0, 77)}…` : trimmed;
-}
+// function formatPortsDisplay(ports: string): string {
+//   const trimmed = ports.trim();
+//   if (!trimmed) {
+//     return "—";
+//   }
+//   return trimmed.length > 80 ? `${trimmed.slice(0, 77)}…` : trimmed;
+// }
 
 function ConnectedServiceCard({ container }: { container: ServerContainer }) {
   const statusClass = containerStatusClass(container);
+
   const displayName =
     container.containerName || container.templateId || "Container";
+
+  const cleanName = displayName.replace(
+    /^deployment-\d+-[^-]+-/,
+    "",
+  );
+
+  const iconLetter = (cleanName || displayName)
+    .charAt(0)
+    .toUpperCase();
+
   const statusLabel = container.isOnline ? container.status : "Offline";
-  const portsDisplay = formatPortsDisplay(container.ports);
+  const portsDisplay =
+    container.ports?.match(/:(\d+)->/)?.[1] ?? "N/A";
 
   return (
     <article
-      className={`connected-service-card${!container.isOnline ? " connected-service-card-offline" : ""}`}
+      className={`connected-service-card${!container.isOnline ? " connected-service-card-offline" : ""
+        }`}
     >
       <header className="connected-service-header">
         <div className="connected-service-icon connected-service-icon-neutral">
-          {displayName.charAt(0).toUpperCase()}
+          {iconLetter}
         </div>
+
         <div className="connected-service-heading">
           <h3 className="connected-service-name" title={displayName}>
-            {displayName}
+            {cleanName}
           </h3>
+
           {!container.isOnline ? (
-            <span className="service-badge service-badge-offline">Offline</span>
+            <span className="service-badge service-badge-offline">
+              Offline
+            </span>
           ) : (
             <span
-              className={`service-badge service-badge-${container.managedType === "KUBEARA_MANAGED" ? "kubeara" : "self"}`}
+              className={`service-badge service-badge-${container.managedType === "KUBEARA_MANAGED"
+                ? "kubeara"
+                : "self"
+                }`}
             >
               {managedTypeLabel(container.managedType)}
             </span>
           )}
         </div>
       </header>
+
       <dl className="connected-service-details">
         <div className="connected-service-detail-row">
           <dt>Status</dt>
@@ -126,14 +147,19 @@ function ConnectedServiceCard({ container }: { container: ServerContainer }) {
             </span>
           </dd>
         </div>
+
         {container.imageName ? (
           <div className="connected-service-detail-row">
             <dt>Image</dt>
-            <dd className="connected-service-detail-value" title={container.imageName}>
+            <dd
+              className="connected-service-detail-value"
+              title={container.imageName}
+            >
               {container.imageName}
             </dd>
           </div>
         ) : null}
+
         <div className="connected-service-detail-row">
           <dt>Ports</dt>
           <dd
@@ -143,10 +169,13 @@ function ConnectedServiceCard({ container }: { container: ServerContainer }) {
             {portsDisplay}
           </dd>
         </div>
+
         {container.runningSince ? (
           <div className="connected-service-detail-row">
             <dt>Running</dt>
-            <dd className="connected-service-detail-value">{container.runningSince}</dd>
+            <dd className="connected-service-detail-value">
+              {container.runningSince}
+            </dd>
           </div>
         ) : null}
       </dl>
@@ -158,13 +187,23 @@ function OverviewTab({ serverId }: { serverId: string }) {
   const { data: containers = [], isLoading, isError } =
     useServerContainersQuery(serverId);
 
+  const kubearaManagedContainers = containers.filter(
+    (container) => container.managedType === "KUBEARA_MANAGED",
+  );
+
+  const selfManagedContainers = containers.filter(
+    (container) => container.managedType !== "KUBEARA_MANAGED",
+  );
+
   return (
     <div className="server-detail-panel">
       <h2 className="server-detail-section-title">Connected services</h2>
+
       <p className="server-detail-section-desc">
         Containers discovered on this server, including Kubeara deployments and
         self-managed workloads.
       </p>
+
       {isLoading ? (
         <p className="server-detail-empty">Loading containers…</p>
       ) : isError ? (
@@ -174,17 +213,39 @@ function OverviewTab({ serverId }: { serverId: string }) {
       ) : containers.length === 0 ? (
         <p className="server-detail-empty">No services connected yet.</p>
       ) : (
-        <div className="connected-services-grid">
-          {containers.map((container) => (
-            <ConnectedServiceCard
-              key={
-                container.containerId ??
-                `${container.deploymentId ?? "offline"}-${container.containerName}`
-              }
-              container={container}
-            />
-          ))}
-        </div>
+        <>
+          <div className="connected-services-grid">
+            {kubearaManagedContainers.map((container) => (
+              <ConnectedServiceCard
+                key={
+                  container.containerId ??
+                  `${container.deploymentId ?? "offline"}-${container.containerName}`
+                }
+                container={container}
+              />
+            ))}
+          </div>
+
+          {selfManagedContainers.length > 0 && (
+            <>
+              <h3 className="connected-services-section-title">
+                Self Managed
+              </h3>
+
+              <div className="connected-services-grid">
+                {selfManagedContainers.map((container) => (
+                  <ConnectedServiceCard
+                    key={
+                      container.containerId ??
+                      `${container.deploymentId ?? "offline"}-${container.containerName}`
+                    }
+                    container={container}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </>
       )}
     </div>
   );
