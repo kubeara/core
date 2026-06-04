@@ -244,11 +244,13 @@ export class DeploymentsService {
       };
 
       this.logger.log(
-        `No agent connected for server '${serverId}'; running agent install...`,
+        `No agent WebSocket for server '${serverId}'; ensuring agent is running on host...`,
       );
 
       if (deploymentId) {
-        streamInstallLine("No agent connected — starting agent installation…");
+        streamInstallLine(
+          "No agent WebSocket — checking remote agent (install only if not already running)…",
+        );
       }
 
       const install =
@@ -266,9 +268,13 @@ export class DeploymentsService {
         );
       }
 
+      const installSkipped = install.skipped === true;
+
       if (deploymentId) {
         streamInstallLine(
-          "Agent installed — waiting for agent WebSocket connection…",
+          installSkipped
+            ? "Agent container already running — waiting for WebSocket connection…"
+            : "Agent installed — waiting for agent WebSocket connection…",
         );
       }
 
@@ -276,8 +282,11 @@ export class DeploymentsService {
 
       if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
         throw new ConflictException(
-          `Agent was installed for server '${serverId}' but did not connect within ${AGENT_INSTALL.CONNECT_WAIT_MS / 1000}s. ` +
-            "Check agent container logs and CONTROL_PANEL_URL (e.g. http://host.docker.internal:3000 for local Docker).",
+          installSkipped
+            ? `Agent container is running on server '${serverId}' but did not connect within ${AGENT_INSTALL.CONNECT_WAIT_MS / 1000}s. ` +
+                "Check `docker logs kubeara-agent` and CONTROL_PANEL_URL in /opt/kubeara/agent/.env.agent (must reach this control panel)."
+            : `Agent was installed for server '${serverId}' but did not connect within ${AGENT_INSTALL.CONNECT_WAIT_MS / 1000}s. ` +
+                "Check agent container logs and CONTROL_PANEL_URL (e.g. http://host.docker.internal:3000 for local Docker).",
         );
       }
 
@@ -420,9 +429,10 @@ export class DeploymentsService {
         serverId: prepared.serverId,
         deployment: prepared.templateSlug,
         type: "stdout",
-        message: "Deploy command delivered to agent.",
+        message:
+          "Deploy command sent to agent — watch below for agent compose output (containers use Docker project name derived from deployment id).",
         timestamp: new Date().toISOString(),
-        source: "install",
+        source: "deployment",
       });
 
       return {
@@ -562,6 +572,12 @@ export class DeploymentsService {
       );
     }
 
+    const useTraefik = this.resolveUseTraefikForCompose(
+      composeYaml,
+      input.serverUrlContext?.useTraefik,
+      templateSlug,
+    );
+
     return {
       deploymentId,
       serverId,
@@ -573,7 +589,7 @@ export class DeploymentsService {
       generatedKeys: parsedFromCompose.generatedKeys,
       schema: { ...schema, normalized },
       composeOnly: false,
-      useTraefik: input.serverUrlContext?.useTraefik,
+      useTraefik,
     };
   }
 
@@ -714,6 +730,12 @@ export class DeploymentsService {
       );
     }
 
+    const useTraefik = this.resolveUseTraefikForCompose(
+      composeYaml,
+      serverUrlContext?.useTraefik,
+      templateSlug,
+    );
+
     return {
       deploymentId,
       serverId,
@@ -724,7 +746,7 @@ export class DeploymentsService {
       mergedPorts,
       generatedKeys: parsedFromCompose.generatedKeys,
       composeOnly: true,
-      useTraefik: serverUrlContext?.useTraefik,
+      useTraefik,
     };
   }
 
@@ -1130,6 +1152,27 @@ export class DeploymentsService {
    * Returns true when the deploy request supplies at least one SERVICE_PORT_* value
    * (host publish intent). Used to avoid Traefik mode stripping those keys.
    */
+  /**
+   * Templates without SERVICE_URL_* cannot use Traefik routing; force direct ports
+   * so deploy does not start the proxy stack or skip port binding.
+   */
+  private resolveUseTraefikForCompose(
+    composeYaml: string,
+    requested: boolean | undefined,
+    templateSlug: string,
+  ): boolean | undefined {
+    if (!requested) {
+      return requested;
+    }
+    if (!composeYaml.includes("SERVICE_URL_")) {
+      this.logger.log(
+        `Template '${templateSlug}' has no SERVICE_URL_* — disabling Traefik for this deployment`,
+      );
+      return false;
+    }
+    return requested;
+  }
+
   private requestContainsExplicitServiceHostPorts(
     requestPorts: Record<string, unknown>,
     requestEnv: Record<string, unknown>,

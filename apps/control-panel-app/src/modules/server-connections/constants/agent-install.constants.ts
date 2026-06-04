@@ -5,6 +5,7 @@ export const AGENT_INSTALL = {
   PREREQ_SCRIPT: "ensure-agent-prerequisites.sh",
   PREREQ_REMOTE_PATH: "/tmp/kubeara-ensure-agent-prerequisites.sh",
   DEFAULT_IMAGE: "kubeara/agent:latest",
+  CONTAINER_NAME: "kubeara-agent",
   DEFAULT_PORT: 3001,
   PULL_TIMEOUT_MS: 600_000,
   PREREQ_TIMEOUT_MS: 900_000,

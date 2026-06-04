@@ -203,15 +203,31 @@ export class DeployTemplateExecutor {
 
       let composeYaml = this.normalizeComposeForDeployment(compose);
 
-      if (useTraefik) {
-        await this.traefikProxy.ensureRunning();
-        const routes = discoverTraefikRoutes(
-          compose,
-          this.stringifyEnvValues(resolved.envValues),
+      const traefikRoutes = useTraefik
+        ? discoverTraefikRoutes(
+            compose,
+            this.stringifyEnvValues(resolved.envValues),
+            deploymentId,
+          )
+        : [];
+      const applyTraefikRouting = useTraefik && traefikRoutes.length > 0;
+
+      if (useTraefik && !applyTraefikRouting) {
+        notifier.sendLog({
+          deployment: name,
           deploymentId,
-        );
+          type: "stdout",
+          message:
+            "Traefik is enabled but this template has no SERVICE_URL_* routes — using direct host ports.",
+          timestamp: new Date().toISOString(),
+          source: "deployment",
+        });
+      }
+
+      if (applyTraefikRouting) {
+        await this.traefikProxy.ensureRunning();
         const parsedCompose = yaml.load(composeYaml) as Record<string, unknown>;
-        applyTraefikRoutingToCompose(parsedCompose, routes, {
+        applyTraefikRoutingToCompose(parsedCompose, traefikRoutes, {
           enableHttps: this.traefikProxy.isHttpsEnabled(),
           forceHttps: this.traefikProxy.isForceHttps(),
         });
@@ -220,7 +236,7 @@ export class DeployTemplateExecutor {
           deployment: name,
           deploymentId,
           type: "stdout",
-          message: `Traefik routing enabled (${routes.length} route(s)) — access via http://<fqdn> on port 80`,
+          message: `Traefik routing enabled (${traefikRoutes.length} route(s)) — access via http://<fqdn> on port 80`,
           timestamp: new Date().toISOString(),
           source: "deployment",
         });
@@ -256,7 +272,7 @@ export class DeployTemplateExecutor {
         source: "deployment",
       });
 
-      if (!useTraefik && Object.keys(generatedEnv.ports).length > 0) {
+      if (!applyTraefikRouting && Object.keys(generatedEnv.ports).length > 0) {
         await this.assertPortsAvailable(generatedEnv.ports);
       }
 
@@ -306,7 +322,7 @@ export class DeployTemplateExecutor {
         return;
       }
 
-      if (!useTraefik) {
+      if (!applyTraefikRouting) {
         this.validateResolvedConfig(validation.stdout, generatedEnv.ports);
       }
 
