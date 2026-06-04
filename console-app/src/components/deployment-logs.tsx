@@ -2,6 +2,7 @@ import { BackLink } from "@/components/shared/back-link";
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -17,6 +18,12 @@ import {
   useDeploymentQuery,
 } from "@/features/deployments/hooks";
 import type { StreamStatus } from "@/features/deployments/types";
+import {
+  countDeploymentLogsByView,
+  filterDeploymentLogsByView,
+  hasContainerDeploymentLogs,
+  type DeploymentLogView,
+} from "@/features/deployments/utils/deployment-log-filters";
 import type { DeploymentStatus } from "@/constants/deployment-events";
 import type { Template } from "@/types";
 import "./deployment-logs.css";
@@ -33,17 +40,27 @@ type DeploymentLogsProps = {
 function TerminalToolbar({
   title,
   lineCount,
+  logView,
+  installationLineCount,
+  containerLineCount,
+  containerLogsAvailable,
   isCollapsed,
   isFullscreen,
   isSocketConnected,
+  onLogViewChange,
   onToggleCollapse,
   onToggleFullscreen,
 }: {
   title: string;
   lineCount: number;
+  logView: DeploymentLogView;
+  installationLineCount: number;
+  containerLineCount: number;
+  containerLogsAvailable: boolean;
   isCollapsed: boolean;
   isFullscreen: boolean;
   isSocketConnected: boolean;
+  onLogViewChange: (view: DeploymentLogView) => void;
   onToggleCollapse: () => void;
   onToggleFullscreen: () => void;
 }) {
@@ -55,6 +72,47 @@ function TerminalToolbar({
       </div>
 
       <div className="deploy-terminal-toolbar-actions">
+        <div
+          className="deploy-terminal-source-toggle"
+          role="tablist"
+          aria-label="Log source"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={logView === "installation"}
+            className={`deploy-terminal-source-btn ${logView === "installation" ? "active" : ""}`}
+            onClick={() => onLogViewChange("installation")}
+          >
+            Installation logs
+            {installationLineCount > 0 ? (
+              <span className="deploy-terminal-source-count">
+                {installationLineCount}
+              </span>
+            ) : null}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={logView === "container"}
+            className={`deploy-terminal-source-btn ${logView === "container" ? "active" : ""}`}
+            disabled={!containerLogsAvailable}
+            title={
+              containerLogsAvailable
+                ? "Docker container stdout/stderr"
+                : "Available after the service container starts"
+            }
+            onClick={() => onLogViewChange("container")}
+          >
+            Container logs
+            {containerLineCount > 0 ? (
+              <span className="deploy-terminal-source-count">
+                {containerLineCount}
+              </span>
+            ) : null}
+          </button>
+        </div>
+
         <span
           className={`deploy-terminal-stream-indicator ${isSocketConnected ? "connected" : ""}`}
           title={isSocketConnected ? "Log stream connected" : "Reconnecting…"}
@@ -92,9 +150,10 @@ export function DeploymentLogs({
   const terminalRef = useRef<HTMLElement>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [logView, setLogView] = useState<DeploymentLogView>("installation");
 
   const deploymentQuery = useDeploymentQuery(deploymentId);
-  const { logs, lineCount, status, deploymentStatus, hasReceivedStatus, isSocketConnected } =
+  const { logs, status, deploymentStatus, hasReceivedStatus, isSocketConnected } =
     useDeploymentLogStream({
       deploymentId,
       serverId,
@@ -106,15 +165,56 @@ export function DeploymentLogs({
       ? deploymentStatus
       : (deploymentQuery.data?.deploymentStatus ?? deploymentStatus ?? null);
 
+  const containerLogsAvailable = useMemo(() => {
+    if (hasContainerDeploymentLogs(logs)) {
+      return true;
+    }
+    const deployStatus = liveDeploymentStatus;
+    return (
+      deployStatus === "deploying" ||
+      deployStatus === "running" ||
+      deployStatus === "success" ||
+      deployStatus === "pulling" ||
+      deployStatus === "building"
+    );
+  }, [liveDeploymentStatus, logs]);
+
+  const filteredLogs = useMemo(
+    () => filterDeploymentLogsByView(logs, logView),
+    [logs, logView],
+  );
+
+  const installationLineCount = useMemo(
+    () => countDeploymentLogsByView(logs, "installation"),
+    [logs],
+  );
+
+  const containerLineCount = useMemo(
+    () => countDeploymentLogsByView(logs, "container"),
+    [logs],
+  );
+
+  const filteredLineCount = filteredLogs.length;
+
+  useEffect(() => {
+    if (logView === "container" && !containerLogsAvailable) {
+      setLogView("installation");
+    }
+  }, [containerLogsAvailable, logView]);
+
   const isStreaming = status === "connecting" || status === "streaming";
 
   const emptyMessage =
     startError ??
     (isStarting && !deploymentId
       ? "Starting deployment and connecting to live log stream…"
-      : isStreaming
-        ? "Live console ready — install, deploy, and container output will appear here as they stream…"
-        : "No logs captured for this deployment yet.");
+      : logView === "container"
+        ? isStreaming
+          ? "Waiting for container output — logs appear after the service container starts (e.g. postgres)…"
+          : "No container logs captured for this deployment."
+        : isStreaming
+          ? "Live console — agent install and template deploy output will appear here…"
+          : "No installation or deploy logs captured for this deployment yet.");
 
   const toggleFullscreen = useCallback(async () => {
     const element = terminalRef.current;
@@ -219,10 +319,15 @@ export function DeploymentLogs({
       >
         <TerminalToolbar
           title={`${template.id} — live logs`}
-          lineCount={lineCount}
+          lineCount={filteredLineCount}
+          logView={logView}
+          installationLineCount={installationLineCount}
+          containerLineCount={containerLineCount}
+          containerLogsAvailable={containerLogsAvailable}
           isCollapsed={isCollapsed}
           isFullscreen={isFullscreen}
           isSocketConnected={isSocketConnected}
+          onLogViewChange={setLogView}
           onToggleCollapse={() => setIsCollapsed((value) => !value)}
           onToggleFullscreen={() => void toggleFullscreen()}
         />
@@ -231,7 +336,8 @@ export function DeploymentLogs({
           <div className="deploy-terminal-body">
             <div className="deploy-terminal-pane is-active">
               <DeploymentTerminalViewer
-                lines={logs}
+                key={logView}
+                lines={filteredLogs}
                 isActive
                 emptyMessage={emptyMessage}
                 isLive={isStreaming}
@@ -241,7 +347,8 @@ export function DeploymentLogs({
         ) : (
           <div className="deploy-terminal-collapsed-body">
             <p>
-              Terminal collapsed · {lineCount} lines captured
+              Terminal collapsed · {filteredLineCount}{" "}
+              {logView === "installation" ? "installation" : "container"} lines
             </p>
             <button
               type="button"

@@ -22,6 +22,7 @@ import {
 } from "@shared/socket-events";
 import { DeploymentsService } from "@control-panel/modules/deployments/deployments.service";
 import { AgentServerBindingService } from "@control-panel/modules/server-connections/services/agent-server-binding.service";
+import { DeploymentStreamBufferService } from "./deployment-stream-buffer.service";
 
 const SERVER_ID_HEADER = "x-kubeara-server-id";
 const STREAM_DEBUG =
@@ -46,6 +47,7 @@ export class DeploymentGateway
     @Inject(forwardRef(() => DeploymentsService))
     private readonly deploymentsService: DeploymentsService,
     private readonly agentServerBinding: AgentServerBindingService,
+    private readonly streamBuffer: DeploymentStreamBufferService,
   ) {}
 
   @WebSocketServer()
@@ -200,6 +202,8 @@ export class DeploymentGateway
       deploymentId,
       room,
     });
+
+    this.replayBufferedLogsToClient(client, deploymentId);
   }
 
   private isLikelyAgentClient(client: Socket): boolean {
@@ -235,10 +239,6 @@ export class DeploymentGateway
         isContainer && payload.message.startsWith("[")
           ? payload.message.match(/^\[([^\]]+)\]/)?.[1]
           : undefined;
-
-      this.logger.log(
-        `[stream] agent log deploymentId=${payload.deploymentId} source=${payload.source ?? "deployment"}`,
-      );
 
       this.emitStreamPayload({
         deploymentId: payload.deploymentId,
@@ -401,11 +401,31 @@ export class DeploymentGateway
         bytes: normalized.message.length,
       });
 
-      ns.emit(DeploymentEvents.DEPLOYMENT_STREAM, normalized);
+      this.streamBuffer.append(normalized);
+
+      ns.to(room).emit(DeploymentEvents.DEPLOYMENT_STREAM, normalized);
     } catch (error) {
       this.logger.error(
         `[stream] failed to emit log: ${error instanceof Error ? error.message : String(error)}`,
       );
+    }
+  }
+
+  private replayBufferedLogsToClient(
+    client: Socket,
+    deploymentId: string,
+  ): void {
+    const buffered = this.streamBuffer.get(deploymentId);
+    if (buffered.length === 0) {
+      return;
+    }
+
+    this.logger.log(
+      `[stream] replay ${buffered.length} buffered line(s) to client=${client.id} deploymentId=${deploymentId}`,
+    );
+
+    for (const entry of buffered) {
+      client.emit(DeploymentEvents.DEPLOYMENT_STREAM, entry);
     }
   }
 

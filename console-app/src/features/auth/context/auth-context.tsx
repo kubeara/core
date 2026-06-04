@@ -5,6 +5,8 @@ import {
     type ReactNode,
 } from "react";
 
+import { queryClient } from "@/api/query-client";
+import { QUERY_KEYS } from "@/constants/query-keys";
 import { restoreAuthSession } from "../bootstrap";
 import { useCurrentUserQuery } from "../hooks";
 
@@ -55,8 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const isReady = bootstrap.status === "ready";
 
-    const shouldSyncUser =
-        isReady && (bootstrap.sessionRestored || hasPersistedSession);
+    const shouldSyncUser = isReady && hasPersistedSession;
 
     const {
         data: user = null,
@@ -84,14 +85,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     useEffect(() => {
-        if (!shouldSyncUser) {
-            return;
-        }
-
         return subscribeToTokenChanges(() => {
-            void refetch();
+            if (hasStoredSession()) {
+                void refetch();
+                return;
+            }
+            queryClient.setQueryData(QUERY_KEYS.auth.me, null);
         });
-    }, [refetch, shouldSyncUser]);
+    }, [refetch]);
 
     const value = useMemo<AuthContextValue>(() => {
         const isBootstrapping =

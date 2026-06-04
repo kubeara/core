@@ -39,6 +39,11 @@ export function buildDeploymentsSocketUrl(): string {
         return explicitWs.replace(/\/$/, "");
     }
 
+    // Dev: use the Vite origin so /socket.io is proxied to the control panel.
+    if (import.meta.env.DEV && typeof window !== "undefined") {
+        return `${window.location.origin}/deployments`;
+    }
+
     const base = getApiBaseUrl().replace(/\/api\/?$/, "");
     if (base) {
         return `${base}/deployments`;

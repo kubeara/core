@@ -320,6 +320,30 @@
   box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
 }
 
+.deploy-logs-page .deploy-terminal-source-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.deploy-logs-page .deploy-terminal-source-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.125rem;
+  margin-left: 0.35rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 800;
+  line-height: 1.4;
+  background: rgb(0 0 0 / 10%);
+  color: inherit;
+}
+
+[data-theme="dark"] .deploy-logs-page .deploy-terminal-source-count {
+  background: rgb(255 255 255 / 12%);
+}
+
 [data-theme="dark"] .deploy-logs-page .deploy-terminal-source-btn.active {
   background: #1c1c1e;
   color: #f5f5f7;
