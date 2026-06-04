@@ -104,9 +104,12 @@ export class DeploymentGateway
             (publicIp ? ` publicIp=${publicIp}` : ""),
         );
 
-        client.on(DeploymentEvents.DEPLOYMENT_LOG, (payload: DeploymentLogPayload) => {
-          this.processAgentLog(client, payload);
-        });
+        client.on(
+          DeploymentEvents.DEPLOYMENT_LOG,
+          (payload: DeploymentLogPayload) => {
+            this.processAgentLog(client, payload);
+          },
+        );
         client.on(
           DeploymentEvents.DEPLOYMENT_STATUS,
           (payload: DeploymentStatusPayload) => {
