@@ -409,6 +409,9 @@ export class SocketClientService {
       timestamp: payload.timestamp ?? new Date().toISOString(),
     };
 
+    this.logger.debug(
+      `[stream] log → control panel deploymentId=${outbound.deploymentId} source=${source} bytes=${outbound.message.length}`,
+    );
     this.socket?.emit(DeploymentEvents.DEPLOYMENT_LOG, outbound);
   }
 

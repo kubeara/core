@@ -429,6 +429,7 @@ export class DeploymentsService {
         serverId: prepared.serverId,
         deployment: prepared.templateSlug,
         type: "stdout",
+        phase: "deploy",
         message:
           "Deploy command sent to agent — watch below for agent compose output (containers use Docker project name derived from deployment id).",
         timestamp: new Date().toISOString(),
