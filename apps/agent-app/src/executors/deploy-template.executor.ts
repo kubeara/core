@@ -15,9 +15,6 @@ import {
   ERROR_MESSAGES,
   SUCCESS_MESSAGES,
   APP_CONFIG,
-  maskEnvMap,
-  maskEnvContents,
-  formatPortMappings,
   discoverTraefikRoutes,
   applyTraefikRoutingToCompose,
 } from "@shared/common";
@@ -203,15 +200,31 @@ export class DeployTemplateExecutor {
 
       let composeYaml = this.normalizeComposeForDeployment(compose);
 
-      if (useTraefik) {
-        await this.traefikProxy.ensureRunning();
-        const routes = discoverTraefikRoutes(
-          compose,
-          this.stringifyEnvValues(resolved.envValues),
+      const traefikRoutes = useTraefik
+        ? discoverTraefikRoutes(
+            compose,
+            this.stringifyEnvValues(resolved.envValues),
+            deploymentId,
+          )
+        : [];
+      const applyTraefikRouting = useTraefik && traefikRoutes.length > 0;
+
+      if (useTraefik && !applyTraefikRouting) {
+        notifier.sendLog({
+          deployment: name,
           deploymentId,
-        );
+          type: "stdout",
+          message:
+            "Traefik is enabled but this template has no SERVICE_URL_* routes — using direct host ports.",
+          timestamp: new Date().toISOString(),
+          source: "deployment",
+        });
+      }
+
+      if (applyTraefikRouting) {
+        await this.traefikProxy.ensureRunning();
         const parsedCompose = yaml.load(composeYaml) as Record<string, unknown>;
-        applyTraefikRoutingToCompose(parsedCompose, routes, {
+        applyTraefikRoutingToCompose(parsedCompose, traefikRoutes, {
           enableHttps: this.traefikProxy.isHttpsEnabled(),
           forceHttps: this.traefikProxy.isForceHttps(),
         });
@@ -220,7 +233,7 @@ export class DeployTemplateExecutor {
           deployment: name,
           deploymentId,
           type: "stdout",
-          message: `Traefik routing enabled (${routes.length} route(s)) — access via http://<fqdn> on port 80`,
+          message: `Traefik routing enabled (${traefikRoutes.length} route(s)) — access via http://<fqdn> on port 80`,
           timestamp: new Date().toISOString(),
           source: "deployment",
         });
@@ -249,26 +262,14 @@ export class DeployTemplateExecutor {
           `Deployment directory: ${dir}`,
           `Docker compose project: ${projectName}`,
           `Docker network: ${projectName}_default`,
-          `Sanitized env keys: ${generatedEnv.keys.length ? generatedEnv.keys.join(", ") : "none"}`,
-          `Resolved port mappings: ${formatPortMappings(generatedEnv.ports)}`,
         ].join("\n"),
         timestamp: new Date().toISOString(),
         source: "deployment",
       });
 
-      if (!useTraefik && Object.keys(generatedEnv.ports).length > 0) {
+      if (!applyTraefikRouting && Object.keys(generatedEnv.ports).length > 0) {
         await this.assertPortsAvailable(generatedEnv.ports);
       }
-
-      const maskedEnv = maskEnvContents(envFileContent);
-      notifier.sendLog({
-        deployment: name,
-        deploymentId,
-        type: "stdout",
-        message: `.env contents:\n${maskedEnv}`,
-        timestamp: new Date().toISOString(),
-        source: "deployment",
-      });
 
       notifier.sendStatus({
         deploymentId,
@@ -306,7 +307,7 @@ export class DeployTemplateExecutor {
         return;
       }
 
-      if (!useTraefik) {
+      if (!applyTraefikRouting) {
         this.validateResolvedConfig(validation.stdout, generatedEnv.ports);
       }
 
@@ -696,15 +697,6 @@ export class DeployTemplateExecutor {
       });
       throw new Error(errorMsg);
     }
-
-    notifier.sendLog({
-      deployment: templateName,
-      deploymentId,
-      type: "stdout",
-      message: `Resolved environment map (masked):\n${JSON.stringify(maskEnvMap({ ...mergedEnv, ...mergedPorts }), null, 2)}`,
-      timestamp: new Date().toISOString(),
-      source: "deployment",
-    });
 
     return { envValues: mergedEnv, portValues: mergedPorts };
   }

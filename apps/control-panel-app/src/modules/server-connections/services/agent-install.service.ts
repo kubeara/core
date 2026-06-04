@@ -218,6 +218,18 @@ export class AgentInstallService {
       }
       this.pushLog(logs, `Using ${composeCmd}`, onLogLine);
 
+      if (await this.isAgentContainerRunning(host, installDir, composeCmd)) {
+        this.pushLog(
+          logs,
+          `Agent container ${AGENT_INSTALL.CONTAINER_NAME} is already running — skipping install`,
+          onLogLine,
+        );
+        this.logger.log(
+          `Agent install skipped (already running) serverId=${input.serverId} dir=${installDir} host=${host.label}`,
+        );
+        return { success: true, logs, skipped: true };
+      }
+
       const writeCompose = await host.writeTextFile(
         composePath,
         composeContent,
@@ -527,6 +539,46 @@ export class AgentInstallService {
       `command -v docker >/dev/null 2>&1 && ${prefix} compose version >/dev/null 2>&1 && echo ok`,
     );
     return probe.success ? dockerCli.mode : null;
+  }
+
+  private async isAgentContainerRunning(
+    host: AgentHostAdapter,
+    installDir: string,
+    composeCmd: string,
+  ): Promise<boolean> {
+    const byName = await host.executeCommand(
+      this.buildDockerPsFilterCommand(composeCmd, AGENT_INSTALL.CONTAINER_NAME),
+      15_000,
+    );
+    if (byName.success && byName.stdout.trim().length > 0) {
+      return true;
+    }
+
+    const byCompose = await host.executeCommand(
+      this.buildComposeCommand(
+        installDir,
+        composeCmd,
+        "ps --status running -q",
+      ),
+      15_000,
+    );
+    return byCompose.success && byCompose.stdout.trim().length > 0;
+  }
+
+  private buildDockerPsFilterCommand(
+    composeMode: string,
+    containerName: string,
+  ): string {
+    const args =
+      'ps --filter "name=^' + containerName + '$" --filter "status=running" -q';
+    switch (composeMode) {
+      case "sg":
+        return `sg docker -c "docker ${args}"`;
+      case "sudo":
+        return `sudo -n docker ${args}`;
+      default:
+        return `docker ${args}`;
+    }
   }
 
   private buildComposeCommand(

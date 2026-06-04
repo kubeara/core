@@ -1,7 +1,11 @@
 import { isAxiosError } from "axios";
 import { apiClient } from "@/api/axios";
 import type { User } from "@/types";
-import { hydrateTokensFromStorage } from "../utils/token-manager";
+import {
+    getAccessToken,
+    hasStoredSession,
+    hydrateTokensFromStorage,
+} from "../utils/token-manager";
 import type {
     AuthApiResponse,
     ForgotPasswordRequest,
@@ -101,12 +105,18 @@ export async function login(
 export async function getCurrentUser(): Promise<User | null> {
     hydrateTokensFromStorage();
 
+    if (!hasStoredSession() && !getAccessToken()) {
+        return null;
+    }
+
     try {
         const response = await apiClient.get<AuthApiResponse<User>>("/auth/me");
         return response.data.data ?? null;
     } catch (error: unknown) {
         if (isAxiosError(error) && error.response?.status === 401) {
-            apiClient.clearTokens();
+            if (hasStoredSession() || getAccessToken()) {
+                apiClient.clearTokens();
+            }
             return null;
         }
         throw error;
