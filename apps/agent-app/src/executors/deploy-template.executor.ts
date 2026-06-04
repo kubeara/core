@@ -15,9 +15,6 @@ import {
   ERROR_MESSAGES,
   SUCCESS_MESSAGES,
   APP_CONFIG,
-  maskEnvMap,
-  maskEnvContents,
-  formatPortMappings,
   discoverTraefikRoutes,
   applyTraefikRoutingToCompose,
 } from "@shared/common";
@@ -265,8 +262,6 @@ export class DeployTemplateExecutor {
           `Deployment directory: ${dir}`,
           `Docker compose project: ${projectName}`,
           `Docker network: ${projectName}_default`,
-          `Sanitized env keys: ${generatedEnv.keys.length ? generatedEnv.keys.join(", ") : "none"}`,
-          `Resolved port mappings: ${formatPortMappings(generatedEnv.ports)}`,
         ].join("\n"),
         timestamp: new Date().toISOString(),
         source: "deployment",
@@ -275,16 +270,6 @@ export class DeployTemplateExecutor {
       if (!applyTraefikRouting && Object.keys(generatedEnv.ports).length > 0) {
         await this.assertPortsAvailable(generatedEnv.ports);
       }
-
-      const maskedEnv = maskEnvContents(envFileContent);
-      notifier.sendLog({
-        deployment: name,
-        deploymentId,
-        type: "stdout",
-        message: `.env contents:\n${maskedEnv}`,
-        timestamp: new Date().toISOString(),
-        source: "deployment",
-      });
 
       notifier.sendStatus({
         deploymentId,
@@ -712,15 +697,6 @@ export class DeployTemplateExecutor {
       });
       throw new Error(errorMsg);
     }
-
-    notifier.sendLog({
-      deployment: templateName,
-      deploymentId,
-      type: "stdout",
-      message: `Resolved environment map (masked):\n${JSON.stringify(maskEnvMap({ ...mergedEnv, ...mergedPorts }), null, 2)}`,
-      timestamp: new Date().toISOString(),
-      source: "deployment",
-    });
 
     return { envValues: mergedEnv, portValues: mergedPorts };
   }

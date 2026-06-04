@@ -465,8 +465,10 @@ export class DeploymentsService {
     deploymentId: string;
     serverId: string;
   } {
-    // Defer so the HTTP 202 + deploymentId reach the console before install logs emit.
-    setImmediate(() => {
+    // Defer so the HTTP 202 + deploymentId reach the console and logs:subscribe runs
+    // before install/deploy output (setImmediate was too early vs browser subscribe).
+    const subscribeGraceMs = 300;
+    setTimeout(() => {
       void this.emitPreparedDeployment(prepared, isRedeploy).catch(
         (error: unknown) => {
           this.logger.error(
@@ -474,7 +476,7 @@ export class DeploymentsService {
           );
         },
       );
-    });
+    }, subscribeGraceMs);
 
     return {
       message: isRedeploy ? "Redeployment started" : "Deployment started",

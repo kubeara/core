@@ -66,6 +66,13 @@ export function DeployLogsPage() {
   }, [deploymentId, searchParams]);
 
   useEffect(() => {
+    if (!deploymentId) {
+      return;
+    }
+    subscribeDeploymentLogs(deploymentId);
+  }, [deploymentId]);
+
+  useEffect(() => {
     if (
       deploymentId ||
       !pendingDeploy ||
