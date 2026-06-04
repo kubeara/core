@@ -1,0 +1,4 @@
+export enum ManagedType {
+  KUBEARA_MANAGED = "KUBEARA_MANAGED",
+  SELF_MANAGED = "SELF_MANAGED",
+}

@@ -19,12 +19,24 @@ import {
   LogsSubscribePayload,
   SocketDeployMessage,
   SocketRemoveMessage,
+  ContainerDiscoverRequestPayload,
+  ContainerDiscoverResponsePayload,
+  DiscoveredContainerPayload,
 } from "@shared/socket-events";
+import { randomUUID } from "node:crypto";
 import { DeploymentsService } from "@control-panel/modules/deployments/deployments.service";
 import { AgentServerBindingService } from "@control-panel/modules/server-connections/services/agent-server-binding.service";
 import { DeploymentStreamBufferService } from "./deployment-stream-buffer.service";
 
 const SERVER_ID_HEADER = "x-kubeara-server-id";
+const CONTAINER_DISCOVER_TIMEOUT_MS = 15_000;
+
+interface PendingContainerDiscovery {
+  serverId: string;
+  resolve: (containers: DiscoveredContainerPayload[]) => void;
+  reject: (error: Error) => void;
+  timer: NodeJS.Timeout;
+}
 const STREAM_DEBUG =
   process.env.KUBEARA_STREAM_DEBUG === "true" ||
   process.env.KUBEARA_STREAM_DEBUG === "1";
@@ -59,6 +71,10 @@ export class DeploymentGateway
   /** serverId → agent socket (one active agent per server). */
   private agentsByServerId = new Map<string, Socket>();
   private serverIdBySocketId = new Map<string, string>();
+  private readonly pendingContainerDiscovery = new Map<
+    string,
+    PendingContainerDiscovery
+  >();
 
   afterInit(): void {
     this.logStreamDiagnostics("afterInit");
@@ -98,6 +114,8 @@ export class DeploymentGateway
           this.serverIdBySocketId.set(socketId, serverId);
         }
 
+        this.attachAgentInboundHandlers(client);
+
         this.logger.log(
           `Agent connected: ${socketId} (agents=${this.connectedAgents.size})` +
             (serverId ? ` serverId=${serverId}` : " (unbound)") +
@@ -129,6 +147,7 @@ export class DeploymentGateway
     try {
       const socketId = client.id;
       const wasAgent = this.connectedAgents.has(socketId);
+      const serverId = this.serverIdBySocketId.get(socketId);
 
       this.connectedAgents.delete(socketId);
       this.agentPublicIps.delete(socketId);
@@ -139,6 +158,13 @@ export class DeploymentGateway
       );
 
       if (wasAgent) {
+        if (serverId) {
+          this.rejectPendingDiscoveryForServer(
+            serverId,
+            "Agent disconnected during container discovery",
+          );
+        }
+
         const ns = this.getNamespaceServer();
         ns?.emit(DeploymentEvents.AGENT_DISCONNECTED, {
           agentId: socketId,
@@ -167,6 +193,52 @@ export class DeploymentGateway
     @MessageBody() payload: DeploymentStatusPayload,
   ): Promise<void> {
     return this.processDeploymentStatus(client, payload);
+  }
+
+  @SubscribeMessage(DeploymentEvents.CONTAINER_DISCOVER_RESULT)
+  handleContainerDiscoverResult(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: ContainerDiscoverResponsePayload,
+  ): void {
+    try {
+      const requestId = payload?.requestId?.trim();
+      if (!requestId) {
+        this.logger.warn(
+          `Ignoring container discover result without requestId from ${client.id}`,
+        );
+        return;
+      }
+
+      const pending = this.pendingContainerDiscovery.get(requestId);
+      if (!pending) {
+        this.logger.warn(
+          `No pending container discovery for requestId=${requestId}`,
+        );
+        return;
+      }
+
+      const serverId = this.serverIdBySocketId.get(client.id);
+      if (serverId && serverId !== pending.serverId) {
+        this.logger.warn(
+          `Container discover result server mismatch requestId=${requestId} expected=${pending.serverId} got=${serverId}`,
+        );
+        return;
+      }
+
+      clearTimeout(pending.timer);
+      this.pendingContainerDiscovery.delete(requestId);
+
+      if (payload.error) {
+        pending.reject(new Error(payload.error));
+        return;
+      }
+
+      pending.resolve(payload.containers ?? []);
+    } catch (error) {
+      this.logger.error(
+        `Failed to process container discover result: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   @SubscribeMessage(DeploymentEvents.LOGS_SUBSCRIBE)
@@ -493,6 +565,71 @@ export class DeploymentGateway
         `Failed to emit deploy message: ${error instanceof Error ? error.message : String(error)}`,
       );
       throw error;
+    }
+  }
+
+  requestContainerDiscovery(
+    serverId: string,
+  ): Promise<DiscoveredContainerPayload[]> {
+    return new Promise((resolve, reject) => {
+      try {
+        const client = this.agentsByServerId.get(serverId);
+        if (!client?.connected) {
+          reject(new Error(`No connected agent for server '${serverId}'`));
+          return;
+        }
+
+        const requestId = randomUUID();
+        const payload: ContainerDiscoverRequestPayload = { requestId };
+
+        const timer = setTimeout(() => {
+          this.pendingContainerDiscovery.delete(requestId);
+          reject(
+            new Error(
+              `Container discovery timed out after ${CONTAINER_DISCOVER_TIMEOUT_MS / 1000}s for server '${serverId}'`,
+            ),
+          );
+        }, CONTAINER_DISCOVER_TIMEOUT_MS);
+
+        this.pendingContainerDiscovery.set(requestId, {
+          serverId,
+          resolve,
+          reject,
+          timer,
+        });
+
+        this.logger.log(
+          `Requesting container discovery requestId=${requestId} serverId=${serverId}`,
+        );
+
+        client.emit(DeploymentEvents.CONTAINER_DISCOVER, payload);
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  }
+
+  private attachAgentInboundHandlers(client: Socket): void {
+    client.removeAllListeners(DeploymentEvents.CONTAINER_DISCOVER_RESULT);
+    client.on(
+      DeploymentEvents.CONTAINER_DISCOVER_RESULT,
+      (payload: ContainerDiscoverResponsePayload) => {
+        this.handleContainerDiscoverResult(client, payload);
+      },
+    );
+  }
+
+  private rejectPendingDiscoveryForServer(
+    serverId: string,
+    reason: string,
+  ): void {
+    for (const [requestId, pending] of this.pendingContainerDiscovery) {
+      if (pending.serverId !== serverId) {
+        continue;
+      }
+      clearTimeout(pending.timer);
+      this.pendingContainerDiscovery.delete(requestId);
+      pending.reject(new Error(reason));
     }
   }
 

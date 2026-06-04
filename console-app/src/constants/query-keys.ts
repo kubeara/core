@@ -66,6 +66,8 @@ export const QUERY_KEYS = {
         all: ["deployments"] as const,
         byServer: (serverId: string) =>
             ["deployments", "server", serverId] as const,
+        containers: (serverId: string) =>
+            ["deployments", "server", serverId, "containers"] as const,
         detail: (deploymentId: string) =>
             ["deployments", deploymentId] as const,
     },

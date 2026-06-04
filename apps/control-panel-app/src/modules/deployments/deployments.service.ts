@@ -8,7 +8,7 @@ import {
   forwardRef,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { IsNull, Repository } from "typeorm";
+import { In, IsNull, Not, Repository } from "typeorm";
 
 import {
   ComposeParserService,
@@ -44,6 +44,11 @@ import {
   ResolvedDeploymentTarget,
 } from "./dto/deployment.types";
 import { normalizeServerHostForUrls } from "./utils/deployment-server.util";
+import type { ServerContainerDto } from "./dto/server-container.dto";
+import {
+  mergeDiscoveredContainersWithDeployments,
+  sanitizeDeploymentProjectName,
+} from "./utils/container-discovery.util";
 
 export interface EnvironmentVariableView {
   key: string;
@@ -750,6 +755,55 @@ export class DeploymentsService {
       composeOnly: true,
       useTraefik,
     };
+  }
+
+  private static readonly OVERVIEW_EXCLUDED_STATUSES: DeploymentStatus[] = [
+    "failed",
+    "pending",
+    "validating",
+    "pulling",
+    "building",
+    "deploying",
+    "cancelled",
+    "removing",
+    "removed",
+  ];
+
+  /**
+   * Lists runtime containers on a server merged with Kubeara deployment records.
+   * Discovery is not persisted; failed deployments are omitted from the overview.
+   */
+  async listServerContainers(
+    serverId: string,
+    userId: string,
+  ): Promise<ServerContainerDto[]> {
+    await this.assertActiveServerForUser(serverId, userId);
+
+    const discovered =
+      await this.serverConnectionsService.discoverContainersOnHost(serverId);
+
+    const deploymentRows = await this.deploymentRepository.find({
+      where: {
+        serverId,
+        deletedAt: IsNull(),
+        deploymentStatus: Not(
+          In(DeploymentsService.OVERVIEW_EXCLUDED_STATUSES),
+        ),
+      },
+      order: { updatedAt: "DESC" },
+    });
+
+    const deployments = deploymentRows.map((deployment) => ({
+      id: deployment.id,
+      templateSlug: deployment.templateSlug,
+      composeProject: sanitizeDeploymentProjectName(deployment.id),
+    }));
+
+    return mergeDiscoveredContainersWithDeployments(
+      discovered,
+      deployments,
+      serverId,
+    );
   }
 
   async getDeployment(deploymentId: string): Promise<ServiceDeploymentEntity> {

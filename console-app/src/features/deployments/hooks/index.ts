@@ -1,13 +1,27 @@
 import { useQuery } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/constants/query-keys";
-import { fetchDeployment, fetchServerDeployments } from "../api";
+import {
+  fetchDeployment,
+  fetchServerContainers,
+  fetchServerDeployments,
+} from "../api";
+
+export function useServerContainersQuery(serverId: string) {
+  return useQuery({
+    queryKey: QUERY_KEYS.deployments.containers(serverId),
+    queryFn: () => fetchServerContainers(serverId),
+    enabled: Boolean(serverId),
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+}
 
 export function useServerDeploymentsQuery(serverId: string) {
   return useQuery({
     queryKey: QUERY_KEYS.deployments.byServer(serverId),
     queryFn: () => fetchServerDeployments(serverId),
     enabled: Boolean(serverId),
-    staleTime: 30_000,
+    staleTime: 60_000,
   });
 }
 

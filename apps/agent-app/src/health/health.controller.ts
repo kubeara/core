@@ -1,5 +1,6 @@
 import { Controller, Get } from "@nestjs/common";
 import { SocketClientService } from "../socket-client/socket-client.service";
+import { ContainerDiscoveryService } from "../container-discovery/container-discovery.service";
 
 @Controller("health")
 export class HealthController {
@@ -7,7 +8,10 @@ export class HealthController {
    * Creates health controller with socket client dependency.
    * @param socketClientService Connected agent socket state provider.
    */
-  constructor(private readonly socketClientService: SocketClientService) {}
+  constructor(
+    private readonly socketClientService: SocketClientService,
+    private readonly containerDiscoveryService: ContainerDiscoveryService,
+  ) {}
 
   /**
    * Returns current health and socket metadata for the running agent.
@@ -32,5 +36,23 @@ export class HealthController {
         `Failed to build health response: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  /**
+   * Runs `docker ps` locally — use to verify the agent can list containers.
+   */
+  @Get("containers")
+  async listContainers(): Promise<{
+    count: number;
+    containers: unknown[];
+    error?: string;
+  }> {
+    const result =
+      await this.containerDiscoveryService.discoverContainers("health-check");
+    return {
+      count: result.containers.length,
+      containers: result.containers,
+      error: result.error,
+    };
   }
 }

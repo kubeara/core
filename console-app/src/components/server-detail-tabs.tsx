@@ -1,16 +1,16 @@
 import { useNavigate } from "react-router-dom";
 import { useMemo, useState } from "react";
 import { useDeleteServerMutation } from "@/features/servers/hooks";
+import { useServerContainersQuery } from "@/features/deployments/hooks";
+import type { ServerContainer } from "@/features/deployments/types";
 import { ServerTemplatesPanel } from "@/features/templates/components/server-templates-panel";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import { formatApiTimestamp } from "@/lib/unix-timestamp";
 import {
-  getConnectedServices,
   getServerActivity,
   getServerInsights,
   getServerSettings,
   type ActivityEntry,
-  type ConnectedService,
 } from "@/lib/server-detail-data";
 import type { Server } from "@/types";
 import "./server-detail-tabs.css";
@@ -61,49 +61,128 @@ function InsightChart({ points }: { points: number[] }) {
   );
 }
 
-function ConnectedServiceCard({ service }: { service: ConnectedService }) {
+function managedTypeLabel(managedType: ServerContainer["managedType"]): string {
+  return managedType === "KUBEARA_MANAGED" ? "Kubeara Managed" : "Self Managed";
+}
+
+function containerStatusClass(container: ServerContainer): string {
+  if (!container.isOnline) {
+    return "offline";
+  }
+  const normalized = container.status.toLowerCase();
+  if (normalized.includes("up") || normalized.includes("running")) {
+    return "running";
+  }
+  if (normalized.includes("exited") || normalized.includes("stopped")) {
+    return "stopped";
+  }
+  return "degraded";
+}
+
+function formatPortsDisplay(ports: string): string {
+  const trimmed = ports.trim();
+  if (!trimmed) {
+    return "—";
+  }
+  return trimmed.length > 80 ? `${trimmed.slice(0, 77)}…` : trimmed;
+}
+
+function ConnectedServiceCard({ container }: { container: ServerContainer }) {
+  const statusClass = containerStatusClass(container);
+  const displayName =
+    container.containerName || container.templateId || "Container";
+  const statusLabel = container.isOnline ? container.status : "Offline";
+  const portsDisplay = formatPortsDisplay(container.ports);
+
   return (
-    <article className="connected-service-card">
-      <div
-        className="connected-service-icon"
-        style={{
-          backgroundColor: `${service.color}18`,
-          color: service.color,
-        }}
-      >
-        {service.name.charAt(0)}
-      </div>
-      <div className="connected-service-body">
-        <h3>{service.name}</h3>
-        <div className="connected-service-meta">
-          <span className={`service-status service-status-${service.status}`}>
-            {service.status}
-          </span>
-          <span>{service.category}</span>
-          <span>
-            v{service.version} · <code>:{service.port}</code>
-          </span>
+    <article
+      className={`connected-service-card${!container.isOnline ? " connected-service-card-offline" : ""}`}
+    >
+      <header className="connected-service-header">
+        <div className="connected-service-icon connected-service-icon-neutral">
+          {displayName.charAt(0).toUpperCase()}
         </div>
-      </div>
+        <div className="connected-service-heading">
+          <h3 className="connected-service-name" title={displayName}>
+            {displayName}
+          </h3>
+          {!container.isOnline ? (
+            <span className="service-badge service-badge-offline">Offline</span>
+          ) : (
+            <span
+              className={`service-badge service-badge-${container.managedType === "KUBEARA_MANAGED" ? "kubeara" : "self"}`}
+            >
+              {managedTypeLabel(container.managedType)}
+            </span>
+          )}
+        </div>
+      </header>
+      <dl className="connected-service-details">
+        <div className="connected-service-detail-row">
+          <dt>Status</dt>
+          <dd>
+            <span className={`service-status service-status-${statusClass}`}>
+              {statusLabel}
+            </span>
+          </dd>
+        </div>
+        {container.imageName ? (
+          <div className="connected-service-detail-row">
+            <dt>Image</dt>
+            <dd className="connected-service-detail-value" title={container.imageName}>
+              {container.imageName}
+            </dd>
+          </div>
+        ) : null}
+        <div className="connected-service-detail-row">
+          <dt>Ports</dt>
+          <dd
+            className="connected-service-detail-value connected-service-detail-mono"
+            title={container.ports || undefined}
+          >
+            {portsDisplay}
+          </dd>
+        </div>
+        {container.runningSince ? (
+          <div className="connected-service-detail-row">
+            <dt>Running</dt>
+            <dd className="connected-service-detail-value">{container.runningSince}</dd>
+          </div>
+        ) : null}
+      </dl>
     </article>
   );
 }
 
 function OverviewTab({ serverId }: { serverId: string }) {
-  const services = useMemo(() => getConnectedServices(serverId), [serverId]);
+  const { data: containers = [], isLoading, isError } =
+    useServerContainersQuery(serverId);
 
   return (
     <div className="server-detail-panel">
       <h2 className="server-detail-section-title">Connected services</h2>
       <p className="server-detail-section-desc">
-        Services currently deployed and running on this server.
+        Containers discovered on this server, including Kubeara deployments and
+        self-managed workloads.
       </p>
-      {services.length === 0 ? (
+      {isLoading ? (
+        <p className="server-detail-empty">Loading containers…</p>
+      ) : isError ? (
+        <p className="server-detail-empty">
+          Could not load containers. Ensure the agent is connected.
+        </p>
+      ) : containers.length === 0 ? (
         <p className="server-detail-empty">No services connected yet.</p>
       ) : (
         <div className="connected-services-grid">
-          {services.map((service) => (
-            <ConnectedServiceCard key={service.templateId} service={service} />
+          {containers.map((container) => (
+            <ConnectedServiceCard
+              key={
+                container.containerId ??
+                `${container.deploymentId ?? "offline"}-${container.containerName}`
+              }
+              container={container}
+            />
           ))}
         </div>
       )}
@@ -415,9 +494,20 @@ function SettingsTab({ server }: { server: Server }) {
 export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
+  const { data: overviewContainers = [] } = useServerContainersQuery(server.id);
+
   const connectedIds = useMemo(() => {
-    return new Set(getConnectedServices(server.id).map((s) => s.templateId));
-  }, [server.id]);
+    return new Set(
+      overviewContainers
+        .filter(
+          (container) =>
+            container.managedType === "KUBEARA_MANAGED" &&
+            container.templateId &&
+            container.isOnline,
+        )
+        .map((container) => container.templateId as string),
+    );
+  }, [overviewContainers]);
 
   return (
     <div className="server-detail-tabs">
