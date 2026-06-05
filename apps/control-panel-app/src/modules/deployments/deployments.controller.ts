@@ -222,6 +222,18 @@ export class DeploymentsController {
     }
   }
 
+  @Get(":serverId/containers")
+  async listServerContainers(
+    @Req() req: { user: UserEntity },
+    @Param("serverId") serverId: string,
+  ) {
+    const containers = await this.deploymentsService.listServerContainers(
+      serverId,
+      req.user.id,
+    );
+    return { containers };
+  }
+
   @Get(":deploymentId/env")
   async listEnvironmentVariables(@Param("deploymentId") deploymentId: string) {
     return this.deploymentsService.listEnvironmentVariables(deploymentId, {

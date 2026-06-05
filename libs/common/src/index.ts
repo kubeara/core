@@ -14,3 +14,4 @@ export * from "./template-variables/template-variables.util";
 export * from "./server-url/server-url.util";
 export * from "./traefik/traefik-labels.util";
 export * from "./utils/deployment.utils";
+export * from "./container-discovery/parse-docker-ps.util";

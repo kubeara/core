@@ -40,6 +40,22 @@ export interface DeployTemplateInput {
   ports?: Record<string, string>;
 }
 
+export type ManagedType = "KUBEARA_MANAGED" | "SELF_MANAGED";
+
+export interface ServerContainer {
+  containerId: string | null;
+  containerName: string;
+  imageName: string;
+  status: string;
+  ports: string;
+  runningSince: string;
+  managedType: ManagedType;
+  deploymentId: string | null;
+  templateId: string | null;
+  serverId: string;
+  isOnline: boolean;
+}
+
 export interface DeployTemplateResult {
   message: string;
   template: string;
