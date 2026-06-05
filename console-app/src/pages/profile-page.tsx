@@ -1,76 +1,33 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { getErrorMessage } from "@/api/api-error";
 import {
   useChangeProfilePasswordMutation,
   useUpdateGeneralProfileMutation,
-  useUpdateOrganizationMutation,
 } from "@/features/profile/hooks";
 import { useAuth } from "@/features/auth/context/use-auth";
-import { readImageAsDataUrl } from "@/lib/read-image";
-import { getUserInitials } from "@/lib/user-display";
+import { ProfilePageSkeleton } from "@/components/shared/skeleton";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import "@/components/profile-page.css";
 
 function GeneralDetailsCard() {
   const { user } = useAuth();
   const updateMutation = useUpdateGeneralProfileMutation();
-  const orgUpdateMutation = useUpdateOrganizationMutation();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const orgLogoInputRef = useRef<HTMLInputElement>(null);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [profilePicture, setProfilePicture] = useState<string | null>(null);
-  const [orgName, setOrgName] = useState("");
-  const [orgLogo, setOrgLogo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const isSaving = updateMutation.isPending || orgUpdateMutation.isPending;
+  const isSaving = updateMutation.isPending;
 
   useEffect(() => {
     if (!user) return;
     const parts = user.name.split(/\s+/).filter(Boolean);
     setFirstName(parts[0] || "");
     setLastName(parts.slice(1).join(" ") || "");
-    setProfilePicture(null);
-    setOrgName(user.organization?.name || "");
-    setOrgLogo(null);
   }, [user]);
 
   if (!user) return null;
-
-  async function handleImageChange(file: File | undefined) {
-    if (!file) return;
-    setError(null);
-    try {
-      const dataUrl = await readImageAsDataUrl(file);
-      setProfilePicture(dataUrl);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid image.");
-    }
-  }
-
-  function removePhoto() {
-    setProfilePicture(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  async function handleLogoChange(file: File | undefined) {
-    if (!file) return;
-    setError(null);
-    try {
-      const dataUrl = await readImageAsDataUrl(file);
-      setOrgLogo(dataUrl);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid image.");
-    }
-  }
-
-  function removeLogo() {
-    setOrgLogo(null);
-    if (orgLogoInputRef.current) orgLogoInputRef.current.value = "";
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -78,17 +35,10 @@ function GeneralDetailsCard() {
     setSuccess(null);
 
     try {
-      await Promise.all([
-        updateMutation.mutateAsync({
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          profilePicture,
-        }),
-        orgUpdateMutation.mutateAsync({
-          orgName: orgName.trim(),
-          orgLogo,
-        }),
-      ]);
+      await updateMutation.mutateAsync({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+      });
       setSuccess("Profile updated.");
     } catch (err) {
       setError(getErrorMessage(err));
@@ -101,69 +51,14 @@ function GeneralDetailsCard() {
         <div>
           <h2>General details</h2>
           <p className="profile-section-desc">
-            Your personal information, organization, and appearance preferences.
+            Your personal information and appearance preferences.
           </p>
         </div>
         <ThemeToggle variant="switch" />
       </div>
       <form onSubmit={handleSubmit} className="profile-section-form">
         <div className="profile-field-group">
-          <div className="profile-avatar-block">
-            <div className="profile-avatar-upload">
-              <div className="profile-avatar-preview">
-                {profilePicture ? (
-                  <img src={profilePicture} alt="" />
-                ) : (
-                  getUserInitials({
-                    name: `${firstName} ${lastName}`.trim() || user.name,
-                  })
-                )}
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="profile-avatar-input"
-                aria-label="Upload profile photo"
-                onChange={(e) => void handleImageChange(e.target.files?.[0])}
-                disabled={isSaving}
-              />
-            </div>
-            <div className="profile-avatar-actions">
-              <p className="profile-avatar-hint">PNG, JPG or WebP. Max 500 KB.</p>
-              {profilePicture && (
-                <button
-                  type="button"
-                  className="profile-text-btn"
-                  onClick={removePhoto}
-                  disabled={isSaving}
-                >
-                  Remove photo
-                </button>
-              )}
-            </div>
-          </div>
-
           <div className="profile-form-grid">
-            <div className="form-field">
-              <label htmlFor="profile-email">Email</label>
-              <div id="profile-email" className="profile-email-readonly">
-                {user.email}
-              </div>
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="org-name">Organization name</label>
-              <input
-                id="org-name"
-                value={orgName}
-                onChange={(e) => setOrgName(e.target.value)}
-                required
-                placeholder="Acme Inc."
-                disabled={isSaving}
-              />
-            </div>
-
             <div className="form-field">
               <label htmlFor="profile-first-name">First name</label>
               <input
@@ -186,39 +81,12 @@ function GeneralDetailsCard() {
                 disabled={isSaving}
               />
             </div>
-          </div>
-        </div>
 
-        <div className="profile-field-group">
-          <div className="profile-logo-block">
-            <div className="profile-logo-upload">
-              <div className="profile-logo-preview">
-                {orgLogo ? <img src={orgLogo} alt="" /> : "Logo"}
+            <div className="form-field">
+              <label htmlFor="profile-email">Email</label>
+              <div id="profile-email" className="profile-email-readonly">
+                {user.email}
               </div>
-              <input
-                ref={orgLogoInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="profile-logo-input"
-                aria-label="Upload organization logo"
-                onChange={(e) => void handleLogoChange(e.target.files?.[0])}
-                disabled={isSaving}
-              />
-            </div>
-            <div className="profile-avatar-actions">
-              <p className="profile-avatar-hint">
-                Organization logo. Square works best. Max 500 KB.
-              </p>
-              {orgLogo && (
-                <button
-                  type="button"
-                  className="profile-text-btn"
-                  onClick={removeLogo}
-                  disabled={isSaving}
-                >
-                  Remove logo
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -228,7 +96,7 @@ function GeneralDetailsCard() {
 
         <div className="profile-section-actions">
           <button type="submit" className="btn-primary" disabled={isSaving}>
-            {isSaving ? "Saving…" : "Save changes"}
+            {isSaving ? "Saving…" : "Save"}
           </button>
         </div>
       </form>
@@ -345,14 +213,14 @@ function ChangePasswordCard() {
  * User profile page.
  *
  * Allows users to manage:
- * - General details (name, profile picture, organization, theme)
+ * - General details (name, theme)
  * - Password change
  */
 export function ProfilePage() {
   const { user, isLoading } = useAuth();
 
   if (isLoading || !user) {
-    return null;
+    return <ProfilePageSkeleton />;
   }
 
   return (
@@ -360,7 +228,7 @@ export function ProfilePage() {
       <header className="dashboard-header">
         <div>
           <h1>Profile</h1>
-          <p>Manage your account and organization settings.</p>
+          <p>Manage your account settings.</p>
         </div>
       </header>
 

@@ -4,7 +4,7 @@ import { AuthCard } from "@/features/auth/components/auth-card";
 import { AuthForm } from "@/features/auth/components/auth-form";
 import { useLoginMutation } from "@/features/auth/hooks";
 import { getErrorMessage } from "@/api/api-error";
-import { validateEmail } from "@/lib/validation";
+import { validateEmail, validateRequired } from "@/lib/validation";
 
 /**
  * Login page component.
@@ -25,18 +25,27 @@ export function LoginPage() {
 
     async function handleSubmit(formData: FormData) {
         setError(null);
+
         const email = String(formData.get("email") ?? "");
+        const password = String(formData.get("password") ?? "");
+
+        const nextFieldErrors: Record<string, string> = {};
         const emailError = validateEmail(email);
-        if (emailError) {
-            setFieldErrors({ email: emailError });
+        if (emailError) nextFieldErrors.email = emailError;
+
+        const passwordError = validateRequired(password, "Password");
+        if (passwordError) nextFieldErrors.password = passwordError;
+
+        if (Object.keys(nextFieldErrors).length > 0) {
+            setFieldErrors(nextFieldErrors);
             return;
         }
         setFieldErrors({});
 
         try {
             await loginMutation.mutateAsync({
-                email: String(formData.get("email") ?? "").trim(),
-                password: String(formData.get("password") ?? ""),
+                email: email.trim(),
+                password,
             });
 
             // Redirect to intended page or default to /servers
@@ -73,7 +82,7 @@ export function LoginPage() {
                         label: "Password",
                         type: "password",
                         autoComplete: "current-password",
-                        // placeholder: "••••••••",
+                        placeholder: "••••••••",
                     },
                 ]}
                 submitLabel="Sign in"

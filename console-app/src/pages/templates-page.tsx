@@ -3,6 +3,7 @@ import { getErrorMessage } from "@/api/api-error";
 import { useAuth } from "@/features/auth/context/use-auth";
 import { getDisplayName } from "@/lib/user-display";
 import { useTemplatesQuery } from "@/features/templates/hooks";
+import { SkeletonGrid } from "@/components/shared/skeleton";
 import { MarketplaceTemplateCard } from "@/features/templates/components/marketplace-template-card";
 import "@/features/templates/templates-ui.css";
 
@@ -17,11 +18,11 @@ export function TemplatesPage() {
     <div className="dashboard templates-catalog">
       <header className="templates-catalog-header dashboard-header">
         <div>
-          <h1>Templates</h1>
+          <h1>Services</h1>
           <p>
             Welcome back{user ? `, ${getDisplayName(user)}` : ""}. Browse
             curated infrastructure templates and deploy them from a
-            server&apos;s Templates tab.
+            server&apos;s Services tab.
           </p>
         </div>
         <Link to="/servers" className="btn-primary">
@@ -29,16 +30,7 @@ export function TemplatesPage() {
         </Link>
       </header>
 
-      {isPending && (
-        <div className="templates-panel-state" aria-live="polite">
-          <div className="server-templates-skeleton-grid" aria-hidden>
-            {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className="server-templates-skeleton-card" />
-            ))}
-          </div>
-          <p>Loading templates…</p>
-        </div>
-      )}
+      {isPending && <SkeletonGrid count={6} label="Loading templates…" />}
 
       {isError && (
         <div className="templates-panel-state">

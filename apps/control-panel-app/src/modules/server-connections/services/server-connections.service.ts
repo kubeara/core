@@ -79,6 +79,7 @@ import {
   encryptCredentialFields,
   OnboardSshServerInfo,
 } from "../utils/server-ssh-credential.util";
+import { isUUID } from "class-validator";
 
 @Injectable()
 export class ServerConnectionsService {
@@ -852,12 +853,12 @@ export class ServerConnectionsService {
         },
       ];
 
-      const searchId = String(query.search);
+      const searchValue = String(query.search);
 
-      if (!Number.isNaN(searchId)) {
+      if (isUUID(searchValue)) {
         searchWhere.push({
           ...where,
-          id: searchId,
+          id: searchValue,
         });
       }
     }

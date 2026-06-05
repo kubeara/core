@@ -1,4 +1,5 @@
 import { Navigate, Outlet } from "react-router-dom";
+import { AppLoadingSkeleton } from "@/components/shared/skeleton";
 import { useAuth } from "../context/use-auth";
 
 /**
@@ -9,7 +10,7 @@ export function GuestRoute() {
     const { user, isLoading } = useAuth();
 
     if (isLoading) {
-        return null;
+        return <AppLoadingSkeleton />;
     }
 
     if (user) {

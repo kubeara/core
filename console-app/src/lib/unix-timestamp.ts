@@ -35,12 +35,7 @@ export function formatApiTimestamp(
   value: number | string | null | undefined,
   fallback = "Never",
 ): string {
-  if (value == null || value === "") return fallback;
-
-  const iso =
-    typeof value === "string" && value.includes("T")
-      ? value
-      : unixTimestampToIso(value);
-
+  const iso = unixTimestampToIso(value);
+  if (!iso) return fallback;
   return formatTimestamp(iso, fallback);
 }

@@ -1,4 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { AppLoadingSkeleton } from "@/components/shared/skeleton";
 import { useAuth } from "../context/use-auth";
 
 /**
@@ -10,7 +11,7 @@ export function ProtectedRoute() {
     const location = useLocation();
 
     if (isLoading) {
-        return null;
+        return <AppLoadingSkeleton />;
     }
 
     if (!user) {

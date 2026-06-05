@@ -1,6 +1,5 @@
-import { useNavigate } from "react-router-dom";
-import { useMemo, useState } from "react";
-import { useDeleteServerMutation } from "@/features/servers/hooks";
+import { useEffect, useMemo, useState } from "react";
+import { useDisconnectServerMutation } from "@/features/servers/hooks";
 import { useServerContainersQuery } from "@/features/deployments/hooks";
 import type { ServerContainer } from "@/features/deployments/types";
 import { ServerTemplatesPanel } from "@/features/templates/components/server-templates-panel";
@@ -9,10 +8,12 @@ import { formatApiTimestamp } from "@/lib/unix-timestamp";
 import {
   getServerActivity,
   getServerInsights,
-  getServerSettings,
   type ActivityEntry,
 } from "@/lib/server-detail-data";
+import { SkeletonGrid } from "@/components/shared/skeleton";
+import { Switch } from "@/components/ui/switch";
 import type { Server } from "@/types";
+import "@/features/templates/templates-ui.css";
 import "./server-detail-tabs.css";
 import { ContainerStatus } from "@/enums/container-status.enum";
 
@@ -20,7 +21,7 @@ type TabId = "overview" | "templates" | "insights" | "activity" | "settings";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "overview", label: "Overview" },
-  { id: "templates", label: "Templates" },
+  { id: "templates", label: "Services" },
   { id: "insights", label: "Insights" },
   { id: "activity", label: "Activity" },
   { id: "settings", label: "Settings" },
@@ -86,92 +87,78 @@ function ConnectedServiceCard({ container }: { container: ServerContainer }) {
   const displayName =
     container.containerName || container.templateId || "Container";
 
-  const cleanName = displayName.replace(
-    /^deployment-\d+-[^-]+-/,
-    "",
-  );
+  const cleanName = displayName.replace(/^deployment-\d+-[^-]+-/, "");
 
-  const iconLetter = (cleanName || displayName)
-    .charAt(0)
-    .toUpperCase();
+  const iconLetter = (cleanName || displayName).charAt(0).toUpperCase();
 
   const statusLabel = container.isOnline ? container.status : "Offline";
-  const portsDisplay =
-    container.ports?.match(/:(\d+)->/)?.[1] ?? "N/A";
+  const portsDisplay = container.ports?.match(/:(\d+)->/)?.[1] ?? "N/A";
+  const subtitle = container.templateId ?? container.containerName;
 
   return (
     <article
-      className={`connected-service-card${!container.isOnline ? " connected-service-card-offline" : ""
-        }`}
+      className={`marketplace-card overview-container-card${!container.isOnline ? " marketplace-card-offline" : ""}`}
     >
-      <header className="connected-service-header">
-        <div className="connected-service-icon connected-service-icon-neutral">
+      <div className="marketplace-card-header">
+        <div className="marketplace-card-icon" aria-hidden>
           {iconLetter}
         </div>
-
-        <div className="connected-service-heading">
-          <h3 className="connected-service-name" title={displayName}>
+        <div className="marketplace-card-headline">
+          <p className="marketplace-card-category">
+            {managedTypeLabel(container.managedType)}
+          </p>
+          <h3 className="marketplace-card-name" title={displayName}>
             {cleanName}
+            {!container.isOnline ? (
+              <span className="marketplace-card-status-badge is-offline">
+                Offline
+              </span>
+            ) : container.managedType === "KUBEARA_MANAGED" ? (
+              <span className="marketplace-card-deployed-badge">Deployed</span>
+            ) : null}
           </h3>
-
-          {!container.isOnline ? (
-            <span className="service-badge service-badge-offline">
-              Offline
-            </span>
-          ) : (
-            <span
-              className={`service-badge service-badge-${container.managedType === "KUBEARA_MANAGED"
-                ? "kubeara"
-                : "self"
-                }`}
-            >
-              {managedTypeLabel(container.managedType)}
-            </span>
-          )}
+          {subtitle ? (
+            <p className="marketplace-card-slug">
+              <code>{subtitle}</code>
+            </p>
+          ) : null}
         </div>
-      </header>
+      </div>
 
-      <dl className="connected-service-details">
-        <div className="connected-service-detail-row">
-          <dt>Status</dt>
-          <dd>
-            <span className={`service-status service-status-${statusClass}`}>
-              {statusLabel}
-            </span>
-          </dd>
-        </div>
-
+      <div className="marketplace-card-body">
         {container.imageName ? (
-          <div className="connected-service-detail-row">
-            <dt>Image</dt>
-            <dd
-              className="connected-service-detail-value"
-              title={container.imageName}
-            >
-              {container.imageName}
+          <p className="marketplace-card-description" title={container.imageName}>
+            {container.imageName}
+          </p>
+        ) : (
+          <p className="marketplace-card-description marketplace-card-description-empty">
+            No image information available.
+          </p>
+        )}
+
+        <dl className="marketplace-card-meta">
+          <div className="marketplace-card-meta-item">
+            <dt>Status</dt>
+            <dd>
+              <span className={`service-status service-status-${statusClass}`}>
+                {statusLabel}
+              </span>
             </dd>
           </div>
-        ) : null}
-
-        <div className="connected-service-detail-row">
-          <dt>Ports</dt>
-          <dd
-            className="connected-service-detail-value connected-service-detail-mono"
-            title={container.ports || undefined}
-          >
-            {portsDisplay}
-          </dd>
-        </div>
-
-        {container.runningSince ? (
-          <div className="connected-service-detail-row">
-            <dt>Running</dt>
-            <dd className="connected-service-detail-value">
-              {container.runningSince}
+          <div className="marketplace-card-meta-item">
+            <dt>Ports</dt>
+            <dd>
+              <code title={container.ports || undefined}>{portsDisplay}</code>
             </dd>
           </div>
-        ) : null}
-      </dl>
+          {container.runningSince ? (
+            <div className="marketplace-card-meta-item">
+              <dt>Running</dt>
+              <dd>{container.runningSince}</dd>
+            </div>
+          ) : null}
+        </dl>
+      </div>
     </article>
   );
 }
@@ -198,7 +185,7 @@ function OverviewTab({ serverId }: { serverId: string }) {
       </p>
 
       {isLoading ? (
-        <p className="server-detail-empty">Loading containers…</p>
+        <SkeletonGrid count={3} cardHeight={200} label="Loading containers…" />
       ) : isError ? (
         <p className="server-detail-empty">
           Could not load containers. Ensure the agent is connected.
@@ -207,7 +194,7 @@ function OverviewTab({ serverId }: { serverId: string }) {
         <p className="server-detail-empty">No services connected yet.</p>
       ) : (
         <>
-          <div className="connected-services-grid">
+          <div className="server-templates-grid">
             {kubearaManagedContainers.map((container) => (
               <ConnectedServiceCard
                 key={
@@ -225,7 +212,7 @@ function OverviewTab({ serverId }: { serverId: string }) {
                 Self Managed
               </h3>
 
-              <div className="connected-services-grid">
+              <div className="server-templates-grid">
                 {selfManagedContainers.map((container) => (
                   <ConnectedServiceCard
                     key={
@@ -336,47 +323,33 @@ function ActivityTab({
 }
 
 function SettingsTab({ server }: { server: Server }) {
-  const navigate = useNavigate();
-  const deleteMutation = useDeleteServerMutation();
-  const settings = useMemo(() => getServerSettings(server), [server]);
-  const [destroyOpen, setDestroyOpen] = useState(false);
+  const disconnectMutation = useDisconnectServerMutation();
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
+  const [monitoringEnabled, setMonitoringEnabled] = useState(server.connected);
 
-  // async function handleConnect() {
-  //   try {
-  //     await connectMutation.mutateAsync(server.id);
-  //   } catch {
-  //     /* errors surfaced via mutation onError toast */
-  //   }
-  // }
+  useEffect(() => {
+    setMonitoringEnabled(server.connected);
+  }, [server.connected]);
 
-  // async function handleDisconnect() {
-  //   try {
-  //     await disconnectMutation.mutateAsync(server.id);
-  //   } catch {
-  //     /* errors surfaced via mutation onError toast */
-  //   }
-  // }
-
-  async function handleDestroy() {
+  async function handleDisconnect() {
     try {
-      await deleteMutation.mutateAsync(server.id);
-      setDestroyOpen(false);
-      navigate("/servers", { replace: true });
+      await disconnectMutation.mutateAsync(server.id);
+      setDisconnectOpen(false);
     } catch {
       /* errors surfaced via mutation onError toast */
     }
   }
 
-  function openDestroyModal() {
-    setDestroyOpen(true);
+  function openDisconnectModal() {
+    setDisconnectOpen(true);
   }
 
-  function closeDestroyModal() {
-    if (destroying) return;
-    setDestroyOpen(false);
+  function closeDisconnectModal() {
+    if (disconnecting) return;
+    setDisconnectOpen(false);
   }
 
-  const destroying = deleteMutation.isPending;
+  const disconnecting = disconnectMutation.isPending;
 
   return (
     <div className="server-detail-panel">
@@ -398,75 +371,16 @@ function SettingsTab({ server }: { server: Server }) {
             <dd>{server.username}</dd>
           </div>
           <div>
-            <dt>Last Connected At</dt>
+            <dt>Created At</dt>
             <dd>
-              <time dateTime={server.lastConnectedAt ?? undefined}>
-                {formatApiTimestamp(server.lastConnectedAt)}
+              <time dateTime={server.createdAt ?? undefined}>
+                {formatApiTimestamp(server.createdAt)}
               </time>
             </dd>
-          </div>
-          <div>
-            <dt>Created</dt>
-            <dd>
-              <time dateTime={server.createdAt}>
-                {formatApiTimestamp(server.createdAt, "Unknown")}
-              </time>
-            </dd>
-          </div>
-          <div>
-            <dt>Region</dt>
-            <dd>{settings.region}</dd>
-          </div>
-          <div>
-            <dt>SSH port</dt>
-            <dd>{settings.sshPort}</dd>
-          </div>
-          <div>
-            <dt>Backup schedule</dt>
-            <dd>{settings.backupSchedule}</dd>
-          </div>
-          <div>
-            <dt>Maintenance window</dt>
-            <dd>{settings.maintenanceWindow}</dd>
           </div>
         </dl>
 
-        {/* <div className="settings-connection-actions">
-          {isOnline ? (
-            <button
-              type="button"
-              className={`btn-danger-outline${connectionLoading ? " is-loading" : ""}`}
-              onClick={() => void handleDisconnect()}
-              disabled={connectionLoading}
-              aria-busy={connectionLoading}
-            >
-              {connectionLoading ? "Disconnecting…" : "Disconnect SSH"}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className={`btn-primary${connectionLoading ? " is-loading" : ""}`}
-              onClick={() => void handleConnect()}
-              disabled={connectionLoading}
-              aria-busy={connectionLoading}
-            >
-              {connectionLoading ? "Connecting…" : "Connect SSH"}
-            </button>
-          )}
-        </div> */}
-
         <div className="settings-toggles">
-          <div className="settings-toggle-row">
-            <div>
-              <span className="settings-toggle-label">Auto-restart</span>
-              <span className="settings-toggle-hint">
-                Restart containers after failed health checks
-              </span>
-            </div>
-            <span className="settings-readonly">
-              {settings.autoRestart ? "Enabled" : "Disabled"}
-            </span>
-          </div>
           <div className="settings-toggle-row">
             <div>
               <span className="settings-toggle-label">Monitoring</span>
@@ -474,68 +388,70 @@ function SettingsTab({ server }: { server: Server }) {
                 Collect metrics and send alerts to your workspace
               </span>
             </div>
-            <span className="settings-readonly">
-              {settings.monitoring ? "Enabled" : "Disabled"}
-            </span>
+            <Switch
+              checked={monitoringEnabled}
+              onCheckedChange={setMonitoringEnabled}
+              aria-label="Monitoring"
+            />
           </div>
         </div>
       </section>
 
       <section className="settings-danger-zone">
-        <h2>Destroy server</h2>
+        <h2>Disconnect server</h2>
         <p>
-          Permanently remove this server and disconnect all services. This
-          action cannot be undone.
+          Disconnect this server from Kubeara. Services on the server will not
+          be removed.
         </p>
         <button
           type="button"
-          className="btn-danger"
-          onClick={openDestroyModal}
+          className="btn-danger-outline"
+          onClick={openDisconnectModal}
         >
-          Destroy server
+          Disconnect server
         </button>
       </section>
 
-      {destroyOpen && (
+      {disconnectOpen && (
         <div
           className="modal-overlay"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="destroy-server-title"
+          aria-labelledby="disconnect-server-title"
         >
           <div className="modal-dialog modal-dialog-sm">
             <div className="modal-header">
-              <h2 id="destroy-server-title">Destroy server?</h2>
+              <h2 id="disconnect-server-title">Disconnect server?</h2>
               <button
                 type="button"
                 className="modal-close"
                 aria-label="Close"
-                onClick={closeDestroyModal}
+                onClick={closeDisconnectModal}
               >
                 ×
               </button>
             </div>
             <p className="modal-body-text">
-              <strong>{server.name}</strong> ({server.host}) will be removed
-              permanently along with all connected services.
+              <strong>{server.name}</strong> ({server.host}) will be
+              disconnected from Kubeara. You can reconnect it later.
             </p>
             <div className="modal-actions">
               <button
                 type="button"
                 className="btn-secondary"
-                disabled={destroying}
-                onClick={closeDestroyModal}
+                disabled={disconnecting}
+                onClick={closeDisconnectModal}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className={`btn-danger${destroying ? " is-loading" : ""}`}
-                disabled={destroying}
-                aria-busy={destroying}
-                onClick={() => void handleDestroy()}
+                className={`btn-danger-outline${disconnecting ? " is-loading" : ""}`}
+                disabled={disconnecting}
+                aria-busy={disconnecting}
+                onClick={() => void handleDisconnect()}
               >
-                {destroying ? "Destroying…" : "Destroy server"}
+                {disconnecting ? "Disconnecting…" : "Disconnect server"}
               </button>
             </div>
           </div>

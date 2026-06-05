@@ -4,6 +4,7 @@ import { ServerDetailTabs } from "@/components/server-detail-tabs";
 import { useServerQuery } from "@/features/servers/hooks";
 import { ApiError, getErrorMessage } from "@/api/api-error";
 import { ServerFeedbackMessage } from "@/features/servers/components/server-feedback-message";
+import { ServerDetailPageSkeleton } from "@/components/shared/skeleton";
 import { NotFoundPage } from "./not-found-page";
 
 /**
@@ -19,7 +20,7 @@ export function ServerDetailPage() {
   const { data: server, isPending, isError, error, refetch } = useServerQuery(id);
 
   if (isPending) {
-    return null;
+    return <ServerDetailPageSkeleton />;
   }
 
   if (isError && error instanceof ApiError && error.status === 404) {
