@@ -3,8 +3,10 @@ import { spawn } from "child_process";
 import { parseDockerPsStdout } from "@shared/common";
 import type { ContainerDiscoverResponsePayload } from "@shared/socket-events";
 
-const DOCKER_PS_TIMEOUT_MS = 8_000;
-const DOCKER_PS_COMMAND = ["ps", "-a", "--format", "{{json .}}"];
+import {
+  DOCKER_PS_COMMAND,
+  DOCKER_PS_TIMEOUT_MS,
+} from "../common/constants/container-discovery.constant";
 
 @Injectable()
 export class ContainerDiscoveryService {

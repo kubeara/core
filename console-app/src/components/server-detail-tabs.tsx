@@ -14,6 +14,7 @@ import {
 } from "@/lib/server-detail-data";
 import type { Server } from "@/types";
 import "./server-detail-tabs.css";
+import { ContainerStatus } from "@/enums/container-status.enum";
 
 type TabId = "overview" | "templates" | "insights" | "activity" | "settings";
 
@@ -67,25 +68,17 @@ function managedTypeLabel(managedType: ServerContainer["managedType"]): string {
 
 function containerStatusClass(container: ServerContainer): string {
   if (!container.isOnline) {
-    return "offline";
+    return ContainerStatus.OFFLINE;
   }
   const normalized = container.status.toLowerCase();
   if (normalized.includes("up") || normalized.includes("running")) {
-    return "running";
+    return ContainerStatus.RUNNING;
   }
   if (normalized.includes("exited") || normalized.includes("stopped")) {
-    return "stopped";
+    return ContainerStatus.STOPPED;
   }
-  return "degraded";
+  return ContainerStatus.DEGRADED;
 }
-
-// function formatPortsDisplay(ports: string): string {
-//   const trimmed = ports.trim();
-//   if (!trimmed) {
-//     return "—";
-//   }
-//   return trimmed.length > 80 ? `${trimmed.slice(0, 77)}…` : trimmed;
-// }
 
 function ConnectedServiceCard({ container }: { container: ServerContainer }) {
   const statusClass = containerStatusClass(container);

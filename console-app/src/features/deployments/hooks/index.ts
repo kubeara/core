@@ -6,6 +6,9 @@ import {
   fetchServerDeployments,
 } from "../api";
 
+/**
+ * Hook to fetch server containers.
+ */
 export function useServerContainersQuery(serverId: string) {
   return useQuery({
     queryKey: QUERY_KEYS.deployments.containers(serverId),
@@ -16,6 +19,9 @@ export function useServerContainersQuery(serverId: string) {
   });
 }
 
+/**
+ * Hook to fetch server deployments.
+ */
 export function useServerDeploymentsQuery(serverId: string) {
   return useQuery({
     queryKey: QUERY_KEYS.deployments.byServer(serverId),
@@ -25,6 +31,9 @@ export function useServerDeploymentsQuery(serverId: string) {
   });
 }
 
+/**
+ * Hook to fetch deployment details.
+ */
 export function useDeploymentQuery(deploymentId: string | undefined) {
   return useQuery({
     queryKey: QUERY_KEYS.deployments.detail(deploymentId ?? ""),

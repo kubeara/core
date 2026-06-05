@@ -27,19 +27,12 @@ import { randomUUID } from "node:crypto";
 import { DeploymentsService } from "@control-panel/modules/deployments/deployments.service";
 import { AgentServerBindingService } from "@control-panel/modules/server-connections/services/agent-server-binding.service";
 import { DeploymentStreamBufferService } from "./deployment-stream-buffer.service";
-
-const SERVER_ID_HEADER = "x-kubeara-server-id";
-const CONTAINER_DISCOVER_TIMEOUT_MS = 15_000;
-
-interface PendingContainerDiscovery {
-  serverId: string;
-  resolve: (containers: DiscoveredContainerPayload[]) => void;
-  reject: (error: Error) => void;
-  timer: NodeJS.Timeout;
-}
-const STREAM_DEBUG =
-  process.env.KUBEARA_STREAM_DEBUG === "true" ||
-  process.env.KUBEARA_STREAM_DEBUG === "1";
+import type { PendingContainerDiscovery } from "./interfaces";
+import {
+  SERVER_ID_HEADER,
+  CONTAINER_DISCOVER_TIMEOUT_MS,
+  STREAM_DEBUG,
+} from "./constants";
 
 function deploymentRoom(deploymentId: string): string {
   return `deployment:${deploymentId}`;

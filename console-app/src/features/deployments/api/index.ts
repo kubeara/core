@@ -52,6 +52,9 @@ export async function fetchServerDeployments(
   );
 }
 
+/**
+ * Fetches the details of a deployment.
+ */
 export async function fetchDeployment(
   deploymentId: string,
 ): Promise<DeploymentDetail> {

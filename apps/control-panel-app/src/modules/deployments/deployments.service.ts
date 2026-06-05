@@ -49,15 +49,7 @@ import {
   mergeDiscoveredContainersWithDeployments,
   sanitizeDeploymentProjectName,
 } from "./utils/container-discovery.util";
-
-export interface EnvironmentVariableView {
-  key: string;
-  value: string | null;
-  isRequired: boolean;
-  isGenerated: boolean;
-  comment: string | null;
-  updatedAt: number;
-}
+import type { EnvironmentVariableView } from "./interfaces/deployments.interface";
 
 @Injectable()
 export class DeploymentsService {

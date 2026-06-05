@@ -3,12 +3,7 @@ import type { DiscoveredContainerPayload } from "@shared/socket-events";
 
 import { ManagedType } from "../enums/managed-type.enum";
 import type { ServerContainerDto } from "../dto/server-container.dto";
-
-export interface DeploymentMatchRecord {
-  id: string;
-  templateSlug: string;
-  composeProject: string;
-}
+import type { DeploymentMatchRecord } from "../interfaces/container-discovery.interfaces";
 
 const EXCLUDED_CONTAINER_NAMES = new Set(["kubeara-agent", "traefik"]);
 
@@ -29,6 +24,9 @@ function isInfrastructureContainer(containerName: string): boolean {
   return lower.startsWith("kubeara-traefik");
 }
 
+/**
+ * Finds a deployment for a container by container ID or compose project name.
+ */
 function findDeploymentForContainer(
   container: DiscoveredContainerPayload,
   deployments: DeploymentMatchRecord[],
@@ -69,6 +67,9 @@ function findDeploymentForContainer(
   return undefined;
 }
 
+/**
+ * Sorts containers by managed type and online status.
+ */
 function sortContainers(
   containers: ServerContainerDto[],
 ): ServerContainerDto[] {
@@ -94,6 +95,9 @@ function sortContainers(
   });
 }
 
+/**
+ * Merges discovered containers with deployments and returns a list of server containers.
+ */
 export function mergeDiscoveredContainersWithDeployments(
   discovered: DiscoveredContainerPayload[],
   deployments: DeploymentMatchRecord[],
