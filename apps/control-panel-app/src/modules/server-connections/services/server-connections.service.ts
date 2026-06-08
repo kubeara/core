@@ -3,8 +3,11 @@ import {
   ConflictException,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
+  Logger,
   NotFoundException,
+  forwardRef,
 } from "@nestjs/common";
 import {
   DataSource,
@@ -25,7 +28,9 @@ import {
   ListServersQueryDto,
   UpdateServerDto,
   ServerResponseDto,
+  ServerResourcesResponseDto,
 } from "../dto";
+import { DeploymentGateway } from "@control-panel/websocket/websocket.gateway";
 import { ServerSshCredentialEntity } from "../entities/server-ssh-credential.entity";
 import { ServerEntity } from "../entities/server.entity";
 import { EncryptionService } from "@shared/common";
@@ -61,9 +66,17 @@ import { ERROR_MESSAGES } from "@control-panel/constants/error";
 import { SUCCESS_MESSAGES } from "@control-panel/constants/success";
 import { ServiceResponse } from "@control-panel/common/interfaces/success-response.interface";
 import { PaginatedResponse, parseDockerPsStdout } from "@shared/common";
-import type { DiscoveredContainerPayload } from "@shared/socket-events";
+import type {
+  DiscoveredContainerPayload,
+  ServerResourcesMetricsPayload,
+} from "@shared/socket-events";
 import { LocalAgentHostAdapter } from "../adapters/local-agent-host.adapter";
 import { SshAgentHostAdapter } from "../adapters/ssh-agent-host.adapter";
+import {
+  HOST_RESOURCES_COMMAND_TIMEOUT_MS,
+  HOST_RESOURCES_SHELL_COMMAND,
+} from "../constants/server-resources.constants";
+import { parseHostResourcesOutput } from "../utils/parse-host-resources-output.util";
 import { toServerResponseDto } from "../utils/server.mapper";
 import { OperationFailedException } from "@control-panel/common/exceptions/operation-failed.exception";
 import { ExistingServerCheck } from "../interfaces/existing-server-check.interface";
@@ -83,6 +96,10 @@ import { isUUID } from "class-validator";
 
 @Injectable()
 export class ServerConnectionsService {
+  private readonly logger = new Logger(ServerConnectionsService.name);
+
+  private static readonly SOCKET_RESOURCES_ATTEMPT_MS = 5_000;
+
   constructor(
     @InjectRepository(ServerEntity)
     private readonly serverRepository: Repository<ServerEntity>,
@@ -95,6 +112,8 @@ export class ServerConnectionsService {
     private readonly sshManager: SshConnectionManager,
     private readonly remoteAgentInstall: RemoteAgentInstallService,
     private readonly agentInstall: AgentInstallService,
+    @Inject(forwardRef(() => DeploymentGateway))
+    private readonly deploymentGateway: DeploymentGateway,
   ) {}
 
   /**
@@ -224,6 +243,123 @@ export class ServerConnectionsService {
     }
 
     return parseDockerPsStdout(result.stdout);
+  }
+
+  /**
+   * Fetches on-demand server resource metrics.
+   * Tries the connected agent via WebSocket first, then falls back to host SSH/local
+   */
+  async getServerResources(
+    userId: string,
+    serverId: string,
+  ): Promise<ServerResourcesResponseDto> {
+    await this.getOwnedServer(userId, serverId);
+
+    let resources: ServerResourcesMetricsPayload | null = null;
+    let socketError: string | null = null;
+
+    if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+      try {
+        resources = await this.deploymentGateway.requestServerResources(
+          serverId,
+          ServerConnectionsService.SOCKET_RESOURCES_ATTEMPT_MS,
+        );
+      } catch (error) {
+        socketError = error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `Agent socket resource collection failed for server '${serverId}': ${socketError}`,
+        );
+      }
+    }
+
+    if (!resources) {
+      try {
+        resources = await this.collectResourcesOnHost(serverId);
+      } catch (error) {
+        const hostMessage =
+          error instanceof Error ? error.message : String(error);
+        const detail = socketError
+          ? `Agent: ${socketError}. Host: ${hostMessage}`
+          : hostMessage;
+        throw new BadRequestException(
+          `Failed to collect server resources: ${detail}`,
+        );
+      }
+    }
+
+    return {
+      serverId,
+      timestamp: new Date().toISOString(),
+      cpu: resources.cpu,
+      memory: resources.memory,
+      disk: resources.disk,
+      network: resources.network,
+      system: resources.system,
+    };
+  }
+
+  /**
+   * Collects server resource metrics directly on the host via local shell or SSH.
+   */
+  async collectResourcesOnHost(
+    serverId: string,
+  ): Promise<ServerResourcesMetricsPayload> {
+    const server = await this.serverRepository.findOne({
+      where: { id: serverId, status: EntityStatus.ACTIVE, deletedAt: IsNull() },
+    });
+
+    if (!server) {
+      throw new NotFoundException(ERROR_MESSAGES.SERVER.NOT_FOUND);
+    }
+
+    let result: ExecuteResult;
+
+    if (server.serverType === ServerType.LOCAL) {
+      const host = new LocalAgentHostAdapter();
+      result = await host.executeCommand(
+        `bash -lc ${JSON.stringify(HOST_RESOURCES_SHELL_COMMAND)}`,
+        HOST_RESOURCES_COMMAND_TIMEOUT_MS,
+      );
+    } else {
+      const credential = await this.credentialRepository.findOne({
+        where: {
+          serverId,
+          status: EntityStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
+        order: { createdAt: "DESC" },
+      });
+
+      if (!credential) {
+        throw new BadRequestException(
+          ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
+        );
+      }
+
+      const sshOptions = this.buildSshOptions(server, credential);
+      let client = this.sshManager.getConnection(serverId);
+      if (!client) {
+        client = await this.sshManager.connect(sshOptions);
+      }
+
+      const host = new SshAgentHostAdapter(client, this.executor);
+      result = await host.executeCommand(
+        `bash -lc ${JSON.stringify(HOST_RESOURCES_SHELL_COMMAND)}`,
+        HOST_RESOURCES_COMMAND_TIMEOUT_MS,
+      );
+    }
+
+    if (!result.success) {
+      const detail =
+        result.stderr?.trim() ||
+        result.stdout?.trim() ||
+        `Host resource collection failed (exit ${result.exitCode ?? "unknown"})`;
+      throw new BadRequestException(
+        `Failed to collect server resources on host: ${detail}`,
+      );
+    }
+
+    return parseHostResourcesOutput(result.stdout);
   }
 
   private buildSshOptions(

@@ -22,15 +22,22 @@ import {
   ContainerDiscoverRequestPayload,
   ContainerDiscoverResponsePayload,
   DiscoveredContainerPayload,
+  ServerGetResourcesRequestPayload,
+  ServerGetResourcesResponsePayload,
+  ServerResourcesMetricsPayload,
 } from "@shared/socket-events";
 import { randomUUID } from "node:crypto";
 import { DeploymentsService } from "@control-panel/modules/deployments/deployments.service";
 import { AgentServerBindingService } from "@control-panel/modules/server-connections/services/agent-server-binding.service";
 import { DeploymentStreamBufferService } from "./deployment-stream-buffer.service";
-import type { PendingContainerDiscovery } from "./interfaces";
+import type {
+  PendingContainerDiscovery,
+  PendingServerResources,
+} from "./interfaces";
 import {
   SERVER_ID_HEADER,
   CONTAINER_DISCOVER_TIMEOUT_MS,
+  SERVER_GET_RESOURCES_TIMEOUT_MS,
   STREAM_DEBUG,
 } from "./constants";
 
@@ -67,6 +74,10 @@ export class DeploymentGateway
   private readonly pendingContainerDiscovery = new Map<
     string,
     PendingContainerDiscovery
+  >();
+  private readonly pendingServerResources = new Map<
+    string,
+    PendingServerResources
   >();
 
   afterInit(): void {
@@ -169,6 +180,10 @@ export class DeploymentGateway
             serverId,
             "Agent disconnected during container discovery",
           );
+          this.rejectPendingResourcesForServer(
+            serverId,
+            "Agent disconnected during server resource collection",
+          );
         }
 
         const ns = this.getNamespaceServer();
@@ -199,6 +214,57 @@ export class DeploymentGateway
     @MessageBody() payload: DeploymentStatusPayload,
   ): Promise<void> {
     return this.processDeploymentStatus(client, payload);
+  }
+
+  @SubscribeMessage(DeploymentEvents.SERVER_GET_RESOURCES_RESULT)
+  handleServerGetResourcesResult(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: ServerGetResourcesResponsePayload,
+  ): void {
+    try {
+      const requestId = payload?.requestId?.trim();
+      if (!requestId) {
+        this.logger.warn(
+          `Ignoring server get-resources result without requestId from ${client.id}`,
+        );
+        return;
+      }
+
+      const pending = this.pendingServerResources.get(requestId);
+      if (!pending) {
+        this.logger.warn(
+          `No pending server get-resources for requestId=${requestId}`,
+        );
+        return;
+      }
+
+      const serverId = this.serverIdBySocketId.get(client.id);
+      if (serverId && serverId !== pending.serverId) {
+        this.logger.warn(
+          `Server get-resources result server mismatch requestId=${requestId} expected=${pending.serverId} got=${serverId}`,
+        );
+        return;
+      }
+
+      clearTimeout(pending.timer);
+      this.pendingServerResources.delete(requestId);
+
+      if (payload.error) {
+        pending.reject(new Error(payload.error));
+        return;
+      }
+
+      if (!payload.resources) {
+        pending.reject(new Error("Agent returned no server resource metrics"));
+        return;
+      }
+
+      pending.resolve(payload.resources);
+    } catch (error) {
+      this.logger.error(
+        `Failed to process server get-resources result: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   @SubscribeMessage(DeploymentEvents.CONTAINER_DISCOVER_RESULT)
@@ -583,6 +649,51 @@ export class DeploymentGateway
     }
   }
 
+  /**
+   * Requests on-demand server resource metrics from the connected agent.
+   */
+  requestServerResources(
+    serverId: string,
+    timeoutMs: number = SERVER_GET_RESOURCES_TIMEOUT_MS,
+  ): Promise<ServerResourcesMetricsPayload> {
+    return new Promise((resolve, reject) => {
+      try {
+        const client = this.agentsByServerId.get(serverId);
+        if (!client?.connected) {
+          reject(new Error(`No connected agent for server '${serverId}'`));
+          return;
+        }
+
+        const requestId = randomUUID();
+        const payload: ServerGetResourcesRequestPayload = { requestId };
+
+        const timer = setTimeout(() => {
+          this.pendingServerResources.delete(requestId);
+          reject(
+            new Error(
+              `Server resource collection timed out after ${timeoutMs / 1000}s for server '${serverId}'`,
+            ),
+          );
+        }, timeoutMs);
+
+        this.pendingServerResources.set(requestId, {
+          serverId,
+          resolve,
+          reject,
+          timer,
+        });
+
+        this.logger.log(
+          `Requesting server resources requestId=${requestId} serverId=${serverId}`,
+        );
+
+        client.emit(DeploymentEvents.SERVER_GET_RESOURCES, payload);
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  }
+
   requestContainerDiscovery(
     serverId: string,
   ): Promise<DiscoveredContainerPayload[]> {
@@ -626,10 +737,17 @@ export class DeploymentGateway
 
   private attachAgentInboundHandlers(client: Socket): void {
     client.removeAllListeners(DeploymentEvents.CONTAINER_DISCOVER_RESULT);
+    client.removeAllListeners(DeploymentEvents.SERVER_GET_RESOURCES_RESULT);
     client.on(
       DeploymentEvents.CONTAINER_DISCOVER_RESULT,
       (payload: ContainerDiscoverResponsePayload) => {
         this.handleContainerDiscoverResult(client, payload);
+      },
+    );
+    client.on(
+      DeploymentEvents.SERVER_GET_RESOURCES_RESULT,
+      (payload: ServerGetResourcesResponsePayload) => {
+        this.handleServerGetResourcesResult(client, payload);
       },
     );
   }
@@ -644,6 +762,20 @@ export class DeploymentGateway
       }
       clearTimeout(pending.timer);
       this.pendingContainerDiscovery.delete(requestId);
+      pending.reject(new Error(reason));
+    }
+  }
+
+  private rejectPendingResourcesForServer(
+    serverId: string,
+    reason: string,
+  ): void {
+    for (const [requestId, pending] of this.pendingServerResources) {
+      if (pending.serverId !== serverId) {
+        continue;
+      }
+      clearTimeout(pending.timer);
+      this.pendingServerResources.delete(requestId);
       pending.reject(new Error(reason));
     }
   }

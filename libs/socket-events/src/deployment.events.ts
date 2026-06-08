@@ -20,6 +20,10 @@ export enum DeploymentEvents {
   CONTAINER_DISCOVER = "container:discover",
   /** Agent → control panel: container discovery response. */
   CONTAINER_DISCOVER_RESULT = "container:discover:result",
+  /** Control panel → agent: request on-demand server resource metrics. */
+  SERVER_GET_RESOURCES = "server:get-resources",
+  /** Agent → control panel: server resource metrics response. */
+  SERVER_GET_RESOURCES_RESULT = "server:get-resources:result",
 }
 
 export type DeploymentLogPhase = "install" | "deploy" | "container";
@@ -207,5 +211,63 @@ export interface ContainerDiscoverRequestPayload {
 export interface ContainerDiscoverResponsePayload {
   requestId: string;
   containers: DiscoveredContainerPayload[];
+  error?: string;
+}
+
+/** CPU metrics collected from `/proc/stat` and `os` APIs. */
+export interface ServerCpuMetrics {
+  usagePercent: number;
+  cores: number;
+  loadAverage: [number, number, number];
+}
+
+/** Memory metrics collected from `/proc/meminfo` (values in bytes). */
+export interface ServerMemoryMetrics {
+  total: number;
+  used: number;
+  free: number;
+  available: number;
+  usagePercent: number;
+}
+
+/** Root filesystem metrics from `df -B1 /` (values in bytes). */
+export interface ServerDiskMetrics {
+  total: number;
+  used: number;
+  free: number;
+  usagePercent: number;
+}
+
+/** Cumulative network I/O from `/proc/net/dev` (values in bytes). */
+export interface ServerNetworkMetrics {
+  rxBytes: number;
+  txBytes: number;
+}
+
+/** Host identity and uptime from `/proc/uptime` and `os` APIs. */
+export interface ServerSystemMetrics {
+  uptime: number;
+  hostname: string;
+  platform: string;
+  architecture: string;
+  timestamp: string;
+}
+
+/** Full resource snapshot returned by the agent. */
+export interface ServerResourcesMetricsPayload {
+  cpu: ServerCpuMetrics;
+  memory: ServerMemoryMetrics;
+  disk: ServerDiskMetrics;
+  network: ServerNetworkMetrics;
+  system: ServerSystemMetrics;
+}
+
+export interface ServerGetResourcesRequestPayload {
+  requestId: string;
+}
+
+export interface ServerGetResourcesResponsePayload {
+  requestId: string;
+  resources?: ServerResourcesMetricsPayload;
   error?: string;
 }

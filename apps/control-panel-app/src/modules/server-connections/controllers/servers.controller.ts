@@ -19,6 +19,7 @@ import {
   ListServersQueryDto,
   OnboardSuccessData,
   ServerResponseDto,
+  ServerResourcesResponseDto,
   UpdateServerDto,
 } from "../dto";
 import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
@@ -65,6 +66,17 @@ export class ServersController {
     @Query() query: ListServersQueryDto,
   ): Promise<ServiceResponse<PaginatedResponse<ServerResponseDto>>> {
     return await this.connectionsService.listServers(req.user.id, query);
+  }
+
+  /**
+   * Fetches on-demand server resource metrics from the connected agent.
+   */
+  @Get(":serverId/resources")
+  async getServerResources(
+    @Req() req: AuthenticatedRequest,
+    @Param("serverId") serverId: string,
+  ): Promise<ServerResourcesResponseDto> {
+    return this.connectionsService.getServerResources(req.user.id, serverId);
   }
 
   /**

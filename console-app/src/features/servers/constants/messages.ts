@@ -11,4 +11,5 @@ export const SERVER_API_FALLBACK_MESSAGES = {
   CONNECT_SUCCESS: "Server connected successfully",
   DISCONNECT_SUCCESS: "Server disconnected successfully",
   DELETE_SUCCESS: "Server deleted successfully",
+  LOAD_RESOURCES: "Failed to load server resources",
 } as const;
