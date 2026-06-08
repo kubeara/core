@@ -110,6 +110,50 @@ export type ServersApiResponse<T = unknown> = {
   errorCode?: string;
 };
 
+export interface ServerCpuMetrics {
+  usagePercent: number;
+  cores: number;
+  loadAverage: [number, number, number];
+}
+
+export interface ServerMemoryMetrics {
+  total: number;
+  used: number;
+  free: number;
+  available: number;
+  usagePercent: number;
+}
+
+export interface ServerDiskMetrics {
+  total: number;
+  used: number;
+  free: number;
+  usagePercent: number;
+}
+
+export interface ServerNetworkMetrics {
+  rxBytes: number;
+  txBytes: number;
+}
+
+export interface ServerSystemMetrics {
+  uptime: number;
+  hostname: string;
+  platform: string;
+  architecture: string;
+  timestamp: string;
+}
+
+export interface ServerResources {
+  serverId: string;
+  timestamp: string;
+  cpu: ServerCpuMetrics;
+  memory: ServerMemoryMetrics;
+  disk: ServerDiskMetrics;
+  network: ServerNetworkMetrics;
+  system: ServerSystemMetrics;
+}
+
 export function mapServerApiToServer(api: ServerApiResponse): Server {
   return {
     id: api.id,

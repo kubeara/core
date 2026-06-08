@@ -9,3 +9,4 @@ export * from "./server-response.dto";
 export * from "./server-ssh-credential-response.dto";
 export * from "./onboard-response.dto";
 export * from "./create-server-with-credentials.response.dto";
+export * from "./server-resources-response.dto";

@@ -1,6 +1,8 @@
 import { Controller, Get } from "@nestjs/common";
 import { SocketClientService } from "../socket-client/socket-client.service";
 import { ContainerDiscoveryService } from "../container-discovery/container-discovery.service";
+import { ServerResourcesService } from "../server-resources/server-resources.service";
+import type { ServerResourcesMetricsPayload } from "@shared/socket-events";
 
 @Controller("health")
 export class HealthController {
@@ -11,6 +13,7 @@ export class HealthController {
   constructor(
     private readonly socketClientService: SocketClientService,
     private readonly containerDiscoveryService: ContainerDiscoveryService,
+    private readonly serverResourcesService: ServerResourcesService,
   ) {}
 
   /**
@@ -52,6 +55,22 @@ export class HealthController {
     return {
       count: result.containers.length,
       containers: result.containers,
+      error: result.error,
+    };
+  }
+
+  /**
+   * Collects host resource metrics locally — use to verify the agent can read `/proc`.
+   */
+  @Get("resources")
+  async getResources(): Promise<{
+    resources?: ServerResourcesMetricsPayload;
+    error?: string;
+  }> {
+    const result =
+      await this.serverResourcesService.collectResources("health-check");
+    return {
+      resources: result.resources,
       error: result.error,
     };
   }

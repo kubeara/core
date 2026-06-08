@@ -1,15 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { useDisconnectServerMutation } from "@/features/servers/hooks";
+import { getErrorMessage } from "@/api/api-error";
+import {
+  useDisconnectServerMutation,
+  useServerResourcesQuery,
+} from "@/features/servers/hooks";
+import type { ServerResources } from "@/features/servers/types";
 import { useServerContainersQuery } from "@/features/deployments/hooks";
 import type { ServerContainer } from "@/features/deployments/types";
 import { ServerTemplatesPanel } from "@/features/templates/components/server-templates-panel";
 import { formatRelativeTime } from "@/lib/format-relative-time";
-import { formatApiTimestamp } from "@/lib/unix-timestamp";
 import {
-  getServerActivity,
-  getServerInsights,
-  type ActivityEntry,
-} from "@/lib/server-detail-data";
+  formatBytes,
+  formatLoadAverage,
+  formatPercent,
+  formatUptime,
+} from "@/lib/format-metrics";
+import { formatApiTimestamp } from "@/lib/unix-timestamp";
+import { getServerActivity, type ActivityEntry } from "@/lib/server-detail-data";
 import { SkeletonGrid } from "@/components/shared/skeleton";
 import { Switch } from "@/components/ui/switch";
 import type { Server } from "@/types";
@@ -46,21 +53,6 @@ function activityIcon(kind: ActivityEntry["kind"]): string {
     default:
       return "•";
   }
-}
-
-function InsightChart({ points }: { points: number[] }) {
-  const max = Math.max(...points, 1);
-  return (
-    <div className="insight-chart" role="img" aria-hidden>
-      {points.map((value, i) => (
-        <div
-          key={i}
-          className="insight-bar"
-          style={{ height: `${Math.max(8, (value / max) * 100)}%` }}
-        />
-      ))}
-    </div>
-  );
 }
 
 function managedTypeLabel(managedType: ServerContainer["managedType"]): string {
@@ -257,30 +249,208 @@ function TemplatesTab({
   );
 }
 
-function InsightsTab({ serverId }: { serverId: string }) {
-  const insights = useMemo(() => getServerInsights(serverId), [serverId]);
-  const metrics = [insights.bandwidth, insights.cpu, insights.diskIo];
+function InsightsTab({
+  resources,
+  isLoading,
+  isError,
+  errorMessage,
+  onRetry,
+}: {
+  resources?: ServerResources;
+  isLoading: boolean;
+  isError: boolean;
+  errorMessage?: string;
+  onRetry: () => void;
+}) {
+  if (isLoading) {
+    return (
+      <div className="server-detail-panel">
+        <h2 className="server-detail-section-title">Resource usage</h2>
+        <p className="server-detail-section-desc">
+          On-demand metrics from the connected agent.
+        </p>
+        <SkeletonGrid count={5} cardHeight={180} label="Loading server resources…" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="server-detail-panel">
+        <h2 className="server-detail-section-title">Resource usage</h2>
+        <p className="server-detail-section-desc">
+          On-demand metrics from the connected agent.
+        </p>
+        <div className="server-templates-state server-templates-state-error">
+          <p className="server-templates-state-title">
+            Unable to load server resources
+          </p>
+          <p className="server-templates-state-text">
+            {errorMessage ??
+              "Could not load resources. Ensure the agent is connected."}
+          </p>
+          <button type="button" className="btn-secondary" onClick={onRetry}>
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!resources) {
+    return (
+      <div className="server-detail-panel">
+        <h2 className="server-detail-section-title">Resource usage</h2>
+        <p className="server-detail-empty">No resource metrics available.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="server-detail-panel">
       <h2 className="server-detail-section-title">Resource usage</h2>
       <p className="server-detail-section-desc">
-        Live metrics for the last 24 hours (sampled).
+        On-demand metrics from the connected agent
+        {resources.timestamp ? (
+          <>
+            {" "}
+            · collected{" "}
+            <time dateTime={resources.timestamp}>
+              {formatRelativeTime(resources.timestamp)}
+            </time>
+          </>
+        ) : null}
+        .
       </p>
       <div className="insights-grid">
-        {metrics.map((metric) => (
-          <article key={metric.label} className="insight-card">
-            <div className="insight-card-header">
-              <h3>{metric.label}</h3>
-              <div className="insight-value">
-                {metric.value}
-                <span>{metric.unit}</span>
-              </div>
+        <article className="insight-card">
+          <div className="insight-card-header">
+            <h3>CPU</h3>
+            <div className="insight-value">
+              {resources.cpu.usagePercent.toFixed(1)}
+              <span>%</span>
             </div>
-            <p className="insight-peak">Peak: {metric.peak} {metric.unit}</p>
-            <InsightChart points={metric.points} />
-          </article>
-        ))}
+          </div>
+          <dl className="server-detail-grid">
+            <div>
+              <dt>CPU Usage</dt>
+              <dd>{formatPercent(resources.cpu.usagePercent)}</dd>
+            </div>
+            <div>
+              <dt>CPU Cores</dt>
+              <dd>{resources.cpu.cores}</dd>
+            </div>
+            <div>
+              <dt>Load Average</dt>
+              <dd>{formatLoadAverage(resources.cpu.loadAverage)}</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article className="insight-card">
+          <div className="insight-card-header">
+            <h3>Memory</h3>
+            <div className="insight-value">
+              {resources.memory.usagePercent.toFixed(1)}
+              <span>%</span>
+            </div>
+          </div>
+          <dl className="server-detail-grid">
+            <div>
+              <dt>Total Memory</dt>
+              <dd>{formatBytes(resources.memory.total)}</dd>
+            </div>
+            <div>
+              <dt>Used Memory</dt>
+              <dd>{formatBytes(resources.memory.used)}</dd>
+            </div>
+            <div>
+              <dt>Free Memory</dt>
+              <dd>{formatBytes(resources.memory.free)}</dd>
+            </div>
+            <div>
+              <dt>Usage</dt>
+              <dd>{formatPercent(resources.memory.usagePercent)}</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article className="insight-card">
+          <div className="insight-card-header">
+            <h3>Disk</h3>
+            <div className="insight-value">
+              {resources.disk.usagePercent.toFixed(1)}
+              <span>%</span>
+            </div>
+          </div>
+          <dl className="server-detail-grid">
+            <div>
+              <dt>Total Disk</dt>
+              <dd>{formatBytes(resources.disk.total)}</dd>
+            </div>
+            <div>
+              <dt>Used Disk</dt>
+              <dd>{formatBytes(resources.disk.used)}</dd>
+            </div>
+            <div>
+              <dt>Free Disk</dt>
+              <dd>{formatBytes(resources.disk.free)}</dd>
+            </div>
+            <div>
+              <dt>Usage</dt>
+              <dd>{formatPercent(resources.disk.usagePercent)}</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article className="insight-card">
+          <div className="insight-card-header">
+            <h3>Network</h3>
+            <div className="insight-value">
+              {formatBytes(resources.network.rxBytes)}
+              <span>RX</span>
+            </div>
+          </div>
+          <dl className="server-detail-grid">
+            <div>
+              <dt>RX Bytes</dt>
+              <dd>{formatBytes(resources.network.rxBytes)}</dd>
+            </div>
+            <div>
+              <dt>TX Bytes</dt>
+              <dd>{formatBytes(resources.network.txBytes)}</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article className="insight-card">
+          <div className="insight-card-header">
+            <h3>System</h3>
+            <div className="insight-value">
+              {formatUptime(resources.system.uptime)}
+            </div>
+          </div>
+          <dl className="server-detail-grid">
+            <div>
+              <dt>Uptime</dt>
+              <dd>{formatUptime(resources.system.uptime)}</dd>
+            </div>
+            <div>
+              <dt>Hostname</dt>
+              <dd>
+                <code>{resources.system.hostname}</code>
+              </dd>
+            </div>
+            <div>
+              <dt>Platform</dt>
+              <dd>{resources.system.platform}</dd>
+            </div>
+            <div>
+              <dt>Architecture</dt>
+              <dd>{resources.system.architecture}</dd>
+            </div>
+          </dl>
+        </article>
       </div>
     </div>
   );
@@ -469,6 +639,7 @@ function SettingsTab({ server }: { server: Server }) {
 export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const isOverviewTab = activeTab === "overview";
+  const isInsightsTab = activeTab === "insights";
 
   const {
     data: overviewContainers = [],
@@ -477,6 +648,16 @@ export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
   } = useServerContainersQuery(server.id, {
     enabled: isOverviewTab,
     poll: isOverviewTab,
+  });
+
+  const {
+    data: serverResources,
+    isLoading: resourcesLoading,
+    isError: resourcesError,
+    error: resourcesQueryError,
+    refetch: refetchResources,
+  } = useServerResourcesQuery(server.id, {
+    enabled: isInsightsTab,
   });
 
   const connectedIds = useMemo(() => {
@@ -533,7 +714,19 @@ export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
             connectedIds={connectedIds}
           />
         )}
-        {activeTab === "insights" && <InsightsTab serverId={server.id} />}
+        {activeTab === "insights" && (
+          <InsightsTab
+            resources={serverResources}
+            isLoading={resourcesLoading}
+            isError={resourcesError}
+            errorMessage={
+              resourcesQueryError
+                ? getErrorMessage(resourcesQueryError)
+                : undefined
+            }
+            onRetry={() => void refetchResources()}
+          />
+        )}
         {activeTab === "activity" && (
           <ActivityTab serverId={server.id} serverName={server.name} />
         )}

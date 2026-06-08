@@ -7,6 +7,7 @@ import {
   deleteServer,
   disconnectServer,
   fetchServer,
+  fetchServerResources,
   fetchServers,
   onboardServer,
   updateServer,
@@ -54,6 +55,28 @@ export function useServerApiQuery(id: string | undefined) {
     queryKey: QUERY_KEYS.servers.detail(id ?? ""),
     queryFn: () => fetchServer(id!),
     enabled: !!id,
+  });
+}
+
+type UseServerResourcesQueryOptions = {
+  /** When false, skips fetch but still returns cached data if available. */
+  enabled?: boolean;
+};
+
+/**
+ * Hook to fetch on-demand server resource metrics.
+ */
+export function useServerResourcesQuery(
+  serverId: string,
+  options?: UseServerResourcesQueryOptions,
+) {
+  const enabled = options?.enabled ?? Boolean(serverId);
+
+  return useQuery({
+    queryKey: QUERY_KEYS.servers.resources(serverId),
+    queryFn: () => fetchServerResources(serverId),
+    enabled: Boolean(serverId) && enabled,
+    staleTime: 60_000,
   });
 }
 
