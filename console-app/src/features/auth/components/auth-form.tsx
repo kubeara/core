@@ -1,3 +1,7 @@
+import { FormErrorsSummary } from "@/components/shared/form-errors-summary";
+import { FormFieldLabel } from "@/components/shared/form-field-label";
+import { PasswordInput } from "@/components/shared/password-input";
+
 type Field = {
     id: string;
     label: string;
@@ -6,6 +10,7 @@ type Field = {
     placeholder?: string;
     /** When true, runs client-side email validation instead of browser defaults. */
     validateAsEmail?: boolean;
+    required?: boolean;
 };
 
 type AuthFormProps = {
@@ -40,32 +45,51 @@ export function AuthForm({
 
     return (
         <form onSubmit={handleSubmit} className="auth-form" noValidate>
+            <FormErrorsSummary formError={error} />
             {fields.map((field) => {
                 const inputType = field.validateAsEmail ? "text" : field.type;
                 const inputMode = field.validateAsEmail ? "email" : undefined;
                 const fieldError = fieldErrors[field.id];
+                const isRequired = field.required ?? true;
+                const isPassword = field.type === "password";
 
                 return (
                     <div key={field.id} className="form-field">
-                        <label htmlFor={field.id}>{field.label}</label>
-                        <input
-                            id={field.id}
-                            name={field.id}
-                            type={inputType}
-                            inputMode={inputMode}
-                            autoComplete={field.autoComplete}
-                            placeholder={field.placeholder}
-                            required
-                            disabled={loading}
-                            aria-invalid={fieldError ? true : undefined}
-                            aria-describedby={
-                                fieldError ? `${field.id}-error` : undefined
-                            }
-                        />
+                        <FormFieldLabel htmlFor={field.id} required={isRequired}>
+                            {field.label}
+                        </FormFieldLabel>
+                        {isPassword ? (
+                            <PasswordInput
+                                id={field.id}
+                                name={field.id}
+                                autoComplete={field.autoComplete}
+                                placeholder={field.placeholder}
+                                disabled={loading}
+                                aria-invalid={fieldError ? true : undefined}
+                                aria-describedby={
+                                    fieldError ? `${field.id}-error` : undefined
+                                }
+                            />
+                        ) : (
+                            <input
+                                id={field.id}
+                                name={field.id}
+                                type={inputType}
+                                inputMode={inputMode}
+                                autoComplete={field.autoComplete}
+                                placeholder={field.placeholder}
+                                disabled={loading}
+                                aria-invalid={fieldError ? true : undefined}
+                                aria-describedby={
+                                    fieldError ? `${field.id}-error` : undefined
+                                }
+                            />
+                        )}
                         {fieldError && (
                             <p
                                 id={`${field.id}-error`}
                                 className="form-field-error"
+                                role="alert"
                             >
                                 {fieldError}
                             </p>
@@ -73,7 +97,6 @@ export function AuthForm({
                     </div>
                 );
             })}
-            {error && <p className="form-message error">{error}</p>}
             {success && <p className="form-message success">{success}</p>}
             <button type="submit" className="btn-primary" disabled={loading}>
                 {loading ? "Please wait…" : submitLabel}

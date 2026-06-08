@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { KubearaLogo } from "./kubeara-logo";
 import { ProfileMenu } from "./profile-menu";
 import type { User } from "@/types";
 
@@ -28,8 +29,7 @@ export function TopBar({ user }: TopBarProps) {
       <div className="top-bar-inner">
         <div className="top-bar-left">
           <Link to="/servers" className="top-bar-logo">
-            <span className="top-bar-logo-mark">K</span>
-            <span>Kubeara</span>
+            <KubearaLogo />
           </Link>
           <nav className="top-bar-nav">
             {NAV_ITEMS.map(({ href, label }) => (

@@ -21,4 +21,9 @@ export const SUCCESS_MESSAGES = {
     OTP_VERIFIED: "OTP verified successfully",
     PASSWORD_RESET: "Password updated successfully",
   },
+
+  PROFILE: {
+    UPDATED: "Profile updated successfully",
+    PASSWORD_CHANGED: "Password updated successfully",
+  },
 };

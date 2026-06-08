@@ -10,44 +10,34 @@ import type {
 
 /**
  * Update user's general profile information.
- * 
+ *
  * @param input - Profile data (firstName, lastName, profilePicture)
  * @returns Updated user object
  * @throws {ApiError} If update fails
- * 
- * @example
- * const user = await updateGeneralProfile({
- *   firstName: 'John',
- *   lastName: 'Doe',
- *   profilePicture: 'data:image/png;base64,...'
- * });
  */
 export async function updateGeneralProfile(
     input: UpdateGeneralProfileRequest,
-): Promise<User> {
+): Promise<{ user: User; message: string }> {
     const response = await apiClient.patch<ProfileApiResponse<User>>(
         "/profile/general",
         input,
     );
-    const user = response.data.user;
+    const user = response.data.data;
     if (!user) {
         throw new Error("No user data in response");
     }
-    return user;
+    return {
+        user,
+        message: response.data.message ?? "Profile updated successfully",
+    };
 }
 
 /**
  * Change user's password.
- * 
+ *
  * @param input - Current and new password
  * @returns Success message
  * @throws {ApiError} If password change fails (e.g., incorrect current password)
- * 
- * @example
- * const result = await changeProfilePassword({
- *   currentPassword: 'oldPassword123',
- *   newPassword: 'newPassword456'
- * });
  */
 export async function changeProfilePassword(
     input: ChangePasswordRequest,
@@ -61,16 +51,10 @@ export async function changeProfilePassword(
 
 /**
  * Update organization profile information.
- * 
+ *
  * @param input - Organization data (orgName, orgLogo)
  * @returns Updated user object with organization data
  * @throws {ApiError} If update fails
- * 
- * @example
- * const user = await updateOrganizationProfile({
- *   orgName: 'Acme Inc.',
- *   orgLogo: 'data:image/png;base64,...'
- * });
  */
 export async function updateOrganizationProfile(
     input: UpdateOrganizationRequest,
@@ -79,7 +63,7 @@ export async function updateOrganizationProfile(
         "/profile/organization",
         input,
     );
-    const user = response.data.user;
+    const user = response.data.data;
     if (!user) {
         throw new Error("No user data in response");
     }

@@ -1,11 +1,13 @@
 import type { User } from "@/types";
 
 /**
- * Backend profile API response format
+ * Standard API success response wrapper from backend
  */
 export type ProfileApiResponse<T = unknown> = {
-    message?: string;
-    user?: T;
+    success?: boolean;
+    statusCode?: number;
+    message: string;
+    data?: T;
 };
 
 /**

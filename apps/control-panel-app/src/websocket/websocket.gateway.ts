@@ -114,6 +114,19 @@ export class DeploymentGateway
             (serverId ? ` serverId=${serverId}` : " (unbound)") +
             (publicIp ? ` publicIp=${publicIp}` : ""),
         );
+
+        client.on(
+          DeploymentEvents.DEPLOYMENT_LOG,
+          (payload: DeploymentLogPayload) => {
+            this.processAgentLog(client, payload);
+          },
+        );
+        client.on(
+          DeploymentEvents.DEPLOYMENT_STATUS,
+          (payload: DeploymentStatusPayload) => {
+            void this.processDeploymentStatus(client, payload);
+          },
+        );
       } else {
         this.logger.log(
           `Console client connected: ${socketId} (agents=${this.connectedAgents.size})`,
@@ -298,6 +311,10 @@ export class DeploymentGateway
         return;
       }
 
+      this.logger.log(
+        `[stream] agent log deploymentId=${payload.deploymentId} source=${payload.source ?? "deployment"} bytes=${payload.message.length}`,
+      );
+
       const serverId = this.serverIdBySocketId.get(client.id);
       const isContainer = payload.source === "container";
       const containerName =
@@ -401,6 +418,7 @@ export class DeploymentGateway
     payload: DeploymentLogPayload & {
       serverId: string;
       deploymentId: string;
+      phase?: DeploymentLogStreamPayload["phase"];
     },
   ): void {
     const message = payload.message?.trim();
@@ -408,15 +426,17 @@ export class DeploymentGateway
       return;
     }
 
+    const phase = payload.phase ?? "install";
+
     this.logger.log(
-      `[stream] broadcast install/setup log deploymentId=${payload.deploymentId} serverId=${payload.serverId} bytes=${message.length}`,
+      `[stream] broadcast ${phase} log deploymentId=${payload.deploymentId} serverId=${payload.serverId} bytes=${message.length}`,
     );
 
     this.emitStreamPayload({
       deploymentId: payload.deploymentId,
       serverId: payload.serverId,
-      phase: "install",
-      source: "install",
+      phase,
+      source: phase === "install" ? "install" : "deployment",
       stream: payload.type,
       timestamp: payload.timestamp ?? new Date().toISOString(),
       message,
@@ -468,7 +488,9 @@ export class DeploymentGateway
 
       this.streamBuffer.append(normalized);
 
-      ns.to(room).emit(DeploymentEvents.DEPLOYMENT_STREAM, normalized);
+      // Namespace broadcast: required for local deployOnLocal (console + agent on
+      // localhost). Room join + replay below covers late logs:subscribe.
+      ns.emit(DeploymentEvents.DEPLOYMENT_STREAM, normalized);
     } catch (error) {
       this.logger.error(
         `[stream] failed to emit log: ${error instanceof Error ? error.message : String(error)}`,

@@ -5,7 +5,6 @@ import {
   useServersQuery,
 } from "@/features/servers/hooks";
 import { ServerFormModal } from "./server-form-modal";
-import { formatRelativeTime } from "@/lib/format-relative-time";
 import { formatApiTimestamp } from "@/lib/unix-timestamp";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
@@ -15,11 +14,12 @@ import {
 import type { Server } from "@/types";
 import { getErrorMessage } from "@/api/api-error";
 import { ServerFeedbackMessage } from "@/features/servers/components/server-feedback-message";
+import { ServersTableSkeleton } from "@/components/shared/skeleton";
 import "./servers-table.css";
 
 type SortDir = "asc" | "desc";
 
-const PAGE_SIZES = [5, 10, 25] as const;
+const PAGE_SIZE = 10 as const;
 const SEARCH_DEBOUNCE_MS = 300;
 
 const TABLE_COLUMNS: {
@@ -29,7 +29,7 @@ const TABLE_COLUMNS: {
 }[] = [
   { key: "name", label: "Name" },
   { key: "host", label: "Host" },
-  { key: "lastConnectedAt", label: "Last connected", pill: true },
+  { key: "createdAt", label: "Created At" },
 ];
 
 function CopyIcon() {
@@ -125,15 +125,22 @@ function HostCell({ host }: { host: string }) {
   return (
     <div className="server-host-cell">
       <span className="server-host-text">{host}</span>
-      <button
-        type="button"
-        className={`server-copy-btn ${copied ? "copied" : ""}`}
-        onClick={copyHost}
-        aria-label={copied ? "Copied" : "Copy host"}
-        title={copied ? "Copied!" : "Copy host"}
-      >
-        <CopyIcon />
-      </button>
+      <div className="server-copy-wrap">
+        {copied && (
+          <span className="server-copy-popover" role="status">
+            Copied
+          </span>
+        )}
+        <button
+          type="button"
+          className={`server-copy-btn ${copied ? "copied" : ""}`}
+          onClick={copyHost}
+          aria-label={copied ? "Copied" : "Copy host"}
+          title="Copy host"
+        >
+          <CopyIcon />
+        </button>
+      </div>
     </div>
   );
 }
@@ -189,10 +196,9 @@ function SortHeader({
 export function ServersTable() {
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
-  const [sortKey, setSortKey] = useState<ServerListSortField>("lastConnectedAt");
+  const [sortKey, setSortKey] = useState<ServerListSortField>("createdAt");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(10);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<Server | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Server | null>(null);
@@ -200,12 +206,12 @@ export function ServersTable() {
   const listParams = useMemo(
     () => ({
       page,
-      limit: pageSize,
+      limit: PAGE_SIZE,
       search: debouncedSearch.trim() || undefined,
       sortBy: sortKey,
       sortOrder: sortDir,
     }),
-    [page, pageSize, debouncedSearch, sortKey, sortDir],
+    [page, debouncedSearch, sortKey, sortDir],
   );
 
   const {
@@ -249,11 +255,6 @@ export function ServersTable() {
     setPage(1);
   }
 
-  function handlePageSizeChange(size: number) {
-    setPageSize(size);
-    setPage(1);
-  }
-
   function openAdd() {
     setEditingServer(null);
     setModalOpen(true);
@@ -280,8 +281,8 @@ export function ServersTable() {
   }
 
   const deleting = deleteMutation.isPending;
-  const rangeStart = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const rangeEnd = Math.min(currentPage * pageSize, total);
+  const rangeStart = total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(currentPage * PAGE_SIZE, total);
   const hasFilters = searchInput.trim() !== "";
   const listErrorMessage = isError ? getErrorMessage(error) : null;
   const emptyMessage = hasFilters
@@ -310,12 +311,6 @@ export function ServersTable() {
             onChange={(e) => handleSearchChange(e.target.value)}
             aria-label="Search servers"
           />
-          <select
-            className="servers-status-filter"
-            aria-label="Filter by status"
-          >
-            <option value="">All</option>
-          </select>
           {hasFilters && (
             <button
               type="button"
@@ -333,7 +328,10 @@ export function ServersTable() {
 
       <div className="servers-table-card">
         <div className="servers-table-scroll">
-          <table className="servers-table-do">
+          <table
+            className="servers-table-do"
+            aria-busy={loading}
+          >
             <thead>
               <tr>
                 {TABLE_COLUMNS.map(({ key, label, pill }) => (
@@ -352,13 +350,7 @@ export function ServersTable() {
               </tr>
             </thead>
             <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={5} className="servers-table-empty">
-                    Loading servers…
-                  </td>
-                </tr>
-              )}
+              {loading && <ServersTableSkeleton />}
               {!loading && !isError && servers.length === 0 && (
                 <tr>
                   <td colSpan={5} className="servers-table-empty">
@@ -379,10 +371,10 @@ export function ServersTable() {
                     <td>
                       <time
                         className="server-created-link"
-                        dateTime={server.lastConnectedAt ?? undefined}
-                        title={formatApiTimestamp(server.lastConnectedAt)}
+                        dateTime={server.createdAt}
+                        title={formatApiTimestamp(server.createdAt)}
                       >
-                        {formatRelativeTime(server.lastConnectedAt)}
+                        {formatApiTimestamp(server.createdAt)}
                       </time>
                     </td>
                     <td>
@@ -420,19 +412,6 @@ export function ServersTable() {
           {isFetching && !loading ? " · Updating…" : ""}
         </div>
         <div className="servers-pagination-controls">
-          <label className="servers-page-size">
-            Rows
-            <select
-              value={pageSize}
-              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-            >
-              {PAGE_SIZES.map((size) => (
-                <option key={size} value={size}>
-                  {size}
-                </option>
-              ))}
-            </select>
-          </label>
           <button
             type="button"
             className="servers-page-btn"

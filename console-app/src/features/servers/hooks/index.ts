@@ -74,9 +74,6 @@ export function useCreateServerMutation() {
         server,
       );
     },
-    onError: (error) => {
-      showErrorToast(getErrorMessage(error));
-    },
   });
 }
 
@@ -96,9 +93,6 @@ export function useUpdateServerMutation() {
       showSuccessToast(message);
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.servers.lists() });
       queryClient.setQueryData(QUERY_KEYS.servers.detail(server.id), server);
-    },
-    onError: (error) => {
-      showErrorToast(getErrorMessage(error));
     },
   });
 }

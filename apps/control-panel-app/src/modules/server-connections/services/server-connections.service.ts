@@ -854,10 +854,12 @@ export class ServerConnectionsService {
         },
       ];
 
-      if (isUUID(searchTerm)) {
+      const searchValue = String(query.search);
+
+      if (isUUID(searchValue)) {
         searchWhere.push({
           ...where,
-          id: searchTerm,
+          id: searchValue,
         });
       }
     }

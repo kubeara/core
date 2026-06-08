@@ -1,10 +1,16 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { AuthCard } from "@/features/auth/components/auth-card";
+import { FormErrorsSummary } from "@/components/shared/form-errors-summary";
+import { FormFieldLabel } from "@/components/shared/form-field-label";
 import { PasswordField } from "@/components/shared/password-field";
 import { useSignupMutation } from "@/features/auth/hooks";
 import { getErrorMessage } from "@/api/api-error";
-import { validateEmail, validatePassword } from "@/lib/validation";
+import {
+    validateEmail,
+    validatePassword,
+    validateRequired,
+} from "@/lib/validation";
 
 export function RegisterPage() {
     const navigate = useNavigate();
@@ -16,18 +22,38 @@ export function RegisterPage() {
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
 
+    function clearFieldError(fieldId: string) {
+        setError(null);
+        setFieldErrors((current) => {
+            if (!current[fieldId]) return current;
+            const next = { ...current };
+            delete next[fieldId];
+            return next;
+        });
+    }
+
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setError(null);
 
         const nextFieldErrors: Record<string, string> = {};
+
+        const nameError = validateRequired(name, "Name");
+        if (nameError) nextFieldErrors.name = nameError;
+
         const emailError = validateEmail(email);
         if (emailError) nextFieldErrors.email = emailError;
 
         const passwordError = validatePassword(password);
         if (passwordError) nextFieldErrors.password = passwordError;
 
-        if (password !== confirmPassword) {
+        const confirmPasswordError = validateRequired(
+            confirmPassword,
+            "Confirm password",
+        );
+        if (confirmPasswordError) {
+            nextFieldErrors.confirmPassword = confirmPasswordError;
+        } else if (password !== confirmPassword) {
             nextFieldErrors.confirmPassword = "Passwords do not match.";
         }
 
@@ -61,37 +87,60 @@ export function RegisterPage() {
             }
         >
             <form onSubmit={handleSubmit} className="auth-form" noValidate>
+                <FormErrorsSummary formError={error} />
                 <div className="form-field">
-                    <label htmlFor="name">Full name</label>
+                    <FormFieldLabel htmlFor="name" required>
+                        Full name
+                    </FormFieldLabel>
                     <input
                         id="name"
                         name="name"
                         type="text"
                         value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        onChange={(e) => {
+                            setName(e.target.value);
+                            clearFieldError("name");
+                        }}
                         autoComplete="name"
                         placeholder="Jane Doe"
-                        required
                         disabled={signupMutation.isPending}
+                        aria-invalid={fieldErrors.name ? true : undefined}
+                        aria-describedby={
+                            fieldErrors.name ? "name-error" : undefined
+                        }
                     />
+                    {fieldErrors.name && (
+                        <p id="name-error" className="form-field-error" role="alert">
+                            {fieldErrors.name}
+                        </p>
+                    )}
                 </div>
                 <div className="form-field">
-                    <label htmlFor="email">Email</label>
+                    <FormFieldLabel htmlFor="email" required>
+                        Email
+                    </FormFieldLabel>
                     <input
                         id="email"
                         name="email"
                         type="text"
                         inputMode="email"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={(e) => {
+                            setEmail(e.target.value);
+                            clearFieldError("email");
+                        }}
                         autoComplete="email"
                         placeholder="you@company.com"
-                        required
                         disabled={signupMutation.isPending}
                         aria-invalid={fieldErrors.email ? true : undefined}
+                        aria-describedby={
+                            fieldErrors.email ? "email-error" : undefined
+                        }
                     />
                     {fieldErrors.email && (
-                        <p className="form-field-error">{fieldErrors.email}</p>
+                        <p id="email-error" className="form-field-error" role="alert">
+                            {fieldErrors.email}
+                        </p>
                     )}
                 </div>
                 <PasswordField
@@ -99,28 +148,30 @@ export function RegisterPage() {
                     name="password"
                     label="Password"
                     value={password}
-                    onChange={setPassword}
+                    onChange={(value) => {
+                        setPassword(value);
+                        clearFieldError("password");
+                    }}
                     autoComplete="new-password"
+                    placeholder="••••••••"
                     showRules
                     disabled={signupMutation.isPending}
+                    error={fieldErrors.password}
                 />
-                {fieldErrors.password && (
-                    <p className="form-field-error">{fieldErrors.password}</p>
-                )}
                 <PasswordField
                     id="confirmPassword"
                     name="confirmPassword"
                     label="Confirm password"
                     value={confirmPassword}
-                    onChange={setConfirmPassword}
+                    onChange={(value) => {
+                        setConfirmPassword(value);
+                        clearFieldError("confirmPassword");
+                    }}
                     autoComplete="new-password"
-                    placeholder="Repeat password"
+                    placeholder="••••••••"
                     disabled={signupMutation.isPending}
+                    error={fieldErrors.confirmPassword}
                 />
-                {fieldErrors.confirmPassword && (
-                    <p className="form-field-error">{fieldErrors.confirmPassword}</p>
-                )}
-                {error && <p className="form-message error">{error}</p>}
                 <button
                     type="submit"
                     className="btn-primary"

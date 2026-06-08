@@ -16,6 +16,7 @@ import {
 } from "@/lib/socket/deployment-socket-client";
 import { getTemplateAccentColor } from "@/features/templates/utils/deploy-form-schema";
 import type { DeployTemplateRequest } from "@/features/templates/types";
+import { DeployLogsPageSkeleton } from "@/components/shared/skeleton";
 import { NotFoundPage } from "./not-found-page";
 
 type PendingDeployLocationState = {
@@ -128,11 +129,7 @@ export function DeployLogsPage() {
   }
 
   if (templateQuery.isPending) {
-    return (
-      <div className="dashboard">
-        <p className="text-sm text-[var(--muted)]">Loading deployment…</p>
-      </div>
-    );
+    return <DeployLogsPageSkeleton />;
   }
 
   if (templateQuery.isError || !templateQuery.data) {

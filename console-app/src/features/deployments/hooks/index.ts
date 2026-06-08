@@ -6,16 +6,30 @@ import {
   fetchServerDeployments,
 } from "../api";
 
+type UseServerContainersQueryOptions = {
+  /** When false, skips fetch/poll but still returns cached data if available. */
+  enabled?: boolean;
+  /** Poll every 60s while enabled. Defaults to false. */
+  poll?: boolean;
+};
+
 /**
  * Hook to fetch server containers.
  */
-export function useServerContainersQuery(serverId: string) {
+export function useServerContainersQuery(
+  serverId: string,
+  options?: UseServerContainersQueryOptions,
+) {
+  const enabled = options?.enabled ?? Boolean(serverId);
+  const poll = options?.poll ?? false;
+
   return useQuery({
     queryKey: QUERY_KEYS.deployments.containers(serverId),
     queryFn: () => fetchServerContainers(serverId),
-    enabled: Boolean(serverId),
+    enabled: Boolean(serverId) && enabled,
     staleTime: 60_000,
-    refetchInterval: 60_000,
+    refetchInterval: poll ? 60_000 : false,
+    refetchIntervalInBackground: false,
   });
 }
 

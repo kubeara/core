@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { FormFieldLabel } from "@/components/shared/form-field-label";
+import { PasswordInput } from "@/components/shared/password-input";
 import { getPasswordRuleResults } from "@/lib/validation";
 import "./password-field.css";
 
@@ -13,6 +15,7 @@ type PasswordFieldProps = {
   disabled?: boolean;
   showRules?: boolean;
   required?: boolean;
+  error?: string | null;
 };
 
 export function PasswordField({
@@ -26,24 +29,33 @@ export function PasswordField({
   disabled,
   showRules = false,
   required = true,
+  error,
 }: PasswordFieldProps) {
   const rules = useMemo(() => getPasswordRuleResults(value), [value]);
   const showRuleList = showRules && value.length > 0;
 
+  const describedBy = [
+    showRuleList ? `${id}-rules` : null,
+    error ? `${id}-error` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div className="form-field password-field">
-      <label htmlFor={id}>{label}</label>
-      <input
+      <FormFieldLabel htmlFor={id} required={required}>
+        {label}
+      </FormFieldLabel>
+      <PasswordInput
         id={id}
         name={name}
-        type="password"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         autoComplete={autoComplete}
         placeholder={placeholder}
         disabled={disabled}
-        required={required}
-        aria-describedby={showRuleList ? `${id}-rules` : undefined}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy || undefined}
       />
       {showRuleList && (
         <ul id={`${id}-rules`} className="password-rules" aria-live="polite">
@@ -59,6 +71,11 @@ export function PasswordField({
             </li>
           ))}
         </ul>
+      )}
+      {error && (
+        <p id={`${id}-error`} className="form-field-error" role="alert">
+          {error}
+        </p>
       )}
     </div>
   );

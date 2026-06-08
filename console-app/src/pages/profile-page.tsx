@@ -1,97 +1,66 @@
-import { useEffect, useRef, useState } from "react";
-import { getErrorMessage } from "@/api/api-error";
+import { useEffect, useState } from "react";
 import {
   useChangeProfilePasswordMutation,
   useUpdateGeneralProfileMutation,
-  useUpdateOrganizationMutation,
 } from "@/features/profile/hooks";
 import { useAuth } from "@/features/auth/context/use-auth";
-import { readImageAsDataUrl } from "@/lib/read-image";
-import { getUserInitials } from "@/lib/user-display";
+import { BackLink } from "@/components/shared/back-link";
+import { ProfilePageSkeleton } from "@/components/shared/skeleton";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { PasswordField } from "@/components/shared/password-field";
+import { PasswordInput } from "@/components/shared/password-input";
+import { FormFieldLabel } from "@/components/shared/form-field-label";
+import { validatePassword, validateRequired } from "@/lib/validation";
 import "@/components/profile-page.css";
 
 function GeneralDetailsCard() {
   const { user } = useAuth();
   const updateMutation = useUpdateGeneralProfileMutation();
-  const orgUpdateMutation = useUpdateOrganizationMutation();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const orgLogoInputRef = useRef<HTMLInputElement>(null);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [profilePicture, setProfilePicture] = useState<string | null>(null);
-  const [orgName, setOrgName] = useState("");
-  const [orgLogo, setOrgLogo] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const isSaving = updateMutation.isPending || orgUpdateMutation.isPending;
+  const isSaving = updateMutation.isPending;
 
   useEffect(() => {
     if (!user) return;
     const parts = user.name.split(/\s+/).filter(Boolean);
     setFirstName(parts[0] || "");
     setLastName(parts.slice(1).join(" ") || "");
-    setProfilePicture(null);
-    setOrgName(user.organization?.name || "");
-    setOrgLogo(null);
   }, [user]);
+
+  function clearFieldError(fieldId: string) {
+    setFieldErrors((current) => {
+      if (!current[fieldId]) return current;
+      const next = { ...current };
+      delete next[fieldId];
+      return next;
+    });
+  }
 
   if (!user) return null;
 
-  async function handleImageChange(file: File | undefined) {
-    if (!file) return;
-    setError(null);
-    try {
-      const dataUrl = await readImageAsDataUrl(file);
-      setProfilePicture(dataUrl);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid image.");
-    }
-  }
-
-  function removePhoto() {
-    setProfilePicture(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  async function handleLogoChange(file: File | undefined) {
-    if (!file) return;
-    setError(null);
-    try {
-      const dataUrl = await readImageAsDataUrl(file);
-      setOrgLogo(dataUrl);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Invalid image.");
-    }
-  }
-
-  function removeLogo() {
-    setOrgLogo(null);
-    if (orgLogoInputRef.current) orgLogoInputRef.current.value = "";
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
+
+    const nextFieldErrors: Record<string, string> = {};
+    const firstNameError = validateRequired(firstName, "First name");
+    if (firstNameError) nextFieldErrors.firstName = firstNameError;
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
+      return;
+    }
+    setFieldErrors({});
 
     try {
-      await Promise.all([
-        updateMutation.mutateAsync({
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          profilePicture,
-        }),
-        orgUpdateMutation.mutateAsync({
-          orgName: orgName.trim(),
-          orgLogo,
-        }),
-      ]);
-      setSuccess("Profile updated.");
-    } catch (err) {
-      setError(getErrorMessage(err));
+      await updateMutation.mutateAsync({
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+      });
+    } catch {
+      // Error toast shown by mutation hook
     }
   }
 
@@ -101,83 +70,47 @@ function GeneralDetailsCard() {
         <div>
           <h2>General details</h2>
           <p className="profile-section-desc">
-            Your personal information, organization, and appearance preferences.
+            Your personal information and appearance preferences.
           </p>
         </div>
         <ThemeToggle variant="switch" />
       </div>
-      <form onSubmit={handleSubmit} className="profile-section-form">
+      <form onSubmit={handleSubmit} className="profile-section-form" noValidate>
         <div className="profile-field-group">
-          <div className="profile-avatar-block">
-            <div className="profile-avatar-upload">
-              <div className="profile-avatar-preview">
-                {profilePicture ? (
-                  <img src={profilePicture} alt="" />
-                ) : (
-                  getUserInitials({
-                    name: `${firstName} ${lastName}`.trim() || user.name,
-                  })
-                )}
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="profile-avatar-input"
-                aria-label="Upload profile photo"
-                onChange={(e) => void handleImageChange(e.target.files?.[0])}
-                disabled={isSaving}
-              />
-            </div>
-            <div className="profile-avatar-actions">
-              <p className="profile-avatar-hint">PNG, JPG or WebP. Max 500 KB.</p>
-              {profilePicture && (
-                <button
-                  type="button"
-                  className="profile-text-btn"
-                  onClick={removePhoto}
-                  disabled={isSaving}
-                >
-                  Remove photo
-                </button>
-              )}
-            </div>
-          </div>
-
           <div className="profile-form-grid">
             <div className="form-field">
-              <label htmlFor="profile-email">Email</label>
-              <div id="profile-email" className="profile-email-readonly">
-                {user.email}
-              </div>
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="org-name">Organization name</label>
-              <input
-                id="org-name"
-                value={orgName}
-                onChange={(e) => setOrgName(e.target.value)}
-                required
-                placeholder="Acme Inc."
-                disabled={isSaving}
-              />
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="profile-first-name">First name</label>
+              <FormFieldLabel htmlFor="profile-first-name" required>
+                First name
+              </FormFieldLabel>
               <input
                 id="profile-first-name"
                 value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                required
+                onChange={(e) => {
+                  setFirstName(e.target.value);
+                  clearFieldError("firstName");
+                }}
                 autoComplete="given-name"
                 disabled={isSaving}
+                aria-invalid={fieldErrors.firstName ? true : undefined}
+                aria-describedby={
+                  fieldErrors.firstName ? "profile-first-name-error" : undefined
+                }
               />
+              {fieldErrors.firstName && (
+                <p
+                  id="profile-first-name-error"
+                  className="form-field-error"
+                  role="alert"
+                >
+                  {fieldErrors.firstName}
+                </p>
+              )}
             </div>
 
             <div className="form-field">
-              <label htmlFor="profile-last-name">Last name</label>
+              <FormFieldLabel htmlFor="profile-last-name">
+                Last name
+              </FormFieldLabel>
               <input
                 id="profile-last-name"
                 value={lastName}
@@ -186,49 +119,19 @@ function GeneralDetailsCard() {
                 disabled={isSaving}
               />
             </div>
-          </div>
-        </div>
 
-        <div className="profile-field-group">
-          <div className="profile-logo-block">
-            <div className="profile-logo-upload">
-              <div className="profile-logo-preview">
-                {orgLogo ? <img src={orgLogo} alt="" /> : "Logo"}
+            <div className="form-field">
+              <FormFieldLabel htmlFor="profile-email">Email</FormFieldLabel>
+              <div id="profile-email" className="profile-email-readonly">
+                {user.email}
               </div>
-              <input
-                ref={orgLogoInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                className="profile-logo-input"
-                aria-label="Upload organization logo"
-                onChange={(e) => void handleLogoChange(e.target.files?.[0])}
-                disabled={isSaving}
-              />
-            </div>
-            <div className="profile-avatar-actions">
-              <p className="profile-avatar-hint">
-                Organization logo. Square works best. Max 500 KB.
-              </p>
-              {orgLogo && (
-                <button
-                  type="button"
-                  className="profile-text-btn"
-                  onClick={removeLogo}
-                  disabled={isSaving}
-                >
-                  Remove logo
-                </button>
-              )}
             </div>
           </div>
         </div>
-
-        {error && <p className="form-message error">{error}</p>}
-        {success && <p className="form-message success">{success}</p>}
 
         <div className="profile-section-actions">
           <button type="submit" className="btn-primary" disabled={isSaving}>
-            {isSaving ? "Saving…" : "Save changes"}
+            {isSaving ? "Saving…" : "Save"}
           </button>
         </div>
       </form>
@@ -238,44 +141,63 @@ function GeneralDetailsCard() {
 
 function ChangePasswordCard() {
   const changeMutation = useChangeProfilePasswordMutation();
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  function clearFieldError(fieldId: string) {
+    setFieldErrors((current) => {
+      if (!current[fieldId]) return current;
+      const next = { ...current };
+      delete next[fieldId];
+      return next;
+    });
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
 
-    const form = e.currentTarget;
-    const currentPassword = (
-      form.elements.namedItem("currentPassword") as HTMLInputElement
-    ).value;
-    const newPassword = (
-      form.elements.namedItem("newPassword") as HTMLInputElement
-    ).value;
-    const confirmPassword = (
-      form.elements.namedItem("confirmPassword") as HTMLInputElement
-    ).value;
+    const nextFieldErrors: Record<string, string> = {};
 
-    if (newPassword !== confirmPassword) {
-      setError("New passwords do not match.");
-      return;
+    const currentPasswordError = validateRequired(
+      currentPassword,
+      "Current password",
+    );
+    if (currentPasswordError) {
+      nextFieldErrors.currentPassword = currentPasswordError;
     }
 
-    if (newPassword.length < 8) {
-      setError("New password must be at least 8 characters.");
+    const newPasswordError = validatePassword(newPassword);
+    if (newPasswordError) nextFieldErrors.newPassword = newPasswordError;
+
+    const confirmPasswordError = validateRequired(
+      confirmPassword,
+      "Confirm password",
+    );
+    if (confirmPasswordError) {
+      nextFieldErrors.confirmPassword = confirmPasswordError;
+    } else if (newPassword !== confirmPassword) {
+      nextFieldErrors.confirmPassword = "Passwords do not match.";
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
       return;
     }
+    setFieldErrors({});
 
     try {
-      const data = await changeMutation.mutateAsync({
+      await changeMutation.mutateAsync({
         currentPassword,
         newPassword,
       });
-      setSuccess(data.message);
-      form.reset();
-    } catch (err) {
-      setError(getErrorMessage(err));
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch {
+      // Error toast shown by mutation hook
     }
   }
 
@@ -285,47 +207,70 @@ function ChangePasswordCard() {
       <p className="profile-section-desc">
         Use a strong password you do not reuse on other sites.
       </p>
-      <form onSubmit={handleSubmit} className="profile-section-form">
+      <form onSubmit={handleSubmit} className="profile-section-form" noValidate>
         <div className="profile-form-grid profile-form-grid--narrow">
           <div className="form-field profile-form-grid-span-2">
-            <label htmlFor="current-password">Current password</label>
-            <input
+            <FormFieldLabel htmlFor="current-password" required>
+              Current password
+            </FormFieldLabel>
+            <PasswordInput
               id="current-password"
               name="currentPassword"
-              type="password"
+              value={currentPassword}
+              onChange={(e) => {
+                setCurrentPassword(e.target.value);
+                clearFieldError("currentPassword");
+              }}
               autoComplete="current-password"
-              required
               disabled={changeMutation.isPending}
+              placeholder="••••••••"
+              aria-invalid={fieldErrors.currentPassword ? true : undefined}
+              aria-describedby={
+                fieldErrors.currentPassword
+                  ? "current-password-error"
+                  : undefined
+              }
             />
+            {fieldErrors.currentPassword && (
+              <p
+                id="current-password-error"
+                className="form-field-error"
+                role="alert"
+              >
+                {fieldErrors.currentPassword}
+              </p>
+            )}
           </div>
-          <div className="form-field">
-            <label htmlFor="new-password">New password</label>
-            <input
-              id="new-password"
-              name="newPassword"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              disabled={changeMutation.isPending}
-            />
-          </div>
-          <div className="form-field">
-            <label htmlFor="confirm-password">Confirm new password</label>
-            <input
-              id="confirm-password"
-              name="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={8}
-              disabled={changeMutation.isPending}
-            />
-          </div>
+          <PasswordField
+            id="new-password"
+            name="newPassword"
+            label="New password"
+            value={newPassword}
+            onChange={(value) => {
+              setNewPassword(value);
+              clearFieldError("newPassword");
+            }}
+            placeholder="••••••••"
+            autoComplete="new-password"
+            showRules
+            disabled={changeMutation.isPending}
+            error={fieldErrors.newPassword}
+          />
+          <PasswordField
+            id="confirm-password"
+            name="confirmPassword"
+            label="Confirm new password"
+            value={confirmPassword}
+            onChange={(value) => {
+              setConfirmPassword(value);
+              clearFieldError("confirmPassword");
+            }}
+            autoComplete="new-password"
+            placeholder="••••••••"
+            disabled={changeMutation.isPending}
+            error={fieldErrors.confirmPassword}
+          />
         </div>
-
-        {error && <p className="form-message error">{error}</p>}
-        {success && <p className="form-message success">{success}</p>}
 
         <div className="profile-section-actions">
           <button
@@ -345,22 +290,24 @@ function ChangePasswordCard() {
  * User profile page.
  *
  * Allows users to manage:
- * - General details (name, profile picture, organization, theme)
+ * - General details (name, theme)
  * - Password change
  */
 export function ProfilePage() {
   const { user, isLoading } = useAuth();
 
   if (isLoading || !user) {
-    return null;
+    return <ProfilePageSkeleton />;
   }
 
   return (
     <div className="profile-page">
+      <BackLink to="/servers" label="Back" />
+
       <header className="dashboard-header">
         <div>
           <h1>Profile</h1>
-          <p>Manage your account and organization settings.</p>
+          <p>Manage your account settings.</p>
         </div>
       </header>
 
