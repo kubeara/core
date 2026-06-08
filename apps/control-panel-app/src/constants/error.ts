@@ -37,4 +37,8 @@ export const ERROR_MESSAGES = {
     OTP_NOT_VERIFIED: "OTP not verified",
     MAX_OTP_ATTEMPTS: "OTP attempts exhausted, please try again later",
   },
+
+  PROFILE: {
+    INVALID_CURRENT_PASSWORD: "Current password is incorrect",
+  },
 };

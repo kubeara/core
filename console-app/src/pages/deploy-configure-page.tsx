@@ -35,7 +35,7 @@ export function DeployConfigurePage() {
   ) {
     return (
       <div className="dashboard deploy-configure-page">
-        <BackLink to={backHref} label="Back to server" />
+        <BackLink to={backHref} label="Back" />
         <DeployConfigurePageSkeleton />
       </div>
     );
@@ -54,7 +54,7 @@ export function DeployConfigurePage() {
 
   return (
     <div className="dashboard deploy-configure-page">
-      <BackLink to={backHref} label="Back to server" />
+      <BackLink to={backHref} label="Back" />
       <DeployConfigurationForm
         template={template}
         serverId={serverId}

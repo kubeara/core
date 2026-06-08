@@ -248,7 +248,7 @@ export function DeploymentLogs({
       className={`deploy-logs-page ${isFullscreen ? "is-fullscreen" : ""}`}
       style={{ "--deploy-accent": template.color } as CSSProperties}
     >
-      <BackLink to={backHref} label="Back to server" />
+      <BackLink to={backHref} label="Back" />
 
       <article className="deploy-service-card">
         <div

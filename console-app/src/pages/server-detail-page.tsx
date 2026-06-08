@@ -30,7 +30,7 @@ export function ServerDetailPage() {
   if (isError) {
     return (
       <div className="dashboard server-detail">
-        <BackLink to="/servers" label="Back to Servers" />
+        <BackLink to="/servers" label="Back" />
         <ServerFeedbackMessage
           variant="error"
           message={getErrorMessage(error)}
@@ -48,7 +48,7 @@ export function ServerDetailPage() {
 
   return (
     <div className="dashboard server-detail">
-      <BackLink to="/servers" label="Back to Servers" />
+      <BackLink to="/servers" label="Back" />
 
       <header className="dashboard-header">
         <div>

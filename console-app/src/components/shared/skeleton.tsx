@@ -215,6 +215,7 @@ export function ProfilePageSkeleton() {
   return (
     <div className="profile-page skeleton-page" aria-live="polite" aria-busy="true">
       <span className="skeleton-visually-hidden">Loading profile…</span>
+      <SkeletonText width="8.5rem" size="sm" />
       <header className="dashboard-header">
         <div className="skeleton-stack" style={{ gap: "0.5rem" }}>
           <SkeletonText width="6rem" size="lg" style={{ height: "1.75rem" }} />

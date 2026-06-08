@@ -163,10 +163,15 @@ function ConnectedServiceCard({ container }: { container: ServerContainer }) {
   );
 }
 
-function OverviewTab({ serverId }: { serverId: string }) {
-  const { data: containers = [], isLoading, isError } =
-    useServerContainersQuery(serverId);
-
+function OverviewTab({
+  containers,
+  isLoading,
+  isError,
+}: {
+  containers: ServerContainer[];
+  isLoading: boolean;
+  isError: boolean;
+}) {
   const kubearaManagedContainers = containers.filter(
     (container) => container.managedType === "KUBEARA_MANAGED",
   );
@@ -463,8 +468,16 @@ function SettingsTab({ server }: { server: Server }) {
 
 export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const isOverviewTab = activeTab === "overview";
 
-  const { data: overviewContainers = [] } = useServerContainersQuery(server.id);
+  const {
+    data: overviewContainers = [],
+    isLoading: containersLoading,
+    isError: containersError,
+  } = useServerContainersQuery(server.id, {
+    enabled: isOverviewTab,
+    poll: isOverviewTab,
+  });
 
   const connectedIds = useMemo(() => {
     return new Set(
@@ -507,7 +520,13 @@ export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
         id={`panel-${activeTab}`}
         aria-labelledby={`tab-${activeTab}`}
       >
-        {activeTab === "overview" && <OverviewTab serverId={server.id} />}
+        {activeTab === "overview" && (
+          <OverviewTab
+            containers={overviewContainers}
+            isLoading={containersLoading}
+            isError={containersError}
+          />
+        )}
         {activeTab === "templates" && (
           <TemplatesTab
             serverId={server.id}
