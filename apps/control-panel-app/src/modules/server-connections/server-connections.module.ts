@@ -1,5 +1,6 @@
-import { Module } from "@nestjs/common";
+import { Module, forwardRef } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { WebsocketModule } from "@control-panel/websocket/websocket.module";
 
 import { ServersController } from "./controllers/servers.controller";
 
@@ -22,6 +23,7 @@ import { SshModule } from "@shared/ssh";
       UserEntity,
     ]),
     SshModule,
+    forwardRef(() => WebsocketModule),
   ],
   controllers: [ServersController],
   providers: [

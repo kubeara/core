@@ -4,6 +4,7 @@ import type {
   OnboardSuccessData,
   PaginatedServersResponse,
   ServerApiResponse,
+  ServerResources,
   ServersApiResponse,
   ServersListParams,
   UpdateServerRequest,
@@ -44,6 +45,20 @@ export async function fetchServer(id: string): Promise<ServerApiResponse> {
     return unwrapServerApiData<ServerApiResponse>(
       responseBody(response),
       SERVER_API_FALLBACK_MESSAGES.LOAD_ONE,
+    );
+  });
+}
+
+export async function fetchServerResources(
+  serverId: string,
+): Promise<ServerResources> {
+  return runServerApiCall(async () => {
+    const response = await apiClient.get<ServersApiResponse<ServerResources>>(
+      `/servers/${encodeURIComponent(serverId)}/resources`,
+    );
+    return unwrapServerApiData<ServerResources>(
+      responseBody(response),
+      SERVER_API_FALLBACK_MESSAGES.LOAD_RESOURCES,
     );
   });
 }

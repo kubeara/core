@@ -48,6 +48,10 @@ export const QUERY_KEYS = {
          * @param id - Server ID
          */
         detail: (id: string) => ["servers", id] as const,
+
+        /** On-demand server resource metrics query key */
+        resources: (serverId: string) =>
+            ["servers", serverId, "resources"] as const,
     },
 
     /**

@@ -9,8 +9,11 @@ import {
   DeploymentEvents,
   ContainerDiscoverRequestPayload,
   ContainerDiscoverResponsePayload,
+  ServerGetResourcesRequestPayload,
+  ServerGetResourcesResponsePayload,
 } from "@shared/socket-events";
 import { ContainerDiscoveryService } from "../container-discovery/container-discovery.service";
+import { ServerResourcesService } from "../server-resources/server-resources.service";
 import { DeployTemplateExecutor } from "../executors/deploy-template.executor";
 import type { EnvFileInput, PortFileInput } from "../executors/env-file.util";
 import {
@@ -43,6 +46,7 @@ export class SocketClientService {
     private readonly encryptionService: EncryptionService,
     private readonly templatePayloadService: TemplatePayloadService,
     private readonly containerDiscoveryService: ContainerDiscoveryService,
+    private readonly serverResourcesService: ServerResourcesService,
   ) {
     this.agentId = this.generateAgentId();
   }
@@ -156,6 +160,7 @@ export class SocketClientService {
     this.socket.off(DeploymentEvents.DEPLOY);
     this.socket.off(DeploymentEvents.REMOVE);
     this.socket.off(DeploymentEvents.CONTAINER_DISCOVER);
+    this.socket.off(DeploymentEvents.SERVER_GET_RESOURCES);
 
     this.socket.on(DeploymentEvents.DEPLOY, (message: SocketDeployMessage) => {
       void this.handleDeployAction(message);
@@ -169,6 +174,13 @@ export class SocketClientService {
       DeploymentEvents.CONTAINER_DISCOVER,
       (payload: ContainerDiscoverRequestPayload) => {
         void this.handleContainerDiscover(payload);
+      },
+    );
+
+    this.socket.on(
+      DeploymentEvents.SERVER_GET_RESOURCES,
+      (payload: ServerGetResourcesRequestPayload) => {
+        void this.handleServerGetResources(payload);
       },
     );
   }
@@ -277,6 +289,44 @@ export class SocketClientService {
     } finally {
       this.inFlightDeployments.delete(deploymentId);
     }
+  }
+
+  /**
+   * Handles on-demand server resource metric requests from the control panel.
+   */
+  private async handleServerGetResources(
+    payload: ServerGetResourcesRequestPayload,
+  ): Promise<void> {
+    const requestId = payload?.requestId?.trim() ?? "";
+    this.logger.log(
+      `Server get-resources request received requestId=${requestId}`,
+    );
+
+    let response: ServerGetResourcesResponsePayload;
+    try {
+      response = requestId
+        ? await this.serverResourcesService.collectResources(requestId)
+        : {
+            requestId: "",
+            error: "Missing requestId",
+          };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Server get-resources handler failed: ${message}`);
+      response = { requestId, error: message };
+    }
+
+    if (!this.socket?.connected) {
+      this.logger.warn(
+        "Cannot send server get-resources result: socket disconnected",
+      );
+      return;
+    }
+
+    this.socket.emit(DeploymentEvents.SERVER_GET_RESOURCES_RESULT, response);
+    this.logger.log(
+      `Server get-resources result sent requestId=${requestId}${response.error ? ` error=${response.error}` : ""}`,
+    );
   }
 
   /**
