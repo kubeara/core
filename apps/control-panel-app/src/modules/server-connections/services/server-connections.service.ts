@@ -835,8 +835,9 @@ export class ServerConnectionsService {
 
     let searchWhere: FindOptionsWhere<ServerEntity>[] | undefined;
 
-    if (query.search) {
-      const search = ILike(`%${query.search}%`);
+    if (query.search?.trim()) {
+      const searchTerm = query.search.trim();
+      const search = ILike(`%${searchTerm}%`);
 
       searchWhere = [
         {
