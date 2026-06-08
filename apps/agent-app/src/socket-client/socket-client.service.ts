@@ -7,7 +7,10 @@ import {
   SocketRemoveMessage,
   DeploymentLogPayload,
   DeploymentEvents,
+  ContainerDiscoverRequestPayload,
+  ContainerDiscoverResponsePayload,
 } from "@shared/socket-events";
+import { ContainerDiscoveryService } from "../container-discovery/container-discovery.service";
 import { DeployTemplateExecutor } from "../executors/deploy-template.executor";
 import type { EnvFileInput, PortFileInput } from "../executors/env-file.util";
 import {
@@ -39,6 +42,7 @@ export class SocketClientService {
     private readonly executor: DeployTemplateExecutor,
     private readonly encryptionService: EncryptionService,
     private readonly templatePayloadService: TemplatePayloadService,
+    private readonly containerDiscoveryService: ContainerDiscoveryService,
   ) {
     this.agentId = this.generateAgentId();
   }
@@ -121,6 +125,7 @@ export class SocketClientService {
       this.socket.on("connect", () => {
         this.connected = true;
         this.logger.log(`Connected with socket ID: ${this.socket?.id}`);
+        this.attachInboundHandlers();
         this.flushPendingStatuses();
         this.flushPendingLogs();
       });
@@ -134,18 +139,38 @@ export class SocketClientService {
         this.logger.error(`Connection error: ${error.message}`);
       });
 
-      this.socket.on(
-        DeploymentEvents.DEPLOY,
-        (message: SocketDeployMessage) => {
-          void this.handleDeployAction(message);
-        },
-      );
+      this.attachInboundHandlers();
     } catch (error) {
       this.logger.error(
         `Failed to setup socket event listeners: ${error instanceof Error ? error.message : String(error)}`,
       );
       throw error;
     }
+  }
+
+  private attachInboundHandlers(): void {
+    if (!this.socket) {
+      return;
+    }
+
+    this.socket.off(DeploymentEvents.DEPLOY);
+    this.socket.off(DeploymentEvents.REMOVE);
+    this.socket.off(DeploymentEvents.CONTAINER_DISCOVER);
+
+    this.socket.on(DeploymentEvents.DEPLOY, (message: SocketDeployMessage) => {
+      void this.handleDeployAction(message);
+    });
+
+    this.socket.on(DeploymentEvents.REMOVE, (message: SocketRemoveMessage) => {
+      void this.handleRemoveAction(message);
+    });
+
+    this.socket.on(
+      DeploymentEvents.CONTAINER_DISCOVER,
+      (payload: ContainerDiscoverRequestPayload) => {
+        void this.handleContainerDiscover(payload);
+      },
+    );
   }
 
   private async handleDeployAction(
@@ -257,6 +282,42 @@ export class SocketClientService {
   /**
    * Handles remove requests from control panel and tears down deployment resources.
    */
+  private async handleContainerDiscover(
+    payload: ContainerDiscoverRequestPayload,
+  ): Promise<void> {
+    const requestId = payload?.requestId?.trim() ?? "";
+    this.logger.log(
+      `Container discover request received requestId=${requestId}`,
+    );
+
+    let response: ContainerDiscoverResponsePayload;
+    try {
+      response = requestId
+        ? await this.containerDiscoveryService.discoverContainers(requestId)
+        : {
+            requestId: "",
+            containers: [],
+            error: "Missing requestId",
+          };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Container discover handler failed: ${message}`);
+      response = { requestId, containers: [], error: message };
+    }
+
+    if (!this.socket?.connected) {
+      this.logger.warn(
+        "Cannot send container discover result: socket disconnected",
+      );
+      return;
+    }
+
+    this.socket.emit(DeploymentEvents.CONTAINER_DISCOVER_RESULT, response);
+    this.logger.log(
+      `Container discover result sent requestId=${requestId} count=${response.containers.length}${response.error ? ` error=${response.error}` : ""}`,
+    );
+  }
+
   private async handleRemoveAction(
     message: SocketRemoveMessage,
   ): Promise<void> {

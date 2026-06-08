@@ -4,6 +4,7 @@ import type {
   DeployTemplateInput,
   DeployTemplateResult,
   DeploymentDetail,
+  ServerContainer,
   ServerDeploymentSummary,
 } from "../types";
 
@@ -26,6 +27,19 @@ export async function deployTemplate(
   );
 }
 
+export async function fetchServerContainers(
+  serverId: string,
+): Promise<ServerContainer[]> {
+  const response = await apiClient.get(
+    `/deployments/${encodeURIComponent(serverId)}/containers`,
+  );
+  const data = unwrapServerApiData<{ containers: ServerContainer[] }>(
+    responseBody(response),
+    "Failed to load server containers",
+  );
+  return data.containers ?? [];
+}
+
 export async function fetchServerDeployments(
   serverId: string,
 ): Promise<ServerDeploymentSummary[]> {
@@ -38,6 +52,9 @@ export async function fetchServerDeployments(
   );
 }
 
+/**
+ * Fetches the details of a deployment.
+ */
 export async function fetchDeployment(
   deploymentId: string,
 ): Promise<DeploymentDetail> {

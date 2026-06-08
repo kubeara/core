@@ -3,6 +3,7 @@ import { BackLink } from "@/components/shared/back-link";
 import { DeployConfigurationForm } from "@/features/templates/components/deploy-configuration-form";
 import { useTemplateDetailsQuery, useTemplatesQuery } from "@/features/templates/hooks";
 import { useServerQuery } from "@/features/servers/hooks";
+import { DeployConfigurePageSkeleton } from "@/components/shared/skeleton";
 import { NotFoundPage } from "./not-found-page";
 import "@/features/templates/templates-ui.css";
 
@@ -34,15 +35,8 @@ export function DeployConfigurePage() {
   ) {
     return (
       <div className="dashboard deploy-configure-page">
-        <BackLink to={backHref} label="Back to server" />
-        <div className="deploy-configure-page-loading" aria-live="polite">
-          <div className="deploy-form-loading-dots" aria-hidden>
-            <span />
-            <span />
-            <span />
-          </div>
-          <p>Loading deployment configuration…</p>
-        </div>
+        <BackLink to={backHref} label="Back" />
+        <DeployConfigurePageSkeleton />
       </div>
     );
   }
@@ -60,12 +54,11 @@ export function DeployConfigurePage() {
 
   return (
     <div className="dashboard deploy-configure-page">
-      <BackLink to={backHref} label="Back to server" />
+      <BackLink to={backHref} label="Back" />
       <DeployConfigurationForm
         template={template}
         serverId={serverId}
         serverName={serverQuery.data.name}
-        cancelHref={backHref}
       />
     </div>
   );

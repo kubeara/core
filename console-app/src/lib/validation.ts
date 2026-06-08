@@ -17,6 +17,16 @@ export function validateEmail(value: string): string | null {
   return null;
 }
 
+export function validateRequired(
+  value: string,
+  fieldLabel: string,
+): string | null {
+  if (!value.trim()) {
+    return `${fieldLabel} is required.`;
+  }
+  return null;
+}
+
 export type PasswordRuleId =
   | "minLength"
   | "hasLetter"
@@ -60,6 +70,9 @@ export function getPasswordRuleResults(password: string) {
 }
 
 export function validatePassword(password: string): string | null {
+  if (!password) {
+    return "Password is required.";
+  }
   const failed = PASSWORD_RULES.find((rule) => !rule.test(password));
   return failed ? failed.label : null;
 }

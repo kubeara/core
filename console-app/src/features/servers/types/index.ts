@@ -17,7 +17,7 @@ export type ServerType = "BARE_METAL" | "VIRTUAL_MACHINE" | "CONTAINER_HOST";
 
 export type ServerSshAuthType = "PASSWORD" | "PRIVATE_KEY";
 
-export type ServerListSortField = "name" | "host" | "lastConnectedAt";
+export type ServerListSortField = "name" | "host" | "createdAt";
 
 export type ServerApiResponse = {
   id: string;

@@ -13,6 +13,7 @@ import { DeploymentsModule } from "./modules/deployments/deployments.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
+import { ProfileModule } from "./modules/profile/profile.module";
 import { AppController } from "./app.controller";
 import { isProductionEnv } from "@control-panel/constants/env.constant";
 
@@ -60,6 +61,7 @@ import { isProductionEnv } from "@control-panel/constants/env.constant";
     AuthModule,
     UsersModule,
     OrganizationsModule,
+    ProfileModule,
   ],
   controllers: [AppController],
   providers: [],

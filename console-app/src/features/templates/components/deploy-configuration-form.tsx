@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "react-router-dom";
 import { getErrorMessage } from "@/api/api-error";
 import { Form } from "@/components/ui/form";
+import { DeployFormFieldsSkeleton } from "@/components/shared/skeleton";
 import type { ApiTemplate } from "../types";
 import { useTemplateDetailsQuery } from "../hooks";
 import {
@@ -14,22 +15,23 @@ import {
 import { groupTemplateVariables } from "../utils/field-utils";
 import { getDeploymentSocket } from "@/lib/socket/deployment-socket-client";
 import { DynamicDeployFields } from "./dynamic-deploy-fields";
+import { DeployServiceSummaryCard } from "./deploy-service-summary-card";
 
 type DeployConfigurationFormProps = {
   template: ApiTemplate;
   serverId: string;
   serverName?: string;
-  cancelHref: string;
 };
 
 export function DeployConfigurationForm({
   template,
   serverId,
   serverName,
-  cancelHref,
 }: DeployConfigurationFormProps) {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const editSnapshotRef = useRef<Record<string, unknown>>({});
   const detailsQuery = useTemplateDetailsQuery(template.slug);
   const resolvedTemplate = detailsQuery.data ?? template;
   const variables = resolvedTemplate.variables ?? [];
@@ -47,17 +49,41 @@ export function DeployConfigurationForm({
 
   useEffect(() => {
     form.reset(buildDeployFormDefaults(resolvedTemplate));
+    setIsEditing(false);
+    editSnapshotRef.current = {};
   }, [form, resolvedTemplate]);
 
-  // Pre-connect socket so the logs page receives streams immediately after deploy.
   useEffect(() => {
     getDeploymentSocket();
   }, []);
 
-  // const accent = getTemplateAccentColor(template.slug);
   const isLoadingFields = detailsQuery.isPending && !detailsQuery.data;
   const { ports, required, optional } = groupTemplateVariables(variables);
   const fieldCount = ports.length + required.length + optional.length;
+
+  function handleEdit() {
+    editSnapshotRef.current = form.getValues();
+    setIsEditing(true);
+  }
+
+  function handleCancelEdit() {
+    form.reset(editSnapshotRef.current);
+    setIsEditing(false);
+  }
+
+  async function handleSaveEdit() {
+    const valid = await form.trigger();
+    if (!valid) return;
+    editSnapshotRef.current = form.getValues();
+    setIsEditing(false);
+  }
+
+  async function handleDeploy() {
+    const valid = await form.trigger();
+    if (!valid) return;
+    editSnapshotRef.current = form.getValues();
+    form.handleSubmit(handleSubmit)();
+  }
 
   function handleSubmit(values: Record<string, unknown>) {
     setIsSubmitting(true);
@@ -76,59 +102,35 @@ export function DeployConfigurationForm({
   }
 
   return (
-    <div
-      className="deploy-configure-layout"
-      // style={{ "--deploy-accent": accent } as CSSProperties}
-    >
-      <aside className="deploy-configure-sidebar">
-        <div className="deploy-configure-sidebar-card">
-          <div
-            className="deploy-configure-template-icon"
-            style={{
-              // backgroundColor: `${accent}18`,
-              // color: accent,
-            }}
-            aria-hidden
-          >
-            {template.name.charAt(0)}
-          </div>
-          <h2 className="deploy-configure-template-name">{template.name}</h2>
-          {template.category && (
-            <p className="deploy-configure-template-category">{template.category}</p>
-          )}
-          {template.description && (
-            <p className="deploy-configure-template-desc">{template.description}</p>
-          )}
-          <dl className="deploy-configure-summary">
-            <div>
-              <dt>Target server</dt>
-              <dd>{serverName ?? serverId}</dd>
-            </div>
-            <div>
-              <dt>Template</dt>
-              <dd>
-                <code>{template.slug}</code>
-              </dd>
-            </div>
-            <div>
-              <dt>Variables</dt>
-              <dd>
-                {isLoadingFields
-                  ? "Loading…"
-                  : `${fieldCount} configurable field${fieldCount === 1 ? "" : "s"}`}
-              </dd>
-            </div>
-          </dl>
-        </div>
-      </aside>
+    <div className="deploy-configure-layout">
+      <DeployServiceSummaryCard
+        template={resolvedTemplate}
+        serverName={serverName}
+        serverId={serverId}
+        variableCount={isLoadingFields ? "loading" : fieldCount}
+      />
 
       <div className="deploy-configure-main">
         <header className="deploy-configure-main-header">
-          <h1>Configure deployment</h1>
-          <p>
-            Set environment variables and ports for this template. Required fields
-            must be filled before deployment starts.
-          </p>
+          <div>
+            <h1>Configure deployment</h1>
+            <p>
+              Review environment variables and ports for this template. Edit to
+              change values, then save to return to read-only view before deploying.
+            </p>
+          </div>
+          {!isLoadingFields &&
+            !detailsQuery.isError &&
+            variables.length > 0 &&
+            !isEditing && (
+              <button
+                type="button"
+                className="btn-secondary deploy-configure-edit-btn"
+                onClick={handleEdit}
+              >
+                Edit
+              </button>
+            )}
         </header>
 
         <Form {...form}>
@@ -144,41 +146,49 @@ export function DeployConfigurationForm({
               ) : null}
 
               {isLoadingFields ? (
-                <div className="deploy-form-loading" aria-live="polite">
-                  Loading template configuration…
-                  <div className="deploy-form-loading-dots" aria-hidden>
-                    <span />
-                    <span />
-                    <span />
-                  </div>
-                </div>
+                <DeployFormFieldsSkeleton />
               ) : (
                 <DynamicDeployFields
                   control={form.control}
                   variables={variables}
+                  isEditing={isEditing}
                 />
               )}
             </div>
 
             <footer className="deploy-configure-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => navigate(cancelHref)}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className={`btn-primary deploy-configure-submit${isSubmitting ? " is-loading" : ""}`}
-                // style={{ backgroundColor: accent, borderColor: accent }}
-                disabled={
-                  isSubmitting || isLoadingFields || detailsQuery.isError
-                }
-              >
-                {isSubmitting ? "Deploying…" : "Deploy"}
-              </button>
+              {isEditing ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn-secondary deploy-configure-action-btn"
+                    onClick={handleCancelEdit}
+                    disabled={isSubmitting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-primary deploy-configure-action-btn"
+                    onClick={() => void handleSaveEdit()}
+                    disabled={isSubmitting}
+                  >
+                    Save
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className={`btn-primary deploy-configure-action-btn${isSubmitting ? " is-loading" : ""}`}
+                  onClick={() => void handleDeploy()}
+                  disabled={
+                    isSubmitting || isLoadingFields || detailsQuery.isError
+                  }
+                  aria-busy={isSubmitting}
+                >
+                  {isSubmitting ? "Deploying…" : "Deploy"}
+                </button>
+              )}
             </footer>
           </form>
         </Form>

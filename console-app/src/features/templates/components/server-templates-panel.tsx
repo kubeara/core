@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { getErrorMessage } from "@/api/api-error";
 import { useTemplatesQuery } from "../hooks";
+import { SkeletonGrid } from "@/components/shared/skeleton";
 import { MarketplaceTemplateCard } from "./marketplace-template-card";
 import type { ApiTemplate } from "../types";
 import "../templates-ui.css";
@@ -22,16 +23,7 @@ export function ServerTemplatesPanel({
   }
 
   if (templatesQuery.isPending) {
-    return (
-      <div className="server-templates-state">
-        <div className="server-templates-skeleton-grid" aria-hidden>
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="server-templates-skeleton-card" />
-          ))}
-        </div>
-        <p className="server-templates-state-text">Loading templates…</p>
-      </div>
-    );
+    return <SkeletonGrid count={6} label="Loading templates…" />;
   }
 
   if (templatesQuery.isError) {

@@ -4,7 +4,11 @@ import {
   useUpdateServerMutation,
 } from "@/features/servers/hooks";
 import type { Server } from "@/types";
+import { getErrorMessage } from "@/api/api-error";
 import { Dropdown } from "@/components/shared/dropdown";
+import { FormErrorsSummary } from "@/components/shared/form-errors-summary";
+import { FormFieldLabel } from "@/components/shared/form-field-label";
+import { validateRequired } from "@/lib/validation";
 import type { ServerSshAuthType } from "@/features/servers/types";
 
 const AUTH_TYPE_OPTIONS: { value: ServerSshAuthType; label: string }[] = [
@@ -36,7 +40,7 @@ function getInitialAddForm(): AddFormState {
     username: "",
     host: "",
     port: "22",
-    authType: "PASSWORD",
+    authType: "PRIVATE_KEY",
     password: "",
     privateKey: "",
   };
@@ -57,11 +61,61 @@ function ServerFormContent({
   const updateMutation = useUpdateServerMutation();
   const [name, setName] = useState(server?.name ?? "");
   const [addForm, setAddForm] = useState<AddFormState>(getInitialAddForm);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const loading = createMutation.isPending || updateMutation.isPending;
   const isPasswordAuth = addForm.authType === "PASSWORD";
 
+  function clearFieldError(field: string) {
+    setFormError(null);
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }
+
+  function validateForm(): Record<string, string> {
+    const errors: Record<string, string> = {};
+
+    if (mode === "edit") {
+      const nameError = validateRequired(name, "Name");
+      if (nameError) errors.name = nameError;
+      return errors;
+    }
+
+    const nameError = validateRequired(addForm.name, "Name");
+    if (nameError) errors.name = nameError;
+
+    const usernameError = validateRequired(addForm.username, "Username");
+    if (usernameError) errors.username = usernameError;
+
+    const hostError = validateRequired(addForm.host, "Host");
+    if (hostError) errors.host = hostError;
+
+    if (isPasswordAuth) {
+      const passwordError = validateRequired(addForm.password, "Password");
+      if (passwordError) errors.password = passwordError;
+    } else {
+      const privateKeyError = validateRequired(addForm.privateKey, "Private key");
+      if (privateKeyError) errors["private-key"] = privateKeyError;
+    }
+
+    return errors;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setFormError(null);
+
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+    setFieldErrors({});
 
     try {
       if (mode === "edit" && server) {
@@ -89,8 +143,8 @@ function ServerFormContent({
       }
       onSaved();
       onClose();
-    } catch {
-      /* errors surfaced via mutation onError toast */
+    } catch (err) {
+      setFormError(getErrorMessage(err));
     }
   }
 
@@ -109,115 +163,230 @@ function ServerFormContent({
           ×
         </button>
       </header>
-      <form onSubmit={handleSubmit} className="modal-form">
+      <form onSubmit={handleSubmit} className="modal-form" noValidate>
+        <FormErrorsSummary formError={formError} />
         <div className="form-field">
-          <label htmlFor="server-name">Name</label>
+          <FormFieldLabel htmlFor="server-name" required>
+            Name
+          </FormFieldLabel>
           <input
             id="server-name"
             value={mode === "edit" ? name : addForm.name}
-            onChange={(e) =>
-              mode === "edit"
-                ? setName(e.target.value)
-                : setAddForm((prev) => ({ ...prev, name: e.target.value }))
-            }
-            required
+            onChange={(e) => {
+              if (mode === "edit") {
+                setName(e.target.value);
+              } else {
+                setAddForm((prev) => ({ ...prev, name: e.target.value }));
+              }
+              clearFieldError("name");
+            }}
             disabled={loading}
             placeholder="Production API"
+            aria-invalid={fieldErrors.name ? true : undefined}
+            aria-describedby={fieldErrors.name ? "server-name-error" : undefined}
           />
+          {fieldErrors.name && (
+            <p
+              id="server-name-error"
+              className="form-field-error"
+              role="alert"
+            >
+              {fieldErrors.name}
+            </p>
+          )}
         </div>
 
         {mode === "add" ? (
           <>
             <div className="form-field">
-              <label htmlFor="server-username">Username</label>
+              <FormFieldLabel htmlFor="server-username" required>
+                Username
+              </FormFieldLabel>
               <input
                 id="server-username"
                 value={addForm.username}
-                onChange={(e) =>
-                  setAddForm((prev) => ({ ...prev, username: e.target.value }))
-                }
-                required
+                onChange={(e) => {
+                  setAddForm((prev) => ({ ...prev, username: e.target.value }));
+                  clearFieldError("username");
+                }}
                 disabled={loading}
                 placeholder="deploy"
+                aria-invalid={fieldErrors.username ? true : undefined}
+                aria-describedby={
+                  fieldErrors.username ? "server-username-error" : undefined
+                }
               />
+              {fieldErrors.username && (
+                <p
+                  id="server-username-error"
+                  className="form-field-error"
+                  role="alert"
+                >
+                  {fieldErrors.username}
+                </p>
+              )}
             </div>
             <div className="form-field">
-              <label htmlFor="server-host">Host</label>
+              <FormFieldLabel htmlFor="server-host" required>
+                Host
+              </FormFieldLabel>
               <input
                 id="server-host"
                 value={addForm.host}
-                onChange={(e) =>
-                  setAddForm((prev) => ({ ...prev, host: e.target.value }))
+                onChange={(e) => {
+                  setAddForm((prev) => ({ ...prev, host: e.target.value }));
+                  clearFieldError("host");
+                }}
+                disabled={loading}  
+                placeholder="198.51.100.22"
+                aria-invalid={fieldErrors.host ? true : undefined}
+                aria-describedby={
+                  fieldErrors.host ? "server-host-error" : undefined
                 }
-                required
-                disabled={loading}
-                placeholder="api.example.com"
               />
+              {fieldErrors.host && (
+                <p
+                  id="server-host-error"
+                  className="form-field-error"
+                  role="alert"
+                >
+                  {fieldErrors.host}
+                </p>
+              )}
             </div>
             <div className="form-field">
-              <label htmlFor="server-port">SSH port</label>
-              <input
-                id="server-port"
-                type="number"
-                min={1}
-                max={65535}
-                value={addForm.port}
-                onChange={(e) =>
-                  setAddForm((prev) => ({ ...prev, port: e.target.value }))
+              <FormFieldLabel htmlFor="server-auth-type" required>
+                Authentication
+              </FormFieldLabel>
+              <Dropdown
+                id="server-auth-type"
+                value={addForm.authType}
+                options={AUTH_TYPE_OPTIONS}
+                onChange={(authType) =>
+                  setAddForm((prev) => ({ ...prev, authType }))
                 }
                 disabled={loading}
+                ariaLabel="Authentication"
               />
             </div>
-            <Dropdown
-              id="server-auth-type"
-              label="Authentication"
-              value={addForm.authType}
-              options={AUTH_TYPE_OPTIONS}
-              onChange={(authType) =>
-                setAddForm((prev) => ({ ...prev, authType }))
-              }
-              disabled={loading}
-            />
             {isPasswordAuth ? (
               <div className="form-field">
-                <label htmlFor="server-password">Password</label>
+                <FormFieldLabel htmlFor="server-password" required>
+                  Password
+                </FormFieldLabel>
                 <input
                   id="server-password"
                   type="password"
                   value={addForm.password}
-                  onChange={(e) =>
-                    setAddForm((prev) => ({ ...prev, password: e.target.value }))
-                  }
-                  required
+                  onChange={(e) => {
+                    setAddForm((prev) => ({ ...prev, password: e.target.value }));
+                    clearFieldError("password");
+                  }}
                   disabled={loading}
                   autoComplete="new-password"
+                  aria-invalid={fieldErrors.password ? true : undefined}
+                  aria-describedby={
+                    fieldErrors.password ? "server-password-error" : undefined
+                  }
                 />
+                {fieldErrors.password && (
+                  <p
+                    id="server-password-error"
+                    className="form-field-error"
+                    role="alert"
+                  >
+                    {fieldErrors.password}
+                  </p>
+                )}
               </div>
             ) : (
               <div className="form-field">
-                <label htmlFor="server-private-key">Private key</label>
+                <FormFieldLabel htmlFor="server-private-key" required>
+                  Private key
+                </FormFieldLabel>
                 <textarea
                   id="server-private-key"
                   value={addForm.privateKey}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setAddForm((prev) => ({
                       ...prev,
                       privateKey: e.target.value,
-                    }))
-                  }
-                  required
+                    }));
+                    clearFieldError("private-key");
+                  }}
                   disabled={loading}
-                  rows={5}
+                  rows={3}
                   placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                  aria-invalid={fieldErrors["private-key"] ? true : undefined}
+                  aria-describedby={
+                    fieldErrors["private-key"]
+                      ? "server-private-key-error"
+                      : undefined
+                  }
                 />
+                {fieldErrors["private-key"] && (
+                  <p
+                    id="server-private-key-error"
+                    className="form-field-error"
+                    role="alert"
+                  >
+                    {fieldErrors["private-key"]}
+                  </p>
+                )}
               </div>
             )}
+            <div className="modal-advanced-section">
+              <button
+                type="button"
+                className="modal-advanced-toggle"
+                onClick={() => setAdvancedOpen((open) => !open)}
+                aria-expanded={advancedOpen}
+              >
+                Advanced options
+                <svg
+                  className={`modal-advanced-chevron${advancedOpen ? " is-open" : ""}`}
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden
+                >
+                  <path
+                    d="M6 9l6 6 6-6"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+              {advancedOpen && (
+                <div className="modal-advanced-content">
+                  <div className="form-field">
+                    <FormFieldLabel htmlFor="server-port">
+                      SSH port
+                    </FormFieldLabel>
+                    <input
+                      id="server-port"
+                      type="number"
+                      min={1}
+                      max={65535}
+                      value={addForm.port}
+                      onChange={(e) =>
+                        setAddForm((prev) => ({ ...prev, port: e.target.value }))
+                      }
+                      disabled={loading}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </>
         ) : (
           server && (
             <>
               <div className="form-field">
-                <label htmlFor="server-username">Username</label>
+                <FormFieldLabel htmlFor="server-username">Username</FormFieldLabel>
                 <input
                   id="server-username"
                   value={server.username}
@@ -225,7 +394,7 @@ function ServerFormContent({
                 />
               </div>
               <div className="form-field">
-                <label htmlFor="server-host">Host</label>
+                <FormFieldLabel htmlFor="server-host">Host</FormFieldLabel>
                 <input id="server-host" value={server.host} disabled />
               </div>
             </>
@@ -269,7 +438,7 @@ export function ServerFormModal({
   return (
     <div className="modal-overlay" role="presentation" onClick={onClose}>
       <div
-        className="modal-dialog"
+        className="modal-dialog modal-dialog-wide"
         role="dialog"
         aria-modal="true"
         aria-labelledby="server-modal-title"

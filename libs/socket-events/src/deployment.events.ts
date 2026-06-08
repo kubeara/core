@@ -16,6 +16,10 @@ export enum DeploymentEvents {
   LOGS_SUBSCRIBE = "logs:subscribe",
   /** Unified log envelope broadcast on the deployments namespace. */
   DEPLOYMENT_STREAM = "deployment:stream",
+  /** Control panel → agent: request runtime container list. */
+  CONTAINER_DISCOVER = "container:discover",
+  /** Agent → control panel: container discovery response. */
+  CONTAINER_DISCOVER_RESULT = "container:discover:result",
 }
 
 export type DeploymentLogPhase = "install" | "deploy" | "container";
@@ -183,4 +187,25 @@ export interface AgentDisconnectedPayload {
   agentId: string;
   timestamp: string;
   totalAgents: number;
+}
+
+/** Raw container row returned by the agent (`docker ps` JSON lines). */
+export interface DiscoveredContainerPayload {
+  containerId: string;
+  containerName: string;
+  imageName: string;
+  status: string;
+  ports: string;
+  runningSince: string;
+  composeProject?: string;
+}
+
+export interface ContainerDiscoverRequestPayload {
+  requestId: string;
+}
+
+export interface ContainerDiscoverResponsePayload {
+  requestId: string;
+  containers: DiscoveredContainerPayload[];
+  error?: string;
 }

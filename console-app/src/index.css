@@ -116,9 +116,9 @@ a:hover {
   font-size: 0.875rem;
 }
 
-.auth-card-header h1 {
+.auth-card-header h2 {
   margin: 0 0 0.375rem;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
 }
 
@@ -127,6 +127,36 @@ a:hover {
   color: var(--muted);
   font-size: 0.9375rem;
   line-height: 1.5;
+}
+
+.kubeara-logo {
+  display: inline-flex;
+  align-items: center;
+}
+
+.kubeara-logo-image {
+  width: auto;
+  display: block;
+}
+
+.kubeara-logo-image--dark {
+  display: none;
+}
+
+[data-theme="dark"] .kubeara-logo-image--light {
+  display: none;
+}
+
+[data-theme="dark"] .kubeara-logo-image--dark {
+  display: block;
+}
+
+.auth-logo .kubeara-logo-image {
+  height: 55px;
+}
+
+.top-bar-logo .kubeara-logo-image {
+  height: 50px;
 }
 
 .auth-card-footer {
@@ -153,6 +183,17 @@ a:hover {
 .form-field label {
   font-size: 0.875rem;
   font-weight: 500;
+}
+
+.form-field-required {
+  color: var(--danger);
+}
+
+.form-field-error {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--danger);
 }
 
 .form-field input {
@@ -184,6 +225,22 @@ a:hover {
 
 .form-message.error {
   background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+
+.form-errors-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.form-errors-summary-message {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
   color: var(--danger);
 }
 
@@ -559,6 +616,65 @@ a:hover {
 
 .modal-dialog-sm {
   max-width: 400px;
+}
+
+.modal-dialog-wide {
+  max-width: 560px;
+}
+
+.modal-advanced-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.modal-advanced-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--foreground) 3%, transparent);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modal-advanced-chevron {
+  flex-shrink: 0;
+  transition: transform 0.15s;
+}
+
+.modal-advanced-chevron.is-open {
+  transform: rotate(180deg);
+}
+
+.modal-advanced-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.modal-form textarea {
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.9375rem;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+
+.modal-form textarea:focus {
+  border-color: var(--primary);
 }
 
 .modal-header {

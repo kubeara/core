@@ -60,7 +60,10 @@ import dayjs from "dayjs";
 import { ERROR_MESSAGES } from "@control-panel/constants/error";
 import { SUCCESS_MESSAGES } from "@control-panel/constants/success";
 import { ServiceResponse } from "@control-panel/common/interfaces/success-response.interface";
-import { PaginatedResponse } from "@shared/common";
+import { PaginatedResponse, parseDockerPsStdout } from "@shared/common";
+import type { DiscoveredContainerPayload } from "@shared/socket-events";
+import { LocalAgentHostAdapter } from "../adapters/local-agent-host.adapter";
+import { SshAgentHostAdapter } from "../adapters/ssh-agent-host.adapter";
 import { toServerResponseDto } from "../utils/server.mapper";
 import { OperationFailedException } from "@control-panel/common/exceptions/operation-failed.exception";
 import { ExistingServerCheck } from "../interfaces/existing-server-check.interface";
@@ -76,6 +79,7 @@ import {
   encryptCredentialFields,
   OnboardSshServerInfo,
 } from "../utils/server-ssh-credential.util";
+import { isUUID } from "class-validator";
 
 @Injectable()
 export class ServerConnectionsService {
@@ -151,6 +155,75 @@ export class ServerConnectionsService {
 
   private shouldInstallAgent(installAgent: boolean | undefined): boolean {
     return installAgent !== false;
+  }
+
+  private static readonly DOCKER_PS_COMMAND =
+    "docker ps -a --format '{{json .}}'";
+  private static readonly DOCKER_PS_TIMEOUT_MS = 10_000;
+
+  /**
+   * Lists Docker containers on the server host via local shell or SSH.
+   * Uses the same host access path as agent install (no WebSocket required).
+   */
+  async discoverContainersOnHost(
+    serverId: string,
+  ): Promise<DiscoveredContainerPayload[]> {
+    const server = await this.serverRepository.findOne({
+      where: { id: serverId, status: EntityStatus.ACTIVE, deletedAt: IsNull() },
+    });
+
+    if (!server) {
+      throw new NotFoundException(ERROR_MESSAGES.SERVER.NOT_FOUND);
+    }
+
+    let result: ExecuteResult;
+
+    if (server.serverType === ServerType.LOCAL) {
+      const host = new LocalAgentHostAdapter();
+      result = await host.executeCommand(
+        ServerConnectionsService.DOCKER_PS_COMMAND,
+        ServerConnectionsService.DOCKER_PS_TIMEOUT_MS,
+      );
+    } else {
+      const credential = await this.credentialRepository.findOne({
+        where: {
+          serverId,
+          status: EntityStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
+        order: { createdAt: "DESC" },
+      });
+
+      if (!credential) {
+        throw new BadRequestException(
+          ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
+        );
+      }
+
+      const sshOptions = this.buildSshOptions(server, credential);
+      let client = this.sshManager.getConnection(serverId);
+      if (!client) {
+        client = await this.sshManager.connect(sshOptions);
+      }
+
+      const host = new SshAgentHostAdapter(client, this.executor);
+      result = await host.executeCommand(
+        ServerConnectionsService.DOCKER_PS_COMMAND,
+        ServerConnectionsService.DOCKER_PS_TIMEOUT_MS,
+      );
+    }
+
+    if (!result.success) {
+      const detail =
+        result.stderr?.trim() ||
+        result.stdout?.trim() ||
+        `docker ps failed (exit ${result.exitCode ?? "unknown"})`;
+      throw new BadRequestException(
+        `Failed to list containers on server: ${detail}`,
+      );
+    }
+
+    return parseDockerPsStdout(result.stdout);
   }
 
   private buildSshOptions(
@@ -762,8 +835,9 @@ export class ServerConnectionsService {
 
     let searchWhere: FindOptionsWhere<ServerEntity>[] | undefined;
 
-    if (query.search) {
-      const search = ILike(`%${query.search}%`);
+    if (query.search?.trim()) {
+      const searchTerm = query.search.trim();
+      const search = ILike(`%${searchTerm}%`);
 
       searchWhere = [
         {
@@ -780,12 +854,12 @@ export class ServerConnectionsService {
         },
       ];
 
-      const searchId = String(query.search);
+      const searchValue = String(query.search);
 
-      if (!Number.isNaN(searchId)) {
+      if (isUUID(searchValue)) {
         searchWhere.push({
           ...where,
-          id: searchId,
+          id: searchValue,
         });
       }
     }

@@ -4,7 +4,7 @@ import { ToastIcon } from "./toast-icons";
 import type { ToastItem, ToastVariant } from "./types";
 import "./toast.css";
 
-const TOAST_DURATION_MS = 5000;
+const TOAST_DURATION_MS = 8000;
 const TOAST_EXIT_MS = 220;
 
 function variantClassName(variant: ToastVariant, isLeaving: boolean): string {

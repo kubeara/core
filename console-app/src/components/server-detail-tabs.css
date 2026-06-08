@@ -51,58 +51,54 @@
   color: var(--muted);
 }
 
-/* Connected services */
-.connected-services-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1rem;
+/* Connected services (overview tab) */
+.overview-container-card {
+  min-height: 0;
 }
 
-.connected-service-card {
-  display: flex;
-  gap: 1rem;
-  padding: 1rem 1.125rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-}
-
-.connected-service-icon {
-  flex-shrink: 0;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 1rem;
-}
-
-.connected-service-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.connected-service-body h3 {
-  margin: 0 0 0.25rem;
-  font-size: 0.9375rem;
-  font-weight: 700;
-}
-
-.connected-service-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+.overview-container-card .marketplace-card-body {
+  flex: 0 1 auto;
   gap: 0.5rem;
-  font-size: 0.75rem;
+}
+
+.overview-container-card .marketplace-card-meta {
+  margin: 0;
+  padding-top: 0.5rem;
+}
+
+.connected-services-section-title {
+  margin: 1.5rem 0 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.marketplace-card-offline {
+  opacity: 0.88;
+  border-style: dashed;
+}
+
+.marketplace-card-offline:hover {
+  transform: none;
+}
+
+.marketplace-card-status-badge {
+  display: inline-flex;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.marketplace-card-status-badge.is-offline {
+  background: color-mix(in srgb, var(--muted) 22%, transparent);
   color: var(--muted);
 }
 
-.connected-service-meta code {
-  font-family: var(--font-geist-mono), monospace;
-  font-size: 0.6875rem;
+.service-status-offline {
+  background: color-mix(in srgb, var(--muted) 20%, transparent);
+  color: var(--muted);
 }
 
 .service-status {
@@ -219,37 +215,6 @@
   font-size: 0.875rem;
   line-height: 1.55;
   color: var(--muted);
-}
-
-.server-templates-skeleton-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1.25rem;
-  width: 100%;
-  margin-bottom: 0.5rem;
-}
-
-.server-templates-skeleton-card {
-  height: 220px;
-  border-radius: 12px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--foreground) 6%, var(--surface)) 0%,
-    color-mix(in srgb, var(--foreground) 10%, var(--surface)) 50%,
-    color-mix(in srgb, var(--foreground) 6%, var(--surface)) 100%
-  );
-  background-size: 200% 100%;
-  animation: server-templates-shimmer 1.4s ease-in-out infinite;
-}
-
-@keyframes server-templates-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-
-  100% {
-    background-position: -200% 0;
-  }
 }
 
 .server-detail-templates .template-grid {
@@ -487,10 +452,4 @@
   color: var(--muted);
   font-weight: 400;
   margin-top: 0.125rem;
-}
-
-.settings-readonly {
-  font-size: 0.9375rem;
-  font-weight: 500;
-  color: var(--foreground);
 }

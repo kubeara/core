@@ -1,4 +1,5 @@
 import { Navigate } from "react-router-dom";
+import { AppLoadingSkeleton } from "@/components/shared/skeleton";
 import { useAuth } from "@/features/auth/context/use-auth";
 
 /**
@@ -14,7 +15,7 @@ export function HomeRedirect() {
     const { user, isLoading } = useAuth();
 
     if (isLoading) {
-        return null;
+        return <AppLoadingSkeleton />;
     }
 
     return <Navigate to={user ? "/servers" : "/login"} replace />;

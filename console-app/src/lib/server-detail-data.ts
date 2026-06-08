@@ -1,5 +1,5 @@
 import { templates } from "./templates";
-import type { Server, Template } from "@/types";
+import type { Template } from "@/types";
 
 export type ConnectedService = {
   templateId: string;
@@ -172,13 +172,3 @@ export function getServerActivity(serverId: string, serverName: string): Activit
   });
 }
 
-export function getServerSettings(server: Server) {
-  return {
-    autoRestart: server.connected,
-    monitoring: server.connected,
-    backupSchedule: "Daily at 02:00 UTC",
-    region: "us-east-1",
-    sshPort: 22,
-    maintenanceWindow: "Sun 04:00–06:00 UTC",
-  };
-}
