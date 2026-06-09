@@ -143,7 +143,7 @@ export function DeployLogsPage() {
       template={{
         id: template.slug,
         name: template.name,
-        description: template.description ?? "",
+        description: template.shortDescription ?? "",
         category: template.category ?? "",
         color: getTemplateAccentColor(template.slug),
       }}

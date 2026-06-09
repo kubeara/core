@@ -1,7 +1,9 @@
 # documentation: https://www.postgresql.org
-# slogan: Advanced open source relational database
-# category: database
+# shortDescription: Advanced open source relational database
+# longDescription: <p>PostgreSQL is a powerful, open source <strong>object-relational database</strong> system with over 35 years of active development.</p><p>Use it for transactional apps, analytics, and geospatial workloads.</p>
+# category: database,postgresql,sql
 # tags: postgres,postgresql,database,sql
+# logo: svgs/postgresql-logo-svgrepo-com.svg
 # port: 5432
 
 services:

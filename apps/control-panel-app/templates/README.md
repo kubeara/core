@@ -145,7 +145,19 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 4. Prefer **`${VAR:-sensible}`** for optional tuning knobs so deploy works without passing every key.
 5. Run **`npm run build:control-panel-app && npm run seed`** from `core` after editing.
 6. Run **`npm run test:templates`** from `core` to validate compose structure, env/port rules, resource limits, and logging limits.
-7. Register display metadata for new **slug** folders in `apps/control-panel-app/src/templates/build-template-records.util.ts` (`metadataBySlug`).
+7. Add catalog metadata as leading comments in `docker-compose.yml` (read during `npm run seed`):
+
+   | Comment key | DB column | Notes |
+   |-------------|-----------|--------|
+   | `# shortDescription:` | `shortDescription` | Also accepts legacy `# description:` / `# slogan:` |
+   | `# longDescription:` | `longDescription` | HTML string; or place HTML in `long-description.html` beside compose |
+   | `# documentation:` | `documentation` | |
+   | `# category:` | `category` | Comma-separated values |
+   | `# tags:` | `tags` | Comma-separated values |
+   | `# logo:` | `logo` | Path relative to `templates/` (encoded as data URI on seed) |
+   | `# port:` | `port` | |
+
+8. Register optional per-slug overrides (name, version) in `apps/control-panel-app/src/templates/build-template-records.util.ts` (`metadataBySlug`) when compose comments are not enough.
 
 ---
 

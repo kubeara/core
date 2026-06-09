@@ -7,6 +7,8 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import {
+  getTemplateDescriptionFromComments,
+  getTemplateLongDescriptionFromComments,
   parseTemplateCommentMetadata,
   parseTemplateVariables,
   TemplatePayloadService,
@@ -165,14 +167,25 @@ export class ServiceTemplateService {
     return {
       slug: template.slug,
       name: template.name,
-      description:
-        template.description?.trim() || commentMetadata?.slogan?.trim() || "",
+      shortDescription:
+        template.shortDescription?.trim() ||
+        (commentMetadata
+          ? getTemplateDescriptionFromComments(commentMetadata)
+          : ""),
+      longDescription:
+        template.longDescription?.trim() ||
+        (commentMetadata
+          ? getTemplateLongDescriptionFromComments(commentMetadata) || null
+          : null),
       category:
-        template.category?.trim() || commentMetadata?.category?.trim() || "",
+        template.category && template.category.length > 0
+          ? template.category
+          : (commentMetadata?.category ?? []),
       tags:
         template.tags && template.tags.length > 0
           ? template.tags
           : (commentMetadata?.tags ?? []),
+      logo: template.logo?.trim() || null,
       port: template.port ?? commentMetadata?.port ?? 0,
     };
   }

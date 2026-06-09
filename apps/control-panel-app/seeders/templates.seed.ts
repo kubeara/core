@@ -245,8 +245,10 @@ async function seedFromTemplates(configService: ConfigService): Promise<void> {
         const payload = {
           slug: templateRecord.slug,
           name: templateRecord.name,
-          description: templateRecord.description || null,
-          category: templateRecord.category || null,
+          shortDescription: templateRecord.shortDescription || null,
+          longDescription: templateRecord.longDescription || null,
+          category:
+            templateRecord.category.length > 0 ? templateRecord.category : null,
           tags: templateRecord.tags.length > 0 ? templateRecord.tags : null,
           documentation: templateRecord.documentation || null,
           logo: templateRecord.logo || null,

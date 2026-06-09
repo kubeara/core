@@ -1,5 +1,6 @@
 # documentation: https://www.postgresql.org
-# slogan: PostgreSQL database (compose-only / Coolify-style)
+# shortDescription: PostgreSQL database (compose-only / Coolify-style)
+# longDescription: <p>PostgreSQL V2 template for compose-only deployments with magic variables and DB-backed deployment environment configuration.</p>
 # category: database
 # tags: postgres,postgresql,database,sql,v2
 # port: 5432

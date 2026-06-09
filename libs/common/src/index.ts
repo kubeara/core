@@ -11,6 +11,7 @@ export * from "./compose-parser/compose-parser.module";
 export * from "./compose-parser/compose-parser.service";
 export * from "./compose-parser/compose-parser.util";
 export * from "./template-variables/template-variables.util";
+export * from "./image-data-uri/image-data-uri.util";
 export * from "./server-url/server-url.util";
 export * from "./traefik/traefik-labels.util";
 export * from "./utils/deployment.utils";

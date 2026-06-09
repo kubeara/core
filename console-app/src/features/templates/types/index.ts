@@ -10,7 +10,8 @@ export interface TemplateVariable {
 export interface ApiTemplate {
   slug: string;
   name: string;
-  description: string | null;
+  shortDescription: string | null;
+  longDescription?: string | null;
   category: string | null;
   tags: string[] | null;
   logo?: string | null;

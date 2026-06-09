@@ -43,8 +43,8 @@ export function DeployServiceSummaryCard({
           {template.category ? (
             <p className="deploy-service-category">{template.category}</p>
           ) : null}
-          {template.description ? (
-            <p className="deploy-service-description">{template.description}</p>
+          {template.shortDescription ? (
+            <p className="deploy-service-description">{template.shortDescription}</p>
           ) : null}
           <dl className="deploy-service-meta-grid">
             <div className="deploy-service-meta-item">
