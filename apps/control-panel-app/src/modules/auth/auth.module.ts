@@ -3,15 +3,18 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { JwtModule } from "@nestjs/jwt";
 import { PassportModule } from "@nestjs/passport";
 import { ConfigModule, ConfigService } from "@nestjs/config";
+import { StringValue } from "ms";
 import { AuthService } from "./auth.service";
 import { AuthController } from "./auth.controller";
 import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
 import { OrganizationEntity } from "@control-panel/modules/organizations/entities/organization.entity";
 import { AuthSessionsEntity } from "./entities/auth-sessions.entity";
 import { JwtStrategy } from "./strategies/jwt.strategy";
+import { RefreshJwtStrategy } from "./strategies/refresh-jwt.strategy";
 import { UserCodeEntity } from "./entities/user-codes.entity";
 import { UsersModule } from "../users/users.module";
-import { StringValue } from "ms";
+import { AuthCookieService } from "./services/auth-cookie.service";
+import { AuthSessionLookupService } from "./services/auth-session-lookup.service";
 
 @Module({
   imports: [
@@ -29,15 +32,21 @@ import { StringValue } from "ms";
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>("JWT_SECRET"),
         signOptions: {
-          expiresIn: configService.get<StringValue>(
-            "JWT_ACCESS_TOKEN_EXPIRES_IN",
-          ),
+          expiresIn:
+            configService.get<StringValue>("ACCESS_TOKEN_EXPIRES_IN") ??
+            configService.get<StringValue>("JWT_ACCESS_TOKEN_EXPIRES_IN"),
         },
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy],
+  providers: [
+    AuthService,
+    AuthCookieService,
+    AuthSessionLookupService,
+    JwtStrategy,
+    RefreshJwtStrategy,
+  ],
   controllers: [AuthController],
-  exports: [AuthService],
+  exports: [AuthService, AuthCookieService],
 })
 export class AuthModule {}

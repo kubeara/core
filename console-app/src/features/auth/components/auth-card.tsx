@@ -2,10 +2,10 @@ import { Link } from "react-router-dom";
 import { KubearaLogo } from "@/components/shared/kubeara-logo";
 
 type AuthCardProps = {
-    title: string;
-    subtitle?: string;
-    children: React.ReactNode;
-    footer?: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
 };
 
 /**
@@ -23,9 +23,9 @@ export function AuthCard({ title, subtitle, children, footer }: AuthCardProps) {
     <div className="auth-page">
       <div className="auth-card">
         <div className="flex justify-center">
-        <Link to="/" className="auth-logo">
-          <KubearaLogo />
-        </Link>
+          <Link to="/" className="auth-logo">
+            <KubearaLogo />
+          </Link>
         </div>
 
         <div className="auth-card-header">

@@ -15,6 +15,7 @@ export const SUCCESS_MESSAGES = {
     LOGIN: "User logged in successfully",
     REFRESH: "Tokens refreshed successfully",
     LOGOUT: "User logged out successfully",
+    LOGOUT_ALL: "Logged out from all devices successfully",
     PROFILE: "Profile fetched successfully",
     RESET_PASSWORD: "Password updated successfully",
     OTP_SENT: "OTP sent successfully",
