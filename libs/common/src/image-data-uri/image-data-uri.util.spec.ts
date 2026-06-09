@@ -31,7 +31,10 @@ describe("image-data-uri.util", () => {
     mkdirSync(join(templatesDir, "svgs"));
     writeFileSync(svgPath, svg, "utf8");
 
-    const dataUri = encodeLogoReferenceToDataUri(templatesDir, "svgs/redis.svg");
+    const dataUri = encodeLogoReferenceToDataUri(
+      templatesDir,
+      "svgs/redis.svg",
+    );
 
     expect(dataUri.startsWith("data:image/svg+xml;base64,")).toBe(true);
   });

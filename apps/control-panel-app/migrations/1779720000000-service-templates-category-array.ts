@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class ServiceTemplatesCategoryArray1779720000000
-  implements MigrationInterface
-{
+export class ServiceTemplatesCategoryArray1779720000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       DROP INDEX IF EXISTS "IDX_serviceTemplates_category"
