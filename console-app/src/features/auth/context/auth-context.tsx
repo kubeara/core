@@ -1,124 +1,114 @@
 import {
-    useEffect,
-    useMemo,
-    useState,
-    type ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
 } from "react";
+import {
+  AuthContext,
+} from "./use-auth";
 
 import { queryClient } from "@/api/query-client";
 import { QUERY_KEYS } from "@/constants/query-keys";
-import { restoreAuthSession } from "../bootstrap";
-import { useCurrentUserQuery } from "../hooks";
-
+import type { User } from "@/types";
+import { getCurrentUser } from "../api";
+import { useCurrentUserQuery, clearAuthUserCache } from "../hooks";
 import {
-    hasStoredSession,
-    subscribeToTokenChanges,
-    subscribeToTokenStorageChanges,
-} from "../utils/token-manager";
+  getSessionLifecycle,
+  markBootstrapComplete,
+  subscribeToAuthChanges,
+  type SessionLifecycle,
+} from "../utils/session-manager";
 
-import type { AuthBootstrapState } from "../types";
+export type AuthContextValue = {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+};
 
-import { AuthContext, type AuthContextValue } from "./use-auth";
+async function restoreAuthSession(): Promise<boolean> {
+  try {
+    const user = await queryClient.fetchQuery({
+      queryKey: QUERY_KEYS.auth.me,
+      queryFn: getCurrentUser,
+      retry: false,
+      staleTime: 1000 * 60 * 5,
+    });
+
+    return user !== null;
+  } catch {
+    queryClient.setQueryData(QUERY_KEYS.auth.me, null);
+    return false;
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-    const [bootstrap, setBootstrap] = useState<AuthBootstrapState>({
-        status: "loading",
-    });
+  const [isReady, setIsReady] = useState(false);
+  const [lifecycle, setLifecycle] = useState<SessionLifecycle>(() =>
+    getSessionLifecycle(),
+  );
 
-    const [hasPersistedSession, setHasPersistedSession] = useState(
-        () => hasStoredSession(),
-    );
+  useEffect(() => {
+    let cancelled = false;
 
-    useEffect(() => {
-        let cancelled = false;
-
-        restoreAuthSession()
-            .then((sessionRestored) => {
-                if (!cancelled) {
-                    setBootstrap({
-                        status: "ready",
-                        sessionRestored,
-                    });
-                }
-            })
-            .catch(() => {
-                if (!cancelled) {
-                    setBootstrap({
-                        status: "ready",
-                        sessionRestored: false,
-                    });
-                }
-            });
-
-        return () => {
-            cancelled = true;
-        };
-    }, []);
-
-    const isReady = bootstrap.status === "ready";
-
-    const shouldSyncUser = isReady && hasPersistedSession;
-
-    const {
-        data: user = null,
-        isFetching,
-        refetch,
-    } = useCurrentUserQuery({
-        enabled: shouldSyncUser,
-    });
-
-    useEffect(() => {
-        function syncSessionState(): void {
-            setHasPersistedSession(hasStoredSession());
+    restoreAuthSession()
+      .then((sessionRestored) => {
+        if (cancelled) {
+          return;
         }
 
-        const unsubscribeLocal =
-            subscribeToTokenChanges(syncSessionState);
+        markBootstrapComplete(sessionRestored);
+        setLifecycle(getSessionLifecycle());
+        setIsReady(true);
+      })
+      .catch(async () => {
+        if (cancelled) {
+          return;
+        }
 
-        const unsubscribeStorage =
-            subscribeToTokenStorageChanges(syncSessionState);
+        markBootstrapComplete(false);
+        setLifecycle(getSessionLifecycle());
+        await clearAuthUserCache();
+        setIsReady(true);
+      });
 
-        return () => {
-            unsubscribeLocal();
-            unsubscribeStorage();
-        };
-    }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-    useEffect(() => {
-        return subscribeToTokenChanges(() => {
-            if (hasStoredSession()) {
-                void refetch();
-                return;
-            }
-            queryClient.setQueryData(QUERY_KEYS.auth.me, null);
-        });
-    }, [refetch]);
+  const isAuthenticated = lifecycle === "authenticated";
 
-    const value = useMemo<AuthContextValue>(() => {
-        const isBootstrapping =
-            bootstrap.status === "loading";
+  const { data: user = null, isFetching } = useCurrentUserQuery({
+    enabled: isReady && isAuthenticated,
+  });
 
-        const isRestoringUser =
-            shouldSyncUser &&
-            user === null &&
-            isFetching;
+  useEffect(() => {
+    return subscribeToAuthChanges((event) => {
+      if (event === "logging_out" || event === "logout") {
+        setLifecycle(
+          event === "logging_out" ? "logging_out" : "unauthenticated",
+        );
+        void clearAuthUserCache();
+        return;
+      }
 
-        return {
-            user,
-            isAuthenticated: user !== null,
-            isLoading:
-                isBootstrapping || isRestoringUser,
-        };
-    }, [
-        bootstrap.status,
-        isFetching,
-        shouldSyncUser,
-        user,
-    ]);
+      if (event === "login" || event === "refresh") {
+        setLifecycle("authenticated");
+      }
+    });
+  }, []);
 
-    return (
-        <AuthContext.Provider value={value}>
-            {children}
-        </AuthContext.Provider>
-    );
+  const value = useMemo<AuthContextValue>(() => {
+    const isRestoringUser =
+      isReady && isAuthenticated && user === null && isFetching;
+
+    return {
+      user: isAuthenticated ? user : null,
+      isAuthenticated: isAuthenticated && user !== null,
+      isLoading: !isReady || isRestoringUser,
+    };
+  }, [isAuthenticated, isFetching, isReady, user]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

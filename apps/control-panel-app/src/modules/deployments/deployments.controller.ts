@@ -20,7 +20,7 @@ import {
   resolvePrimaryServicePublicUrl,
 } from "@shared/common";
 
-import { JwtAuthGuard } from "@control-panel/modules/auth/guards/jwt-auth.guard";
+import { AccessTokenGuard } from "@control-panel/modules/auth/guards/auth.guards";
 import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
 
 import { DeployTemplateDto } from "./dto/deploy-template.dto";
@@ -28,7 +28,7 @@ import { DeploymentsService } from "./deployments.service";
 import { UpdateEnvironmentVariablesDto } from "./dto/update-environment-variables.dto";
 
 @Controller("deployments")
-@UseGuards(JwtAuthGuard)
+@UseGuards(AccessTokenGuard)
 export class DeploymentsController {
   private readonly logger = new Logger(DeploymentsController.name);
 
@@ -115,6 +115,9 @@ export class DeploymentsController {
     }
   }
 
+  /**
+   * Deploy a template
+   */
   @Post()
   @HttpCode(202)
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
@@ -183,6 +186,9 @@ export class DeploymentsController {
     }
   }
 
+  /**
+   * Redeploy a deployment
+   */
   @Post(":deploymentId/redeploy")
   @HttpCode(202)
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
@@ -222,6 +228,9 @@ export class DeploymentsController {
     }
   }
 
+  /**
+   * List containers for a server
+   */
   @Get(":serverId/containers")
   async listServerContainers(
     @Req() req: { user: UserEntity },
@@ -234,6 +243,9 @@ export class DeploymentsController {
     return { containers };
   }
 
+  /**
+   * List environment variables for a deployment
+   */
   @Get(":deploymentId/env")
   async listEnvironmentVariables(@Param("deploymentId") deploymentId: string) {
     return this.deploymentsService.listEnvironmentVariables(deploymentId, {
@@ -241,6 +253,9 @@ export class DeploymentsController {
     });
   }
 
+  /**
+   * Get a deployment
+   */
   @Get(":deploymentId")
   async getDeployment(@Param("deploymentId") deploymentId: string) {
     const deployment =
@@ -265,6 +280,9 @@ export class DeploymentsController {
     };
   }
 
+  /**
+   * Update environment variables for a deployment
+   */
   @Patch(":deploymentId/env")
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
   async updateEnvironmentVariables(

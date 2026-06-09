@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as dotenv from "dotenv";
+import cookieParser from "cookie-parser";
 
 import { NestFactory } from "@nestjs/core";
 import { ConfigService } from "@nestjs/config";
@@ -20,6 +21,14 @@ const REQUIRED_ENV_KEYS: string[] = [
   "DB_PASSWORD",
   "DB_DATABASE",
   "ENCRYPTION_SECRET",
+  "JWT_SECRET",
+  "JWT_REFRESH_SECRET",
+  "ACCESS_TOKEN_COOKIE_NAME",
+  "REFRESH_TOKEN_COOKIE_NAME",
+  "ACCESS_TOKEN_EXPIRES_IN",
+  "REFRESH_TOKEN_EXPIRES_IN",
+  "COOKIE_SECURE",
+  "COOKIE_SAME_SITE",
 ];
 
 function getRootDirectory(): string {
@@ -140,6 +149,8 @@ async function bootstrap(): Promise<void> {
   const port = Number(configService.get<string>("PORT"));
 
   app.setGlobalPrefix("api");
+
+  app.use(cookieParser());
 
   app.enableCors({
     origin: true,

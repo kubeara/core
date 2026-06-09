@@ -186,7 +186,7 @@ function VariableRow<TFieldValues extends FieldValues>({
                 {variable.type === "boolean" ? (
                   <div className="deploy-var-boolean-edit">
                     <span className="deploy-var-boolean-label">
-                      {Boolean(field.value) ? "Enabled" : "Disabled"}
+                      {field.value ? "Enabled" : "Disabled"}
                     </span>
                     <Switch
                       checked={Boolean(field.value)}
