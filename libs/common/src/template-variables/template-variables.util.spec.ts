@@ -4,6 +4,8 @@ import { join } from "path";
 import { describe, expect, it } from "@jest/globals";
 
 import {
+  getTemplateDescriptionFromComments,
+  getTemplateLongDescriptionFromComments,
   parseTemplateCommentMetadata,
   parseTemplateVariables,
 } from "./template-variables.util";
@@ -36,9 +38,61 @@ services:
     expect(parseTemplateCommentMetadata(n8nCompose)).toEqual({
       documentation: "https://n8n.io",
       slogan: "n8n workflow automation",
-      category: "automation",
+      category: ["automation"],
       tags: ["automation", "workflow"],
       port: 5678,
+    });
+  });
+
+  it("parses description comment key and resolves description from comments", () => {
+    const compose = `# description: Advanced open source relational database
+# category: database
+
+services:
+  postgres:
+    image: postgres:16
+`;
+
+    const metadata = parseTemplateCommentMetadata(compose);
+
+    expect(metadata.description).toBe(
+      "Advanced open source relational database",
+    );
+    expect(getTemplateDescriptionFromComments(metadata)).toBe(
+      "Advanced open source relational database",
+    );
+    expect(metadata.category).toEqual(["database"]);
+  });
+
+  it("parses shortDescription and longDescription comment keys", () => {
+    const compose = `# shortDescription: In-memory data structure store
+# longDescription: <p>Redis is a fast in-memory store.</p>
+
+services:
+  redis:
+    image: redis:7
+`;
+
+    const metadata = parseTemplateCommentMetadata(compose);
+
+    expect(getTemplateDescriptionFromComments(metadata)).toBe(
+      "In-memory data structure store",
+    );
+    expect(getTemplateLongDescriptionFromComments(metadata)).toBe(
+      "<p>Redis is a fast in-memory store.</p>",
+    );
+  });
+
+  it("parses comma-separated category values into an array", () => {
+    expect(
+      parseTemplateCommentMetadata(`# category: database,postgresql,sql
+
+services:
+  postgres:
+    image: postgres:16
+`),
+    ).toEqual({
+      category: ["database", "postgresql", "sql"],
     });
   });
 

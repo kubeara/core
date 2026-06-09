@@ -1,5 +1,6 @@
 # documentation: https://redis.io/docs
-# slogan: In-memory data structure store
+# shortDescription: In-memory data structure store
+# longDescription: <p>Redis is an in-memory data store used as a <strong>cache</strong>, message broker, and lightweight database.</p><p>Ideal for sessions, queues, pub/sub, and rate limiting.</p>
 # category: cache
 # tags: cache,redis,key-value
 # port: 6379

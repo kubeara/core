@@ -67,8 +67,8 @@ export function MarketplaceTemplateCard({
       </div>
 
       <div className="marketplace-card-body">
-        {template.description ? (
-          <p className="marketplace-card-description">{template.description}</p>
+        {template.shortDescription ? (
+          <p className="marketplace-card-description">{template.shortDescription}</p>
         ) : (
           <p className="marketplace-card-description marketplace-card-description-empty">
             No description provided.

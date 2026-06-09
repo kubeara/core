@@ -40,3 +40,7 @@ console-app/node_modules
 .dev.vars*
 !.dev.vars.example
 !.env.example
+
+
+scripts/e2e/.known_hosts
+scripts/e2e/.known_hosts.old
