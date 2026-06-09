@@ -1,8 +1,8 @@
-# documentation: https://n8n.io
+# documentation: https://docs.n8n.io
 # shortDescription: Extendable workflow automation tool
-# longDescription: <p>n8n is a fair-code workflow automation platform that connects APIs, databases, and services with visual flows.</p><p>Build automations with low-code nodes and custom logic.</p>
-# category: automation
-# tags: n8n,workflow,automation,open,source,low,code
+# longDescription: <p>n8n is a fair-code workflow automation platform that connects APIs, databases, and services with visual flows.</p><p>Includes external task runners and Traefik-friendly <code>SERVICE_URL_*</code> variables for webhooks and the editor UI.</p>
+# category: automation,workflow
+# tags: n8n,workflow,automation,no-code,integration
 # port: 5678
 
 services:

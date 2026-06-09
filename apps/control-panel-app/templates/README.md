@@ -165,7 +165,7 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 
 | Template | Notes |
 |----------|--------|
-| `postgresV2/` | Compose-only; magic vars; `SERVICE_PORT_POSTGRES`, passwords, etc. |
+| `postgres/` | Compose-only PostgreSQL; magic vars; `SERVICE_PORT_POSTGRES`, passwords, etc. |
 | `n8n/` | Compose-only; `SERVICE_URL_N8N_5678` declaration + Traefik-friendly URL vars |
 | `uptime-kuma/` | Self-hosted uptime monitoring on port 3001 |
 | `grafana/` | Dashboards; `SERVICE_URL_GRAFANA_3000` + admin credentials |

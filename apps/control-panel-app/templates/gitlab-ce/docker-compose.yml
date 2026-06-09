@@ -1,8 +1,9 @@
-# documentation: https://docs.gitlab.com/ee/install/docker.html
+# documentation: https://docs.gitlab.com/install/docker/installation/
 # shortDescription: Self-hosted DevOps platform with Git, CI/CD, and registry
-# longDescription: <p>GitLab Community Edition is a complete <strong>DevOps platform</strong> delivered as a single application.</p><p>Includes Git repositories, issue tracking, CI/CD pipelines, and container registry. Requires substantial memory for production workloads.</p>
+# longDescription: <p>GitLab Community Edition is a complete <strong>DevOps platform</strong> delivered as a single application.</p><p>Includes Git repositories, issue tracking, CI/CD pipelines, and container registry. First boot is slow and production use requires at least 4 GB RAM.</p>
 # category: development,git,devops
-# tags: gitlab,git,ci,cd,devops,scm
+# tags: gitlab,git,ci,cd,devops,scm,registry
+# logo: svgs/gitlab-svgrepo-com.svg
 # port: 8929
 
 services:

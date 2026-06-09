@@ -1,8 +1,9 @@
 # documentation: https://docs.strapi.io/cms/installation/docker
 # shortDescription: Open-source headless CMS built with Node.js
-# longDescription: <p>Strapi is a flexible <strong>headless CMS</strong> for building APIs and content-rich applications.</p><p>Uses the community <code>naskio/strapi</code> image (Strapi does not publish an official pre-built image). Includes PostgreSQL — complete admin registration on first launch.</p>
+# longDescription: <p>Strapi is a flexible <strong>headless CMS</strong> for building APIs and content-rich applications.</p><p>Uses the community <code>naskio/strapi</code> image (Strapi does not publish an official pre-built image). Includes PostgreSQL — first boot creates the project and admin registration wizard.</p>
 # category: cms,content,api
-# tags: strapi,cms,headless,api,nodejs,postgresql
+# tags: strapi,cms,headless,api,nodejs,postgresql,rest
+# logo: svgs/strapi-icon-svgrepo-com.svg
 # port: 1337
 
 services:

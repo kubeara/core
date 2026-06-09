@@ -1,8 +1,9 @@
 # documentation: https://docs.gitea.com/installation/install-with-docker
 # shortDescription: Lightweight self-hosted Git service
-# longDescription: <p>Gitea is a painless self-hosted <strong>Git</strong> service with issues, pull requests, and CI integration.</p><p>Run your own lightweight alternative to GitHub with a simple web UI and organization support.</p>
-# category: development,git
-# tags: gitea,git,scm,repository,self-hosted
+# longDescription: <p>Gitea is a painless self-hosted <strong>Git</strong> service with issues, pull requests, and CI integration.</p><p>Uses embedded SQLite and HTTP-only mode by default. Configure <code>SERVICE_URL_GITEA_*</code> when deploying behind a reverse proxy.</p>
+# category: development,git,devops
+# tags: gitea,git,scm,repository,self-hosted,version-control
+# logo: svgs/gitea-svgrepo-com.svg
 # port: 3000
 
 services:
