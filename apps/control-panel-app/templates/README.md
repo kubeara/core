@@ -167,6 +167,13 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 |----------|--------|
 | `postgresV2/` | Compose-only; magic vars; `SERVICE_PORT_POSTGRES`, passwords, etc. |
 | `n8n/` | Compose-only; `SERVICE_URL_N8N_5678` declaration + Traefik-friendly URL vars |
+| `uptime-kuma/` | Self-hosted uptime monitoring on port 3001 |
+| `grafana/` | Dashboards; `SERVICE_URL_GRAFANA_3000` + admin credentials |
+| `prometheus/` | Metrics collection on port 9090 with default scrape config |
+| `gitea/` | Lightweight Git hosting on port 3000 (SQLite, HTTP-only) |
+| `gitlab-ce/` | Full DevOps platform on port 8929; high memory footprint |
+| `code-server/` | Browser VS Code on port 8080 with password auth |
+| `sql-server/` | Microsoft SQL Server 2022 on port 1433; 2 GB memory minimum |
 
 ---
 

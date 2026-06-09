@@ -76,6 +76,34 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "n8n",
     version: "2.10.2",
   },
+  "uptime-kuma": {
+    name: "Uptime Kuma",
+    version: "1",
+  },
+  grafana: {
+    name: "Grafana",
+    version: "11.4.0",
+  },
+  prometheus: {
+    name: "Prometheus",
+    version: "2.55.1",
+  },
+  gitea: {
+    name: "Gitea",
+    version: "1.22.6",
+  },
+  "gitlab-ce": {
+    name: "GitLab CE",
+    version: "17.7.0",
+  },
+  "code-server": {
+    name: "Code Server",
+    version: "4.96.2",
+  },
+  "sql-server": {
+    name: "SQL Server",
+    version: "2022",
+  },
 };
 
 /**

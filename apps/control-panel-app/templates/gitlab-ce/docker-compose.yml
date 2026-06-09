@@ -1,0 +1,53 @@
+# documentation: https://docs.gitlab.com/ee/install/docker.html
+# shortDescription: Self-hosted DevOps platform with Git, CI/CD, and registry
+# longDescription: <p>GitLab Community Edition is a complete <strong>DevOps platform</strong> delivered as a single application.</p><p>Includes Git repositories, issue tracking, CI/CD pipelines, and container registry. Requires substantial memory for production workloads.</p>
+# category: development,git,devops
+# tags: gitlab,git,ci,cd,devops,scm
+# port: 8929
+
+services:
+  gitlab:
+    image: ${GITLAB_IMAGE:-gitlab/gitlab-ce:latest}
+    restart: ${GITLAB_RESTART_POLICY:-unless-stopped}
+    hostname: gitlab
+
+    ports:
+      - '${SERVICE_PORT_GITLAB:-8929}:80'
+
+    environment:
+      - SERVICE_URL_GITLAB_8929
+      - GITLAB_OMNIBUS_CONFIG=external_url '${SERVICE_URL_GITLAB:-${SERVICE_URL_GITLAB_8929:-http://localhost:8929}}'; nginx['listen_port'] = 80; gitlab_rails['gitlab_shell_ssh_port'] = 2224;
+
+    volumes:
+      - gitlab_config:/etc/gitlab
+      - gitlab_logs:/var/log/gitlab
+      - gitlab_data:/var/opt/gitlab
+
+    shm_size: '256m'
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/-/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  gitlab_config:
+  gitlab_logs:
+  gitlab_data:

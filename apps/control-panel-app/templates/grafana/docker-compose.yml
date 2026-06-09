@@ -1,0 +1,50 @@
+# documentation: https://grafana.com/docs/grafana/latest/
+# shortDescription: Observability dashboards for metrics, logs, and traces
+# longDescription: <p>Grafana is an open source platform for <strong>monitoring and observability</strong>.</p><p>Visualize Prometheus metrics, logs, traces, and alerts in customizable dashboards.</p>
+# category: monitoring
+# tags: grafana,monitoring,dashboards,metrics,observability
+# port: 3000
+
+services:
+  grafana:
+    image: ${GRAFANA_IMAGE:-grafana/grafana:13.0.2}
+    restart: ${GRAFANA_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_GRAFANA:-3000}:3000'
+
+    environment:
+      - SERVICE_URL_GRAFANA_3000
+      - GF_SECURITY_ADMIN_USER=${SERVICE_USER_GRAFANA:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${SERVICE_PASSWORD_GRAFANA}
+      - GF_SERVER_ROOT_URL=${SERVICE_URL_GRAFANA:-${SERVICE_URL_GRAFANA_3000}}
+      - GF_USERS_ALLOW_SIGN_UP=${GF_USERS_ALLOW_SIGN_UP:-false}
+      - GF_AUTH_ANONYMOUS_ENABLED=${GF_AUTH_ANONYMOUS_ENABLED:-false}
+
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/api/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  grafana_data:

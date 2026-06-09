@@ -1,0 +1,50 @@
+# documentation: https://prometheus.io/docs/introduction/overview/
+# shortDescription: Time-series monitoring and alerting toolkit
+# longDescription: <p>Prometheus collects and stores <strong>time-series metrics</strong> with a powerful query language (PromQL).</p><p>Use it for service monitoring, alerting, and integration with Grafana dashboards.</p>
+# category: monitoring
+# tags: prometheus,monitoring,metrics,alerting,timeseries
+# port: 9090
+
+services:
+  prometheus:
+    image: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.12.0}
+    restart: ${PROMETHEUS_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_PROMETHEUS:-9090}:9090'
+
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-15d}'
+      - '--web.enable-lifecycle'
+
+    volumes:
+      - prometheus_data:/prometheus
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:9090/-/healthy || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  prometheus_data:

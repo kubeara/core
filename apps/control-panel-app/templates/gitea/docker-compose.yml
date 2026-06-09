@@ -1,0 +1,50 @@
+# documentation: https://docs.gitea.com/installation/install-with-docker
+# shortDescription: Lightweight self-hosted Git service
+# longDescription: <p>Gitea is a painless self-hosted <strong>Git</strong> service with issues, pull requests, and CI integration.</p><p>Run your own lightweight alternative to GitHub with a simple web UI and organization support.</p>
+# category: development,git
+# tags: gitea,git,scm,repository,self-hosted
+# port: 3000
+
+services:
+  gitea:
+    image: ${GITEA_IMAGE:-gitea/gitea:1.26.2}
+    restart: ${GITEA_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_GITEA:-3000}:3000'
+
+    environment:
+      - SERVICE_URL_GITEA_3000
+      - GITEA__database__DB_TYPE=sqlite3
+      - GITEA__server__DOMAIN=${SERVICE_FQDN_GITEA:-${SERVICE_FQDN_GITEA_3000:-localhost}}
+      - GITEA__server__ROOT_URL=${SERVICE_URL_GITEA:-${SERVICE_URL_GITEA_3000:-http://localhost:3000/}}
+      - GITEA__server__HTTP_PORT=3000
+      - GITEA__server__DISABLE_SSH=${GITEA_DISABLE_SSH:-true}
+
+    volumes:
+      - gitea_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/ || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  gitea_data:
