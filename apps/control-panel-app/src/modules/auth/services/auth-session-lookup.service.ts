@@ -26,11 +26,15 @@ export class AuthSessionLookupService {
       },
     });
 
-    return (
-      sessions.find((session) =>
-        verifyTokenHash(accessToken, session.accessToken),
-      ) ?? null
+    const session = sessions.find((session) =>
+      verifyTokenHash(accessToken, session.accessToken),
     );
+
+    if (!session) {
+      return null;
+    }
+
+    return session;
   }
 
   /**
@@ -46,10 +50,14 @@ export class AuthSessionLookupService {
       },
     });
 
-    return (
-      sessions.find((session) =>
-        verifyTokenHash(refreshToken, session.refreshToken),
-      ) ?? null
+    const session = sessions.find((session) =>
+      verifyTokenHash(refreshToken, session.refreshToken),
     );
+
+    if (!session) {
+      return null;
+    }
+
+    return session;
   }
 }

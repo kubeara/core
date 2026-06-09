@@ -11,6 +11,7 @@ import { extractCookieToken } from "../utils/cookie-extractor.util";
 import { AuthenticatedUser } from "../interfaces/authenticated-user.interface";
 import { AuthSessionLookupService } from "../services/auth-session-lookup.service";
 import { AuthCookieService } from "../services/auth-cookie.service";
+import { TokenPayload } from "../interfaces/tokenPayload.interface";
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
@@ -42,11 +43,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
    */
   async validate(
     req: Request,
-    payload: {
-      sub: string;
-      email: string;
-      tokenType?: string;
-    },
+    payload: TokenPayload,
   ): Promise<AuthenticatedUser> {
     if (payload.tokenType !== tokenType.ACCESS) {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
