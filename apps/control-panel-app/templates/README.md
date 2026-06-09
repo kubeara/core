@@ -174,6 +174,9 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `gitlab-ce/` | Full DevOps platform on port 8929; high memory footprint |
 | `code-server/` | Browser VS Code on port 8080 with password auth |
 | `sql-server/` | Microsoft SQL Server 2022 on port 1433; 2 GB memory minimum |
+| `wordpress/` | WordPress with MariaDB on port 80 |
+| `directus/` | Headless CMS with PostgreSQL on port 8055 |
+| `strapi/` | Headless CMS with PostgreSQL on port 1337 (`naskio/strapi` community image) |
 
 ---
 

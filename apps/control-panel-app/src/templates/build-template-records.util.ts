@@ -104,6 +104,18 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "SQL Server",
     version: "2022",
   },
+  wordpress: {
+    name: "WordPress",
+    version: "6.8",
+  },
+  directus: {
+    name: "Directus",
+    version: "11.5.5",
+  },
+  strapi: {
+    name: "Strapi",
+    version: "5.30.1",
+  },
 };
 
 /**
