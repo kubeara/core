@@ -1,12 +1,12 @@
 import { Body, Controller, Patch, Post, Req, UseGuards } from "@nestjs/common";
 import { ProfileService } from "./profile.service";
-import { JwtAuthGuard } from "@control-panel/modules/auth/guards/jwt-auth.guard";
+import { AccessTokenGuard } from "@control-panel/modules/auth/guards/auth.guards";
 import { AuthenticatedRequest } from "@control-panel/common/interfaces/authenticated-request.interface";
 import { ChangePasswordDto, UpdateGeneralProfileDto } from "./dto";
 import { ServiceResponse } from "@control-panel/common/interfaces/success-response.interface";
 import { ProfileUser } from "./interfaces/profile-user.interface";
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(AccessTokenGuard)
 @Controller("profile")
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
