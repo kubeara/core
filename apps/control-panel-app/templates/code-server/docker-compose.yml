@@ -1,6 +1,6 @@
 # documentation: https://coder.com/docs/code-server/latest
 # shortDescription: VS Code in the browser for remote development
-# longDescription: <p>code-server runs <strong>VS Code</strong> on a remote server and exposes it through the browser.</p><p>Edit code, use terminals, and install extensions from anywhere with a consistent IDE experience.</p>
+# longDescription: <p>code-server runs <strong>VS Code</strong> on a remote server and exposes it through the browser.</p><p>Password authentication is configured via <code>SERVICE_PASSWORD_CODE_SERVER</code>. Project files persist under <code>/home/coder/project</code>.</p>
 # category: development,ide
 # tags: code-server,vscode,ide,editor,remote,development
 # port: 8080

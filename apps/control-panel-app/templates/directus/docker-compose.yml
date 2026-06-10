@@ -1,0 +1,102 @@
+# documentation: https://docs.directus.io/self-hosted/docker-guide
+# shortDescription: Open-source headless CMS and data platform
+# longDescription: <p>Directus is an open-source <strong>headless CMS</strong> that wraps any SQL database with a real-time API and admin app.</p><p>Includes PostgreSQL. Admin credentials use <code>DIRECTUS_ADMIN_EMAIL</code> and <code>SERVICE_PASSWORD_DIRECTUS</code> on first launch.</p>
+# category: cms,content,api
+# tags: directus,cms,headless,api,postgresql,content,data
+# logo: svgs/directus-svgrepo-com.svg
+# port: 8055
+
+services:
+  directus:
+    image: ${DIRECTUS_IMAGE:-directus/directus:latest}
+    restart: ${DIRECTUS_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_DIRECTUS:-8055}:8055'
+
+    environment:
+      - SERVICE_URL_DIRECTUS_8055
+      - KEY=${SERVICE_HEX_32_DIRECTUS}
+      - SECRET=${SERVICE_HEX_64_DIRECTUS}
+      - ADMIN_EMAIL=${DIRECTUS_ADMIN_EMAIL:-admin@example.com}
+      - ADMIN_PASSWORD=${SERVICE_PASSWORD_DIRECTUS}
+      - DB_CLIENT=pg
+      - DB_HOST=${DIRECTUS_DB_HOST:-postgres}
+      - DB_PORT=${DIRECTUS_DB_PORT:-5432}
+      - DB_DATABASE=${DIRECTUS_DB_NAME:-directus}
+      - DB_USER=${SERVICE_USER_DIRECTUS}
+      - DB_PASSWORD=${SERVICE_PASSWORD_DIRECTUS}
+      - PUBLIC_URL=${SERVICE_URL_DIRECTUS:-${SERVICE_URL_DIRECTUS_8055}}
+      - WEBSOCKETS_ENABLED=${DIRECTUS_WEBSOCKETS_ENABLED:-true}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - directus_uploads:/directus/uploads
+      - directus_extensions:/directus/extensions
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8055/server/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${DIRECTUS_POSTGRES_IMAGE:-postgres:16}
+    restart: ${DIRECTUS_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      POSTGRES_USER: ${SERVICE_USER_DIRECTUS}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_DIRECTUS}
+      POSTGRES_DB: ${DIRECTUS_DB_NAME:-directus}
+      PGDATA: ${DIRECTUS_POSTGRES_DATA_PATH:-/var/lib/postgresql/data}
+      TZ: ${TZ:-UTC}
+      PGTZ: ${PGTZ:-UTC}
+
+    volumes:
+      - directus_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      timeout: 20s
+      retries: 10
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  directus_uploads:
+  directus_extensions:
+  directus_postgres_data:

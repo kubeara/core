@@ -1,0 +1,102 @@
+# documentation: https://docs.strapi.io/cms/installation/docker
+# shortDescription: Open-source headless CMS built with Node.js
+# longDescription: <p>Strapi is a flexible <strong>headless CMS</strong> for building APIs and content-rich applications.</p><p>Uses the community <code>naskio/strapi</code> image (Strapi does not publish an official pre-built image). Includes PostgreSQL — first boot creates the project and admin registration wizard.</p>
+# category: cms,content,api
+# tags: strapi,cms,headless,api,nodejs,postgresql,rest
+# logo: svgs/strapi-icon-svgrepo-com.svg
+# port: 1337
+
+services:
+  strapi:
+    image: ${STRAPI_IMAGE:-naskio/strapi:5.30.1-alpine}
+    restart: ${STRAPI_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_STRAPI:-1337}:1337'
+
+    environment:
+      - SERVICE_URL_STRAPI_1337
+      - NODE_ENV=${NODE_ENV:-production}
+      - DATABASE_CLIENT=postgres
+      - DATABASE_HOST=${STRAPI_DB_HOST:-postgres}
+      - DATABASE_PORT=${STRAPI_DB_PORT:-5432}
+      - DATABASE_NAME=${STRAPI_DB_NAME:-strapi}
+      - DATABASE_USERNAME=${SERVICE_USER_STRAPI}
+      - DATABASE_PASSWORD=${SERVICE_PASSWORD_STRAPI}
+      - APP_KEYS=${STRAPI_APP_KEYS:-key1,key2,key3,key4}
+      - API_TOKEN_SALT=${STRAPI_API_TOKEN_SALT:-apiTokenSalt}
+      - ADMIN_JWT_SECRET=${STRAPI_ADMIN_JWT_SECRET:-adminJwtSecret}
+      - TRANSFER_TOKEN_SALT=${STRAPI_TRANSFER_TOKEN_SALT:-transferTokenSalt}
+      - JWT_SECRET=${STRAPI_JWT_SECRET:-jwtSecret}
+      - HOST=${STRAPI_HOST:-0.0.0.0}
+      - PORT=${STRAPI_PORT:-1337}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - strapi_data:/srv/app
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:1337/_health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${STRAPI_POSTGRES_IMAGE:-postgres:16}
+    restart: ${STRAPI_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      POSTGRES_USER: ${SERVICE_USER_STRAPI}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_STRAPI}
+      POSTGRES_DB: ${STRAPI_DB_NAME:-strapi}
+      PGDATA: ${STRAPI_POSTGRES_DATA_PATH:-/var/lib/postgresql/data}
+      TZ: ${TZ:-UTC}
+      PGTZ: ${PGTZ:-UTC}
+
+    volumes:
+      - strapi_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      timeout: 20s
+      retries: 10
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  strapi_data:
+  strapi_postgres_data:

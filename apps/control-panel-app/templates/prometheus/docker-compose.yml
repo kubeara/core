@@ -1,8 +1,9 @@
-# documentation: https://prometheus.io/docs/introduction/overview/
+# documentation: https://prometheus.io/docs/prometheus/latest/getting_started/
 # shortDescription: Time-series monitoring and alerting toolkit
-# longDescription: <p>Prometheus collects and stores <strong>time-series metrics</strong> with a powerful query language (PromQL).</p><p>Use it for service monitoring, alerting, and integration with Grafana dashboards.</p>
-# category: monitoring
-# tags: prometheus,monitoring,metrics,alerting,timeseries
+# longDescription: <p>Prometheus collects and stores <strong>time-series metrics</strong> with a powerful query language (PromQL).</p><p>Ships with a default scrape configuration and configurable retention via <code>PROMETHEUS_RETENTION_TIME</code>.</p>
+# category: monitoring,metrics
+# tags: prometheus,monitoring,metrics,alerting,timeseries,observability
+# logo: svgs/prometheus-svgrepo-com.svg
 # port: 9090
 
 services:

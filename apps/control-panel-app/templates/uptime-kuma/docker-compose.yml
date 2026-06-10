@@ -1,8 +1,9 @@
-# documentation: https://uptime.kuma.pet
+# documentation: https://github.com/louislam/uptime-kuma/wiki
 # shortDescription: Self-hosted uptime and status page monitoring
-# longDescription: <p>Uptime Kuma is a self-hosted monitoring tool for <strong>HTTP(s)</strong>, TCP, ping, DNS, and more.</p><p>Get alerts and publish status pages for your services and infrastructure.</p>
-# category: monitoring
-# tags: uptime,monitoring,status,alerts,healthcheck
+# longDescription: <p>Uptime Kuma is a self-hosted monitoring tool for <strong>HTTP(s)</strong>, TCP, ping, DNS, and more.</p><p>Create monitors, receive alerts, and publish public status pages. Complete the setup wizard on first launch.</p>
+# category: monitoring,uptime
+# tags: uptime-kuma,monitoring,status,alerts,healthcheck,notifications
+# logo: svgs/uptimerobot-svgrepo-com.svg
 # port: 3001
 
 services:

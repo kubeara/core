@@ -1,8 +1,9 @@
-# documentation: https://learn.microsoft.com/en-us/sql/linux/sql-server-linux-docker-container-configure
+# documentation: https://learn.microsoft.com/en-us/sql/linux/sql-server-linux-docker-container-deployment
 # shortDescription: Microsoft SQL Server relational database
-# longDescription: <p>SQL Server is a relational database management system from Microsoft.</p><p>Runs on Linux via the official container image with the <strong>sa</strong> administrator account. Requires at least 2 GB of memory.</p>
-# category: database
-# tags: sql-server,mssql,database,sql,microsoft
+# longDescription: <p>SQL Server is a relational database management system from Microsoft.</p><p>Runs on Linux via the official container image with the <strong>sa</strong> account (<code>SERVICE_PASSWORD_MSSQL</code>). Requires accepting the EULA and at least 2 GB of memory.</p>
+# category: database,sql
+# tags: sql-server,mssql,database,sql,microsoft,relational
+# logo: svgs/sql-database-generic-svgrepo-com.svg
 # port: 1433
 
 services:

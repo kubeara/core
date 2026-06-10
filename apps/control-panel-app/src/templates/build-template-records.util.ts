@@ -60,12 +60,8 @@ export interface ServiceTemplateRecord {
  * source for documentation, short/long descriptions, category, tags, logo path, and port.
  */
 const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
-  postgresql: {
+  postgres: {
     name: "PostgreSQL",
-    version: "16",
-  },
-  postgresV2: {
-    name: "PostgreSQL V2",
     version: "16",
   },
   redis: {
@@ -78,31 +74,43 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
   },
   "uptime-kuma": {
     name: "Uptime Kuma",
-    version: "1",
+    version: "2",
   },
   grafana: {
     name: "Grafana",
-    version: "11.4.0",
+    version: "13.0.2",
   },
   prometheus: {
     name: "Prometheus",
-    version: "2.55.1",
+    version: "3.12.0",
   },
   gitea: {
     name: "Gitea",
-    version: "1.22.6",
+    version: "1.26.2",
   },
   "gitlab-ce": {
     name: "GitLab CE",
-    version: "17.7.0",
+    version: "latest",
   },
   "code-server": {
     name: "Code Server",
-    version: "4.96.2",
+    version: "4.123.0",
   },
   "sql-server": {
     name: "SQL Server",
-    version: "2022",
+    version: "2025",
+  },
+  wordpress: {
+    name: "WordPress",
+    version: "6.8",
+  },
+  directus: {
+    name: "Directus",
+    version: "11.5.5",
+  },
+  strapi: {
+    name: "Strapi",
+    version: "5.30.1",
   },
 };
 
