@@ -1,0 +1,54 @@
+# documentation: https://learn.microsoft.com/en-us/sql/linux/sql-server-linux-docker-container-deployment
+# shortDescription: Microsoft SQL Server relational database
+# longDescription: <p>SQL Server is a relational database management system from Microsoft.</p><p>Runs on Linux via the official container image with the <strong>sa</strong> account (<code>SERVICE_PASSWORD_MSSQL</code>). Requires accepting the EULA and at least 2 GB of memory.</p>
+# category: database,sql
+# tags: sql-server,mssql,database,sql,microsoft,relational
+# logo: svgs/sql-database-generic-svgrepo-com.svg
+# port: 1433
+
+services:
+  mssql:
+    image: ${MSSQL_IMAGE:-mcr.microsoft.com/mssql/server:2025-latest}
+    restart: ${MSSQL_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_MSSQL:-1433}:1433'
+
+    environment:
+      ACCEPT_EULA: ${ACCEPT_EULA:-Y}
+      MSSQL_SA_PASSWORD: ${SERVICE_PASSWORD_MSSQL}
+      MSSQL_PID: ${MSSQL_PID:-Developer}
+      MSSQL_AGENT_ENABLED: ${MSSQL_AGENT_ENABLED:-false}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - mssql_data:/var/opt/mssql
+
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          '/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" || exit 1',
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  mssql_data:

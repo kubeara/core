@@ -1,7 +1,9 @@
-# documentation: https://www.postgresql.org
-# slogan: PostgreSQL database (compose-only / Coolify-style)
-# category: database
-# tags: postgres,postgresql,database,sql,v2
+# documentation: https://www.postgresql.org/docs/
+# shortDescription: Advanced open source relational database
+# longDescription: <p>PostgreSQL is a powerful, open source <strong>object-relational database</strong> system with over 35 years of active development.</p><p>Compose-only template using magic <code>SERVICE_*</code> variables for credentials and host port configuration.</p>
+# category: database,postgresql,sql
+# tags: postgres,postgresql,database,sql,relational
+# logo: svgs/postgresql-logo-svgrepo-com.svg
 # port: 5432
 
 services:

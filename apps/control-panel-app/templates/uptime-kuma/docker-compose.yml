@@ -1,0 +1,43 @@
+# documentation: https://github.com/louislam/uptime-kuma/wiki
+# shortDescription: Self-hosted uptime and status page monitoring
+# longDescription: <p>Uptime Kuma is a self-hosted monitoring tool for <strong>HTTP(s)</strong>, TCP, ping, DNS, and more.</p><p>Create monitors, receive alerts, and publish public status pages. Complete the setup wizard on first launch.</p>
+# category: monitoring,uptime
+# tags: uptime-kuma,monitoring,status,alerts,healthcheck,notifications
+# logo: svgs/uptimerobot-svgrepo-com.svg
+# port: 3001
+
+services:
+  uptime-kuma:
+    image: ${UPTIME_KUMA_IMAGE:-louislam/uptime-kuma:2}
+    restart: ${UPTIME_KUMA_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_UPTIME_KUMA:-3001}:3001'
+
+    volumes:
+      - uptime_kuma_data:/app/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'node extra/healthcheck.js']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  uptime_kuma_data:

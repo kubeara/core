@@ -1,0 +1,53 @@
+# documentation: https://coder.com/docs/code-server/latest
+# shortDescription: VS Code in the browser for remote development
+# longDescription: <p>code-server runs <strong>VS Code</strong> on a remote server and exposes it through the browser.</p><p>Password authentication is configured via <code>SERVICE_PASSWORD_CODE_SERVER</code>. Project files persist under <code>/home/coder/project</code>.</p>
+# category: development,ide
+# tags: code-server,vscode,ide,editor,remote,development
+# port: 8080
+
+services:
+  code-server:
+    image: ${CODE_SERVER_IMAGE:-codercom/code-server:4.123.0}
+    restart: ${CODE_SERVER_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_CODE_SERVER:-8080}:8080'
+
+    environment:
+      - SERVICE_URL_CODE_SERVER_8080
+      - PASSWORD=${SERVICE_PASSWORD_CODE_SERVER}
+
+    volumes:
+      - code_server_data:/home/coder
+
+    command:
+      - --auth
+      - password
+      - --bind-addr
+      - 0.0.0.0:8080
+      - /home/coder/project
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/healthz || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  code_server_data:

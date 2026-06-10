@@ -22,7 +22,11 @@ export interface TemplateVariableDefinition {
 export interface TemplateCommentMetadata {
   documentation?: string;
   slogan?: string;
-  category?: string;
+  shortDescription?: string;
+  description?: string;
+  longDescription?: string;
+  logo?: string;
+  category?: string[];
   tags?: string[];
   port?: number;
 }
@@ -314,11 +318,28 @@ export function parseTemplateCommentMetadata(
       case "documentation":
         metadata.documentation = value;
         break;
+      case "shortdescription":
+      case "short-description":
+        metadata.shortDescription = value;
+        break;
+      case "description":
+        metadata.description = value;
+        break;
+      case "longdescription":
+      case "long-description":
+        metadata.longDescription = value;
+        break;
       case "slogan":
         metadata.slogan = value;
         break;
       case "category":
-        metadata.category = value;
+        metadata.category = value
+          .split(",")
+          .map((entry) => entry.trim())
+          .filter(Boolean);
+        break;
+      case "logo":
+        metadata.logo = value;
         break;
       case "tags":
         metadata.tags = value
@@ -337,6 +358,25 @@ export function parseTemplateCommentMetadata(
   }
 
   return metadata;
+}
+
+/** Resolves short description from compose comment metadata. */
+export function getTemplateDescriptionFromComments(
+  metadata: TemplateCommentMetadata,
+): string {
+  return (
+    metadata.shortDescription?.trim() ||
+    metadata.description?.trim() ||
+    metadata.slogan?.trim() ||
+    ""
+  );
+}
+
+/** Resolves long (HTML) description from compose comment metadata. */
+export function getTemplateLongDescriptionFromComments(
+  metadata: TemplateCommentMetadata,
+): string {
+  return metadata.longDescription?.trim() || "";
 }
 
 /**

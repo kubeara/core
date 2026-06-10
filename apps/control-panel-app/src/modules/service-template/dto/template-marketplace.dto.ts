@@ -1,9 +1,11 @@
 export interface TemplateListItemDto {
   slug: string;
   name: string;
-  description: string;
-  category: string;
+  shortDescription: string;
+  longDescription: string | null;
+  category: string[];
   tags: string[];
+  logo: string | null;
   port: number;
 }
 

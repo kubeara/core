@@ -1,0 +1,92 @@
+# documentation: https://wordpress.org/documentation/
+# shortDescription: Popular CMS for websites and blogs
+# longDescription: <p>WordPress powers millions of websites as a flexible <strong>content management system</strong>.</p><p>Includes MariaDB for persistent storage. Database credentials use <code>SERVICE_USER_WORDPRESS</code> and <code>SERVICE_PASSWORD_WORDPRESS</code>. Complete the web installer on first launch.</p>
+# category: cms,content,blog
+# tags: wordpress,cms,blog,website,php,mariadb
+# logo: svgs/wordpress-color-svgrepo-com.svg
+# port: 80
+
+services:
+  wordpress:
+    image: ${WORDPRESS_IMAGE:-wordpress:latest}
+    restart: ${WORDPRESS_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_WORDPRESS:-80}:80'
+
+    environment:
+      - SERVICE_URL_WORDPRESS_80
+      - WORDPRESS_DB_HOST=${WORDPRESS_DB_HOST:-mariadb}
+      - WORDPRESS_DB_USER=${SERVICE_USER_WORDPRESS}
+      - WORDPRESS_DB_PASSWORD=${SERVICE_PASSWORD_WORDPRESS}
+      - WORDPRESS_DB_NAME=${WORDPRESS_DB_NAME:-wordpress}
+      - WORDPRESS_TABLE_PREFIX=${WORDPRESS_TABLE_PREFIX:-wp_}
+
+    volumes:
+      - wordpress_data:/var/www/html
+
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/ || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mariadb:
+    image: ${MARIADB_IMAGE:-mariadb:latest}
+    restart: ${MARIADB_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      MARIADB_USER: ${SERVICE_USER_WORDPRESS}
+      MARIADB_PASSWORD: ${SERVICE_PASSWORD_WORDPRESS}
+      MARIADB_DATABASE: ${WORDPRESS_DB_NAME:-wordpress}
+      MARIADB_ROOT_PASSWORD: ${SERVICE_PASSWORD_MARIADB_ROOT}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+    healthcheck:
+      test: ['CMD-SHELL', 'healthcheck.sh --connect --innodb_initialized']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  wordpress_data:
+  mariadb_data:

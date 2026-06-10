@@ -8,6 +8,12 @@
  * Compose YAML is parsed to JSON, stripped of the top-level `version` field,
  * then stored as base64 in the `compose` column expected by the database.
  */
+import {
+  encodeLogoReferenceToDataUri,
+  getTemplateDescriptionFromComments,
+  getTemplateLongDescriptionFromComments,
+  parseTemplateCommentMetadata,
+} from "@shared/common";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -18,8 +24,9 @@ import * as yaml from "js-yaml";
  */
 export interface TemplateMetadata {
   name: string;
-  description: string;
-  category: string;
+  shortDescription: string;
+  longDescription: string;
+  category: string[];
   tags: string[];
   documentation: string;
   logo: string;
@@ -33,8 +40,9 @@ export interface TemplateMetadata {
 export interface ServiceTemplateRecord {
   slug: string;
   name: string;
-  description: string;
-  category: string;
+  shortDescription: string;
+  longDescription: string;
+  category: string[];
   tags: string[];
   documentation: string;
   logo: string;
@@ -47,50 +55,62 @@ export interface ServiceTemplateRecord {
 }
 
 /**
- * Static metadata overrides for templates that need richer catalog details
- * than the slug-derived defaults provide.
+ * Optional per-slug overrides for fields not present in compose comment headers
+ * (e.g. display name, logo, image version). Compose comments are the primary
+ * source for documentation, short/long descriptions, category, tags, logo path, and port.
  */
-const metadataBySlug: Record<string, TemplateMetadata> = {
-  postgresql: {
+const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
+  postgres: {
     name: "PostgreSQL",
-    description: "World's most advanced database",
-    category: "database",
-    tags: ["database", "sql", "relational"],
-    documentation: "https://www.postgresql.org",
-    logo: "svgs/postgresql.svg",
-    port: 5432,
-    version: "16",
-  },
-  postgresV2: {
-    name: "PostgreSQL V2",
-    description:
-      "PostgreSQL with compose-parser magic vars and DB-backed deployment env (without template.config.json)",
-    category: "database",
-    tags: ["database", "sql", "relational", "v2"],
-    documentation: "https://www.postgresql.org",
-    logo: "svgs/postgresql.svg",
-    port: 5432,
     version: "16",
   },
   redis: {
     name: "Redis",
-    description: "In-memory data structure store",
-    category: "cache",
-    tags: ["cache", "redis", "key-value"],
-    documentation: "https://redis.io/docs",
-    logo: "svgs/redis.svg",
-    port: 6379,
     version: "7",
   },
   n8n: {
     name: "n8n",
-    description: "Workflow automation tool",
-    category: "automation",
-    tags: ["n8n", "workflow", "automation", "no-code"],
-    documentation: "https://n8n.io",
-    logo: "svgs/n8n.png",
-    port: 5678,
     version: "2.10.2",
+  },
+  "uptime-kuma": {
+    name: "Uptime Kuma",
+    version: "2",
+  },
+  grafana: {
+    name: "Grafana",
+    version: "13.0.2",
+  },
+  prometheus: {
+    name: "Prometheus",
+    version: "3.12.0",
+  },
+  gitea: {
+    name: "Gitea",
+    version: "1.26.2",
+  },
+  "gitlab-ce": {
+    name: "GitLab CE",
+    version: "latest",
+  },
+  "code-server": {
+    name: "Code Server",
+    version: "4.123.0",
+  },
+  "sql-server": {
+    name: "SQL Server",
+    version: "2025",
+  },
+  wordpress: {
+    name: "WordPress",
+    version: "6.8",
+  },
+  directus: {
+    name: "Directus",
+    version: "11.5.5",
+  },
+  strapi: {
+    name: "Strapi",
+    version: "5.30.1",
   },
 };
 
@@ -114,13 +134,73 @@ function defaultMetadata(slug: string): TemplateMetadata {
       .split("-")
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(" "),
-    description: "",
-    category: "",
+    shortDescription: "",
+    longDescription: "",
+    category: [],
     tags: [],
     documentation: "",
     logo: "",
     port: 0,
     version: "",
+  };
+}
+
+const LONG_DESCRIPTION_FILE = "long-description.html";
+
+function resolveLongDescription(
+  templateDir: string | undefined,
+  overrides: Partial<TemplateMetadata>,
+  commentMetadata: ReturnType<typeof parseTemplateCommentMetadata>,
+): string {
+  if (overrides.longDescription?.trim()) {
+    return overrides.longDescription.trim();
+  }
+
+  if (templateDir) {
+    const htmlPath = path.join(templateDir, LONG_DESCRIPTION_FILE);
+    if (fs.existsSync(htmlPath)) {
+      return fs.readFileSync(htmlPath, "utf8").trim();
+    }
+  }
+
+  return getTemplateLongDescriptionFromComments(commentMetadata);
+}
+
+/**
+ * Merges compose comment metadata with optional slug overrides and slug defaults.
+ */
+function resolveTemplateMetadata(
+  slug: string,
+  yamlContent: string,
+  templateDir?: string,
+): TemplateMetadata {
+  const commentMetadata = parseTemplateCommentMetadata(yamlContent);
+  const overrides = metadataBySlug[slug] ?? {};
+  const defaults = defaultMetadata(slug);
+
+  return {
+    name: overrides.name ?? defaults.name,
+    shortDescription:
+      overrides.shortDescription ??
+      getTemplateDescriptionFromComments(commentMetadata),
+    longDescription: resolveLongDescription(
+      templateDir,
+      overrides,
+      commentMetadata,
+    ),
+    category:
+      overrides.category && overrides.category.length > 0
+        ? overrides.category
+        : (commentMetadata.category ?? []),
+    tags:
+      overrides.tags && overrides.tags.length > 0
+        ? overrides.tags
+        : (commentMetadata.tags ?? []),
+    documentation:
+      overrides.documentation ?? commentMetadata.documentation?.trim() ?? "",
+    logo: overrides.logo ?? commentMetadata.logo?.trim() ?? defaults.logo,
+    port: overrides.port ?? commentMetadata.port ?? defaults.port,
+    version: overrides.version ?? defaults.version,
   };
 }
 
@@ -153,7 +233,6 @@ function parseComposeYaml(
 ): Record<string, unknown> {
   try {
     const parsed = yaml.load(yamlContent);
-
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new Error("Compose YAML must resolve to an object");
     }
@@ -214,6 +293,8 @@ export function buildServiceTemplateRecords(
       const stat = fs.statSync(filePath);
 
       let slug = file;
+      let templateDir: string | undefined;
+      let yamlContent: string | undefined;
       let jsonData: Record<string, unknown> | undefined;
       let configData: Record<string, unknown> | undefined;
 
@@ -223,6 +304,7 @@ export function buildServiceTemplateRecords(
          * Optional schema overrides live in template.config.json beside compose.
          */
         slug = file;
+        templateDir = filePath;
         const dockerComposePath = path.join(filePath, "docker-compose.yml");
 
         if (!fs.existsSync(dockerComposePath)) {
@@ -230,7 +312,7 @@ export function buildServiceTemplateRecords(
         }
 
         try {
-          const yamlContent = fs.readFileSync(dockerComposePath, "utf8");
+          yamlContent = fs.readFileSync(dockerComposePath, "utf8");
           jsonData = parseComposeYaml(yamlContent, slug, dockerComposePath);
         } catch (error: unknown) {
           throw new Error(
@@ -253,6 +335,7 @@ export function buildServiceTemplateRecords(
         }
 
         slug = file.replace(".yml", "");
+        templateDir = path.dirname(filePath);
 
         const potentialDir = path.join(templatesDir, slug);
 
@@ -264,7 +347,7 @@ export function buildServiceTemplateRecords(
         }
 
         try {
-          const yamlContent = fs.readFileSync(filePath, "utf8");
+          yamlContent = fs.readFileSync(filePath, "utf8");
           jsonData = parseComposeYaml(yamlContent, slug, filePath);
         } catch (error: unknown) {
           throw new Error(
@@ -273,7 +356,7 @@ export function buildServiceTemplateRecords(
         }
       }
 
-      if (!jsonData) {
+      if (!jsonData || !yamlContent) {
         continue;
       }
 
@@ -283,17 +366,21 @@ export function buildServiceTemplateRecords(
        */
       delete jsonData.version;
 
-      const metadata = metadataBySlug[slug] ?? defaultMetadata(slug);
+      const metadata = resolveTemplateMetadata(slug, yamlContent, templateDir);
       const composeBase64 = encodeComposeToBase64(jsonData);
+      const logo = metadata.logo
+        ? encodeLogoReferenceToDataUri(templatesDir, metadata.logo)
+        : "";
 
       const record: ServiceTemplateRecord = {
         slug,
         name: metadata.name,
-        description: metadata.description,
+        shortDescription: metadata.shortDescription,
+        longDescription: metadata.longDescription,
         category: metadata.category,
         tags: metadata.tags,
         documentation: metadata.documentation,
-        logo: metadata.logo,
+        logo,
         compose: composeBase64,
         port: metadata.port,
         version: metadata.version,

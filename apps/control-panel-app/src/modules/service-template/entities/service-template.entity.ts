@@ -10,10 +10,13 @@ export class ServiceTemplateEntity extends BaseEntity {
   name!: string;
 
   @Column({ type: "text", nullable: true })
-  description!: string | null;
+  shortDescription!: string | null;
 
-  @Column({ type: "varchar", length: 100, nullable: true })
-  category!: string | null;
+  @Column({ type: "text", nullable: true })
+  longDescription!: string | null;
+
+  @Column("text", { array: true, nullable: true })
+  category!: string[] | null;
 
   @Column("text", { array: true, nullable: true })
   tags!: string[] | null;

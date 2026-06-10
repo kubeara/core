@@ -145,7 +145,19 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 4. Prefer **`${VAR:-sensible}`** for optional tuning knobs so deploy works without passing every key.
 5. Run **`npm run build:control-panel-app && npm run seed`** from `core` after editing.
 6. Run **`npm run test:templates`** from `core` to validate compose structure, env/port rules, resource limits, and logging limits.
-7. Register display metadata for new **slug** folders in `apps/control-panel-app/src/templates/build-template-records.util.ts` (`metadataBySlug`).
+7. Add catalog metadata as leading comments in `docker-compose.yml` (read during `npm run seed`):
+
+   | Comment key | DB column | Notes |
+   |-------------|-----------|--------|
+   | `# shortDescription:` | `shortDescription` | Also accepts legacy `# description:` / `# slogan:` |
+   | `# longDescription:` | `longDescription` | HTML string; or place HTML in `long-description.html` beside compose |
+   | `# documentation:` | `documentation` | |
+   | `# category:` | `category` | Comma-separated values |
+   | `# tags:` | `tags` | Comma-separated values |
+   | `# logo:` | `logo` | Path relative to `templates/` (encoded as data URI on seed) |
+   | `# port:` | `port` | |
+
+8. Register optional per-slug overrides (name, version) in `apps/control-panel-app/src/templates/build-template-records.util.ts` (`metadataBySlug`) when compose comments are not enough.
 
 ---
 
@@ -153,8 +165,18 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 
 | Template | Notes |
 |----------|--------|
-| `postgresV2/` | Compose-only; magic vars; `SERVICE_PORT_POSTGRES`, passwords, etc. |
+| `postgres/` | Compose-only PostgreSQL; magic vars; `SERVICE_PORT_POSTGRES`, passwords, etc. |
 | `n8n/` | Compose-only; `SERVICE_URL_N8N_5678` declaration + Traefik-friendly URL vars |
+| `uptime-kuma/` | Self-hosted uptime monitoring on port 3001 |
+| `grafana/` | Dashboards; `SERVICE_URL_GRAFANA_3000` + admin credentials |
+| `prometheus/` | Metrics collection on port 9090 with default scrape config |
+| `gitea/` | Lightweight Git hosting on port 3000 (SQLite, HTTP-only) |
+| `gitlab-ce/` | Full DevOps platform on port 8929; high memory footprint |
+| `code-server/` | Browser VS Code on port 8080 with password auth |
+| `sql-server/` | Microsoft SQL Server 2022 on port 1433; 2 GB memory minimum |
+| `wordpress/` | WordPress with MariaDB on port 80 |
+| `directus/` | Headless CMS with PostgreSQL on port 8055 |
+| `strapi/` | Headless CMS with PostgreSQL on port 1337 (`naskio/strapi` community image) |
 
 ---
 
