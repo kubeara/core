@@ -3,6 +3,7 @@
 # longDescription: <p>Monica is an open-source <strong>personal CRM</strong> for tracking interactions, reminders, and notes about friends, family, and colleagues.</p><p>Includes MariaDB. Register your account on first launch.</p>
 # category: crm,productivity
 # tags: monica,crm,personal,contacts,relationships,mariadb
+# logo: svgs/monica.svg
 # port: 80
 
 services:

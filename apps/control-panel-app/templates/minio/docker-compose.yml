@@ -3,6 +3,7 @@
 # longDescription: <p>MinIO is a high-performance <strong>object storage</strong> server compatible with the Amazon S3 API.</p><p>API on <code>SERVICE_PORT_MINIO</code> (9000); console on <code>SERVICE_PORT_MINIO_9001</code>. Root credentials use <code>SERVICE_USER_MINIO</code> and <code>SERVICE_PASSWORD_MINIO</code>.</p>
 # category: storage
 # tags: minio,s3,object-storage,storage,blob,files
+# logo: svgs/MinIO-Logo-Color.svg
 # port: 9000
 
 services:

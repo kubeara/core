@@ -3,6 +3,7 @@
 # longDescription: <p>Nextcloud is a self-hosted <strong>file sync and share</strong> platform with calendar, contacts, and collaboration apps.</p><p>Includes MariaDB and Redis. Database credentials use <code>SERVICE_USER_NEXTCLOUD</code> and <code>SERVICE_PASSWORD_NEXTCLOUD</code>; admin password uses <code>SERVICE_PASSWORD_NEXTCLOUD_ADMIN</code>.</p>
 # category: storage,collaboration
 # tags: nextcloud,files,cloud,storage,collaboration,sync
+# logo: svgs/nextcloud-svgrepo-com.svg
 # port: 80
 
 services:

@@ -3,6 +3,7 @@
 # longDescription: <p>Seafile is an open-source <strong>file sync and share</strong> platform for teams and organizations.</p><p>Includes MariaDB and Redis. Admin login uses <code>SEAFILE_ADMIN_EMAIL</code> and <code>SERVICE_PASSWORD_SEAFILE_ADMIN</code> on first launch.</p>
 # category: storage,collaboration
 # tags: seafile,files,cloud,storage,sync,sharing
+# logo: svgs/seafile.svg
 # port: 80
 
 services:

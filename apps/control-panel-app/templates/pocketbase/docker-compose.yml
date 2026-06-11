@@ -3,6 +3,7 @@
 # longDescription: <p>PocketBase is an open-source <strong>backend-as-a-service</strong> with realtime database, auth, and file storage in one container.</p><p>Create the admin account at <code>/_/</code> on first launch.</p>
 # category: backend,api,database
 # tags: pocketbase,backend,baas,sqlite,api,realtime
+# logo: svgs/pocketbase-seeklogo.svg
 # port: 8090
 
 services:
