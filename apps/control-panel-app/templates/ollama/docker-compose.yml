@@ -1,0 +1,47 @@
+# documentation: https://github.com/ollama/ollama/blob/main/docs/docker.md
+# shortDescription: Run open-source LLMs locally
+# longDescription: <p>Ollama runs <strong>open-source large language models</strong> locally with a simple HTTP API.</p><p>Models persist under <code>/root/.ollama</code>. Pull models after deploy with <code>ollama pull &lt;model&gt;</code>.</p>
+# category: ai,llm
+# tags: ollama,ai,llm,local,inference,models
+# logo: svgs/ollama.svg
+# port: 11434
+
+services:
+  ollama:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    restart: ${OLLAMA_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_OLLAMA:-11434}:11434'
+
+    environment:
+      - OLLAMA_HOST=${OLLAMA_HOST:-0.0.0.0:11434}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - ollama_data:/root/.ollama
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:11434/api/tags || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  ollama_data:

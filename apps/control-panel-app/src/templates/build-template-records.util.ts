@@ -164,6 +164,26 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "LiteLLM",
     version: "main-stable",
   },
+  ollama: {
+    name: "Ollama",
+    version: "latest",
+  },
+  "open-webui": {
+    name: "Open WebUI",
+    version: "main",
+  },
+  qdrant: {
+    name: "Qdrant",
+    version: "1.13",
+  },
+  weaviate: {
+    name: "Weaviate",
+    version: "1.27",
+  },
+  langfuse: {
+    name: "Langfuse",
+    version: "3",
+  },
 };
 
 /**

@@ -192,6 +192,11 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `flowise/` | Visual AI agent builder on port 3000 |
 | `anything-llm/` | Private AI document workspace on port 3001 |
 | `litellm/` | LLM proxy gateway with PostgreSQL on port 4000 |
+| `ollama/` | Local LLM inference API on port 11434 |
+| `open-webui/` | Self-hosted chat UI for Ollama on port 8080 |
+| `qdrant/` | Vector database on ports 6333 (HTTP) and 6334 (gRPC) |
+| `weaviate/` | AI-native vector database on ports 8080 and 50051 |
+| `langfuse/` | LLM observability stack on port 3000 (Postgres, ClickHouse, Redis, MinIO) |
 
 ---
 
