@@ -1,0 +1,56 @@
+# documentation: https://surrealdb.com/docs/surrealdb/installation/running/file
+# shortDescription: Multi-model cloud database for documents, graphs, and SQL
+# longDescription: <p>SurrealDB is a scalable <strong>multi-model database</strong> supporting document, graph, and SQL query patterns over HTTP and WebSocket.</p><p>Compose-only template using magic <code>SERVICE_USER_SURREALDB</code> and <code>SERVICE_PASSWORD_SURREALDB</code> for authentication.</p>
+# category: database,nosql
+# tags: surrealdb,database,nosql,graph,document,sql
+# logo: svgs/surrealdb.svg
+# port: 8000
+
+services:
+  surrealdb:
+    image: ${SURREALDB_IMAGE:-surrealdb/surrealdb:v2.3.7}
+    restart: ${SURREALDB_RESTART_POLICY:-unless-stopped}
+    user: root
+
+    ports:
+      - '${SERVICE_PORT_SURREALDB:-8000}:8000'
+
+    command:
+      - start
+      - --bind
+      - 0.0.0.0:8000
+      - --log
+      - ${SURREALDB_LOG_LEVEL:-info}
+      - --user
+      - ${SERVICE_USER_SURREALDB}
+      - --pass
+      - ${SERVICE_PASSWORD_SURREALDB}
+      - ${SURREALDB_STORAGE:-rocksdb:/data/database.db}
+
+    volumes:
+      - surrealdb_data:/data
+
+    healthcheck:
+      test: ['CMD', '/surreal', 'isready', '--conn', 'http://127.0.0.1:8000']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  surrealdb_data:

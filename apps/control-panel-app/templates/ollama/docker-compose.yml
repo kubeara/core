@@ -22,7 +22,7 @@ services:
       - ollama_data:/root/.ollama
 
     healthcheck:
-      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:11434/api/tags || exit 1']
+      test: ['CMD', 'ollama', 'list']
       interval: 15s
       timeout: 10s
       retries: 5
