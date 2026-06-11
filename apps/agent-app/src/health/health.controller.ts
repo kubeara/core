@@ -1,6 +1,6 @@
 import { Controller, Get } from "@nestjs/common";
 import { SocketClientService } from "../socket-client/socket-client.service";
-import { ContainerDiscoveryService } from "../container-discovery/container-discovery.service";
+import { ContainerService } from "../container/container.service";
 import { ServerResourcesService } from "../server-resources/server-resources.service";
 import type { ServerResourcesMetricsPayload } from "@shared/socket-events";
 
@@ -12,7 +12,7 @@ export class HealthController {
    */
   constructor(
     private readonly socketClientService: SocketClientService,
-    private readonly containerDiscoveryService: ContainerDiscoveryService,
+    private readonly containerService: ContainerService,
     private readonly serverResourcesService: ServerResourcesService,
   ) {}
 
@@ -51,7 +51,7 @@ export class HealthController {
     error?: string;
   }> {
     const result =
-      await this.containerDiscoveryService.discoverContainers("health-check");
+      await this.containerService.discoverContainers("health-check");
     return {
       count: result.containers.length,
       containers: result.containers,

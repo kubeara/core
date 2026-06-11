@@ -1,6 +1,8 @@
 import { apiClient } from "@/api/axios";
 import { unwrapServerApiData } from "@/features/servers/utils/server-api-error";
 import type {
+  ContainerActionResult,
+  ContainerActionType,
   DeployTemplateInput,
   DeployTemplateResult,
   DeploymentDetail,
@@ -24,6 +26,29 @@ export async function deployTemplate(
   return unwrapServerApiData<DeployTemplateResult>(
     responseBody(response),
     "Failed to start deployment",
+  );
+}
+
+export async function executeContainerAction(
+  serverId: string,
+  containerId: string,
+  action: ContainerActionType,
+): Promise<ContainerActionResult> {
+  const encodedServerId = encodeURIComponent(serverId);
+  const encodedContainerId = encodeURIComponent(containerId);
+
+  const response =
+    action === "delete"
+      ? await apiClient.delete(
+          `/deployments/${encodedServerId}/containers/${encodedContainerId}`,
+        )
+      : await apiClient.post(
+          `/deployments/${encodedServerId}/containers/${encodedContainerId}/${action}`,
+        );
+
+  return unwrapServerApiData<ContainerActionResult>(
+    responseBody(response),
+    `Failed to ${action} container`,
   );
 }
 

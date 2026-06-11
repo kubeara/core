@@ -66,10 +66,14 @@ import { ERROR_MESSAGES } from "@control-panel/constants/error";
 import { SUCCESS_MESSAGES } from "@control-panel/constants/success";
 import { ServiceResponse } from "@control-panel/common/interfaces/success-response.interface";
 import { PaginatedResponse, parseDockerPsStdout } from "@shared/common";
-import type {
-  DiscoveredContainerPayload,
-  ServerResourcesMetricsPayload,
+import {
+  DeploymentEvents,
+  type ContainerActionResponsePayload,
+  type ContainerActionType,
+  type DiscoveredContainerPayload,
+  type ServerResourcesMetricsPayload,
 } from "@shared/socket-events";
+import { buildHostContainerActionCommand } from "@control-panel/modules/deployments/utils/container-action.util";
 import { LocalAgentHostAdapter } from "../adapters/local-agent-host.adapter";
 import { SshAgentHostAdapter } from "../adapters/ssh-agent-host.adapter";
 import {
@@ -99,6 +103,7 @@ export class ServerConnectionsService {
   private readonly logger = new Logger(ServerConnectionsService.name);
 
   private static readonly SOCKET_RESOURCES_ATTEMPT_MS = 5_000;
+  private static readonly SOCKET_CONTAINER_DISCOVER_ATTEMPT_MS = 15_000;
 
   constructor(
     @InjectRepository(ServerEntity)
@@ -179,10 +184,72 @@ export class ServerConnectionsService {
   private static readonly DOCKER_PS_COMMAND =
     "docker ps -a --format '{{json .}}'";
   private static readonly DOCKER_PS_TIMEOUT_MS = 10_000;
+  private static readonly CONTAINER_ACTION_TIMEOUT_MS = 60_000;
+
+  /**
+   * Lists Docker containers on a server via the connected agent socket first,
+   * then falls back to direct host SSH/local execution.
+   */
+  async discoverContainers(
+    serverId: string,
+  ): Promise<DiscoveredContainerPayload[]> {
+    let discovered: DiscoveredContainerPayload[] | null = null;
+    let socketError: string | null = null;
+
+    if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+      const agentVersion =
+        this.deploymentGateway.getAgentVersion(serverId) ?? "unknown";
+      const supportsDiscovery = this.deploymentGateway.agentSupports(
+        serverId,
+        DeploymentEvents.CONTAINER_DISCOVER,
+      );
+
+      this.logger.log(
+        `[CONTAINER_DISCOVER] serverId=${serverId} agentVersion=${agentVersion} supportsContainerDiscover=${supportsDiscovery}`,
+      );
+
+      if (!supportsDiscovery) {
+        socketError = `Connected agent (version ${agentVersion}) does not support container discovery`;
+        this.logger.warn(
+          `[CONTAINER_DISCOVER] skipping socket for server '${serverId}': ${socketError}`,
+        );
+      } else {
+        try {
+          discovered = await this.deploymentGateway.requestContainerDiscovery(
+            serverId,
+            ServerConnectionsService.SOCKET_CONTAINER_DISCOVER_ATTEMPT_MS,
+          );
+          this.logger.log(
+            `[CONTAINER_DISCOVER] agent returned ${discovered.length} container(s) for server '${serverId}'`,
+          );
+        } catch (error) {
+          socketError = error instanceof Error ? error.message : String(error);
+          this.logger.warn(
+            `[CONTAINER_DISCOVER] agent socket failed for server '${serverId}': ${socketError}`,
+          );
+        }
+      }
+    } else {
+      socketError = `No connected agent for server '${serverId}'`;
+      this.logger.warn(
+        `[CONTAINER_DISCOVER] no connected agent for server '${serverId}'`,
+      );
+    }
+
+    if (!discovered) {
+      this.logger.warn(
+        `[CONTAINER_DISCOVER] using host fallback for server '${serverId}'` +
+          (socketError ? `: ${socketError}` : ""),
+      );
+      return this.discoverContainersOnHost(serverId);
+    }
+
+    return discovered;
+  }
 
   /**
    * Lists Docker containers on the server host via local shell or SSH.
-   * Uses the same host access path as agent install (no WebSocket required).
+   * Used only when the connected agent is unavailable or socket communication fails.
    */
   async discoverContainersOnHost(
     serverId: string,
@@ -246,6 +313,82 @@ export class ServerConnectionsService {
   }
 
   /**
+   * Executes a container lifecycle action directly on the server host via local shell or SSH.
+   * Used only when the connected agent is unavailable or socket communication fails.
+   */
+  async executeContainerActionOnHost(
+    serverId: string,
+    containerId: string,
+    action: ContainerActionType,
+  ): Promise<ContainerActionResponsePayload> {
+    const server = await this.serverRepository.findOne({
+      where: { id: serverId, status: EntityStatus.ACTIVE, deletedAt: IsNull() },
+    });
+
+    if (!server) {
+      throw new NotFoundException(ERROR_MESSAGES.SERVER.NOT_FOUND);
+    }
+
+    const command = buildHostContainerActionCommand(action, containerId);
+    this.logger.log(
+      `[CONTAINER_ACTION] host fallback executing '${command}' on serverId=${serverId}`,
+    );
+    let result: ExecuteResult;
+
+    if (server.serverType === ServerType.LOCAL) {
+      const host = new LocalAgentHostAdapter();
+      result = await host.executeCommand(
+        command,
+        ServerConnectionsService.CONTAINER_ACTION_TIMEOUT_MS,
+      );
+    } else {
+      const credential = await this.credentialRepository.findOne({
+        where: {
+          serverId,
+          status: EntityStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
+        order: { createdAt: "DESC" },
+      });
+
+      if (!credential) {
+        throw new BadRequestException(
+          ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
+        );
+      }
+
+      const sshOptions = this.buildSshOptions(server, credential);
+      let client = this.sshManager.getConnection(serverId);
+      if (!client) {
+        client = await this.sshManager.connect(sshOptions);
+      }
+
+      const host = new SshAgentHostAdapter(client, this.executor);
+      result = await host.executeCommand(
+        command,
+        ServerConnectionsService.CONTAINER_ACTION_TIMEOUT_MS,
+      );
+    }
+
+    const success = Boolean(result.success);
+    const detail =
+      result.stderr?.trim() ||
+      result.stdout?.trim() ||
+      `docker ${action} failed (exit ${result.exitCode ?? "unknown"})`;
+
+    return {
+      requestId: "host-fallback",
+      containerId: containerId.trim(),
+      action,
+      success,
+      stdout: result.stdout ?? "",
+      stderr: result.stderr ?? "",
+      exitCode: result.exitCode ?? (success ? 0 : 1),
+      error: success ? undefined : detail,
+    };
+  }
+
+  /**
    * Fetches on-demand server resource metrics.
    * Tries the connected agent via WebSocket first, then falls back to host SSH/local
    */
@@ -259,20 +402,50 @@ export class ServerConnectionsService {
     let socketError: string | null = null;
 
     if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
-      try {
-        resources = await this.deploymentGateway.requestServerResources(
-          serverId,
-          ServerConnectionsService.SOCKET_RESOURCES_ATTEMPT_MS,
-        );
-      } catch (error) {
-        socketError = error instanceof Error ? error.message : String(error);
+      const agentVersion =
+        this.deploymentGateway.getAgentVersion(serverId) ?? "unknown";
+      const supportsResources = this.deploymentGateway.agentSupports(
+        serverId,
+        DeploymentEvents.SERVER_GET_RESOURCES,
+      );
+
+      this.logger.log(
+        `[SERVER_RESOURCES] serverId=${serverId} agentVersion=${agentVersion} supportsServerResources=${supportsResources}`,
+      );
+
+      if (!supportsResources) {
+        socketError = `Connected agent (version ${agentVersion}) does not support server resource collection`;
         this.logger.warn(
-          `Agent socket resource collection failed for server '${serverId}': ${socketError}`,
+          `[SERVER_RESOURCES] skipping socket for server '${serverId}': ${socketError}`,
         );
+      } else {
+        try {
+          resources = await this.deploymentGateway.requestServerResources(
+            serverId,
+            ServerConnectionsService.SOCKET_RESOURCES_ATTEMPT_MS,
+          );
+          this.logger.log(
+            `[SERVER_RESOURCES] agent returned metrics for server '${serverId}'`,
+          );
+        } catch (error) {
+          socketError = error instanceof Error ? error.message : String(error);
+          this.logger.warn(
+            `[SERVER_RESOURCES] agent socket failed for server '${serverId}': ${socketError}`,
+          );
+        }
       }
+    } else {
+      socketError = `No connected agent for server '${serverId}'`;
+      this.logger.warn(
+        `[SERVER_RESOURCES] no connected agent for server '${serverId}'`,
+      );
     }
 
     if (!resources) {
+      this.logger.warn(
+        `[SERVER_RESOURCES] using host fallback for server '${serverId}'` +
+          (socketError ? `: ${socketError}` : ""),
+      );
       try {
         resources = await this.collectResourcesOnHost(serverId);
       } catch (error) {

@@ -1,7 +1,7 @@
 import { Module, OnModuleInit } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { SocketClientService } from "./socket-client/socket-client.service";
-import { ContainerDiscoveryService } from "./container-discovery/container-discovery.service";
+import { ContainerService } from "./container/container.service";
 import { ServerResourcesService } from "./server-resources/server-resources.service";
 import { HealthController } from "./health/health.controller";
 import { FilesystemService } from "./filesystem/filesystem.service";
@@ -27,7 +27,7 @@ import {
   controllers: [HealthController],
   providers: [
     SocketClientService,
-    ContainerDiscoveryService,
+    ContainerService,
     ServerResourcesService,
     FilesystemService,
     DeployTemplateExecutor,

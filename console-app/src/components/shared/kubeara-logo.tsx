@@ -1,5 +1,5 @@
-import blueLogo from "../../../assets/Kubeara_full_blue_logo.webp";
-import whiteLogo from "../../../assets/Kubeara_full_white_logo.webp";
+import blackLogo from "../../../assets/Logo_black.webp";
+import whiteLogo from "../../../assets/Logo_white.webp";
 
 type KubearaLogoProps = {
   className?: string;
@@ -13,7 +13,7 @@ export function KubearaLogo({ className }: KubearaLogoProps) {
       aria-label="Kubeara"
     >
       <img
-        src={blueLogo}
+        src={blackLogo}
         alt=""
         className="kubeara-logo-image kubeara-logo-image--light"
       />

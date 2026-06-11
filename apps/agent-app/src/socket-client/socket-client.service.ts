@@ -7,12 +7,15 @@ import {
   SocketRemoveMessage,
   DeploymentLogPayload,
   DeploymentEvents,
+  AgentHelloPayload,
+  ContainerActionRequestPayload,
+  ContainerActionResponsePayload,
   ContainerDiscoverRequestPayload,
   ContainerDiscoverResponsePayload,
   ServerGetResourcesRequestPayload,
   ServerGetResourcesResponsePayload,
 } from "@shared/socket-events";
-import { ContainerDiscoveryService } from "../container-discovery/container-discovery.service";
+import { ContainerService } from "../container/container.service";
 import { ServerResourcesService } from "../server-resources/server-resources.service";
 import { DeployTemplateExecutor } from "../executors/deploy-template.executor";
 import type { EnvFileInput, PortFileInput } from "../executors/env-file.util";
@@ -45,7 +48,7 @@ export class SocketClientService {
     private readonly executor: DeployTemplateExecutor,
     private readonly encryptionService: EncryptionService,
     private readonly templatePayloadService: TemplatePayloadService,
-    private readonly containerDiscoveryService: ContainerDiscoveryService,
+    private readonly containerService: ContainerService,
     private readonly serverResourcesService: ServerResourcesService,
   ) {
     this.agentId = this.generateAgentId();
@@ -130,6 +133,7 @@ export class SocketClientService {
         this.connected = true;
         this.logger.log(`Connected with socket ID: ${this.socket?.id}`);
         this.attachInboundHandlers();
+        this.emitAgentHello();
         this.flushPendingStatuses();
         this.flushPendingLogs();
       });
@@ -159,6 +163,7 @@ export class SocketClientService {
 
     this.socket.off(DeploymentEvents.DEPLOY);
     this.socket.off(DeploymentEvents.REMOVE);
+    this.socket.off(DeploymentEvents.CONTAINER_ACTION);
     this.socket.off(DeploymentEvents.CONTAINER_DISCOVER);
     this.socket.off(DeploymentEvents.SERVER_GET_RESOURCES);
 
@@ -171,8 +176,21 @@ export class SocketClientService {
     });
 
     this.socket.on(
+      DeploymentEvents.CONTAINER_ACTION,
+      (payload: ContainerActionRequestPayload) => {
+        this.logger.log(
+          `[CONTAINER_ACTION] socket event received payload=${JSON.stringify(payload)}`,
+        );
+        void this.handleContainerAction(payload);
+      },
+    );
+
+    this.socket.on(
       DeploymentEvents.CONTAINER_DISCOVER,
       (payload: ContainerDiscoverRequestPayload) => {
+        this.logger.log(
+          `[CONTAINER_DISCOVER] socket event received payload=${JSON.stringify(payload)}`,
+        );
         void this.handleContainerDiscover(payload);
       },
     );
@@ -180,8 +198,44 @@ export class SocketClientService {
     this.socket.on(
       DeploymentEvents.SERVER_GET_RESOURCES,
       (payload: ServerGetResourcesRequestPayload) => {
+        this.logger.log(
+          `[SERVER_RESOURCES] socket event received payload=${JSON.stringify(payload)}`,
+        );
         void this.handleServerGetResources(payload);
       },
+    );
+
+    this.logger.log(
+      `[AgentCapabilities] inbound handlers registered: deploy, remove, ${DeploymentEvents.CONTAINER_ACTION}, ${DeploymentEvents.CONTAINER_DISCOVER}, ${DeploymentEvents.SERVER_GET_RESOURCES}`,
+    );
+  }
+
+  private emitAgentHello(): void {
+    if (!this.socket?.connected) {
+      return;
+    }
+
+    const version =
+      process.env.KUBEARA_AGENT_VERSION?.trim() ||
+      process.env.GITHUB_SHA?.trim() ||
+      "dev";
+
+    const payload: AgentHelloPayload = {
+      agentId: this.agentId,
+      capabilities: [
+        DeploymentEvents.DEPLOY,
+        DeploymentEvents.REMOVE,
+        DeploymentEvents.CONTAINER_DISCOVER,
+        DeploymentEvents.CONTAINER_ACTION,
+        DeploymentEvents.SERVER_GET_RESOURCES,
+      ],
+      version,
+      timestamp: new Date().toISOString(),
+    };
+
+    this.socket.emit(DeploymentEvents.AGENT_HELLO, payload);
+    this.logger.log(
+      `[AgentHello] sent version=${version} capabilities=[${payload.capabilities.join(", ")}] socketId=${this.socket.id}`,
     );
   }
 
@@ -330,6 +384,68 @@ export class SocketClientService {
   }
 
   /**
+   * Handles container lifecycle actions from the control panel.
+   */
+  private async handleContainerAction(
+    payload: ContainerActionRequestPayload,
+  ): Promise<void> {
+    const requestId = payload?.requestId?.trim() ?? "";
+    const containerId = payload?.containerId?.trim() ?? "";
+    const action = payload?.action;
+
+    this.logger.log(
+      `Container action request received action=${action ?? "unknown"} containerId=${containerId} requestId=${requestId}`,
+    );
+
+    let response: ContainerActionResponsePayload;
+    try {
+      if (!requestId || !containerId || !action) {
+        response = {
+          requestId,
+          containerId,
+          action: action ?? "stop",
+          success: false,
+          stdout: "",
+          stderr: "",
+          exitCode: 1,
+          error: "Missing requestId, containerId, or action",
+        };
+      } else {
+        response = await this.containerService.executeAction(
+          requestId,
+          containerId,
+          action,
+        );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Container action handler failed: ${message}`);
+      response = {
+        requestId,
+        containerId,
+        action: action ?? "stop",
+        success: false,
+        stdout: "",
+        stderr: "",
+        exitCode: 1,
+        error: message,
+      };
+    }
+
+    if (!this.socket?.connected) {
+      this.logger.warn(
+        "Cannot send container action result: socket disconnected",
+      );
+      return;
+    }
+
+    this.socket.emit(DeploymentEvents.CONTAINER_ACTION_RESULT, response);
+    this.logger.log(
+      `Container action result sent requestId=${requestId} action=${response.action} success=${response.success}${response.error ? ` error=${response.error}` : ""}`,
+    );
+  }
+
+  /**
    * Handles remove requests from control panel and tears down deployment resources.
    */
   private async handleContainerDiscover(
@@ -343,7 +459,7 @@ export class SocketClientService {
     let response: ContainerDiscoverResponsePayload;
     try {
       response = requestId
-        ? await this.containerDiscoveryService.discoverContainers(requestId)
+        ? await this.containerService.discoverContainers(requestId)
         : {
             requestId: "",
             containers: [],

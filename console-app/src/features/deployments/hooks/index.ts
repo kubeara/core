@@ -1,10 +1,18 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ApiError, getErrorMessage, toApiError } from "@/api/api-error";
+import { showErrorToast, showSuccessToast } from "@/lib/toast";
 import { QUERY_KEYS } from "@/constants/query-keys";
 import {
+  executeContainerAction,
   fetchDeployment,
   fetchServerContainers,
   fetchServerDeployments,
 } from "../api";
+import {
+  getContainerActionErrorMessage,
+  getContainerActionSuccessMessage,
+} from "../constants/container-action-messages";
+import type { ContainerActionResult, ContainerActionType } from "../types";
 
 type UseServerContainersQueryOptions = {
   /** When false, skips fetch/poll but still returns cached data if available. */
@@ -65,6 +73,51 @@ export function useDeploymentQuery(deploymentId: string | undefined) {
         return false;
       }
       return 5_000;
+    },
+  });
+}
+
+/**
+ * The input for the container action mutation.
+ */
+type ContainerActionInput = {
+  serverId: string;
+  containerId: string;
+  containerName: string;
+  action: ContainerActionType;
+};
+
+export function useContainerActionMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation<ContainerActionResult, ApiError, ContainerActionInput>({
+    mutationFn: async ({ serverId, containerId, action }) => {
+      try {
+        return await executeContainerAction(serverId, containerId, action);
+      } catch (error) {
+        throw toApiError(error);
+      }
+    },
+    onSuccess: (data, { serverId, containerName, action }) => {
+      showSuccessToast(
+        getContainerActionSuccessMessage(
+          action,
+          containerName,
+          data.executedVia,
+        ),
+      );
+      void queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.deployments.containers(serverId),
+      });
+    },
+    onError: (error, { action, containerName }) => {
+      showErrorToast(
+        getContainerActionErrorMessage(
+          action,
+          containerName,
+          getErrorMessage(error),
+        ),
+      );
     },
   });
 }
