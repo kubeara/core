@@ -56,9 +56,8 @@ export class AuthService {
   ) {}
 
   private resolveRefreshExpiresIn(): StringValue {
-    return (
-      this.configService.get<StringValue>("REFRESH_TOKEN_EXPIRES_IN") ??
-      this.configService.getOrThrow<StringValue>("JWT_REFRESH_TOKEN_EXPIRES_IN")
+    return this.configService.getOrThrow<StringValue>(
+      "REFRESH_TOKEN_EXPIRES_IN",
     );
   }
 
@@ -89,9 +88,9 @@ export class AuthService {
       jti: randomUUID(),
     };
 
-    const accessExpiresIn =
-      this.configService.get<StringValue>("ACCESS_TOKEN_EXPIRES_IN") ??
-      this.configService.getOrThrow<StringValue>("JWT_ACCESS_TOKEN_EXPIRES_IN");
+    const accessExpiresIn = this.configService.getOrThrow<StringValue>(
+      "ACCESS_TOKEN_EXPIRES_IN",
+    );
 
     const refreshExpiresIn = this.resolveRefreshExpiresIn();
 

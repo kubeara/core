@@ -93,10 +93,7 @@ export class AuthCookieService {
    */
   private getAccessTokenMaxAgeMs(): number {
     return this.expiresInToMs(
-      this.resolveExpiresIn(
-        "ACCESS_TOKEN_EXPIRES_IN",
-        "JWT_ACCESS_TOKEN_EXPIRES_IN",
-      ),
+      this.configService.getOrThrow<StringValue>("ACCESS_TOKEN_EXPIRES_IN"),
     );
   }
 
@@ -105,23 +102,7 @@ export class AuthCookieService {
    */
   private getRefreshTokenMaxAgeMs(): number {
     return this.expiresInToMs(
-      this.resolveExpiresIn(
-        "REFRESH_TOKEN_EXPIRES_IN",
-        "JWT_REFRESH_TOKEN_EXPIRES_IN",
-      ),
-    );
-  }
-
-  /**
-   * Resolve the expires in value from the configuration
-   */
-  private resolveExpiresIn(
-    primaryKey: string,
-    fallbackKey: string,
-  ): StringValue {
-    return (
-      this.configService.get<StringValue>(primaryKey) ??
-      this.configService.getOrThrow<StringValue>(fallbackKey)
+      this.configService.getOrThrow<StringValue>("REFRESH_TOKEN_EXPIRES_IN"),
     );
   }
 
