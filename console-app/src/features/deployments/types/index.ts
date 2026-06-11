@@ -65,6 +65,21 @@ export interface DeployTemplateResult {
   publicUrl?: string;
 }
 
+export type ContainerActionType = "stop" | "restart" | "delete";
+
+export type ContainerActionExecutionPath = "agent" | "host";
+
+export interface ContainerActionResult {
+  action: ContainerActionType;
+  containerId: string;
+  success: boolean;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  executedVia: ContainerActionExecutionPath;
+  message: string;
+}
+
 export interface DeploymentLogLine {
   id: string;
   message: string;
