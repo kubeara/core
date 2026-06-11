@@ -166,6 +166,9 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | Template | Notes |
 |----------|--------|
 | `postgres/` | Compose-only PostgreSQL; magic vars; `SERVICE_PORT_POSTGRES`, passwords, etc. |
+| `mysql/` | Standalone MySQL 8.4 on port 3306 |
+| `mariadb/` | Standalone MariaDB 11.4 on port 3306 |
+| `mongodb/` | Standalone MongoDB 8.0 on port 27017 |
 | `n8n/` | Compose-only; `SERVICE_URL_N8N_5678` declaration + Traefik-friendly URL vars |
 | `uptime-kuma/` | Self-hosted uptime monitoring on port 3001 |
 | `grafana/` | Dashboards; `SERVICE_URL_GRAFANA_3000` + admin credentials |

@@ -1,0 +1,53 @@
+# documentation: https://www.mongodb.com/docs/manual/tutorial/install-mongodb-community-with-docker/
+# shortDescription: Document-oriented NoSQL database
+# longDescription: <p>MongoDB is a popular <strong>document database</strong> for flexible schemas, JSON-like documents, and horizontal scaling.</p><p>Compose-only template using magic <code>SERVICE_*</code> variables for credentials and host port configuration.</p>
+# category: database,nosql
+# tags: mongodb,database,nosql,document,json
+# logo: svgs/mongodb-svgrepo-com.svg
+# port: 27017
+
+services:
+  mongodb:
+    image: ${MONGODB_IMAGE:-mongo:8.0}
+    restart: ${MONGODB_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_MONGODB:-27017}:27017'
+
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${SERVICE_USER_MONGODB}
+      MONGO_INITDB_ROOT_PASSWORD: ${SERVICE_PASSWORD_MONGODB}
+      MONGO_INITDB_DATABASE: ${MONGODB_DB:-admin}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - mongodb_data:/data/db
+
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'mongosh --username "$$MONGO_INITDB_ROOT_USERNAME" --password "$$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --eval "db.adminCommand(''ping'')" || exit 1',
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  mongodb_data:

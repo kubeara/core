@@ -64,6 +64,18 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "PostgreSQL",
     version: "16",
   },
+  mysql: {
+    name: "MySQL",
+    version: "8.4",
+  },
+  mariadb: {
+    name: "MariaDB",
+    version: "11.4",
+  },
+  mongodb: {
+    name: "MongoDB",
+    version: "8.0",
+  },
   redis: {
     name: "Redis",
     version: "7",
