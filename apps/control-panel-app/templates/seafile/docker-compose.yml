@@ -1,0 +1,142 @@
+# documentation: https://manual.seafile.com/13.0/setup/setup_ce_by_docker/
+# shortDescription: Self-hosted file sync and sharing platform
+# longDescription: <p>Seafile is an open-source <strong>file sync and share</strong> platform for teams and organizations.</p><p>Includes MariaDB and Redis. Admin login uses <code>SEAFILE_ADMIN_EMAIL</code> and <code>SERVICE_PASSWORD_SEAFILE_ADMIN</code> on first launch.</p>
+# category: storage,collaboration
+# tags: seafile,files,cloud,storage,sync,sharing
+# port: 80
+
+services:
+  seafile:
+    image: ${SEAFILE_IMAGE:-seafileltd/seafile-mc:13.0-latest}
+    restart: ${SEAFILE_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_SEAFILE:-80}:80'
+
+    environment:
+      - SERVICE_URL_SEAFILE_80
+      - SEAFILE_MYSQL_DB_HOST=${SEAFILE_DB_HOST:-mariadb}
+      - SEAFILE_MYSQL_DB_PORT=${SEAFILE_DB_PORT:-3306}
+      - SEAFILE_MYSQL_DB_USER=${SERVICE_USER_SEAFILE}
+      - SEAFILE_MYSQL_DB_PASSWORD=${SERVICE_PASSWORD_SEAFILE}
+      - INIT_SEAFILE_MYSQL_ROOT_PASSWORD=${SERVICE_PASSWORD_MARIADB_ROOT}
+      - SEAFILE_MYSQL_DB_CCNET_DB_NAME=${SEAFILE_CCNET_DB_NAME:-ccnet_db}
+      - SEAFILE_MYSQL_DB_SEAFILE_DB_NAME=${SEAFILE_SEAFILE_DB_NAME:-seafile_db}
+      - SEAFILE_MYSQL_DB_SEAHUB_DB_NAME=${SEAFILE_SEAHUB_DB_NAME:-seahub_db}
+      - INIT_SEAFILE_ADMIN_EMAIL=${SEAFILE_ADMIN_EMAIL:-admin@example.com}
+      - INIT_SEAFILE_ADMIN_PASSWORD=${SERVICE_PASSWORD_SEAFILE_ADMIN}
+      - SEAFILE_SERVER_HOSTNAME=${SEAFILE_SERVER_HOSTNAME:-${SERVICE_FQDN_SEAFILE:-localhost}}
+      - SEAFILE_SERVER_PROTOCOL=${SEAFILE_SERVER_PROTOCOL:-http}
+      - JWT_PRIVATE_KEY=${SERVICE_HEX_128_SEAFILE}
+      - CACHE_PROVIDER=${SEAFILE_CACHE_PROVIDER:-redis}
+      - REDIS_HOST=${SEAFILE_REDIS_HOST:-redis}
+      - REDIS_PORT=${SEAFILE_REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${SERVICE_PASSWORD_REDIS}
+      - TIME_ZONE=${TZ:-UTC}
+      - ENABLE_GO_FILESERVER=${SEAFILE_ENABLE_GO_FILESERVER:-true}
+      - SEAFILE_LOG_TO_STDOUT=${SEAFILE_LOG_TO_STDOUT:-false}
+
+    volumes:
+      - seafile_data:/shared
+
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1/ || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mariadb:
+    image: ${SEAFILE_MARIADB_IMAGE:-mariadb:11.4}
+    restart: ${SEAFILE_MARIADB_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      MARIADB_ROOT_PASSWORD: ${SERVICE_PASSWORD_MARIADB_ROOT}
+      MARIADB_AUTO_UPGRADE: ${SEAFILE_MARIADB_AUTO_UPGRADE:-1}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - seafile_mariadb_data:/var/lib/mysql
+
+    healthcheck:
+      test: ['CMD-SHELL', 'healthcheck.sh --connect --innodb_initialized']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: ${SEAFILE_REDIS_IMAGE:-redis:7.4-alpine}
+    restart: ${SEAFILE_REDIS_RESTART_POLICY:-unless-stopped}
+
+    command: >
+      sh -c "exec redis-server --requirepass \"$$REDIS_PASSWORD\""
+
+    environment:
+      REDIS_PASSWORD: ${SERVICE_PASSWORD_REDIS}
+
+    volumes:
+      - seafile_redis_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  seafile_data:
+  seafile_mariadb_data:
+  seafile_redis_data:

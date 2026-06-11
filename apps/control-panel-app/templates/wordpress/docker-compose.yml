@@ -52,8 +52,8 @@ services:
         max-file: "3"
 
   mariadb:
-    image: ${MARIADB_IMAGE:-mariadb:latest}
-    restart: ${MARIADB_RESTART_POLICY:-unless-stopped}
+    image: ${WORDPRESS_MARIADB_IMAGE:-mariadb:latest}
+    restart: ${WORDPRESS_MARIADB_RESTART_POLICY:-unless-stopped}
 
     environment:
       MARIADB_USER: ${SERVICE_USER_WORDPRESS}

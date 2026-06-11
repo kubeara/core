@@ -1,6 +1,6 @@
 # documentation: https://docs.directus.io/self-hosted/docker-guide
 # shortDescription: Open-source headless CMS and data platform
-# longDescription: <p>Directus is an open-source <strong>headless CMS</strong> that wraps any SQL database with a real-time API and admin app.</p><p>Includes PostgreSQL. Admin credentials use <code>DIRECTUS_ADMIN_EMAIL</code> and <code>SERVICE_PASSWORD_DIRECTUS</code> on first launch.</p>
+# longDescription: <p>Directus is an open-source <strong>headless CMS</strong> that wraps any SQL database with a real-time API and admin app.</p><p>Includes PostgreSQL. Secrets use <code>SERVICE_HEX_32_DIRECTUS</code>, <code>SERVICE_HEX_64_DIRECTUS</code>, <code>SERVICE_USER_DIRECTUS</code>, and <code>SERVICE_PASSWORD_DIRECTUS</code>.</p>
 # category: cms,content,api
 # tags: directus,cms,headless,api,postgresql,content,data
 # logo: svgs/directus-svgrepo-com.svg

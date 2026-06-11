@@ -119,7 +119,19 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
   monica: {
     name: "Monica",
     version: "4.1.2",
-  }
+  },
+  minio: {
+    name: "MinIO",
+    version: "2025-09",
+  },
+  nextcloud: {
+    name: "Nextcloud",
+    version: "latest",
+  },
+  seafile: {
+    name: "Seafile",
+    version: "13.0",
+  },
 };
 
 /**

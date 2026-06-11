@@ -1,0 +1,55 @@
+# documentation: https://min.io/docs/minio/container/index.html
+# shortDescription: High-performance S3-compatible object storage
+# longDescription: <p>MinIO is a high-performance <strong>object storage</strong> server compatible with the Amazon S3 API.</p><p>API on <code>SERVICE_PORT_MINIO</code> (9000); console on <code>SERVICE_PORT_MINIO_9001</code>. Root credentials use <code>SERVICE_USER_MINIO</code> and <code>SERVICE_PASSWORD_MINIO</code>.</p>
+# category: storage
+# tags: minio,s3,object-storage,storage,blob,files
+# port: 9000
+
+services:
+  minio:
+    image: ${MINIO_IMAGE:-minio/minio:RELEASE.2025-09-07T16-13-09Z}
+    restart: ${MINIO_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_MINIO:-9000}:9000'
+      - '${SERVICE_PORT_MINIO_9001:-9001}:9001'
+
+    command: server /data --console-address ":9001"
+
+    environment:
+      - SERVICE_URL_MINIO_9000
+      - SERVICE_URL_MINIO_9001
+      - MINIO_ROOT_USER=${SERVICE_USER_MINIO}
+      - MINIO_ROOT_PASSWORD=${SERVICE_PASSWORD_MINIO}
+      - MINIO_BROWSER=${MINIO_BROWSER:-on}
+      - MINIO_SERVER_URL=${SERVICE_URL_MINIO:-${SERVICE_URL_MINIO_9000}}
+      - MINIO_BROWSER_REDIRECT_URL=${MINIO_BROWSER_REDIRECT_URL:-http://localhost:9001}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - minio_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  minio_data:

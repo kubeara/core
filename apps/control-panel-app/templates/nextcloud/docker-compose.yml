@@ -1,0 +1,139 @@
+# documentation: https://docs.nextcloud.com/server/latest/admin_manual/installation/docker/
+# shortDescription: Self-hosted file sync and collaboration platform
+# longDescription: <p>Nextcloud is a self-hosted <strong>file sync and share</strong> platform with calendar, contacts, and collaboration apps.</p><p>Includes MariaDB and Redis. Database credentials use <code>SERVICE_USER_NEXTCLOUD</code> and <code>SERVICE_PASSWORD_NEXTCLOUD</code>; admin password uses <code>SERVICE_PASSWORD_NEXTCLOUD_ADMIN</code>.</p>
+# category: storage,collaboration
+# tags: nextcloud,files,cloud,storage,collaboration,sync
+# port: 80
+
+services:
+  nextcloud:
+    image: ${NEXTCLOUD_IMAGE:-nextcloud:latest}
+    restart: ${NEXTCLOUD_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_NEXTCLOUD:-80}:80'
+
+    environment:
+      - SERVICE_URL_NEXTCLOUD_80
+      - MYSQL_HOST=${NEXTCLOUD_DB_HOST:-mariadb}
+      - MYSQL_DATABASE=${NEXTCLOUD_DB_NAME:-nextcloud}
+      - MYSQL_USER=${SERVICE_USER_NEXTCLOUD}
+      - MYSQL_PASSWORD=${SERVICE_PASSWORD_NEXTCLOUD}
+      - REDIS_HOST=${NEXTCLOUD_REDIS_HOST:-redis}
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER:-admin}
+      - NEXTCLOUD_ADMIN_PASSWORD=${SERVICE_PASSWORD_NEXTCLOUD_ADMIN}
+      - NEXTCLOUD_TRUSTED_DOMAINS=${NEXTCLOUD_TRUSTED_DOMAINS:-localhost}
+      - OVERWRITEHOST=${SERVICE_FQDN_NEXTCLOUD:-${SERVICE_FQDN_NEXTCLOUD_80:-localhost}}
+      - OVERWRITEPROTOCOL=${NEXTCLOUD_OVERWRITE_PROTOCOL:-http}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - nextcloud_data:/var/www/html
+
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/status.php || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mariadb:
+    image: ${NEXTCLOUD_MARIADB_IMAGE:-mariadb:11.4}
+    restart: ${NEXTCLOUD_MARIADB_RESTART_POLICY:-unless-stopped}
+
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+
+    environment:
+      MARIADB_ROOT_PASSWORD: ${SERVICE_PASSWORD_MARIADB_ROOT}
+      MARIADB_DATABASE: ${NEXTCLOUD_DB_NAME:-nextcloud}
+      MARIADB_USER: ${SERVICE_USER_NEXTCLOUD}
+      MARIADB_PASSWORD: ${SERVICE_PASSWORD_NEXTCLOUD}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - nextcloud_mariadb_data:/var/lib/mysql
+
+    healthcheck:
+      test: ['CMD-SHELL', 'healthcheck.sh --connect --innodb_initialized']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: ${NEXTCLOUD_REDIS_IMAGE:-redis:7.4-alpine}
+    restart: ${NEXTCLOUD_REDIS_RESTART_POLICY:-unless-stopped}
+
+    command: >
+      sh -c "if [ -n \"$$REDIS_PASSWORD\" ]; then
+      exec redis-server --requirepass \"$$REDIS_PASSWORD\";
+      else exec redis-server; fi"
+
+    environment:
+      REDIS_PASSWORD: ${SERVICE_PASSWORD_REDIS}
+
+    volumes:
+      - nextcloud_redis_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  nextcloud_data:
+  nextcloud_mariadb_data:
+  nextcloud_redis_data:

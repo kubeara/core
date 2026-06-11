@@ -179,6 +179,9 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `strapi/` | Headless CMS with PostgreSQL on port 1337 (`naskio/strapi` community image) |
 | `pocketbase/` | Single-container BaaS with SQLite on port 8090 |
 | `monica/` | Personal CRM with MariaDB on port 80 |
+| `minio/` | S3-compatible object storage on ports 9000 (API) and 9001 (console) |
+| `nextcloud/` | File sync and collaboration with MariaDB and Redis on port 80 |
+| `seafile/` | File sync and sharing with MariaDB and Redis on port 80 |
 
 ---
 

@@ -13,6 +13,9 @@ services:
     ports:
       - '${SERVICE_PORT_POCKETBASE:-8090}:8090'
 
+    environment:
+      - SERVICE_URL_POCKETBASE_8090
+
     volumes:
       - pocketbase_data:/pb_data
 
