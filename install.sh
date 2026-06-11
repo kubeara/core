@@ -276,8 +276,8 @@ services:
       ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?Set ENCRYPTION_SECRET in .env.control-panel}
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.control-panel}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET in .env.control-panel}
-      JWT_ACCESS_TOKEN_EXPIRES_IN: ${JWT_ACCESS_TOKEN_EXPIRES_IN:-15m}
-      JWT_REFRESH_TOKEN_EXPIRES_IN: ${JWT_REFRESH_TOKEN_EXPIRES_IN:-7d}
+      ACCESS_TOKEN_EXPIRES_IN: ${ACCESS_TOKEN_EXPIRES_IN:-15m}
+      REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-7d}
       CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:-}
       KUBEARA_AGENT_IMAGE: ${KUBEARA_AGENT_IMAGE:-kubeara/agent:latest}
     volumes:
@@ -358,8 +358,8 @@ CONTROL_PANEL_URL=${control_panel_url}
 ENCRYPTION_SECRET=${secret}
 JWT_SECRET=${jwt_access}
 JWT_REFRESH_SECRET=${jwt_refresh}
-JWT_ACCESS_TOKEN_EXPIRES_IN=${JWT_ACCESS_TOKEN_EXPIRES_IN:-15m}
-JWT_REFRESH_TOKEN_EXPIRES_IN=${JWT_REFRESH_TOKEN_EXPIRES_IN:-7d}
+ACCESS_TOKEN_EXPIRES_IN=${ACCESS_TOKEN_EXPIRES_IN:-15m}
+REFRESH_TOKEN_EXPIRES_IN=${REFRESH_TOKEN_EXPIRES_IN:-7d}
 DB_HOST=postgres
 DB_PORT=5432
 DB_USERNAME=postgres
@@ -436,12 +436,12 @@ ensure_jwt_config() {
     set_env_var "JWT_REFRESH_SECRET" "${JWT_REFRESH_SECRET:-$(openssl rand -hex 32)}" "${env_path}"
   fi
 
-  if ! grep -qE '^[[:space:]]*JWT_ACCESS_TOKEN_EXPIRES_IN=' "${env_path}"; then
-    set_env_var "JWT_ACCESS_TOKEN_EXPIRES_IN" "${JWT_ACCESS_TOKEN_EXPIRES_IN:-15m}" "${env_path}"
+  if ! grep -qE '^[[:space:]]*ACCESS_TOKEN_EXPIRES_IN=' "${env_path}"; then
+    set_env_var "ACCESS_TOKEN_EXPIRES_IN" "${ACCESS_TOKEN_EXPIRES_IN:-15m}" "${env_path}"
   fi
 
-  if ! grep -qE '^[[:space:]]*JWT_REFRESH_TOKEN_EXPIRES_IN=' "${env_path}"; then
-    set_env_var "JWT_REFRESH_TOKEN_EXPIRES_IN" "${JWT_REFRESH_TOKEN_EXPIRES_IN:-7d}" "${env_path}"
+  if ! grep -qE '^[[:space:]]*REFRESH_TOKEN_EXPIRES_IN=' "${env_path}"; then
+    set_env_var "REFRESH_TOKEN_EXPIRES_IN" "${REFRESH_TOKEN_EXPIRES_IN:-7d}" "${env_path}"
   fi
 }
 

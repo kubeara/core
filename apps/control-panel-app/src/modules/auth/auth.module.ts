@@ -32,9 +32,9 @@ import { AuthSessionLookupService } from "./services/auth-session-lookup.service
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>("JWT_SECRET"),
         signOptions: {
-          expiresIn:
-            configService.get<StringValue>("ACCESS_TOKEN_EXPIRES_IN") ??
-            configService.get<StringValue>("JWT_ACCESS_TOKEN_EXPIRES_IN"),
+          expiresIn: configService.getOrThrow<StringValue>(
+            "ACCESS_TOKEN_EXPIRES_IN",
+          ),
         },
       }),
     }),
