@@ -88,7 +88,7 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
       COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-lax}
       CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:-}
-      KUBEARA_AGENT_IMAGE: ${KUBEARA_AGENT_IMAGE:-kubeara/agent:latest}
+      KUBEARA_AGENT_IMAGE: ${KUBEARA_AGENT_IMAGE:-kubeara/agent:prod}
     volumes:
       - ./.env.control-panel:/app/apps/control-panel-app/.env:ro
     depends_on:
