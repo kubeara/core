@@ -169,6 +169,10 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `mysql/` | Standalone MySQL 8.4 on port 3306 |
 | `mariadb/` | Standalone MariaDB 11.4 on port 3306 |
 | `mongodb/` | Standalone MongoDB 8.0 on port 27017 |
+| `surrealdb/` | Multi-model database on port 8000 |
+| `clickhouse/` | OLAP analytics database on ports 8123 (HTTP) and 9000 (native) |
+| `redis/` | In-memory cache on port 6379 |
+| `valkey/` | Redis-compatible cache (Valkey) on port 6379 with AOF persistence |
 | `n8n/` | Compose-only; `SERVICE_URL_N8N_5678` declaration + Traefik-friendly URL vars |
 | `uptime-kuma/` | Self-hosted uptime monitoring on port 3001 |
 | `grafana/` | Dashboards; `SERVICE_URL_GRAFANA_3000` + admin credentials |

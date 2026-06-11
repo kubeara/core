@@ -80,6 +80,14 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Redis",
     version: "7",
   },
+  valkey: {
+    name: "Valkey",
+    version: "8",
+  },
+  clickhouse: {
+    name: "ClickHouse",
+    version: "25.3",
+  },
   n8n: {
     name: "n8n",
     version: "2.10.2",
