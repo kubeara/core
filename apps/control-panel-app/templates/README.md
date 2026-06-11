@@ -197,6 +197,7 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `qdrant/` | Vector database on ports 6333 (HTTP) and 6334 (gRPC) |
 | `weaviate/` | AI-native vector database on ports 8080 and 50051 |
 | `langfuse/` | LLM observability stack on port 3000 (Postgres, ClickHouse, Redis, MinIO) |
+| `netdata/` | Real-time host and container monitoring on port 19999 |
 
 ---
 

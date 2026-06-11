@@ -184,6 +184,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Langfuse",
     version: "3",
   },
+  netdata: {
+    name: "Netdata",
+    version: "stable",
+  },
 };
 
 /**
