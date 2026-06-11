@@ -1,0 +1,51 @@
+# documentation: https://mariadb.com/kb/en/mariadb-server-docker-official-image-environment-variables/
+# shortDescription: Community-developed MySQL-compatible relational database
+# longDescription: <p>MariaDB is a popular <strong>MySQL-compatible</strong> relational database with strong open-source community support.</p><p>Compose-only template using magic <code>SERVICE_*</code> variables for credentials and host port configuration.</p>
+# category: database,mysql,sql
+# tags: mariadb,mysql,database,sql,relational
+# logo: svgs/mariadb-svgrepo-com.svg
+# port: 3306
+
+services:
+  mariadb:
+    image: ${MARIADB_IMAGE:-mariadb:11.4}
+    restart: ${MARIADB_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_MARIADB:-3306}:3306'
+
+    environment:
+      MARIADB_ROOT_PASSWORD: ${SERVICE_PASSWORD_MARIADB_ROOT}
+      MARIADB_DATABASE: ${MARIADB_DB:-mariadb}
+      MARIADB_USER: ${SERVICE_USER_MARIADB}
+      MARIADB_PASSWORD: ${SERVICE_PASSWORD_MARIADB}
+      MARIADB_AUTO_UPGRADE: ${MARIADB_AUTO_UPGRADE:-1}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+    healthcheck:
+      test: ['CMD-SHELL', 'healthcheck.sh --connect --innodb_initialized']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  mariadb_data:

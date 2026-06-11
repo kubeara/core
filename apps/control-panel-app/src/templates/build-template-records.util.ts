@@ -64,6 +64,18 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "PostgreSQL",
     version: "16",
   },
+  mysql: {
+    name: "MySQL",
+    version: "8.4",
+  },
+  mariadb: {
+    name: "MariaDB",
+    version: "11.4",
+  },
+  mongodb: {
+    name: "MongoDB",
+    version: "8.0",
+  },
   redis: {
     name: "Redis",
     version: "7",
@@ -111,6 +123,26 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
   strapi: {
     name: "Strapi",
     version: "5.30.1",
+  },
+  pocketbase: {
+    name: "PocketBase",
+    version: "latest",
+  },
+  monica: {
+    name: "Monica",
+    version: "4.1.2",
+  },
+  minio: {
+    name: "MinIO",
+    version: "2025-09",
+  },
+  nextcloud: {
+    name: "Nextcloud",
+    version: "latest",
+  },
+  seafile: {
+    name: "Seafile",
+    version: "13.0",
   },
 };
 
