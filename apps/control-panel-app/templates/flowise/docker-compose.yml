@@ -3,6 +3,7 @@
 # longDescription: <p>Flowise is a drag-and-drop tool for building <strong>AI agents</strong>, chatbots, and LLM workflows.</p><p>Data persists under <code>/root/.flowise</code>. Register your admin account on first launch. Set <code>APP_URL</code> via <code>SERVICE_URL_FLOWISE</code> when behind a reverse proxy.</p>
 # category: ai,automation
 # tags: flowise,ai,llm,agents,workflow,no-code,chatbot
+# logo: svgs/flowise.svg
 # port: 3000
 
 services:

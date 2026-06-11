@@ -3,6 +3,7 @@
 # longDescription: <p>AnythingLLM is a <strong>local-first AI workspace</strong> for chatting with documents, managing LLM connections, and running agents.</p><p>Create your admin account on first launch. JWT signing uses <code>SERVICE_HEX_64_ANYTHINGLLM</code>.</p>
 # category: ai,productivity
 # tags: anythingllm,ai,llm,rag,documents,chat,agents
+# logo: svgs/anything-llm-light.svg
 # port: 3001
 
 services:
