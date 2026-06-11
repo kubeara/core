@@ -9,12 +9,14 @@ import { DataSource, IsNull, Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import dayjs from "dayjs";
 import * as bcrypt from "bcrypt";
+import { randomUUID } from "crypto";
+import { ConfigService } from "@nestjs/config";
+import ms, { StringValue } from "ms";
 import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
 import { OrganizationEntity } from "@control-panel/modules/organizations/entities/organization.entity";
 import { AuthSessionsEntity } from "./entities/auth-sessions.entity";
 import { SignupDto } from "./dto/signup.dto";
 import { LoginDto } from "./dto/login.dto";
-import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { ERROR_MESSAGES } from "@control-panel/constants/error";
 import { SUCCESS_MESSAGES } from "@control-panel/constants/success";
@@ -25,8 +27,15 @@ import { VerifyOtpDto } from "./dto/verify-otp.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { GenerateOTP } from "@control-panel/common/utils/generate-otp";
 import { CODE_TYPE } from "./enum/codeType.enum";
-import { ConfigService } from "@nestjs/config";
 import { SALT_ROUNDS } from "@control-panel/constants/env.constant";
+import { isJwtToken } from "./utils/cookie-extractor.util";
+import { hashToken } from "./utils/token-hash.util";
+import { AuthSessionLookupService } from "./services/auth-session-lookup.service";
+
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -43,36 +52,55 @@ export class AuthService {
     private readonly dataSource: DataSource,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly authSessionLookupService: AuthSessionLookupService,
   ) {}
 
+  private resolveRefreshExpiresIn(): StringValue {
+    return this.configService.getOrThrow<StringValue>(
+      "REFRESH_TOKEN_EXPIRES_IN",
+    );
+  }
+
+  private getRefreshExpiresAt(): number {
+    const expiresIn = this.resolveRefreshExpiresIn();
+    const expiresInMs = ms(expiresIn);
+    if (typeof expiresInMs !== "number") {
+      throw new Error(`Invalid refresh token expiry: ${expiresIn}`);
+    }
+    return dayjs().add(expiresInMs, "millisecond").unix();
+  }
+
   /**
-   * Generate access and refresh tokens
-   * @param user
-   * @param sessionId
-   * @returns
+   * Generate access and refresh tokens for a user
    */
-  private async generateTokens(
-    user: UserEntity,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+  private async generateTokens(user: UserEntity): Promise<AuthTokens> {
     const accessPayload = {
       sub: user.id,
       email: user.email,
       organizationId: user.organizationId,
       tokenType: tokenType.ACCESS,
+      jti: randomUUID(),
     };
 
     const refreshPayload = {
       sub: user.id,
       tokenType: tokenType.REFRESH,
+      jti: randomUUID(),
     };
+
+    const accessExpiresIn = this.configService.getOrThrow<StringValue>(
+      "ACCESS_TOKEN_EXPIRES_IN",
+    );
+
+    const refreshExpiresIn = this.resolveRefreshExpiresIn();
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(accessPayload, {
-        expiresIn: this.configService.get("JWT_ACCESS_TOKEN_EXPIRES_IN"),
+        expiresIn: accessExpiresIn,
       }),
       this.jwtService.signAsync(refreshPayload, {
-        secret: this.configService.get("JWT_REFRESH_SECRET"),
-        expiresIn: this.configService.get("JWT_REFRESH_TOKEN_EXPIRES_IN"),
+        secret: this.configService.getOrThrow<string>("JWT_REFRESH_SECRET"),
+        expiresIn: refreshExpiresIn,
       }),
     ]);
 
@@ -80,9 +108,32 @@ export class AuthService {
   }
 
   /**
-   * Sign up user
-   * @param signupDto
-   * @returns
+   * Persist session tokens to the database
+   */
+  private async persistSessionTokens(
+    session: AuthSessionsEntity,
+    tokens: AuthTokens,
+  ): Promise<void> {
+    session.accessToken = hashToken(tokens.accessToken);
+    session.refreshToken = hashToken(tokens.refreshToken);
+    session.expiresAt = this.getRefreshExpiresAt();
+    await this.authSessionRepository.save(session);
+  }
+
+  private async revokeAllUserSessions(userId: string): Promise<void> {
+    await this.authSessionRepository.update(
+      {
+        userId,
+        status: EntityStatus.ACTIVE,
+      },
+      {
+        status: EntityStatus.INACTIVE,
+      },
+    );
+  }
+
+  /**
+   * Sign up a new user
    */
   async signup(signupDto: SignupDto) {
     const emailNormalized = signupDto.email.toLowerCase().trim();
@@ -150,11 +201,20 @@ export class AuthService {
   }
 
   /**
-   * Login user
-   * @param loginDto
-   * @returns
+   * Login a user
    */
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto): Promise<{
+    message: string;
+    data: {
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        organizationId: string;
+      };
+      tokens: AuthTokens;
+    };
+  }> {
     const emailNormalized = loginDto.email.toLowerCase().trim();
 
     const user = await this.userRepository.findOne({
@@ -178,68 +238,67 @@ export class AuthService {
     await this.userRepository.save(user);
 
     const tokens = await this.generateTokens(user);
+    const session = this.authSessionRepository.create({
+      userId: user.id,
+      tokenType: "jwt",
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresAt: this.getRefreshExpiresAt(),
+      status: EntityStatus.ACTIVE,
+    });
 
-    await this.authSessionRepository.save(
-      this.authSessionRepository.create({
-        userId: user.id,
-        tokenType: "jwt",
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        expiresAt: dayjs().add(7, "day").unix(),
-        status: EntityStatus.ACTIVE,
-      }),
-    );
+    await this.persistSessionTokens(session, tokens);
 
     return {
       message: SUCCESS_MESSAGES.AUTH.LOGIN,
       data: {
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
         user: {
           id: user.id,
           name: user.name,
           email: user.email,
           organizationId: user.organizationId,
         },
+        tokens,
       },
     };
   }
 
   /**
-   * Refresh tokens using refresh token
-   * @param refreshTokenDto
-   * @returns
+   * Refresh a user's tokens
    */
-  async refreshToken(refreshTokenDto: RefreshTokenDto) {
-    const { refreshToken } = refreshTokenDto;
-    try {
-      await this.jwtService.verifyAsync(refreshToken);
-    } catch {
+  async refreshToken(input: {
+    userId: string;
+    refreshToken: string;
+  }): Promise<{ message: string; data: { tokens: AuthTokens } }> {
+    const { userId, refreshToken } = input;
+
+    if (!isJwtToken(refreshToken)) {
       throw new UnauthorizedException(
         ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
       );
     }
 
-    const authSession = await this.authSessionRepository.findOne({
-      where: {
+    const authSession =
+      await this.authSessionLookupService.findSessionByRefreshToken(
+        userId,
         refreshToken,
-        status: EntityStatus.ACTIVE,
-      },
-    });
+      );
 
     if (!authSession) {
+      await this.revokeAllUserSessions(userId);
       throw new UnauthorizedException(
         ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
       );
     }
 
-    if (authSession.refreshToken !== refreshToken) {
+    if (authSession.status !== EntityStatus.ACTIVE) {
+      await this.revokeAllUserSessions(userId);
       throw new UnauthorizedException(
         ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
       );
     }
 
-    if (Number(authSession.expiresAt) <= dayjs().valueOf()) {
+    if (Number(authSession.expiresAt) <= dayjs().unix()) {
       authSession.status = EntityStatus.INACTIVE;
       await this.authSessionRepository.save(authSession);
 
@@ -247,7 +306,7 @@ export class AuthService {
     }
 
     const user = await this.userRepository.findOne({
-      where: { id: authSession.userId },
+      where: { id: userId },
     });
 
     if (!user || user.status !== EntityStatus.ACTIVE) {
@@ -256,43 +315,32 @@ export class AuthService {
 
     const tokens = await this.generateTokens(user);
 
-    authSession.accessToken = tokens.accessToken;
-    authSession.refreshToken = tokens.refreshToken;
-    authSession.expiresAt = dayjs().add(7, "day").unix();
     authSession.metadata = {
       ...(authSession.metadata || {}),
       refreshedAt: dayjs().unix(),
     };
 
-    await this.authSessionRepository.save(authSession);
+    await this.persistSessionTokens(authSession, tokens);
 
     return {
       message: SUCCESS_MESSAGES.AUTH.REFRESH,
-      data: {
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-      },
+      data: { tokens },
     };
   }
 
   /**
-   * Revoke logged out user session
-   * @param user
-   * @param token
-   * @returns
+   * Logout a user
    */
-  async logout(user: UserEntity, token?: string) {
-    if (!token) {
+  async logout(userId: string, accessToken?: string) {
+    if (!accessToken) {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
     }
 
-    const authSession = await this.authSessionRepository.findOne({
-      where: {
-        accessToken: token,
-        userId: user.id,
-        status: EntityStatus.ACTIVE,
-      },
-    });
+    const authSession =
+      await this.authSessionLookupService.findActiveSessionByAccessToken(
+        userId,
+        accessToken,
+      );
 
     if (!authSession) {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
@@ -307,10 +355,17 @@ export class AuthService {
     };
   }
 
+  async logoutAllDevices(userId: string) {
+    await this.revokeAllUserSessions(userId);
+
+    return {
+      message: SUCCESS_MESSAGES.AUTH.LOGOUT_ALL,
+      data: null,
+    };
+  }
+
   /**
-   * Get user profile
-   * @param userId
-   * @returns
+   * Get the profile of the authenticated user
    */
   async getProfile(userId: string) {
     const user = await this.userRepository.findOne({
@@ -342,9 +397,7 @@ export class AuthService {
   }
 
   /**
-   * Forgot password - get otp
-   * @param forgotPasswordDto
-   * @returns
+   * Forgot password
    */
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
     const email = forgotPasswordDto.email.toLowerCase().trim();
@@ -353,9 +406,6 @@ export class AuthService {
       where: { email },
     });
 
-    /**
-     * Never reveal whether email exists.
-     */
     if (!user) {
       return {
         message: SUCCESS_MESSAGES.AUTH.OTP_SENT,
@@ -387,11 +437,6 @@ export class AuthService {
       }),
     );
 
-    /**
-     * TODO
-     * Send email here.
-     */
-
     return {
       message: SUCCESS_MESSAGES.AUTH.OTP_SENT,
       data: {
@@ -401,9 +446,7 @@ export class AuthService {
   }
 
   /**
-   * Verify otp
-   * @param verifyOtpDto
-   * @returns
+   * Verify OTP
    */
   async verifyOtp(verifyOtpDto: VerifyOtpDto) {
     const email = verifyOtpDto.email.toLowerCase().trim();
@@ -460,8 +503,6 @@ export class AuthService {
 
   /**
    * Reset password
-   * @param resetPasswordDto
-   * @returns
    */
   async resetPassword(resetPasswordDto: ResetPasswordDto) {
     const email = resetPasswordDto.email.toLowerCase().trim();
@@ -502,15 +543,7 @@ export class AuthService {
 
     await this.userCodeRepository.save(otpRecord);
 
-    await this.authSessionRepository.update(
-      {
-        userId: user.id,
-        status: EntityStatus.ACTIVE,
-      },
-      {
-        status: EntityStatus.INACTIVE,
-      },
-    );
+    await this.revokeAllUserSessions(user.id);
 
     return {
       message: SUCCESS_MESSAGES.AUTH.PASSWORD_RESET,

@@ -23,13 +23,13 @@ import {
   UpdateServerDto,
 } from "../dto";
 import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
-import { JwtAuthGuard } from "@control-panel/modules/auth/guards/jwt-auth.guard";
+import { AccessTokenGuard } from "@control-panel/modules/auth/guards/auth.guards";
 import { ServiceResponse } from "@control-panel/common/interfaces/success-response.interface";
 import { PaginatedResponse } from "@shared/common";
 import { AuthenticatedRequest } from "../../../common/interfaces/authenticated-request.interface";
 import { ERROR_MESSAGES } from "@control-panel/constants/error";
 
-@UseGuards(JwtAuthGuard)
+@UseGuards(AccessTokenGuard)
 @Controller("servers")
 export class ServersController {
   constructor(

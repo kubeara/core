@@ -1,12 +1,10 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "../layouts/app-layout";
 import { AuthLayout } from "../layouts/auth-layout";
-import { GuestRoute } from "@/features/auth/routes/guest-route";
-import { ProtectedRoute } from "@/features/auth/routes/protected-route";
+import { GuestRoute, HomeRedirect, ProtectedRoute } from "@/features/auth/routes/auth-routes";
 import { DeployConfigurePage } from "@/pages/deploy-configure-page";
 import { DeployLogsPage } from "@/pages/deploy-logs-page";
 import { ForgotPasswordPage } from "@/pages/forgot-password-page";
-import { HomeRedirect } from "@/pages/home-redirect";
 import { LoginPage } from "@/pages/login-page";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { ProfilePage } from "@/pages/profile-page";
