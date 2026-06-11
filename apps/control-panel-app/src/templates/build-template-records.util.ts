@@ -112,6 +112,14 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Strapi",
     version: "5.30.1",
   },
+  pocketbase: {
+    name: "PocketBase",
+    version: "latest",
+  },
+  monica: {
+    name: "Monica",
+    version: "4.1.2",
+  }
 };
 
 /**

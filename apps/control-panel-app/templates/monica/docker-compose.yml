@@ -1,0 +1,102 @@
+# documentation: https://www.monicahq.com/docs/installation/docker
+# shortDescription: Personal CRM to manage relationships and contacts
+# longDescription: <p>Monica is an open-source <strong>personal CRM</strong> for tracking interactions, reminders, and notes about friends, family, and colleagues.</p><p>Includes MariaDB. Register your account on first launch.</p>
+# category: crm,productivity
+# tags: monica,crm,personal,contacts,relationships,mariadb
+# port: 80
+
+services:
+  monica:
+    image: ${MONICA_IMAGE:-monica:4.1.2-apache}
+    restart: ${MONICA_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_MONICA:-80}:80'
+
+    environment:
+      - SERVICE_URL_MONICA_80
+      - APP_ENV=${MONICA_APP_ENV:-production}
+      - APP_DEBUG=${MONICA_APP_DEBUG:-false}
+      - APP_KEY=${MONICA_APP_KEY:-base64:ZGVmYXVsdE1vbmljYUFwcEtleVRlYW1w}
+      - APP_URL=${SERVICE_URL_MONICA:-${SERVICE_URL_MONICA_80:-http://localhost}}
+      - APP_TRUSTED_PROXIES=${MONICA_APP_TRUSTED_PROXIES:-*}
+      - DB_CONNECTION=mysql
+      - DB_HOST=${MONICA_DB_HOST:-mariadb}
+      - DB_PORT=${MONICA_DB_PORT:-3306}
+      - DB_DATABASE=${MONICA_DB_NAME:-monica}
+      - DB_USERNAME=${SERVICE_USER_MONICA}
+      - DB_PASSWORD=${SERVICE_PASSWORD_MONICA}
+      - CACHE_STORE=${MONICA_CACHE_STORE:-database}
+      - SESSION_DRIVER=${MONICA_SESSION_DRIVER:-database}
+      - QUEUE_CONNECTION=${MONICA_QUEUE_CONNECTION:-sync}
+      - MAIL_MAILER=${MONICA_MAIL_MAILER:-log}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - monica_storage:/var/www/html/storage
+
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/ || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mariadb:
+    image: ${MONICA_MARIADB_IMAGE:-mariadb:11.4}
+    restart: ${MONICA_MARIADB_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      MARIADB_ROOT_PASSWORD: ${SERVICE_PASSWORD_MARIADB_ROOT}
+      MARIADB_DATABASE: ${MONICA_DB_NAME:-monica}
+      MARIADB_USER: ${SERVICE_USER_MONICA}
+      MARIADB_PASSWORD: ${SERVICE_PASSWORD_MONICA}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - monica_mariadb_data:/var/lib/mysql
+
+    healthcheck:
+      test: ['CMD-SHELL', 'healthcheck.sh --connect --innodb_initialized']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  monica_storage:
+  monica_mariadb_data:

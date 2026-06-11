@@ -177,6 +177,8 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `wordpress/` | WordPress with MariaDB on port 80 |
 | `directus/` | Headless CMS with PostgreSQL on port 8055 |
 | `strapi/` | Headless CMS with PostgreSQL on port 1337 (`naskio/strapi` community image) |
+| `pocketbase/` | Single-container BaaS with SQLite on port 8090 |
+| `monica/` | Personal CRM with MariaDB on port 80 |
 
 ---
 
