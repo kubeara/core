@@ -189,6 +189,9 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `minio/` | S3-compatible object storage on ports 9000 (API) and 9001 (console) |
 | `nextcloud/` | File sync and collaboration with MariaDB and Redis on port 80 |
 | `seafile/` | File sync and sharing with MariaDB and Redis on port 80 |
+| `flowise/` | Visual AI agent builder on port 3000 |
+| `anything-llm/` | Private AI document workspace on port 3001 |
+| `litellm/` | LLM proxy gateway with PostgreSQL on port 4000 |
 
 ---
 

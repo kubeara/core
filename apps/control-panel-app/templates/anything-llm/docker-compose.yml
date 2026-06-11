@@ -1,0 +1,53 @@
+# documentation: https://docs.anythingllm.com/installation-docker/overview
+# shortDescription: Private all-in-one AI workspace for documents and chat
+# longDescription: <p>AnythingLLM is a <strong>local-first AI workspace</strong> for chatting with documents, managing LLM connections, and running agents.</p><p>Create your admin account on first launch. JWT signing uses <code>SERVICE_HEX_64_ANYTHINGLLM</code>.</p>
+# category: ai,productivity
+# tags: anythingllm,ai,llm,rag,documents,chat,agents
+# port: 3001
+
+services:
+  anything-llm:
+    image: ${ANYTHING_LLM_IMAGE:-mintplexlabs/anythingllm:latest}
+    restart: ${ANYTHING_LLM_RESTART_POLICY:-unless-stopped}
+
+    cap_add:
+      - SYS_ADMIN
+
+    ports:
+      - '${SERVICE_PORT_ANYTHING_LLM:-3001}:3001'
+
+    environment:
+      - SERVICE_URL_ANYTHING_LLM_3001
+      - SERVER_PORT=3001
+      - STORAGE_DIR=/app/server/storage
+      - JWT_SECRET=${SERVICE_HEX_64_ANYTHINGLLM}
+      - DISABLE_TELEMETRY=${ANYTHING_LLM_DISABLE_TELEMETRY:-true}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - anything_llm_data:/app/server/storage
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:3001/api/ping/ || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  anything_llm_data:

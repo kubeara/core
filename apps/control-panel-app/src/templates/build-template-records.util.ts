@@ -152,6 +152,18 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Seafile",
     version: "13.0",
   },
+  flowise: {
+    name: "Flowise",
+    version: "latest",
+  },
+  "anything-llm": {
+    name: "AnythingLLM",
+    version: "latest",
+  },
+  litellm: {
+    name: "LiteLLM",
+    version: "main-stable",
+  },
 };
 
 /**
