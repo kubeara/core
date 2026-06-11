@@ -244,6 +244,60 @@ export class DeploymentsController {
   }
 
   /**
+   * Stop a container on a server (agent-first, host fallback).
+   */
+  @Post(":serverId/containers/:containerId/stop")
+  @HttpCode(200)
+  async stopContainer(
+    @Req() req: { user: UserEntity },
+    @Param("serverId") serverId: string,
+    @Param("containerId") containerId: string,
+  ) {
+    return this.deploymentsService.executeContainerAction(
+      serverId,
+      req.user.id,
+      containerId,
+      "stop",
+    );
+  }
+
+  /**
+   * Restart a container on a server (agent-first, host fallback).
+   */
+  @Post(":serverId/containers/:containerId/restart")
+  @HttpCode(200)
+  async restartContainer(
+    @Req() req: { user: UserEntity },
+    @Param("serverId") serverId: string,
+    @Param("containerId") containerId: string,
+  ) {
+    return this.deploymentsService.executeContainerAction(
+      serverId,
+      req.user.id,
+      containerId,
+      "restart",
+    );
+  }
+
+  /**
+   * Delete a container on a server (agent-first, host fallback).
+   */
+  @Delete(":serverId/containers/:containerId")
+  @HttpCode(200)
+  async deleteContainer(
+    @Req() req: { user: UserEntity },
+    @Param("serverId") serverId: string,
+    @Param("containerId") containerId: string,
+  ) {
+    return this.deploymentsService.executeContainerAction(
+      serverId,
+      req.user.id,
+      containerId,
+      "delete",
+    );
+  }
+
+  /**
    * List environment variables for a deployment
    */
   @Get(":deploymentId/env")

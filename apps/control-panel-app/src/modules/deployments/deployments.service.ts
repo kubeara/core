@@ -20,6 +20,9 @@ import {
   maskEnvMap,
 } from "@shared/common";
 import {
+  ContainerActionResponsePayload,
+  ContainerActionType,
+  DeploymentEvents,
   DeploymentStatus,
   SchemaFieldDetails,
   TemplateSchema,
@@ -44,11 +47,13 @@ import {
   ResolvedDeploymentTarget,
 } from "./dto/deployment.types";
 import { normalizeServerHostForUrls } from "./utils/deployment-server.util";
+import type { ContainerActionResponseDto } from "./dto/container-action-response.dto";
 import type { ServerContainerDto } from "./dto/server-container.dto";
 import {
   mergeDiscoveredContainersWithDeployments,
   sanitizeDeploymentProjectName,
 } from "./utils/container-discovery.util";
+import { assertValidContainerId } from "./utils/container-action.util";
 import type { EnvironmentVariableView } from "./interfaces/deployments.interface";
 
 @Injectable()
@@ -773,7 +778,7 @@ export class DeploymentsService {
     await this.assertActiveServerForUser(serverId, userId);
 
     const discovered =
-      await this.serverConnectionsService.discoverContainersOnHost(serverId);
+      await this.serverConnectionsService.discoverContainers(serverId);
 
     const deploymentRows = await this.deploymentRepository.find({
       where: {
@@ -797,6 +802,119 @@ export class DeploymentsService {
       deployments,
       serverId,
     );
+  }
+
+  /**
+   * Executes a container lifecycle action via the connected agent, with host SSH/local fallback.
+   */
+  async executeContainerAction(
+    serverId: string,
+    userId: string,
+    containerId: string,
+    action: ContainerActionType,
+  ): Promise<ContainerActionResponseDto> {
+    await this.assertActiveServerForUser(serverId, userId);
+    const safeContainerId = assertValidContainerId(containerId);
+
+    let result: ContainerActionResponsePayload | null = null;
+    let socketError: string | null = null;
+    let executedVia: ContainerActionResponseDto["executedVia"] = "agent";
+
+    if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+      const agentVersion =
+        this.deploymentGateway.getAgentVersion(serverId) ?? "unknown";
+      const supportsContainerAction = this.deploymentGateway.agentSupports(
+        serverId,
+        DeploymentEvents.CONTAINER_ACTION,
+      );
+
+      this.logger.log(
+        `[CONTAINER_ACTION] serverId=${serverId} agentVersion=${agentVersion} supportsContainerAction=${supportsContainerAction}`,
+      );
+
+      if (!supportsContainerAction) {
+        socketError = `Connected agent (version ${agentVersion}) does not support container actions — rebuild or update the agent image to include the container:action handler`;
+        this.logger.warn(
+          `[CONTAINER_ACTION] skipping socket for server '${serverId}': ${socketError}`,
+        );
+      } else {
+        try {
+          result = await this.deploymentGateway.requestContainerAction(
+            serverId,
+            safeContainerId,
+            action,
+          );
+          this.logger.log(
+            `[CONTAINER_ACTION] agent completed action=${action} containerId=${safeContainerId} serverId=${serverId} success=${result.success}`,
+          );
+        } catch (error) {
+          socketError = error instanceof Error ? error.message : String(error);
+          this.logger.warn(
+            `[CONTAINER_ACTION] agent socket failed for server '${serverId}': ${socketError}`,
+          );
+        }
+      }
+    } else {
+      socketError = `No connected agent for server '${serverId}'`;
+      this.logger.warn(
+        `[CONTAINER_ACTION] no connected agent for server '${serverId}'`,
+      );
+    }
+
+    if (!result) {
+      this.logger.warn(
+        `[CONTAINER_ACTION] using host fallback for ${action} on server '${serverId}'` +
+          (socketError ? `: ${socketError}` : ""),
+      );
+      executedVia = "host";
+      try {
+        result =
+          await this.serverConnectionsService.executeContainerActionOnHost(
+            serverId,
+            safeContainerId,
+            action,
+          );
+      } catch (error) {
+        const hostMessage =
+          error instanceof Error ? error.message : String(error);
+        const detail = socketError
+          ? `Agent: ${socketError}. Host: ${hostMessage}`
+          : hostMessage;
+        throw new BadRequestException(
+          `Failed to ${action} container: ${detail}`,
+        );
+      }
+    }
+
+    if (!result.success) {
+      throw new BadRequestException(
+        result.error?.trim() ||
+          result.stderr?.trim() ||
+          `Failed to ${action} container '${safeContainerId}'`,
+      );
+    }
+
+    const actionPastTense: Record<ContainerActionType, string> = {
+      stop: "stopped",
+      restart: "restarted",
+      delete: "deleted",
+    };
+    const viaLabel =
+      executedVia === "agent"
+        ? "via agent"
+        : "via server host (agent unavailable or outdated)";
+    const message = `Container ${actionPastTense[action]} ${viaLabel}.`;
+
+    return {
+      action: result.action,
+      containerId: result.containerId,
+      success: true,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: result.exitCode,
+      executedVia,
+      message,
+    };
   }
 
   async getDeployment(deploymentId: string): Promise<ServiceDeploymentEntity> {

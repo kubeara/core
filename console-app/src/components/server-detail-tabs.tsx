@@ -5,8 +5,16 @@ import {
   useServerResourcesQuery,
 } from "@/features/servers/hooks";
 import type { ServerResources } from "@/features/servers/types";
-import { useServerContainersQuery } from "@/features/deployments/hooks";
-import type { ServerContainer } from "@/features/deployments/types";
+import { ContainerActionConfirmModal } from "@/features/deployments/components/container-action-confirm-modal";
+import { ContainerActionsMenu } from "@/features/deployments/components/container-actions-menu";
+import {
+  useContainerActionMutation,
+  useServerContainersQuery,
+} from "@/features/deployments/hooks";
+import type {
+  ContainerActionType,
+  ServerContainer,
+} from "@/features/deployments/types";
 import { ServerTemplatesPanel } from "@/features/templates/components/server-templates-panel";
 import { formatRelativeTime } from "@/lib/format-relative-time";
 import {
@@ -16,7 +24,10 @@ import {
   formatUptime,
 } from "@/lib/format-metrics";
 import { formatApiTimestamp } from "@/lib/unix-timestamp";
-import { getServerActivity, type ActivityEntry } from "@/lib/server-detail-data";
+import {
+  getServerActivity,
+  type ActivityEntry,
+} from "@/lib/server-detail-data";
 import { SkeletonGrid } from "@/components/shared/skeleton";
 import { Switch } from "@/components/ui/switch";
 import type { Server } from "@/types";
@@ -73,13 +84,34 @@ function containerStatusClass(container: ServerContainer): string {
   return ContainerStatus.DEGRADED;
 }
 
-function ConnectedServiceCard({ container }: { container: ServerContainer }) {
+function getContainerDisplayName(container: ServerContainer): string {
+  const displayName =
+    container.containerName || container.templateId || "Container";
+  return displayName.replace(/^deployment-\d+-[^-]+-/, "");
+}
+
+function ConnectedServiceCard({
+  container,
+  pendingAction,
+  onAction,
+}: {
+  container: ServerContainer;
+  pendingAction: { containerId: string | null; action: ContainerActionType } | null;
+  onAction: (container: ServerContainer, action: ContainerActionType) => void;
+}) {
   const statusClass = containerStatusClass(container);
+  const containerId = container.containerId;
+  const canManage = Boolean(containerId);
+  const isPending = Boolean(
+    containerId &&
+    pendingAction?.containerId === containerId &&
+    pendingAction.action,
+  );
 
   const displayName =
     container.containerName || container.templateId || "Container";
 
-  const cleanName = displayName.replace(/^deployment-\d+-[^-]+-/, "");
+  const cleanName = getContainerDisplayName(container);
 
   const iconLetter = (cleanName || displayName).charAt(0).toUpperCase();
 
@@ -91,6 +123,14 @@ function ConnectedServiceCard({ container }: { container: ServerContainer }) {
     <article
       className={`marketplace-card overview-container-card${!container.isOnline ? " marketplace-card-offline" : ""}`}
     >
+      {canManage && containerId ? (
+        <ContainerActionsMenu
+          container={container}
+          isPending={isPending}
+          pendingAction={pendingAction}
+          onAction={onAction}
+        />
+      ) : null}
       <div className="marketplace-card-header">
         <div className="marketplace-card-icon" aria-hidden>
           {iconLetter}
@@ -119,7 +159,10 @@ function ConnectedServiceCard({ container }: { container: ServerContainer }) {
 
       <div className="marketplace-card-body">
         {container.imageName ? (
-          <p className="marketplace-card-description" title={container.imageName}>
+          <p
+            className="marketplace-card-description"
+            title={container.imageName}
+          >
             {container.imageName}
           </p>
         ) : (
@@ -156,14 +199,60 @@ function ConnectedServiceCard({ container }: { container: ServerContainer }) {
 }
 
 function OverviewTab({
+  serverId,
   containers,
   isLoading,
   isError,
 }: {
+  serverId: string;
   containers: ServerContainer[];
   isLoading: boolean;
   isError: boolean;
 }) {
+  const containerActionMutation = useContainerActionMutation();
+  const [pendingAction, setPendingAction] = useState<{
+    containerId: string | null;
+    action: ContainerActionType;
+  } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    container: ServerContainer;
+    action: ContainerActionType;
+  } | null>(null);
+
+  const isConfirmPending = Boolean(
+    confirmAction &&
+    pendingAction?.containerId === confirmAction.container.containerId &&
+    pendingAction.action === confirmAction.action,
+  );
+
+  function handleContainerActionRequest(
+    container: ServerContainer,
+    action: ContainerActionType,
+  ) {
+    setConfirmAction({ container, action });
+  }
+
+  async function handleContainerActionConfirm() {
+    if (!confirmAction?.container.containerId) {
+      return;
+    }
+
+    const { container, action } = confirmAction;
+    const containerId = container.containerId;
+
+    setPendingAction({ containerId, action });
+    try {
+      await containerActionMutation.mutateAsync({
+        serverId,
+        containerId: containerId ?? "",
+        containerName: getContainerDisplayName(container),
+        action,
+      });
+      setConfirmAction(null);
+    } finally {
+      setPendingAction(null);
+    }
+  }
   const kubearaManagedContainers = containers.filter(
     (container) => container.managedType === "KUBEARA_MANAGED",
   );
@@ -174,6 +263,20 @@ function OverviewTab({
 
   return (
     <div className="server-detail-panel">
+      {confirmAction ? (
+        <ContainerActionConfirmModal
+          containerName={getContainerDisplayName(confirmAction.container)}
+          action={confirmAction.action}
+          isPending={isConfirmPending}
+          onCancel={() => {
+            if (!isConfirmPending) {
+              setConfirmAction(null);
+            }
+          }}
+          onConfirm={() => void handleContainerActionConfirm()}
+        />
+      ) : null}
+
       <h2 className="server-detail-section-title">Connected services</h2>
 
       <p className="server-detail-section-desc">
@@ -199,15 +302,15 @@ function OverviewTab({
                   `${container.deploymentId ?? "offline"}-${container.containerName}`
                 }
                 container={container}
+                pendingAction={pendingAction}
+                onAction={handleContainerActionRequest}
               />
             ))}
           </div>
 
           {selfManagedContainers.length > 0 && (
             <>
-              <h3 className="connected-services-section-title">
-                Self Managed
-              </h3>
+              <h3 className="connected-services-section-title">Self Managed</h3>
 
               <div className="server-templates-grid">
                 {selfManagedContainers.map((container) => (
@@ -217,6 +320,8 @@ function OverviewTab({
                       `${container.deploymentId ?? "offline"}-${container.containerName}`
                     }
                     container={container}
+                    pendingAction={pendingAction}
+                    onAction={handleContainerActionRequest}
                   />
                 ))}
               </div>
@@ -269,7 +374,11 @@ function InsightsTab({
         <p className="server-detail-section-desc">
           On-demand metrics from the connected agent.
         </p>
-        <SkeletonGrid count={5} cardHeight={180} label="Loading server resources…" />
+        <SkeletonGrid
+          count={5}
+          cardHeight={180}
+          label="Loading server resources…"
+        />
       </div>
     );
   }
@@ -703,16 +812,14 @@ export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
       >
         {activeTab === "overview" && (
           <OverviewTab
+            serverId={server.id}
             containers={overviewContainers}
             isLoading={containersLoading}
             isError={containersError}
           />
         )}
         {activeTab === "templates" && (
-          <TemplatesTab
-            serverId={server.id}
-            connectedIds={connectedIds}
-          />
+          <TemplatesTab serverId={server.id} connectedIds={connectedIds} />
         )}
         {activeTab === "insights" && (
           <InsightsTab

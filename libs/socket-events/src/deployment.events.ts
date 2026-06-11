@@ -24,7 +24,15 @@ export enum DeploymentEvents {
   SERVER_GET_RESOURCES = "server:get-resources",
   /** Agent → control panel: server resource metrics response. */
   SERVER_GET_RESOURCES_RESULT = "server:get-resources:result",
+  /** Control panel → agent: execute a container lifecycle action. */
+  CONTAINER_ACTION = "container:action",
+  /** Agent → control panel: container action response. */
+  CONTAINER_ACTION_RESULT = "container:action:result",
+  /** Agent → control panel: capability advertisement on connect. */
+  AGENT_HELLO = "agent:hello",
 }
+
+export type ContainerActionType = "stop" | "restart" | "delete";
 
 export type DeploymentLogPhase = "install" | "deploy" | "container";
 
@@ -270,4 +278,29 @@ export interface ServerGetResourcesResponsePayload {
   requestId: string;
   resources?: ServerResourcesMetricsPayload;
   error?: string;
+}
+
+export interface ContainerActionRequestPayload {
+  requestId: string;
+  containerId: string;
+  action: ContainerActionType;
+}
+
+export interface ContainerActionResponsePayload {
+  requestId: string;
+  containerId: string;
+  action: ContainerActionType;
+  success: boolean;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  error?: string;
+}
+
+/** Capability handshake sent by the agent when the socket connects. */
+export interface AgentHelloPayload {
+  agentId: string;
+  capabilities: string[];
+  version: string;
+  timestamp: string;
 }
