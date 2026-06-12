@@ -9,7 +9,6 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import { IsNull, Repository } from "typeorm";
 import { randomUUID } from "node:crypto";
-import type { ClientChannel } from "ssh2";
 import { SshConnectionManager, SshConnectionOptions } from "@shared/ssh";
 import { DeploymentGateway } from "@control-panel/websocket/websocket.gateway";
 import { ServerEntity } from "@control-panel/modules/server-connections/entities/server.entity";
@@ -18,13 +17,7 @@ import { ServerType } from "@control-panel/modules/server-connections/enums/serv
 import { EntityStatus } from "@control-panel/common/entity/base.entity";
 import { ERROR_MESSAGES } from "@control-panel/constants/error";
 import { TerminalTransport } from "./enums/terminal-transport.enum";
-
-interface SshTerminalSession {
-  sessionId: string;
-  serverId: string;
-  connectionId: string;
-  stream: ClientChannel;
-}
+import { SshTerminalSession } from "./interfaces/ssh-terminal-session.interface";
 
 @Injectable()
 export class SshTerminalService {

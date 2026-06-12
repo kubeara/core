@@ -879,6 +879,9 @@ export class DeploymentGateway
     });
   }
 
+  /**
+   * Requests a container action.
+   */
   requestContainerAction(
     serverId: string,
     containerId: string,
@@ -927,6 +930,9 @@ export class DeploymentGateway
     });
   }
 
+  /**
+   * Requests a terminal connect.
+   */
   requestTerminalConnect(
     serverId: string,
     userId: string,
@@ -977,6 +983,9 @@ export class DeploymentGateway
     });
   }
 
+  /**
+   * Registers a terminal session.
+   */
   registerTerminalSession(
     sessionId: string,
     serverId: string,
@@ -1012,6 +1021,9 @@ export class DeploymentGateway
     return this.terminalSessionsById.get(sessionId);
   }
 
+  /**
+   * Closes a terminal session.
+   */
   closeTerminalSession(
     sessionId: string,
     options: {
@@ -1048,6 +1060,9 @@ export class DeploymentGateway
     );
   }
 
+  /**
+   * Requests a container discovery.
+   */
   requestContainerDiscovery(
     serverId: string,
     timeoutMs: number = CONTAINER_DISCOVER_TIMEOUT_MS,

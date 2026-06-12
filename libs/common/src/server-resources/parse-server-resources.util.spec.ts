@@ -12,9 +12,7 @@ import {
 
 describe("parse-server-resources.util", () => {
   it("parses aggregate cpu line from /proc/stat", () => {
-    const sample = parseCpuStatLine(
-      "cpu  3357 0 4313 1362373 0 0 0 0 0 0",
-    );
+    const sample = parseCpuStatLine("cpu  3357 0 4313 1362373 0 0 0 0 0 0");
 
     expect(sample.idle).toBe(1362373);
     expect(sample.total).toBe(1370043);
@@ -79,7 +77,8 @@ describe("parse-server-resources.util", () => {
       loadAverageContent: "0.42 0.35 0.30 1/200 999",
       cpuCores: 4,
       meminfo: "MemTotal:       1000 kB\nMemFree:        500 kB\n",
-      dfStdout: "Filesystem     1B-blocks       Used   Available Use% Mounted on\n/dev/sda1 1000000000 250000000 750000000  20% /",
+      dfStdout:
+        "Filesystem     1B-blocks       Used   Available Use% Mounted on\n/dev/sda1 1000000000 250000000 750000000  20% /",
       netDev: [
         "Inter-|   Receive                                                |  Transmit",
         " face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed",
