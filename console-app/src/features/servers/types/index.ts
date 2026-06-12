@@ -154,6 +154,26 @@ export interface ServerResources {
   system: ServerSystemMetrics;
 }
 
+export type TerminalConnectRequest = {
+  cols?: number;
+  rows?: number;
+};
+
+export type TerminalTransport = "agent" | "ssh";
+
+export type TerminalSession = {
+  sessionId: string;
+  serverId: string;
+  transport: TerminalTransport;
+};
+
+export type TerminalConnectionStatus =
+  | "idle"
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "error";
+
 export function mapServerApiToServer(api: ServerApiResponse): Server {
   return {
     id: api.id,

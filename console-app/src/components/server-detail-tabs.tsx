@@ -28,6 +28,7 @@ import {
   getServerActivity,
   type ActivityEntry,
 } from "@/lib/server-detail-data";
+import { ServerTerminalPanel } from "@/features/servers/components/server-terminal-panel";
 import { SkeletonGrid } from "@/components/shared/skeleton";
 import { Switch } from "@/components/ui/switch";
 import type { Server } from "@/types";
@@ -35,13 +36,20 @@ import "@/features/templates/templates-ui.css";
 import "./server-detail-tabs.css";
 import { ContainerStatus } from "@/enums/container-status.enum";
 
-type TabId = "overview" | "templates" | "insights" | "activity" | "settings";
+type TabId =
+  | "overview"
+  | "templates"
+  | "insights"
+  | "activity"
+  | "terminal"
+  | "settings";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "templates", label: "Services" },
   { id: "insights", label: "Insights" },
   { id: "activity", label: "Activity" },
+  { id: "terminal", label: "Terminal" },
   { id: "settings", label: "Settings" },
 ];
 
@@ -749,6 +757,7 @@ export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const isOverviewTab = activeTab === "overview";
   const isInsightsTab = activeTab === "insights";
+  const isTerminalTab = activeTab === "terminal";
 
   const {
     data: overviewContainers = [],
@@ -837,6 +846,12 @@ export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
         {activeTab === "activity" && (
           <ActivityTab serverId={server.id} serverName={server.name} />
         )}
+        <ServerTerminalPanel
+          serverId={server.id}
+          serverName={server.name}
+          serverHost={server.host}
+          isVisible={isTerminalTab}
+        />
         {activeTab === "settings" && <SettingsTab server={server} />}
       </div>
     </div>

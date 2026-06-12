@@ -24,6 +24,16 @@ export const ERROR_MESSAGES = {
       "No local server yet. Deploy with deployOnLocal=true to create one.",
   },
 
+  TERMINAL: {
+    AGENT_UNAVAILABLE:
+      "Terminal is unavailable. Connect the agent on this server first.",
+    AGENT_UNSUPPORTED:
+      "Connected agent does not support terminal access. Update the agent.",
+    SESSION_NOT_FOUND: "Terminal session not found",
+    CONNECT_FAILED: "Failed to create terminal session",
+    DISCONNECT_FAILED: "Failed to disconnect terminal session",
+  },
+
   AUTH: {
     EMAIL_ALREADY_EXISTS: "Email already exists",
     INVALID_CREDENTIALS: "Invalid email or password",

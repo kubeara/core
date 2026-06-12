@@ -163,7 +163,7 @@ export function ServerDetailPageSkeleton() {
         </div>
       </header>
       <div className="skeleton-tabs" aria-hidden>
-        {Array.from({ length: 5 }).map((_, index) => (
+        {Array.from({ length: 6 }).map((_, index) => (
           <Skeleton key={index} className="skeleton-tab" />
         ))}
       </div>

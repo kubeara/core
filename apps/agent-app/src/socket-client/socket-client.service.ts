@@ -14,9 +14,16 @@ import {
   ContainerDiscoverResponsePayload,
   ServerGetResourcesRequestPayload,
   ServerGetResourcesResponsePayload,
+  TerminalConnectRequestPayload,
+  TerminalConnectResponsePayload,
+  TerminalDisconnectPayload,
+  TerminalInputPayload,
+  TerminalOutputPayload,
+  TerminalResizePayload,
 } from "@shared/socket-events";
 import { ContainerService } from "../container/container.service";
 import { ServerResourcesService } from "../server-resources/server-resources.service";
+import { TerminalService } from "../terminal/terminal.service";
 import { DeployTemplateExecutor } from "../executors/deploy-template.executor";
 import type { EnvFileInput, PortFileInput } from "../executors/env-file.util";
 import {
@@ -50,8 +57,15 @@ export class SocketClientService {
     private readonly templatePayloadService: TemplatePayloadService,
     private readonly containerService: ContainerService,
     private readonly serverResourcesService: ServerResourcesService,
+    private readonly terminalService: TerminalService,
   ) {
     this.agentId = this.generateAgentId();
+    this.terminalService.setOutputHandler((sessionId, data) => {
+      this.emitTerminalOutput(sessionId, data);
+    });
+    this.terminalService.setCloseHandler((sessionId) => {
+      this.emitTerminalDisconnect(sessionId);
+    });
   }
 
   /**
@@ -166,6 +180,10 @@ export class SocketClientService {
     this.socket.off(DeploymentEvents.CONTAINER_ACTION);
     this.socket.off(DeploymentEvents.CONTAINER_DISCOVER);
     this.socket.off(DeploymentEvents.SERVER_GET_RESOURCES);
+    this.socket.off(DeploymentEvents.TERMINAL_CONNECT);
+    this.socket.off(DeploymentEvents.TERMINAL_INPUT);
+    this.socket.off(DeploymentEvents.TERMINAL_RESIZE);
+    this.socket.off(DeploymentEvents.TERMINAL_DISCONNECT);
 
     this.socket.on(DeploymentEvents.DEPLOY, (message: SocketDeployMessage) => {
       void this.handleDeployAction(message);
@@ -205,8 +223,36 @@ export class SocketClientService {
       },
     );
 
+    this.socket.on(
+      DeploymentEvents.TERMINAL_CONNECT,
+      (payload: TerminalConnectRequestPayload) => {
+        this.handleTerminalConnect(payload);
+      },
+    );
+
+    this.socket.on(
+      DeploymentEvents.TERMINAL_INPUT,
+      (payload: TerminalInputPayload) => {
+        this.handleTerminalInput(payload);
+      },
+    );
+
+    this.socket.on(
+      DeploymentEvents.TERMINAL_RESIZE,
+      (payload: TerminalResizePayload) => {
+        this.handleTerminalResize(payload);
+      },
+    );
+
+    this.socket.on(
+      DeploymentEvents.TERMINAL_DISCONNECT,
+      (payload: TerminalDisconnectPayload) => {
+        this.handleTerminalDisconnect(payload);
+      },
+    );
+
     this.logger.log(
-      `[AgentCapabilities] inbound handlers registered: deploy, remove, ${DeploymentEvents.CONTAINER_ACTION}, ${DeploymentEvents.CONTAINER_DISCOVER}, ${DeploymentEvents.SERVER_GET_RESOURCES}`,
+      `[AgentCapabilities] inbound handlers registered: deploy, remove, ${DeploymentEvents.CONTAINER_ACTION}, ${DeploymentEvents.CONTAINER_DISCOVER}, ${DeploymentEvents.SERVER_GET_RESOURCES}, ${DeploymentEvents.TERMINAL_CONNECT}`,
     );
   }
 
@@ -228,6 +274,7 @@ export class SocketClientService {
         DeploymentEvents.CONTAINER_DISCOVER,
         DeploymentEvents.CONTAINER_ACTION,
         DeploymentEvents.SERVER_GET_RESOURCES,
+        DeploymentEvents.TERMINAL_CONNECT,
       ],
       version,
       timestamp: new Date().toISOString(),
@@ -447,6 +494,87 @@ export class SocketClientService {
 
   /**
    * Handles remove requests from control panel and tears down deployment resources.
+   */
+  private handleTerminalConnect(payload: TerminalConnectRequestPayload): void {
+    const requestId = payload?.requestId?.trim() ?? "";
+    const cols = payload?.cols ?? 80;
+    const rows = payload?.rows ?? 24;
+
+    let response: TerminalConnectResponsePayload;
+
+    try {
+      if (!requestId) {
+        response = { requestId: "", error: "Missing requestId" };
+      } else {
+        const sessionId = this.terminalService.createSession(cols, rows);
+        response = { requestId, sessionId };
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Terminal connect handler failed: ${message}`);
+      response = { requestId, error: message };
+    }
+
+    if (!this.socket?.connected) {
+      this.logger.warn(
+        "Cannot send terminal connect result: socket disconnected",
+      );
+      return;
+    }
+
+    this.socket.emit(DeploymentEvents.TERMINAL_CONNECT_RESULT, response);
+    this.logger.log(
+      `Terminal connect result sent requestId=${requestId}${response.error ? ` error=${response.error}` : ` sessionId=${response.sessionId ?? "n/a"}`}`,
+    );
+  }
+
+  private handleTerminalInput(payload: TerminalInputPayload): void {
+    const sessionId = payload?.sessionId?.trim() ?? "";
+    if (!sessionId || payload.data == null) {
+      return;
+    }
+
+    this.terminalService.writeInput(sessionId, payload.data);
+  }
+
+  private handleTerminalResize(payload: TerminalResizePayload): void {
+    const sessionId = payload?.sessionId?.trim() ?? "";
+    if (!sessionId) {
+      return;
+    }
+
+    this.terminalService.resize(sessionId, payload.cols, payload.rows);
+  }
+
+  private handleTerminalDisconnect(payload: TerminalDisconnectPayload): void {
+    const sessionId = payload?.sessionId?.trim() ?? "";
+    if (!sessionId) {
+      return;
+    }
+
+    this.terminalService.closeSession(sessionId);
+  }
+
+  private emitTerminalOutput(sessionId: string, data: string): void {
+    if (!this.socket?.connected) {
+      return;
+    }
+
+    const payload: TerminalOutputPayload = { sessionId, data };
+    this.socket.emit(DeploymentEvents.TERMINAL_OUTPUT, payload);
+  }
+
+  private emitTerminalDisconnect(sessionId: string): void {
+    if (!this.socket?.connected) {
+      return;
+    }
+
+    const payload: TerminalDisconnectPayload = { sessionId };
+    this.socket.emit(DeploymentEvents.TERMINAL_DISCONNECT, payload);
+  }
+
+  /**
+   * Handles container discover requests from the control panel.
    */
   private async handleContainerDiscover(
     payload: ContainerDiscoverRequestPayload,
