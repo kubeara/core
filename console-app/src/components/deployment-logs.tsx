@@ -1,11 +1,11 @@
 import { BackLink } from "@/components/shared/back-link";
+import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
 import {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
 } from "react";
 import { DeploymentTerminalViewer } from "@/components/deployment-terminal-viewer";
 import "@/components/shared/kubeara-terminal-shell.css";
@@ -253,27 +253,21 @@ export function DeploymentLogs({
   const resolvedStatus = liveDeploymentStatus;
 
   return (
-    <div
-      className={`deploy-logs-page ${isFullscreen ? "is-fullscreen" : ""}`}
-      style={{ "--deploy-accent": template.color } as CSSProperties}
-    >
+    <div className={`deploy-logs-page ${isFullscreen ? "is-fullscreen" : ""}`}>
       <BackLink to={backHref} label="Back" />
 
       <article className="deploy-service-card">
-        <div
-          className="deploy-service-card-accent"
-          style={{ background: template.color }}
-        />
+        <div className="deploy-service-card-accent" />
         <div className="deploy-service-card-main">
-          <div
+          <ServiceBrandIcon
+            name={template.name}
+            logo={template.logo}
             className="deploy-service-icon"
             style={{
               backgroundColor: `${template.color}20`,
               color: template.color,
             }}
-          >
-            {template.name.charAt(0)}
-          </div>
+          />
           <div className="deploy-service-content">
             <div className="deploy-service-headline">
               <h1>{template.name}</h1>

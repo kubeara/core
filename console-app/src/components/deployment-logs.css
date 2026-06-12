@@ -36,7 +36,7 @@
 .deploy-logs-page .deploy-service-card-accent {
   width: 4px;
   flex-shrink: 0;
-  background: var(--deploy-accent, #2563eb);
+  background: var(--primary);
 }
 
 .deploy-logs-page .deploy-service-card-main {

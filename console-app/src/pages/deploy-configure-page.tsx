@@ -4,6 +4,7 @@ import { DeployConfigurationForm } from "@/features/templates/components/deploy-
 import { useTemplateDetailsQuery, useTemplatesQuery } from "@/features/templates/hooks";
 import { useServerQuery } from "@/features/servers/hooks";
 import { DeployConfigurePageSkeleton } from "@/components/shared/skeleton";
+import { buildServerDetailHref } from "@/features/servers/components/server-detail/utils/server-detail-tab-url";
 import { NotFoundPage } from "./not-found-page";
 import "@/features/templates/templates-ui.css";
 
@@ -26,7 +27,7 @@ export function DeployConfigurePage() {
     return <Navigate to="/servers" replace />;
   }
 
-  const backHref = `/servers/${serverId}`;
+  const backHref = buildServerDetailHref(serverId, "templates");
 
   if (
     serverQuery.isPending ||

@@ -1,3 +1,4 @@
+import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
 import type { ApiTemplate } from "../types";
 
 type MarketplaceTemplateCardProps = {
@@ -36,17 +37,11 @@ export function MarketplaceTemplateCard({
   return (
     <article className="marketplace-card">
       <div className="marketplace-card-header">
-        <div className="marketplace-card-icon" aria-hidden>
-          {template.logo ? (
-            <img
-              src={template.logo}
-              alt=""
-              className="marketplace-card-logo"
-            />
-          ) : (
-            template.name.charAt(0)
-          )}
-        </div>
+        <ServiceBrandIcon
+          name={template.name}
+          logo={template.logo}
+          className="marketplace-card-icon"
+        />
         <div className="marketplace-card-headline">
           {template.category && (
             <p className="marketplace-card-category">{template.category}</p>

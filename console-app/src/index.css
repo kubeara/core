@@ -897,6 +897,7 @@ a:hover {
 }
 
 .template-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -905,12 +906,37 @@ a:hover {
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: var(--shadow);
-  transition: border-color 0.15s, transform 0.15s;
+  overflow: hidden;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.template-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: var(--template-accent, var(--primary));
+  opacity: 0.85;
 }
 
 .template-card:hover {
-  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
-  transform: translateY(-2px);
+  border-color: color-mix(
+    in srgb,
+    var(--template-accent, var(--primary)) 35%,
+    var(--border)
+  );
+  box-shadow:
+    var(--shadow),
+    0 12px 32px
+      color-mix(
+        in srgb,
+        var(--template-accent, var(--primary)) 12%,
+        transparent
+      );
+  transform: translateY(-3px);
 }
 
 .template-card-icon {
