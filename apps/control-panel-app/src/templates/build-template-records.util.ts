@@ -188,6 +188,18 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Netdata",
     version: "stable",
   },
+  activepieces: {
+    name: "Activepieces",
+    version: "0.83",
+  },
+  windmill: {
+    name: "Windmill",
+    version: "1.661",
+  },
+  "node-red": {
+    name: "Node-RED",
+    version: "4.1",
+  },
 };
 
 /**

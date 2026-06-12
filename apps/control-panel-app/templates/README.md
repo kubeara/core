@@ -198,6 +198,9 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `weaviate/` | AI-native vector database on ports 8080 and 50051 |
 | `langfuse/` | LLM observability stack on port 3000 (Postgres, ClickHouse, Redis, MinIO) |
 | `netdata/` | Real-time host and container monitoring on port 19999 |
+| `activepieces/` | Workflow automation with PostgreSQL and Redis on port 8080 |
+| `windmill/` | Script and flow platform with PostgreSQL on port 8000 |
+| `node-red/` | Flow-based IoT and automation editor on port 1880 |
 
 ---
 
