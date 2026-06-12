@@ -51,4 +51,10 @@ export const ERROR_MESSAGES = {
   PROFILE: {
     INVALID_CURRENT_PASSWORD: "Current password is incorrect",
   },
+
+  MCP_API_KEYS: {
+    NOT_FOUND: "MCP API key not found",
+    INVALID_TOKEN: "Invalid MCP API key",
+    MISSING_AUTHORIZATION: "Missing Authorization header",
+  },
 };

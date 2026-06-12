@@ -33,4 +33,10 @@ export const SUCCESS_MESSAGES = {
     UPDATED: "Profile updated successfully",
     PASSWORD_CHANGED: "Password updated successfully",
   },
+
+  MCP_API_KEYS: {
+    CREATED: "MCP API key created successfully",
+    LIST: "MCP API keys fetched successfully",
+    REVOKED: "MCP API key revoked successfully",
+  },
 };

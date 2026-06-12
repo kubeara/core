@@ -62,6 +62,7 @@
     ]
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
@@ -90,7 +91,8 @@
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "ssh2": "^1.17.0",
-    "typeorm": "^1.0.0"
+    "typeorm": "^1.0.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.0.1",
