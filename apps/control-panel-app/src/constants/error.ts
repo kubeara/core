@@ -47,4 +47,9 @@ export const ERROR_MESSAGES = {
     INVALID_TOKEN: "Invalid MCP API key",
     MISSING_AUTHORIZATION: "Missing Authorization header",
   },
+
+  MCP_SERVER: {
+    METHOD_NOT_ALLOWED: "Method not allowed.",
+    INTERNAL_SERVER_ERROR: "Internal server error",
+  },
 };
