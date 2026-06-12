@@ -7,6 +7,7 @@ import { HealthController } from "./health/health.controller";
 import { FilesystemService } from "./filesystem/filesystem.service";
 import { DeployTemplateExecutor } from "./executors/deploy-template.executor";
 import { TraefikProxyService } from "./proxy/traefik-proxy.service";
+import { TerminalService } from "./terminal/terminal.service";
 import {
   ComposeParserModule,
   EncryptionModule,
@@ -32,6 +33,7 @@ import {
     FilesystemService,
     DeployTemplateExecutor,
     TraefikProxyService,
+    TerminalService,
   ],
 })
 export class AppModule implements OnModuleInit {

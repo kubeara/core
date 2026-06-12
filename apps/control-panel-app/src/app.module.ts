@@ -14,6 +14,7 @@ import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { ProfileModule } from "./modules/profile/profile.module";
+import { TerminalModule } from "./modules/terminal/terminal.module";
 import { AppController } from "./app.controller";
 import { isProductionEnv } from "@control-panel/constants/env.constant";
 
@@ -36,9 +37,9 @@ import { isProductionEnv } from "@control-panel/constants/env.constant";
             type: "postgres",
             host: configService.get<string>("DB_HOST"),
             port: Number(configService.get<string>("DB_PORT")),
-            username: configService.get<string>("DB_USERNAME", "postgres"),
-            password: configService.get<string>("DB_PASSWORD", "postgres"),
-            database: configService.get<string>("DB_DATABASE", "templates"),
+            username: configService.get<string>("DB_USERNAME"),
+            password: configService.get<string>("DB_PASSWORD"),
+            database: configService.get<string>("DB_DATABASE"),
             synchronize: false,
             migrationsRun: false,
             entities: [__dirname + "/modules/**/entities/*{.ts,.js}"],
@@ -62,6 +63,7 @@ import { isProductionEnv } from "@control-panel/constants/env.constant";
     UsersModule,
     OrganizationsModule,
     ProfileModule,
+    TerminalModule,
   ],
   controllers: [AppController],
   providers: [],

@@ -1,0 +1,2 @@
+export const DEFAULT_TERMINAL_COLS = 80;
+export const DEFAULT_TERMINAL_ROWS = 24;

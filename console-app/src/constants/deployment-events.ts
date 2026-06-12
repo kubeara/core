@@ -4,7 +4,21 @@ export const DEPLOYMENT_SOCKET_EVENTS = {
   DEPLOYMENT_STREAM: "deployment:stream",
   AGENT_CONNECTED: "agent:connected",
   AGENT_DISCONNECTED: "agent:disconnected",
+  TERMINAL_SUBSCRIBE: "terminal:subscribe",
+  TERMINAL_INPUT: "terminal:input",
+  TERMINAL_OUTPUT: "terminal:output",
+  TERMINAL_RESIZE: "terminal:resize",
+  TERMINAL_DISCONNECT: "terminal:disconnect",
 } as const;
+
+export interface TerminalOutputPayload {
+  sessionId: string;
+  data: string;
+}
+
+export interface TerminalDisconnectPayload {
+  sessionId: string;
+}
 
 export type DeploymentLogPhase = "install" | "deploy" | "container";
 
