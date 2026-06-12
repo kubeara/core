@@ -201,6 +201,9 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `activepieces/` | Workflow automation with PostgreSQL and Redis on port 8080 |
 | `windmill/` | Script and flow platform with PostgreSQL on port 8000 |
 | `node-red/` | Flow-based IoT and automation editor on port 1880 |
+| `plausible/` | Privacy-friendly analytics with PostgreSQL and ClickHouse on port 8000 |
+| `umami/` | Lightweight privacy analytics with PostgreSQL on port 3000 |
+| `matomo/` | Full-featured web analytics with MariaDB on port 8080 |
 
 ---
 

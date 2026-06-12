@@ -200,6 +200,18 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Node-RED",
     version: "4.1",
   },
+  plausible: {
+    name: "Plausible Analytics",
+    version: "3.2",
+  },
+  umami: {
+    name: "Umami Analytics",
+    version: "latest",
+  },
+  matomo: {
+    name: "Matomo",
+    version: "5",
+  },
 };
 
 /**
