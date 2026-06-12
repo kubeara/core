@@ -14,7 +14,14 @@ import {
 import { Request, Response } from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
-import { MCP_JSON_RPC_METHODS } from "../constants/mcp-server.constants";
+import { ERROR_MESSAGES } from "@control-panel/constants/error";
+
+import {
+  MCP_JSON_RPC_ERROR_CODES,
+  MCP_JSON_RPC_METHODS,
+  MCP_JSON_RPC_NULL_ID,
+  MCP_JSON_RPC_VERSION,
+} from "../constants/mcp-server.constants";
 import { JsonRpcRequest } from "../interfaces/json-rpc-request.interface";
 import { McpAuthService } from "../services/mcp-auth.service";
 import { McpServerService } from "../services/mcp-server.service";
@@ -44,14 +51,13 @@ export class McpServerController {
     @Headers("authorization") authHeader: string,
   ): Promise<void> {
     try {
-      let userId = "user-001";
-
+      let userId: string;
       if (body.method !== MCP_JSON_RPC_METHODS.INITIALIZE) {
         const user = await this.mcpAuthService.validateToken(authHeader);
         userId = user.id;
       }
 
-      const server = this.mcpServerService.createServer(userId);
+      const server = this.mcpServerService.createServer(userId!);
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
         enableJsonResponse: true,
@@ -75,9 +81,9 @@ export class McpServerController {
           this.mapErrorToJsonRpc(error);
 
         res.status(statusCode).json({
-          jsonrpc: "2.0",
+          jsonrpc: MCP_JSON_RPC_VERSION,
           error: { code: errorCode, message },
-          id: null,
+          id: MCP_JSON_RPC_NULL_ID,
         });
       }
     }
@@ -91,9 +97,12 @@ export class McpServerController {
   @Get()
   handleGet(@Res() res: Response): void {
     res.status(405).json({
-      jsonrpc: "2.0",
-      error: { code: -32000, message: "Method not allowed." },
-      id: null,
+      jsonrpc: MCP_JSON_RPC_VERSION,
+      error: {
+        code: MCP_JSON_RPC_ERROR_CODES.METHOD_NOT_ALLOWED,
+        message: ERROR_MESSAGES.MCP_SERVER.METHOD_NOT_ALLOWED,
+      },
+      id: MCP_JSON_RPC_NULL_ID,
     });
   }
   /**
@@ -104,9 +113,12 @@ export class McpServerController {
   @Delete()
   handleDelete(@Res() res: Response): void {
     res.status(405).json({
-      jsonrpc: "2.0",
-      error: { code: -32000, message: "Method not allowed." },
-      id: null,
+      jsonrpc: MCP_JSON_RPC_VERSION,
+      error: {
+        code: MCP_JSON_RPC_ERROR_CODES.METHOD_NOT_ALLOWED,
+        message: ERROR_MESSAGES.MCP_SERVER.METHOD_NOT_ALLOWED,
+      },
+      id: MCP_JSON_RPC_NULL_ID,
     });
   }
 
@@ -121,12 +133,14 @@ export class McpServerController {
     message: string;
   } {
     const message =
-      error instanceof Error ? error.message : "Internal server error";
+      error instanceof Error
+        ? error.message
+        : ERROR_MESSAGES.MCP_SERVER.INTERNAL_SERVER_ERROR;
 
     if (error instanceof UnauthorizedException) {
       return {
         statusCode: 401,
-        errorCode: -32001,
+        errorCode: MCP_JSON_RPC_ERROR_CODES.UNAUTHORIZED,
         message,
       };
     }
@@ -134,14 +148,14 @@ export class McpServerController {
     if (error instanceof HttpException) {
       return {
         statusCode: error.getStatus(),
-        errorCode: -32603,
+        errorCode: MCP_JSON_RPC_ERROR_CODES.INTERNAL_ERROR,
         message,
       };
     }
 
     return {
       statusCode: 500,
-      errorCode: -32603,
+      errorCode: MCP_JSON_RPC_ERROR_CODES.INTERNAL_ERROR,
       message,
     };
   }
