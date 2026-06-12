@@ -24,6 +24,8 @@ services:
       - ./.env:/app/apps/agent-app/.env:ro
       - agent_deployments:/app/deployments
       - /var/run/docker.sock:/var/run/docker.sock
+      - /proc:/host/proc:ro
+      - /:/host/root:ro
     networks:
       - agent-network
     restart: unless-stopped

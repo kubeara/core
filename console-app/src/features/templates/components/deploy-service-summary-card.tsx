@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
 import type { ApiTemplate } from "../types";
 import { getTemplateAccentColor } from "../utils/deploy-form-schema";
 
@@ -17,25 +17,18 @@ export function DeployServiceSummaryCard({
   const accent = getTemplateAccentColor(template.slug);
 
   return (
-    <article
-      className="deploy-service-card"
-      style={{ "--deploy-accent": accent } as CSSProperties}
-    >
-      <div
-        className="deploy-service-card-accent"
-        style={{ background: accent }}
-      />
+    <article className="deploy-service-card">
+      <div className="deploy-service-card-accent" />
       <div className="deploy-service-card-main">
-        <div
+        <ServiceBrandIcon
+          name={template.name}
+          logo={template.logo}
           className="deploy-service-icon"
           style={{
             backgroundColor: `${accent}20`,
             color: accent,
           }}
-          aria-hidden
-        >
-          {template.name.charAt(0)}
-        </div>
+        />
         <div className="deploy-service-content">
           <div className="deploy-service-headline">
             <h1>{template.name}</h1>

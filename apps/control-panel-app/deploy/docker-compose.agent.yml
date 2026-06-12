@@ -30,8 +30,9 @@ services:
       - agent_deployments:/app/deployments
       # Use host Docker to run template deployments
       - /var/run/docker.sock:/var/run/docker.sock
-      # Host /proc for accurate server resource metrics (Insights tab)
+      # Host /proc and root for accurate server resource metrics (Insights tab)
       - /proc:/host/proc:ro
+      - /:/host/root:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     # Avoid creating a new compose network (helps when Docker IP pools are exhausted).

@@ -10,6 +10,12 @@ export const SUCCESS_MESSAGES = {
     DELETED: "Server deleted successfully",
   },
 
+  TERMINAL: {
+    CONNECTED: "Terminal session created successfully",
+    SSH_CONNECTED: "Terminal session created via SSH fallback",
+    DISCONNECTED: "Terminal session disconnected successfully",
+  },
+
   AUTH: {
     SIGNUP: "User registered successfully",
     LOGIN: "User logged in successfully",

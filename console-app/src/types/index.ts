@@ -33,6 +33,7 @@ export type Template = {
     description: string;
     category: string;
     color: string;
+    logo?: string | null;
 };
 
 /**

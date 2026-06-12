@@ -675,7 +675,7 @@
 .deploy-configure-page .deploy-service-card-accent {
   width: 4px;
   flex-shrink: 0;
-  background: var(--deploy-accent, var(--primary));
+  background: var(--primary);
 }
 
 .deploy-configure-page .deploy-service-card-main {

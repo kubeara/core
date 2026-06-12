@@ -7,6 +7,7 @@ import { buildDeploymentsSocketUrl } from "@/api/axios";
 
 let socket: Socket | null = null;
 const subscribedDeploymentIds = new Set<string>();
+const subscribedTerminalSessionIds = new Set<string>();
 
 function emitLogsSubscribe(deploymentId: string): void {
   if (!socket?.connected) {
@@ -16,9 +17,20 @@ function emitLogsSubscribe(deploymentId: string): void {
   socket.emit(DEPLOYMENT_SOCKET_EVENTS.LOGS_SUBSCRIBE, { deploymentId });
 }
 
+function emitTerminalSubscribe(sessionId: string): void {
+  if (!socket?.connected) {
+    return;
+  }
+
+  socket.emit(DEPLOYMENT_SOCKET_EVENTS.TERMINAL_SUBSCRIBE, { sessionId });
+}
+
 function handleReconnectSubscribe(): void {
   for (const deploymentId of subscribedDeploymentIds) {
     emitLogsSubscribe(deploymentId);
+  }
+  for (const sessionId of subscribedTerminalSessionIds) {
+    emitTerminalSubscribe(sessionId);
   }
 }
 
@@ -63,4 +75,69 @@ export function unsubscribeDeploymentLogs(deploymentId?: string): void {
   }
 
   subscribedDeploymentIds.clear();
+}
+
+export function subscribeTerminalSession(sessionId: string): void {
+  const trimmed = sessionId.trim();
+  if (!trimmed) return;
+
+  subscribedTerminalSessionIds.add(trimmed);
+  const activeSocket = getDeploymentSocket();
+
+  if (activeSocket.connected) {
+    emitTerminalSubscribe(trimmed);
+    return;
+  }
+
+  activeSocket.connect();
+  activeSocket.once("connect", () => emitTerminalSubscribe(trimmed));
+}
+
+export function unsubscribeTerminalSession(sessionId?: string): void {
+  if (sessionId) {
+    subscribedTerminalSessionIds.delete(sessionId.trim());
+    return;
+  }
+
+  subscribedTerminalSessionIds.clear();
+}
+
+export function emitTerminalInput(sessionId: string, data: string): void {
+  const activeSocket = getDeploymentSocket();
+  if (!activeSocket.connected) {
+    return;
+  }
+
+  activeSocket.emit(DEPLOYMENT_SOCKET_EVENTS.TERMINAL_INPUT, {
+    sessionId,
+    data,
+  });
+}
+
+export function emitTerminalResize(
+  sessionId: string,
+  cols: number,
+  rows: number,
+): void {
+  const activeSocket = getDeploymentSocket();
+  if (!activeSocket.connected) {
+    return;
+  }
+
+  activeSocket.emit(DEPLOYMENT_SOCKET_EVENTS.TERMINAL_RESIZE, {
+    sessionId,
+    cols,
+    rows,
+  });
+}
+
+export function emitTerminalDisconnect(sessionId: string): void {
+  const activeSocket = getDeploymentSocket();
+  if (!activeSocket.connected) {
+    return;
+  }
+
+  activeSocket.emit(DEPLOYMENT_SOCKET_EVENTS.TERMINAL_DISCONNECT, {
+    sessionId,
+  });
 }

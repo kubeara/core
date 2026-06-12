@@ -30,6 +30,20 @@ export enum DeploymentEvents {
   CONTAINER_ACTION_RESULT = "container:action:result",
   /** Agent → control panel: capability advertisement on connect. */
   AGENT_HELLO = "agent:hello",
+  /** Control panel → agent: create an interactive terminal session. */
+  TERMINAL_CONNECT = "terminal:connect",
+  /** Agent → control panel: terminal session creation response. */
+  TERMINAL_CONNECT_RESULT = "terminal:connect:result",
+  /** Console client joins `terminal:{sessionId}` before I/O events. */
+  TERMINAL_SUBSCRIBE = "terminal:subscribe",
+  /** Console → control panel → agent: terminal keystrokes. */
+  TERMINAL_INPUT = "terminal:input",
+  /** Agent → control panel → console: terminal output stream. */
+  TERMINAL_OUTPUT = "terminal:output",
+  /** Console → control panel → agent: terminal dimensions. */
+  TERMINAL_RESIZE = "terminal:resize",
+  /** Console/control panel → agent: close terminal session. */
+  TERMINAL_DISCONNECT = "terminal:disconnect",
 }
 
 export type ContainerActionType = "stop" | "restart" | "delete";
@@ -303,4 +317,40 @@ export interface AgentHelloPayload {
   capabilities: string[];
   version: string;
   timestamp: string;
+}
+
+export interface TerminalConnectRequestPayload {
+  requestId: string;
+  cols: number;
+  rows: number;
+}
+
+export interface TerminalConnectResponsePayload {
+  requestId: string;
+  sessionId?: string;
+  error?: string;
+}
+
+export interface TerminalSubscribePayload {
+  sessionId: string;
+}
+
+export interface TerminalInputPayload {
+  sessionId: string;
+  data: string;
+}
+
+export interface TerminalOutputPayload {
+  sessionId: string;
+  data: string;
+}
+
+export interface TerminalResizePayload {
+  sessionId: string;
+  rows: number;
+  cols: number;
+}
+
+export interface TerminalDisconnectPayload {
+  sessionId: string;
 }

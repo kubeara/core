@@ -81,6 +81,7 @@
     "dotenv": "^17.4.2",
     "js-yaml": "^4.1.1",
     "jsonwebtoken": "^9.0.3",
+    "node-pty": "^1.0.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.20.0",

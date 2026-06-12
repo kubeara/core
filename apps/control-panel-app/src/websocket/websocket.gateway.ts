@@ -29,26 +29,42 @@ import {
   ServerGetResourcesRequestPayload,
   ServerGetResourcesResponsePayload,
   ServerResourcesMetricsPayload,
+  TerminalConnectRequestPayload,
+  TerminalConnectResponsePayload,
+  TerminalDisconnectPayload,
+  TerminalInputPayload,
+  TerminalOutputPayload,
+  TerminalResizePayload,
+  TerminalSubscribePayload,
 } from "@shared/socket-events";
 import { randomUUID } from "node:crypto";
 import { DeploymentsService } from "@control-panel/modules/deployments/deployments.service";
 import { AgentServerBindingService } from "@control-panel/modules/server-connections/services/agent-server-binding.service";
+import { SshTerminalService } from "@control-panel/modules/terminal/ssh-terminal.service";
+import { TerminalTransport } from "@control-panel/modules/terminal/enums/terminal-transport.enum";
 import { DeploymentStreamBufferService } from "./deployment-stream-buffer.service";
 import type {
   PendingContainerAction,
   PendingContainerDiscovery,
   PendingServerResources,
+  PendingTerminalConnect,
+  TerminalSessionRecord,
 } from "./interfaces";
 import {
   SERVER_ID_HEADER,
   CONTAINER_ACTION_TIMEOUT_MS,
   CONTAINER_DISCOVER_TIMEOUT_MS,
   SERVER_GET_RESOURCES_TIMEOUT_MS,
+  TERMINAL_CONNECT_TIMEOUT_MS,
   STREAM_DEBUG,
 } from "./constants";
 
 function deploymentRoom(deploymentId: string): string {
   return `deployment:${deploymentId}`;
+}
+
+function terminalRoom(sessionId: string): string {
+  return `terminal:${sessionId}`;
 }
 
 @Injectable()
@@ -66,6 +82,8 @@ export class DeploymentGateway
     private readonly deploymentsService: DeploymentsService,
     private readonly agentServerBinding: AgentServerBindingService,
     private readonly streamBuffer: DeploymentStreamBufferService,
+    @Inject(forwardRef(() => SshTerminalService))
+    private readonly sshTerminalService: SshTerminalService,
   ) {}
 
   @WebSocketServer()
@@ -88,6 +106,14 @@ export class DeploymentGateway
   private readonly pendingContainerActions = new Map<
     string,
     PendingContainerAction
+  >();
+  private readonly pendingTerminalConnects = new Map<
+    string,
+    PendingTerminalConnect
+  >();
+  private readonly terminalSessionsById = new Map<
+    string,
+    TerminalSessionRecord
   >();
   /** serverId → agent-advertised socket capabilities (from agent:hello). */
   private readonly agentCapabilitiesByServerId = new Map<string, Set<string>>();
@@ -203,6 +229,11 @@ export class DeploymentGateway
             serverId,
             "Agent disconnected during container action",
           );
+          this.rejectPendingTerminalConnectsForServer(
+            serverId,
+            "Agent disconnected during terminal connect",
+          );
+          this.closeTerminalSessionsForServer(serverId, "Agent disconnected");
         }
 
         const ns = this.getNamespaceServer();
@@ -423,6 +454,85 @@ export class DeploymentGateway
     });
 
     this.replayBufferedLogsToClient(client, deploymentId);
+  }
+
+  @SubscribeMessage(DeploymentEvents.TERMINAL_SUBSCRIBE)
+  async handleTerminalSubscribe(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: TerminalSubscribePayload,
+  ): Promise<void> {
+    const sessionId = body?.sessionId?.trim();
+    if (!sessionId || !this.terminalSessionsById.has(sessionId)) {
+      this.logger.warn(
+        `[TERMINAL] subscribe rejected for ${client.id}: unknown sessionId=${sessionId ?? "missing"}`,
+      );
+      return;
+    }
+
+    const room = terminalRoom(sessionId);
+    try {
+      await client.join(room);
+      this.logger.log(
+        `[TERMINAL] client joined room client=${client.id} sessionId=${sessionId}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `[TERMINAL] subscribe join failed client=${client.id} room=${room}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  @SubscribeMessage(DeploymentEvents.TERMINAL_INPUT)
+  handleTerminalInput(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: TerminalInputPayload,
+  ): void {
+    this.forwardTerminalEventToAgent(
+      client,
+      DeploymentEvents.TERMINAL_INPUT,
+      payload,
+    );
+  }
+
+  @SubscribeMessage(DeploymentEvents.TERMINAL_RESIZE)
+  handleTerminalResize(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: TerminalResizePayload,
+  ): void {
+    this.forwardTerminalEventToAgent(
+      client,
+      DeploymentEvents.TERMINAL_RESIZE,
+      payload,
+    );
+  }
+
+  @SubscribeMessage(DeploymentEvents.TERMINAL_DISCONNECT)
+  handleTerminalDisconnect(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: TerminalDisconnectPayload,
+  ): void {
+    const sessionId = payload?.sessionId?.trim();
+    if (!sessionId) {
+      return;
+    }
+
+    this.closeTerminalSession(sessionId, { notifyAgent: true });
+  }
+
+  @SubscribeMessage(DeploymentEvents.TERMINAL_CONNECT_RESULT)
+  handleTerminalConnectResult(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: TerminalConnectResponsePayload,
+  ): void {
+    this.processTerminalConnectResult(client, payload);
+  }
+
+  @SubscribeMessage(DeploymentEvents.TERMINAL_OUTPUT)
+  handleTerminalOutput(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: TerminalOutputPayload,
+  ): void {
+    this.relayTerminalOutput(client, payload);
   }
 
   private isLikelyAgentClient(client: Socket): boolean {
@@ -769,6 +879,9 @@ export class DeploymentGateway
     });
   }
 
+  /**
+   * Requests a container action.
+   */
   requestContainerAction(
     serverId: string,
     containerId: string,
@@ -817,6 +930,139 @@ export class DeploymentGateway
     });
   }
 
+  /**
+   * Requests a terminal connect.
+   */
+  requestTerminalConnect(
+    serverId: string,
+    userId: string,
+    cols: number,
+    rows: number,
+    timeoutMs: number = TERMINAL_CONNECT_TIMEOUT_MS,
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      try {
+        const client = this.agentsByServerId.get(serverId);
+        if (!client?.connected) {
+          reject(new Error(`No connected agent for server '${serverId}'`));
+          return;
+        }
+
+        const requestId = randomUUID();
+        const payload: TerminalConnectRequestPayload = {
+          requestId,
+          cols,
+          rows,
+        };
+
+        const timer = setTimeout(() => {
+          this.pendingTerminalConnects.delete(requestId);
+          reject(
+            new Error(
+              `Terminal connect timed out after ${timeoutMs / 1000}s for server '${serverId}'`,
+            ),
+          );
+        }, timeoutMs);
+
+        this.pendingTerminalConnects.set(requestId, {
+          serverId,
+          userId,
+          resolve,
+          reject,
+          timer,
+        });
+
+        this.logger.log(
+          `[TERMINAL] emitting event=${DeploymentEvents.TERMINAL_CONNECT} to agentSocket=${client.id} serverId=${serverId} requestId=${requestId}`,
+        );
+
+        client.emit(DeploymentEvents.TERMINAL_CONNECT, payload);
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  }
+
+  /**
+   * Registers a terminal session.
+   */
+  registerTerminalSession(
+    sessionId: string,
+    serverId: string,
+    userId: string,
+    transport: TerminalTransport = TerminalTransport.AGENT,
+  ): void {
+    this.terminalSessionsById.set(sessionId, {
+      sessionId,
+      serverId,
+      userId,
+      transport,
+    });
+  }
+
+  broadcastTerminalOutput(sessionId: string, data: string): void {
+    const session = this.terminalSessionsById.get(sessionId);
+    if (!session) {
+      return;
+    }
+
+    const ns = this.getNamespaceServer();
+    if (!ns) {
+      return;
+    }
+
+    ns.to(terminalRoom(sessionId)).emit(DeploymentEvents.TERMINAL_OUTPUT, {
+      sessionId,
+      data,
+    });
+  }
+
+  getTerminalSession(sessionId: string): TerminalSessionRecord | undefined {
+    return this.terminalSessionsById.get(sessionId);
+  }
+
+  /**
+   * Closes a terminal session.
+   */
+  closeTerminalSession(
+    sessionId: string,
+    options: {
+      notifyAgent?: boolean;
+      skipTransportClose?: boolean;
+    } = {},
+  ): void {
+    const session = this.terminalSessionsById.get(sessionId);
+    if (!session) {
+      return;
+    }
+
+    this.terminalSessionsById.delete(sessionId);
+
+    if (!options.skipTransportClose) {
+      if (session.transport === TerminalTransport.SSH) {
+        this.sshTerminalService.closeSession(sessionId, {
+          notifyClients: false,
+        });
+      } else if (options.notifyAgent !== false) {
+        const agent = this.agentsByServerId.get(session.serverId);
+        if (agent?.connected) {
+          const payload: TerminalDisconnectPayload = { sessionId };
+          agent.emit(DeploymentEvents.TERMINAL_DISCONNECT, payload);
+        }
+      }
+    }
+
+    const ns = this.getNamespaceServer();
+    const payload: TerminalDisconnectPayload = { sessionId };
+    ns?.to(terminalRoom(sessionId)).emit(
+      DeploymentEvents.TERMINAL_DISCONNECT,
+      payload,
+    );
+  }
+
+  /**
+   * Requests a container discovery.
+   */
   requestContainerDiscovery(
     serverId: string,
     timeoutMs: number = CONTAINER_DISCOVER_TIMEOUT_MS,
@@ -864,6 +1110,9 @@ export class DeploymentGateway
     client.removeAllListeners(DeploymentEvents.CONTAINER_ACTION_RESULT);
     client.removeAllListeners(DeploymentEvents.CONTAINER_DISCOVER_RESULT);
     client.removeAllListeners(DeploymentEvents.SERVER_GET_RESOURCES_RESULT);
+    client.removeAllListeners(DeploymentEvents.TERMINAL_CONNECT_RESULT);
+    client.removeAllListeners(DeploymentEvents.TERMINAL_OUTPUT);
+    client.removeAllListeners(DeploymentEvents.TERMINAL_DISCONNECT);
     client.on(DeploymentEvents.AGENT_HELLO, (payload: AgentHelloPayload) => {
       this.processAgentHello(client, payload);
     });
@@ -885,6 +1134,230 @@ export class DeploymentGateway
         this.handleServerGetResourcesResult(client, payload);
       },
     );
+    client.on(
+      DeploymentEvents.TERMINAL_CONNECT_RESULT,
+      (payload: TerminalConnectResponsePayload) => {
+        this.processTerminalConnectResult(client, payload);
+      },
+    );
+    client.on(
+      DeploymentEvents.TERMINAL_OUTPUT,
+      (payload: TerminalOutputPayload) => {
+        this.relayTerminalOutput(client, payload);
+      },
+    );
+    client.on(
+      DeploymentEvents.TERMINAL_DISCONNECT,
+      (payload: TerminalDisconnectPayload) => {
+        this.processAgentTerminalDisconnect(client, payload);
+      },
+    );
+  }
+
+  /**
+   * Processes an agent terminal disconnect.
+   */
+  private processAgentTerminalDisconnect(
+    client: Socket,
+    payload: TerminalDisconnectPayload,
+  ): void {
+    const sessionId = payload?.sessionId?.trim();
+    if (!sessionId) {
+      return;
+    }
+
+    const session = this.terminalSessionsById.get(sessionId);
+    const serverId = this.serverIdBySocketId.get(client.id);
+    if (session && serverId && serverId !== session.serverId) {
+      return;
+    }
+
+    this.closeTerminalSession(sessionId, {
+      notifyAgent: false,
+      skipTransportClose: true,
+    });
+  }
+
+  /**
+   * Processes a terminal connect result.
+   */
+  private processTerminalConnectResult(
+    client: Socket,
+    payload: TerminalConnectResponsePayload,
+  ): void {
+    try {
+      const requestId = payload?.requestId?.trim();
+      if (!requestId) {
+        this.logger.warn(
+          `Ignoring terminal connect result without requestId from ${client.id}`,
+        );
+        return;
+      }
+
+      const pending = this.pendingTerminalConnects.get(requestId);
+      if (!pending) {
+        this.logger.warn(
+          `No pending terminal connect for requestId=${requestId}`,
+        );
+        return;
+      }
+
+      const serverId = this.serverIdBySocketId.get(client.id);
+      if (serverId && serverId !== pending.serverId) {
+        this.logger.warn(
+          `Terminal connect result server mismatch requestId=${requestId} expected=${pending.serverId} got=${serverId}`,
+        );
+        return;
+      }
+
+      clearTimeout(pending.timer);
+      this.pendingTerminalConnects.delete(requestId);
+
+      if (payload.error) {
+        pending.reject(new Error(payload.error));
+        return;
+      }
+
+      const sessionId = payload.sessionId?.trim();
+      if (!sessionId) {
+        pending.reject(new Error("Agent returned no terminal session id"));
+        return;
+      }
+
+      this.registerTerminalSession(
+        sessionId,
+        pending.serverId,
+        pending.userId,
+        TerminalTransport.AGENT,
+      );
+      pending.resolve(sessionId);
+    } catch (error) {
+      this.logger.error(
+        `Failed to process terminal connect result: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Relays a terminal output.
+   */
+  private relayTerminalOutput(
+    client: Socket,
+    payload: TerminalOutputPayload,
+  ): void {
+    try {
+      const sessionId = payload?.sessionId?.trim();
+      const data = payload?.data;
+      if (!sessionId || data == null) {
+        return;
+      }
+
+      const serverId = this.serverIdBySocketId.get(client.id);
+      const session = this.terminalSessionsById.get(sessionId);
+      if (!session || (serverId && serverId !== session.serverId)) {
+        return;
+      }
+
+      const ns = this.getNamespaceServer();
+      if (!ns) {
+        return;
+      }
+
+      ns.to(terminalRoom(sessionId)).emit(DeploymentEvents.TERMINAL_OUTPUT, {
+        sessionId,
+        data,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to relay terminal output: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Forwards a terminal event to the agent.
+   */
+  private forwardTerminalEventToAgent(
+    client: Socket,
+    event: DeploymentEvents.TERMINAL_INPUT | DeploymentEvents.TERMINAL_RESIZE,
+    payload: TerminalInputPayload | TerminalResizePayload,
+  ): void {
+    try {
+      const sessionId = payload?.sessionId?.trim();
+      if (!sessionId) {
+        return;
+      }
+
+      const session = this.terminalSessionsById.get(sessionId);
+      if (!session) {
+        this.logger.warn(
+          `[TERMINAL] ${event} ignored for unknown sessionId=${sessionId} client=${client.id}`,
+        );
+        return;
+      }
+
+      if (session.transport === TerminalTransport.SSH) {
+        if (event === DeploymentEvents.TERMINAL_INPUT) {
+          const input = payload as TerminalInputPayload;
+          if (input.data != null) {
+            this.sshTerminalService.writeInput(sessionId, input.data);
+          }
+        } else {
+          const resize = payload as TerminalResizePayload;
+          this.sshTerminalService.resize(sessionId, resize.cols, resize.rows);
+        }
+        return;
+      }
+
+      const agent = this.agentsByServerId.get(session.serverId);
+      if (!agent?.connected) {
+        this.closeTerminalSession(sessionId, { notifyAgent: false });
+        return;
+      }
+
+      agent.emit(event, payload);
+    } catch (error) {
+      this.logger.error(
+        `Failed to forward terminal event ${event}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Rejects pending terminal connects for a server.
+   */
+  private rejectPendingTerminalConnectsForServer(
+    serverId: string,
+    reason: string,
+  ): void {
+    for (const [requestId, pending] of this.pendingTerminalConnects) {
+      if (pending.serverId !== serverId) {
+        continue;
+      }
+      clearTimeout(pending.timer);
+      this.pendingTerminalConnects.delete(requestId);
+      pending.reject(new Error(reason));
+    }
+  }
+
+  /**
+   * Closes terminal sessions for a server.
+   */
+  private closeTerminalSessionsForServer(
+    serverId: string,
+    reason: string,
+  ): void {
+    for (const [sessionId, session] of this.terminalSessionsById) {
+      if (session.serverId !== serverId) {
+        continue;
+      }
+      this.closeTerminalSession(sessionId, {
+        notifyAgent: session.transport === TerminalTransport.AGENT,
+      });
+      this.logger.log(
+        `[TERMINAL] closed sessionId=${sessionId} serverId=${serverId}: ${reason}`,
+      );
+    }
   }
 
   private rejectPendingDiscoveryForServer(

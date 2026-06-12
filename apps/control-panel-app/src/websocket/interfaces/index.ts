@@ -24,3 +24,20 @@ export interface PendingContainerAction {
   reject: (error: Error) => void;
   timer: NodeJS.Timeout;
 }
+
+export interface PendingTerminalConnect {
+  serverId: string;
+  userId: string;
+  resolve: (sessionId: string) => void;
+  reject: (error: Error) => void;
+  timer: NodeJS.Timeout;
+}
+
+import { TerminalTransport } from "@control-panel/modules/terminal/enums/terminal-transport.enum";
+
+export interface TerminalSessionRecord {
+  sessionId: string;
+  serverId: string;
+  userId: string;
+  transport: TerminalTransport;
+}
