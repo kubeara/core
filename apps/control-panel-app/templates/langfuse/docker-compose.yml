@@ -1,0 +1,296 @@
+# documentation: https://langfuse.com/self-hosting/deployment/docker-compose
+# shortDescription: Open-source LLM observability and evaluation platform
+# longDescription: <p>Langfuse provides <strong>LLM tracing, prompt management, and evaluation</strong> for production AI applications.</p><p>Includes PostgreSQL, ClickHouse, Redis, and MinIO. Create your account on first launch at port 3000.</p>
+# category: ai,observability
+# tags: langfuse,ai,llm,observability,tracing,evaluation
+# logo: svgs/langfuse-icon.svg
+# port: 3000
+
+services:
+  langfuse-web:
+    image: ${LANGFUSE_WEB_IMAGE:-langfuse/langfuse:3}
+    restart: ${LANGFUSE_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_LANGFUSE:-3000}:3000'
+
+    environment:
+      - SERVICE_URL_LANGFUSE_3000
+      - NEXTAUTH_URL=${SERVICE_URL_LANGFUSE:-${SERVICE_URL_LANGFUSE_3000:-http://localhost:3000}}
+      - NEXTAUTH_SECRET=${SERVICE_HEX_64_LANGFUSE}
+      - SALT=${SERVICE_HEX_32_LANGFUSE}
+      - ENCRYPTION_KEY=${SERVICE_PASSWORD_64_LANGFUSE}
+      - DATABASE_URL=postgresql://${SERVICE_USER_LANGFUSE}:${SERVICE_PASSWORD_LANGFUSE}@postgres:5432/${LANGFUSE_DB_NAME:-langfuse}
+      - CLICKHOUSE_MIGRATION_URL=clickhouse://clickhouse:9000
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - CLICKHOUSE_USER=${LANGFUSE_CLICKHOUSE_USER:-clickhouse}
+      - CLICKHOUSE_PASSWORD=${SERVICE_PASSWORD_LANGFUSE_CLICKHOUSE}
+      - CLICKHOUSE_CLUSTER_ENABLED=false
+      - LANGFUSE_S3_EVENT_UPLOAD_BUCKET=langfuse
+      - LANGFUSE_S3_EVENT_UPLOAD_REGION=auto
+      - LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID=${SERVICE_USER_LANGFUSE_MINIO}
+      - LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_LANGFUSE_MINIO}
+      - LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT=http://minio:9000
+      - LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE=true
+      - LANGFUSE_S3_EVENT_UPLOAD_PREFIX=events/
+      - LANGFUSE_S3_MEDIA_UPLOAD_BUCKET=langfuse
+      - LANGFUSE_S3_MEDIA_UPLOAD_REGION=auto
+      - LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID=${SERVICE_USER_LANGFUSE_MINIO}
+      - LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_LANGFUSE_MINIO}
+      - LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT=http://minio:9000
+      - LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE=true
+      - LANGFUSE_S3_MEDIA_UPLOAD_PREFIX=media/
+      - LANGFUSE_S3_BATCH_EXPORT_ENABLED=false
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_AUTH=${SERVICE_PASSWORD_LANGFUSE_REDIS}
+      - TELEMETRY_ENABLED=${LANGFUSE_TELEMETRY_ENABLED:-false}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      langfuse-worker:
+        condition: service_started
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/api/public/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  langfuse-worker:
+    image: ${LANGFUSE_WORKER_IMAGE:-langfuse/langfuse-worker:3}
+    restart: ${LANGFUSE_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - NEXTAUTH_URL=${SERVICE_URL_LANGFUSE:-${SERVICE_URL_LANGFUSE_3000:-http://localhost:3000}}
+      - DATABASE_URL=postgresql://${SERVICE_USER_LANGFUSE}:${SERVICE_PASSWORD_LANGFUSE}@postgres:5432/${LANGFUSE_DB_NAME:-langfuse}
+      - SALT=${SERVICE_HEX_32_LANGFUSE}
+      - ENCRYPTION_KEY=${SERVICE_PASSWORD_64_LANGFUSE}
+      - CLICKHOUSE_MIGRATION_URL=clickhouse://clickhouse:9000
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - CLICKHOUSE_USER=${LANGFUSE_CLICKHOUSE_USER:-clickhouse}
+      - CLICKHOUSE_PASSWORD=${SERVICE_PASSWORD_LANGFUSE_CLICKHOUSE}
+      - CLICKHOUSE_CLUSTER_ENABLED=false
+      - LANGFUSE_S3_EVENT_UPLOAD_BUCKET=langfuse
+      - LANGFUSE_S3_EVENT_UPLOAD_REGION=auto
+      - LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID=${SERVICE_USER_LANGFUSE_MINIO}
+      - LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_LANGFUSE_MINIO}
+      - LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT=http://minio:9000
+      - LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE=true
+      - LANGFUSE_S3_EVENT_UPLOAD_PREFIX=events/
+      - LANGFUSE_S3_MEDIA_UPLOAD_BUCKET=langfuse
+      - LANGFUSE_S3_MEDIA_UPLOAD_REGION=auto
+      - LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID=${SERVICE_USER_LANGFUSE_MINIO}
+      - LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY=${SERVICE_PASSWORD_LANGFUSE_MINIO}
+      - LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT=http://minio:9000
+      - LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE=true
+      - LANGFUSE_S3_MEDIA_UPLOAD_PREFIX=media/
+      - LANGFUSE_S3_BATCH_EXPORT_ENABLED=false
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_AUTH=${SERVICE_PASSWORD_LANGFUSE_REDIS}
+      - TELEMETRY_ENABLED=${LANGFUSE_TELEMETRY_ENABLED:-false}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3030/api/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${LANGFUSE_POSTGRES_IMAGE:-postgres:16}
+    restart: ${LANGFUSE_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      POSTGRES_USER: ${SERVICE_USER_LANGFUSE}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_LANGFUSE}
+      POSTGRES_DB: ${LANGFUSE_DB_NAME:-langfuse}
+      PGDATA: ${LANGFUSE_POSTGRES_DATA_PATH:-/var/lib/postgresql/data}
+      TZ: ${TZ:-UTC}
+      PGTZ: ${PGTZ:-UTC}
+
+    volumes:
+      - langfuse_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      timeout: 20s
+      retries: 10
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  clickhouse:
+    image: ${LANGFUSE_CLICKHOUSE_IMAGE:-clickhouse/clickhouse-server:25.3}
+    restart: ${LANGFUSE_CLICKHOUSE_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: ${LANGFUSE_CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${SERVICE_PASSWORD_LANGFUSE_CLICKHOUSE}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - langfuse_clickhouse_data:/var/lib/clickhouse
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8123/ping || exit 1']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: ${LANGFUSE_REDIS_IMAGE:-redis:7.4-alpine}
+    restart: ${LANGFUSE_REDIS_RESTART_POLICY:-unless-stopped}
+
+    command: >
+      sh -c "exec redis-server --requirepass \"$$REDIS_AUTH\" --maxmemory-policy noeviction"
+
+    environment:
+      REDIS_AUTH: ${SERVICE_PASSWORD_LANGFUSE_REDIS}
+
+    volumes:
+      - langfuse_redis_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_AUTH" ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  minio:
+    image: ${LANGFUSE_MINIO_IMAGE:-minio/minio:RELEASE.2025-09-07T16-13-09Z}
+    restart: ${LANGFUSE_MINIO_RESTART_POLICY:-unless-stopped}
+
+    command: server /data --console-address ":9001"
+
+    environment:
+      MINIO_ROOT_USER: ${SERVICE_USER_LANGFUSE_MINIO}
+      MINIO_ROOT_PASSWORD: ${SERVICE_PASSWORD_LANGFUSE_MINIO}
+
+    volumes:
+      - langfuse_minio_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1']
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  langfuse_postgres_data:
+  langfuse_clickhouse_data:
+  langfuse_redis_data:
+  langfuse_minio_data:

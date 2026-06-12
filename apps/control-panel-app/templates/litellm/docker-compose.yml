@@ -1,0 +1,90 @@
+# documentation: https://docs.litellm.ai/docs/proxy/docker_quick_start
+# shortDescription: OpenAI-compatible proxy gateway for 100+ LLM providers
+# longDescription: <p>LiteLLM is an <strong>AI gateway</strong> that exposes a unified OpenAI-compatible API across LLM providers.</p><p>Includes PostgreSQL for virtual keys and model management. Master key uses <code>SERVICE_HEX_64_LITELLM</code>; database credentials use <code>SERVICE_USER_LITELLM</code> and <code>SERVICE_PASSWORD_LITELLM</code>.</p>
+# category: ai,api
+# tags: litellm,ai,llm,proxy,gateway,openai,api
+# port: 4000
+
+services:
+  litellm:
+    image: ${LITELLM_IMAGE:-ghcr.io/berriai/litellm:main-stable}
+    restart: ${LITELLM_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_LITELLM:-4000}:4000'
+
+    environment:
+      - SERVICE_URL_LITELLM_4000
+      - LITELLM_MASTER_KEY=${SERVICE_HEX_64_LITELLM}
+      - DATABASE_URL=postgresql://${SERVICE_USER_LITELLM}:${SERVICE_PASSWORD_LITELLM}@postgres:5432/${LITELLM_DB_NAME:-litellm}
+      - STORE_MODEL_IN_DB=${LITELLM_STORE_MODEL_IN_DB:-true}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'python3 -c "import urllib.request; urllib.request.urlopen(''http://127.0.0.1:4000/health/liveliness'')" || exit 1',
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${LITELLM_POSTGRES_IMAGE:-postgres:16}
+    restart: ${LITELLM_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      POSTGRES_USER: ${SERVICE_USER_LITELLM}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_LITELLM}
+      POSTGRES_DB: ${LITELLM_DB_NAME:-litellm}
+      PGDATA: ${LITELLM_POSTGRES_DATA_PATH:-/var/lib/postgresql/data}
+      TZ: ${TZ:-UTC}
+      PGTZ: ${PGTZ:-UTC}
+
+    volumes:
+      - litellm_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      timeout: 20s
+      retries: 10
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  litellm_postgres_data:

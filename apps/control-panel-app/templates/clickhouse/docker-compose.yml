@@ -1,0 +1,51 @@
+# documentation: https://clickhouse.com/docs/install/docker
+# shortDescription: Column-oriented OLAP database for analytics
+# longDescription: <p>ClickHouse is a high-performance <strong>column-oriented database</strong> for real-time analytics and large-scale aggregations.</p><p>Exposes HTTP on port 8123 and the native protocol on port 9000. Credentials use <code>SERVICE_USER_CLICKHOUSE</code> and <code>SERVICE_PASSWORD_CLICKHOUSE</code>.</p>
+# category: database,analytics
+# tags: clickhouse,database,analytics,olap,columnar,sql
+# logo: svgs/clickhouse.svg
+# port: 8123
+
+services:
+  clickhouse:
+    image: ${CLICKHOUSE_IMAGE:-clickhouse/clickhouse-server:25.3}
+    restart: ${CLICKHOUSE_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_CLICKHOUSE:-8123}:8123'
+      - '${SERVICE_PORT_CLICKHOUSE_9000:-9000}:9000'
+
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-default}
+      CLICKHOUSE_USER: ${SERVICE_USER_CLICKHOUSE}
+      CLICKHOUSE_PASSWORD: ${SERVICE_PASSWORD_CLICKHOUSE}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: ${CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT:-1}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8123/ping || exit 1']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  clickhouse_data:

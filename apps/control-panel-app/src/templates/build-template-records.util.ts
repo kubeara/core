@@ -80,6 +80,14 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Redis",
     version: "7",
   },
+  valkey: {
+    name: "Valkey",
+    version: "8",
+  },
+  clickhouse: {
+    name: "ClickHouse",
+    version: "25.3",
+  },
   n8n: {
     name: "n8n",
     version: "2.10.2",
@@ -143,6 +151,42 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
   seafile: {
     name: "Seafile",
     version: "13.0",
+  },
+  flowise: {
+    name: "Flowise",
+    version: "latest",
+  },
+  "anything-llm": {
+    name: "AnythingLLM",
+    version: "latest",
+  },
+  litellm: {
+    name: "LiteLLM",
+    version: "main-stable",
+  },
+  ollama: {
+    name: "Ollama",
+    version: "latest",
+  },
+  "open-webui": {
+    name: "Open WebUI",
+    version: "main",
+  },
+  qdrant: {
+    name: "Qdrant",
+    version: "1.13",
+  },
+  weaviate: {
+    name: "Weaviate",
+    version: "1.27",
+  },
+  langfuse: {
+    name: "Langfuse",
+    version: "3",
+  },
+  netdata: {
+    name: "Netdata",
+    version: "stable",
   },
 };
 

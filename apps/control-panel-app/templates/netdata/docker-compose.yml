@@ -1,0 +1,71 @@
+# documentation: https://learn.netdata.cloud/docs/netdata-agent/installation/docker
+# shortDescription: Real-time infrastructure and container monitoring
+# longDescription: <p>Netdata collects <strong>real-time metrics</strong> from your host, containers, and applications with per-second granularity.</p><p>Dashboard on port 19999. Mounts host paths for CPU, memory, disk, and Docker monitoring. Optionally claim to Netdata Cloud with <code>NETDATA_CLAIM_TOKEN</code>.</p>
+# category: monitoring,observability
+# tags: netdata,monitoring,metrics,containers,infrastructure,alerts
+# logo: svgs/netdata.svg
+# port: 19999
+
+services:
+  netdata:
+    image: ${NETDATA_IMAGE:-netdata/netdata:stable}
+    restart: ${NETDATA_RESTART_POLICY:-unless-stopped}
+    hostname: ${NETDATA_HOSTNAME:-netdata}
+    pid: host
+
+    ports:
+      - '${SERVICE_PORT_NETDATA:-19999}:19999'
+
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+
+    security_opt:
+      - apparmor:unconfined
+
+    environment:
+      - SERVICE_URL_NETDATA_19999
+      - NETDATA_LISTENER_PORT=${NETDATA_LISTENER_PORT:-19999}
+      - DISABLE_TELEMETRY=${NETDATA_DISABLE_TELEMETRY:-1}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - netdata_config:/etc/netdata
+      - netdata_lib:/var/lib/netdata
+      - netdata_cache:/var/cache/netdata
+      - /:/host/root:ro,rslave
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /var/log:/host/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:19999/api/v1/info || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  netdata_config:
+  netdata_lib:
+  netdata_cache:

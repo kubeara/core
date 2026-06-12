@@ -1,0 +1,49 @@
+# documentation: https://qdrant.tech/documentation/guides/installation/
+# shortDescription: High-performance vector similarity search engine
+# longDescription: <p>Qdrant is a <strong>vector database</strong> for semantic search, recommendations, and RAG pipelines.</p><p>HTTP API on port 6333 and gRPC on port 6334. API key authentication uses <code>SERVICE_PASSWORD_QDRANT</code>.</p>
+# category: ai,database
+# tags: qdrant,vector,database,embeddings,rag,search
+# logo: svgs/Qdrant.svg
+# port: 6333
+
+services:
+  qdrant:
+    image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.13.2}
+    restart: ${QDRANT_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_QDRANT:-6333}:6333'
+      - '${SERVICE_PORT_QDRANT_6334:-6334}:6334'
+
+    environment:
+      - QDRANT__SERVICE__API_KEY=${SERVICE_PASSWORD_QDRANT}
+      - QDRANT__LOG_LEVEL=${QDRANT_LOG_LEVEL:-INFO}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+    healthcheck:
+      test: ['CMD-SHELL', "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  qdrant_data:
