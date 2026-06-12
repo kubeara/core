@@ -134,6 +134,21 @@ export function parseDfOutput(stdout: string): ServerDiskMetrics {
 }
 
 /**
+ * Counts logical CPUs from `/proc/cpuinfo` (`processor` entries).
+ */
+export function parseCpuCoresFromCpuinfo(content: string): number {
+  const matches = content.match(/^processor\s*:/gm);
+  return matches?.length ?? 0;
+}
+
+/**
+ * Parses the hostname from `/proc/sys/kernel/hostname`.
+ */
+export function parseHostnameFromProc(content: string): string {
+  return content.trim().split("\n")[0]?.trim() ?? "";
+}
+
+/**
  * Parses cumulative RX/TX bytes from `/proc/net/dev`.
  */
 export function parseNetDev(content: string): ServerNetworkMetrics {

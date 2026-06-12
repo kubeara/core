@@ -7,6 +7,8 @@ import type {
   ServerResources,
   ServersApiResponse,
   ServersListParams,
+  TerminalConnectRequest,
+  TerminalSession,
   UpdateServerRequest,
 } from "../types";
 import {
@@ -148,6 +150,53 @@ export async function disconnectServer(
       message: extractApiMessage(
         body,
         SERVER_API_FALLBACK_MESSAGES.DISCONNECT_SUCCESS,
+      ),
+    };
+  });
+}
+
+/**
+ * Connects to a terminal session.
+ */
+export async function connectTerminal(
+  serverId: string,
+  input: TerminalConnectRequest = {},
+): Promise<TerminalSession> {
+  return runServerApiCall(async () => {
+    const response = await apiClient.post<ServersApiResponse<TerminalSession>>(
+      `/servers/${encodeURIComponent(serverId)}/terminal/connect`,
+      input,
+    );
+    return unwrapServerApiData<TerminalSession>(
+      responseBody(response),
+      SERVER_API_FALLBACK_MESSAGES.TERMINAL_CONNECT,
+    );
+  });
+}
+
+/**
+ * Disconnects from a terminal session.
+ */
+export async function disconnectTerminal(
+  serverId: string,
+  sessionId: string,
+): Promise<{ disconnected: true; message: string }> {
+  return runServerApiCall(async () => {
+    const response = await apiClient.post<
+      ServersApiResponse<{ disconnected: true }>
+    >(`/servers/${encodeURIComponent(serverId)}/terminal/disconnect`, {
+      sessionId,
+    });
+    const body = responseBody(response);
+    unwrapServerApiData<{ disconnected: true }>(
+      body,
+      SERVER_API_FALLBACK_MESSAGES.TERMINAL_DISCONNECT,
+    );
+    return {
+      disconnected: true as const,
+      message: extractApiMessage(
+        body,
+        SERVER_API_FALLBACK_MESSAGES.TERMINAL_DISCONNECT_SUCCESS,
       ),
     };
   });

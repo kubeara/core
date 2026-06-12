@@ -1,5 +1,5 @@
 /** Interval between `/proc/stat` samples when computing CPU usage. */
-export const CPU_SAMPLE_INTERVAL_MS = 100;
+export const CPU_SAMPLE_INTERVAL_MS = 1_000;
 
 /** Maximum time allowed for the full resource collection cycle. */
 export const SERVER_RESOURCES_TIMEOUT_MS = 8_000;

@@ -19,7 +19,7 @@ export const HOST_RESOURCES_COMMAND_TIMEOUT_MS = 12_000;
 export const HOST_RESOURCES_SHELL_COMMAND = [
   "set -e",
   "head -1 /proc/stat",
-  "sleep 0.1",
+  "sleep 1",
   "head -1 /proc/stat",
   `echo '${HOST_RESOURCES_SECTION.MEM}'`,
   "cat /proc/meminfo",

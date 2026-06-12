@@ -1,0 +1,15 @@
+.service-brand-logo {
+  width: 1.75rem;
+  height: 1.75rem;
+  object-fit: contain;
+}
+
+.deploy-service-icon .service-brand-logo {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.template-card-icon .service-brand-logo {
+  width: 1.5rem;
+  height: 1.5rem;
+}

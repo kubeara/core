@@ -16,6 +16,7 @@ import { OrganizationsModule } from "./modules/organizations/organizations.modul
 import { ProfileModule } from "./modules/profile/profile.module";
 import { McpApiKeysModule } from "./modules/mcp-api-keys/mcp-api-keys.module";
 import { McpServerModule } from "./modules/mcp-server/mcp-server.module";
+import { TerminalModule } from "./modules/terminal/terminal.module";
 import { AppController } from "./app.controller";
 import { isProductionEnv } from "@control-panel/constants/env.constant";
 
@@ -38,9 +39,9 @@ import { isProductionEnv } from "@control-panel/constants/env.constant";
             type: "postgres",
             host: configService.get<string>("DB_HOST"),
             port: Number(configService.get<string>("DB_PORT")),
-            username: configService.get<string>("DB_USERNAME", "postgres"),
-            password: configService.get<string>("DB_PASSWORD", "postgres"),
-            database: configService.get<string>("DB_DATABASE", "templates"),
+            username: configService.get<string>("DB_USERNAME"),
+            password: configService.get<string>("DB_PASSWORD"),
+            database: configService.get<string>("DB_DATABASE"),
             synchronize: false,
             migrationsRun: false,
             entities: [__dirname + "/modules/**/entities/*{.ts,.js}"],
@@ -66,6 +67,7 @@ import { isProductionEnv } from "@control-panel/constants/env.constant";
     ProfileModule,
     McpApiKeysModule,
     McpServerModule,
+    TerminalModule,
   ],
   controllers: [AppController],
   providers: [],

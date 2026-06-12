@@ -17,6 +17,7 @@ import {
 import { getTemplateAccentColor } from "@/features/templates/utils/deploy-form-schema";
 import type { DeployTemplateRequest } from "@/features/templates/types";
 import { DeployLogsPageSkeleton } from "@/components/shared/skeleton";
+import { buildServerDetailHref } from "@/features/servers/components/server-detail/utils/server-detail-tab-url";
 import { NotFoundPage } from "./not-found-page";
 
 type PendingDeployLocationState = {
@@ -146,10 +147,11 @@ export function DeployLogsPage() {
         description: template.shortDescription ?? "",
         category: template.category ?? "",
         color: getTemplateAccentColor(template.slug),
+        logo: template.logo ?? null,
       }}
       deploymentId={deploymentId}
       serverId={serverId}
-      backHref={`/servers/${serverId}`}
+      backHref={buildServerDetailHref(serverId, "templates")}
       isStarting={isStarting || Boolean(pendingDeploy && !deploymentId)}
       startError={startError}
     />

@@ -4,7 +4,11 @@ import { access } from "node:fs/promises";
 import { readFile } from "node:fs/promises";
 import * as os from "node:os";
 import path from "node:path";
-import { buildServerResourcesMetrics } from "@shared/common";
+import {
+  buildServerResourcesMetrics,
+  parseCpuCoresFromCpuinfo,
+  parseHostnameFromProc,
+} from "@shared/common";
 import type { ServerGetResourcesResponsePayload } from "@shared/socket-events";
 
 import {
@@ -49,6 +53,7 @@ export class ServerResourcesService {
    */
   private async gatherMetrics() {
     const procPrefix = await this.procPrefixPromise;
+    const hostRoot = await this.resolveHostRootPath(procPrefix);
 
     const cpuStatFirstLine = this.extractCpuLine(
       await this.readProcFile(procPrefix, "stat"),
@@ -58,25 +63,37 @@ export class ServerResourcesService {
       await this.readProcFile(procPrefix, "stat"),
     );
 
-    const [meminfo, dfStdout, netDev, uptimeContent, loadAverageContent] =
-      await Promise.all([
-        this.readProcFile(procPrefix, "meminfo"),
-        this.collectDfStdout(),
-        this.readProcFile(procPrefix, "net/dev"),
-        this.readProcFile(procPrefix, "uptime"),
-        this.readProcFile(procPrefix, "loadavg"),
-      ]);
+    const [
+      meminfo,
+      dfStdout,
+      netDev,
+      uptimeContent,
+      loadAverageContent,
+      cpuinfo,
+      hostnameContent,
+    ] = await Promise.all([
+      this.readProcFile(procPrefix, "meminfo"),
+      this.collectDfStdout(hostRoot),
+      this.readProcFile(procPrefix, "net/dev"),
+      this.readProcFile(procPrefix, "uptime"),
+      this.readProcFile(procPrefix, "loadavg"),
+      this.readProcFile(procPrefix, "cpuinfo"),
+      this.readProcFile(procPrefix, "sys/kernel/hostname"),
+    ]);
+
+    const cpuCores = parseCpuCoresFromCpuinfo(cpuinfo) || os.cpus().length;
+    const hostname = parseHostnameFromProc(hostnameContent) || os.hostname();
 
     return buildServerResourcesMetrics({
       cpuStatFirstLine,
       cpuStatSecondLine,
       loadAverageContent,
-      cpuCores: os.cpus().length,
+      cpuCores,
       meminfo,
       dfStdout,
       netDev,
       uptimeContent,
-      hostname: os.hostname(),
+      hostname,
       platform: os.platform(),
       architecture: os.arch(),
     });
@@ -99,6 +116,30 @@ export class ServerResourcesService {
       return hostProc;
     } catch {
       return "/proc";
+    }
+  }
+
+  /**
+   * Resolves the host root path used for `df` (container `/` when no host mount).
+   */
+  private async resolveHostRootPath(procPrefix: string): Promise<string> {
+    const configured = process.env.KUBEARA_HOST_ROOT_PREFIX?.trim();
+    if (configured) {
+      return configured.replace(/\/+$/, "") || "/";
+    }
+
+    const hostRoot = "/host/root";
+    try {
+      await access(hostRoot);
+      this.logger.log(`Using host root mount at ${hostRoot}`);
+      return hostRoot;
+    } catch {
+      if (procPrefix !== "/proc") {
+        this.logger.warn(
+          "Host /proc is mounted but host root is not; disk metrics reflect the agent container filesystem",
+        );
+      }
+      return "/";
     }
   }
 
@@ -126,10 +167,10 @@ export class ServerResourcesService {
   /**
    * Collects the output of the `df` command.
    */
-  private async collectDfStdout(): Promise<string> {
+  private async collectDfStdout(targetPath: string): Promise<string> {
     const result = await this.execCapture(
       "df",
-      ["-B1", "/"],
+      ["-B1", targetPath],
       DF_COMMAND_TIMEOUT_MS,
     );
 
