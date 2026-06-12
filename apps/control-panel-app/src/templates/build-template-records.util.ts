@@ -212,6 +212,26 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Matomo",
     version: "5",
   },
+  "drone-ci": {
+    name: "Drone CI",
+    version: "2",
+  },
+  "woodpecker-ci": {
+    name: "Woodpecker CI",
+    version: "3",
+  },
+  ghost: {
+    name: "Ghost",
+    version: "5",
+  },
+  signoz: {
+    name: "SigNoz",
+    version: "0.128",
+  },
+  healthchecks: {
+    name: "Healthchecks.io",
+    version: "latest",
+  },
 };
 
 /**

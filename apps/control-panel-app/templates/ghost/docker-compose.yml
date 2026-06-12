@@ -1,0 +1,100 @@
+# documentation: https://ghost.org/docs/install/docker/
+# shortDescription: Professional publishing platform for blogs and newsletters
+# longDescription: <p>Ghost is a modern <strong>publishing platform</strong> for professional bloggers, journalists, and newsletter creators.</p><p>Includes MariaDB. Set <code>url</code> via <code>SERVICE_URL_GHOST</code> for correct links and assets. Complete the setup wizard on first launch.</p>
+# category: cms,content,blog
+# tags: ghost,blog,cms,publishing,newsletter,content,mariadb
+# logo: svgs/ghost.svg
+# port: 2368
+
+services:
+  ghost:
+    image: ${GHOST_IMAGE:-ghost:5-alpine}
+    restart: ${GHOST_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_GHOST:-2368}:2368'
+
+    environment:
+      - SERVICE_URL_GHOST_2368
+      - NODE_ENV=production
+      - url=${SERVICE_URL_GHOST:-${SERVICE_URL_GHOST_2368}}
+      - database__client=mysql
+      - database__connection__host=${GHOST_DB_HOST:-mariadb}
+      - database__connection__port=${GHOST_DB_PORT:-3306}
+      - database__connection__user=${SERVICE_USER_GHOST}
+      - database__connection__password=${SERVICE_PASSWORD_GHOST}
+      - database__connection__database=${GHOST_DB_NAME:-ghost}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - ghost_content:/var/lib/ghost/content
+
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:2368/ || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mariadb:
+    image: ${GHOST_MARIADB_IMAGE:-mariadb:11.4}
+    restart: ${GHOST_MARIADB_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      MARIADB_USER: ${SERVICE_USER_GHOST}
+      MARIADB_PASSWORD: ${SERVICE_PASSWORD_GHOST}
+      MARIADB_DATABASE: ${GHOST_DB_NAME:-ghost}
+      MARIADB_ROOT_PASSWORD: ${SERVICE_PASSWORD_GHOST_ROOT}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - ghost_mariadb_data:/var/lib/mysql
+
+    command:
+      - --max-allowed-packet=64M
+      - --innodb-buffer-pool-size=256M
+
+    healthcheck:
+      test: ['CMD-SHELL', 'healthcheck.sh --connect --innodb_initialized']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  ghost_content:
+  ghost_mariadb_data:

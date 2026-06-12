@@ -204,6 +204,11 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `plausible/` | Privacy-friendly analytics with PostgreSQL and ClickHouse on port 8000 |
 | `umami/` | Lightweight privacy analytics with PostgreSQL on port 3000 |
 | `matomo/` | Full-featured web analytics with MariaDB on port 8080 |
+| `drone-ci/` | Container-native CI with Docker runner on port 80 |
+| `woodpecker-ci/` | Lightweight CI/CD engine with Docker agent on port 8000 |
+| `ghost/` | Publishing platform for blogs and newsletters with MariaDB on port 2368 |
+| `signoz/` | OpenTelemetry APM with ClickHouse on ports 8080, 4317, and 4318 |
+| `healthchecks/` | Cron job and heartbeat monitoring with PostgreSQL on port 8000 |
 
 ---
 
