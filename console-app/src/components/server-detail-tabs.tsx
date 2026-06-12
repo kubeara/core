@@ -296,7 +296,7 @@ function OverviewTab({
         <SkeletonGrid count={3} cardHeight={200} label="Loading containers…" />
       ) : isError ? (
         <p className="server-detail-empty">
-          Could not load containers. Ensure the agent is connected.
+          Could not load containers. Check that this server is online.
         </p>
       ) : containers.length === 0 ? (
         <p className="server-detail-empty">No services connected yet.</p>
@@ -380,7 +380,7 @@ function InsightsTab({
       <div className="server-detail-panel">
         <h2 className="server-detail-section-title">Resource usage</h2>
         <p className="server-detail-section-desc">
-          On-demand metrics from the connected agent.
+          Live resource usage for this server.
         </p>
         <SkeletonGrid
           count={5}
@@ -396,7 +396,7 @@ function InsightsTab({
       <div className="server-detail-panel">
         <h2 className="server-detail-section-title">Resource usage</h2>
         <p className="server-detail-section-desc">
-          On-demand metrics from the connected agent.
+          Live resource usage for this server.
         </p>
         <div className="server-templates-state server-templates-state-error">
           <p className="server-templates-state-title">
@@ -404,7 +404,7 @@ function InsightsTab({
           </p>
           <p className="server-templates-state-text">
             {errorMessage ??
-              "Could not load resources. Ensure the agent is connected."}
+              "Could not load resources. Check that this server is online."}
           </p>
           <button type="button" className="btn-secondary" onClick={onRetry}>
             Retry
@@ -427,7 +427,7 @@ function InsightsTab({
     <div className="server-detail-panel">
       <h2 className="server-detail-section-title">Resource usage</h2>
       <p className="server-detail-section-desc">
-        On-demand metrics from the connected agent
+        Live resource usage for this server
         {resources.timestamp ? (
           <>
             {" "}

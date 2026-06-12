@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getErrorMessage } from "@/api/api-error";
 import { useServerTerminal } from "../hooks/use-server-terminal";
-// import type { TerminalTransport } from "../types";
 import {
   ServerTerminalViewer,
   type ServerTerminalViewerApi,
 } from "./server-terminal-viewer";
-import "./server-terminal.css";
+import "@/components/shared/kubeara-terminal-shell.css";
 
 type ServerTerminalPanelProps = {
   serverId: string;
@@ -132,105 +131,123 @@ export function ServerTerminalPanel({
     };
   }, [refit]);
 
-  const showTerminalChrome = status === "connected" || status === "connecting";
+  const isConnecting = status === "connecting";
+  const isSessionActive = status === "connected";
+  const showTerminal = isConnecting || isSessionActive;
+
+  const introMessage =
+    status === "disconnected"
+      ? "Session ended. Reconnect to continue."
+      : status === "error"
+        ? "Could not open a terminal session."
+        : "Open a terminal session on this server.";
 
   return (
     <section
       ref={shellRef}
-      className={`server-terminal-shell${isFullscreen ? " is-fullscreen" : ""}${isVisible ? " is-visible" : ""}`}
+      className={`server-terminal-shell${showTerminal ? " has-session" : ""}${isFullscreen ? " is-fullscreen" : ""}${isVisible ? " is-visible" : ""}`}
       aria-hidden={!isVisible}
     >
-      {!showTerminalChrome && (
+      <div
+        className={`server-terminal-card${showTerminal ? " has-session" : ""}`}
+      >
         <div className="server-terminal-intro">
           <div className="server-terminal-intro-copy">
-            <h2 className="server-detail-section-title">Terminal Access</h2>
-            <p className="server-detail-section-desc">
-              {status === "disconnected"
-                ? "Session ended. Reconnect to continue."
-                : status === "error"
-                  ? "Could not open a terminal session."
-                  : "Interactive shell over a live WebSocket stream. Agent is preferred; SSH is used automatically when the agent is unavailable."}
-            </p>
-          </div>
-
-          {status === "idle" && (
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={handleConnect}
-            >
-              Connect
-            </button>
-          )}
-
-          {status === "error" && (
-            <div className="server-terminal-intro-actions">
-              <p className="server-terminal-error-text">
-                {errorMessage ?? getErrorMessage(null)}
-              </p>
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={handleConnect}
-              >
-                Retry
-              </button>
-            </div>
-          )}
-
-          {status === "disconnected" && (
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={handleReconnect}
-            >
-              Reconnect
-            </button>
-          )}
-        </div>
-      )}
-
-      {showTerminalChrome && (
-        <>
-          <div className="server-terminal-toolbar">
-            <div className="server-terminal-toolbar-main">
-              <span className="server-terminal-host">
+            <h2 className="server-detail-section-title">Terminal</h2>
+            {showTerminal ? (
+              <p className="server-terminal-session-host">
                 {serverName}
                 <span className="server-terminal-host-sep">·</span>
                 {serverHost}
-              </span>
-            </div>
+              </p>
+            ) : (
+              <p className="server-detail-section-desc">{introMessage}</p>
+            )}
+            {status === "error" && !showTerminal && (
+              <p className="server-terminal-error-text">
+                {errorMessage ?? getErrorMessage(null)}
+              </p>
+            )}
+          </div>
 
-            <div className="server-terminal-toolbar-actions">
-              <span className="server-terminal-status">
-                <span
-                  className={`server-terminal-status-dot${isSocketConnected ? " connected" : ""}`}
-                  aria-hidden
-                />
-                {isSocketConnected ? "Live" : "Reconnecting…"}
-              </span>
+          <div className="server-terminal-intro-actions">
+            {showTerminal && (
+              <>
+                <span className="server-terminal-status">
+                  <span
+                    className={`server-terminal-status-dot${isSocketConnected ? " connected" : ""}`}
+                    aria-hidden
+                  />
+                  {isSocketConnected ? "Live" : "Reconnecting…"}
+                </span>
+                <button
+                  type="button"
+                  className="server-terminal-icon-btn"
+                  onClick={() => void toggleFullscreen()}
+                  aria-label={
+                    isFullscreen ? "Exit fullscreen" : "Enter fullscreen"
+                  }
+                >
+                  {isFullscreen ? <IconRestore /> : <IconMaximize />}
+                </button>
+              </>
+            )}
+
+            {status === "idle" && (
               <button
                 type="button"
-                className="server-terminal-icon-btn"
-                onClick={() => void toggleFullscreen()}
-                aria-label={
-                  isFullscreen ? "Exit fullscreen" : "Enter fullscreen"
-                }
+                className="btn-primary"
+                onClick={handleConnect}
               >
-                {isFullscreen ? <IconRestore /> : <IconMaximize />}
+                Connect
               </button>
+            )}
+
+            {isConnecting && (
               <button
                 type="button"
-                className="btn-secondary btn-sm"
+                className="btn-primary is-loading"
+                disabled
+              >
+                Connecting…
+              </button>
+            )}
+
+            {isSessionActive && (
+              <button
+                type="button"
+                className="btn-danger"
                 onClick={handleDisconnect}
               >
                 Disconnect
               </button>
-            </div>
-          </div>
+            )}
 
+            {status === "error" && !showTerminal && (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleConnect}
+              >
+                Retry
+              </button>
+            )}
+
+            {status === "disconnected" && (
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleReconnect}
+              >
+                Reconnect
+              </button>
+            )}
+          </div>
+        </div>
+
+        {showTerminal && (
           <div className="server-terminal-window">
-            {status === "connecting" && (
+            {isConnecting && (
               <div
                 className="server-terminal-connecting-overlay"
                 aria-live="polite"
@@ -239,11 +256,11 @@ export function ServerTerminalPanel({
                   className="server-terminal-connecting-spinner"
                   aria-hidden
                 />
-                Connecting secure shell…
+                Connecting…
               </div>
             )}
             <ServerTerminalViewer
-              isVisible={isVisible && status === "connected"}
+              isVisible={isVisible && isSessionActive}
               refitToken={refitToken}
               onData={sendInput}
               onResize={sendResize}
@@ -252,8 +269,8 @@ export function ServerTerminalPanel({
               }}
             />
           </div>
-        </>
-      )}
+        )}
+      </div>
     </section>
   );
 }

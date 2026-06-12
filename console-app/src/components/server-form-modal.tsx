@@ -364,7 +364,7 @@ function ServerFormContent({
                 <div className="modal-advanced-content">
                   <div className="form-field">
                     <FormFieldLabel htmlFor="server-port">
-                      SSH port
+                      Port
                     </FormFieldLabel>
                     <input
                       id="server-port"

@@ -2,30 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
+import {
+  KUBEARA_TERMINAL_FONT,
+  KUBEARA_TERMINAL_THEME,
+} from "@/components/shared/kubeara-terminal-theme";
 import type { DeploymentLogLine } from "@/features/deployments/types";
-
-const TERMINAL_THEME = {
-  background: "#0b0f14",
-  foreground: "#e6edf3",
-  cursor: "#e6e6e6",
-  cursorAccent: "#0b0f14",
-  black: "#0d1117",
-  red: "#ff7b72",
-  green: "#3dd68c",
-  yellow: "#f0c14b",
-  blue: "#7ec8ff",
-  magenta: "#d2a8ff",
-  cyan: "#39c5cf",
-  white: "#e6edf3",
-  brightBlack: "#6e7681",
-  brightRed: "#ff7b72",
-  brightGreen: "#3dd68c",
-  brightYellow: "#f0c14b",
-  brightBlue: "#7ec8ff",
-  brightMagenta: "#d2a8ff",
-  brightCyan: "#39c5cf",
-  brightWhite: "#e6edf3",
-};
 
 const SCROLL_STICK_THRESHOLD_PX = 48;
 
@@ -54,11 +35,11 @@ export function DeploymentTerminalViewer({
     if (!host) return;
 
     const term = new Terminal({
-      theme: TERMINAL_THEME,
-      fontFamily:
-        '"Geist Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace',
-      fontSize: 13,
-      lineHeight: 1.45,
+      theme: KUBEARA_TERMINAL_THEME,
+      fontFamily: KUBEARA_TERMINAL_FONT,
+      fontSize: 14,
+      lineHeight: 1.4,
+      letterSpacing: 0.2,
       cursorBlink: false,
       disableStdin: true,
       scrollback: 10000,
@@ -158,23 +139,15 @@ export function DeploymentTerminalViewer({
 
   return (
     <div
-      className={`deploy-terminal-viewer${isEmpty ? " is-empty" : ""}${isActive ? " is-active" : ""}`}
+      className={`server-terminal-log-viewer${isEmpty ? " is-empty" : ""}${isActive ? " is-active" : ""}`}
     >
       {isEmpty && (
-        <div className="deploy-terminal-empty">
+        <div className="server-terminal-empty">
           <span className="log-cursor">▌</span>
-          <span>
-            {emptyMessage}
-            {isLive && (
-              <span
-                className="deploy-terminal-stream-indicator live"
-                style={{ marginLeft: 6 }}
-              />
-            )}
-          </span>
+          <span>{emptyMessage}</span>
         </div>
       )}
-      <div ref={hostRef} className="deploy-terminal-xterm-host" />
+      <div ref={hostRef} className="server-terminal-xterm-host" />
     </div>
   );
 }

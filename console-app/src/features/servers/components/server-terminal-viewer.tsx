@@ -3,32 +3,10 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
-
-/** AWS CloudShell-inspired palette */
-const AWS_TERMINAL_THEME = {
-  background: "#0f1b2a",
-  foreground: "#f2f3f3",
-  cursor: "#ff9900",
-  cursorAccent: "#0f1b2a",
-  selectionBackground: "rgba(255, 153, 0, 0.28)",
-  selectionForeground: "#ffffff",
-  black: "#0f1b2a",
-  red: "#ff5d64",
-  green: "#7ae582",
-  yellow: "#ff9900",
-  blue: "#42b4ff",
-  magenta: "#c49bff",
-  cyan: "#56d6db",
-  white: "#f2f3f3",
-  brightBlack: "#687078",
-  brightRed: "#ff8a90",
-  brightGreen: "#9ef0a9",
-  brightYellow: "#ffb84d",
-  brightBlue: "#7ec8ff",
-  brightMagenta: "#d9b8ff",
-  brightCyan: "#7ee8ec",
-  brightWhite: "#ffffff",
-};
+import {
+  KUBEARA_TERMINAL_FONT,
+  KUBEARA_TERMINAL_THEME,
+} from "@/components/shared/kubeara-terminal-theme";
 
 export type ServerTerminalViewerApi = {
   write: (data: string) => void;
@@ -69,9 +47,8 @@ export function ServerTerminalViewer({
     if (!host) return;
 
     const term = new Terminal({
-      theme: AWS_TERMINAL_THEME,
-      fontFamily:
-        '"Geist Mono", "JetBrains Mono", "Cascadia Code", ui-monospace, monospace',
+      theme: KUBEARA_TERMINAL_THEME,
+      fontFamily: KUBEARA_TERMINAL_FONT,
       fontSize: 14,
       lineHeight: 1.4,
       letterSpacing: 0.2,
