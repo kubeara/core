@@ -244,6 +244,14 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Keycloak",
     version: "26.0",
   },
+  nocodb: {
+    name: "NocoDB",
+    version: "0.263",
+  },
+  affine: {
+    name: "AFFiNE",
+    version: "stable",
+  },
 };
 
 /**

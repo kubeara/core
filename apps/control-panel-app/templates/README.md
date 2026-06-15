@@ -213,6 +213,8 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `authentik/` | Identity provider with SSO and MFA; PostgreSQL, Redis, server, and worker on port 9000 |
 | `authelia/` | SSO and 2FA portal with Redis on port 9091; embedded config and file-based users |
 | `keycloak/` | IAM platform with PostgreSQL on port 8080 |
+| `nocodb/` | Airtable-style database UI with PostgreSQL on port 8080 |
+| `affine/` | Knowledge workspace with PostgreSQL, Redis, and migration job on port 3010 |
 
 ---
 
