@@ -9,6 +9,10 @@ export const DEPLOYMENT_SOCKET_EVENTS = {
   TERMINAL_OUTPUT: "terminal:output",
   TERMINAL_RESIZE: "terminal:resize",
   TERMINAL_DISCONNECT: "terminal:disconnect",
+  CONTAINER_LOGS_SUBSCRIBE: "container:logs:subscribe",
+  CONTAINER_LOGS_DATA: "container:logs:data",
+  CONTAINER_LOGS_STOP: "container:logs:stop",
+  CONTAINER_LOGS_ERROR: "container:logs:error",
 } as const;
 
 export interface TerminalOutputPayload {
@@ -18,6 +22,20 @@ export interface TerminalOutputPayload {
 
 export interface TerminalDisconnectPayload {
   sessionId: string;
+}
+
+export interface ContainerLogsDataPayload {
+  sessionId: string;
+  data: string;
+}
+
+export interface ContainerLogsStopPayload {
+  sessionId: string;
+}
+
+export interface ContainerLogsErrorPayload {
+  sessionId: string;
+  error: string;
 }
 
 export type DeploymentLogPhase = "install" | "deploy" | "container";

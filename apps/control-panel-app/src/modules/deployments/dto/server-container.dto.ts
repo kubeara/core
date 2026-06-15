@@ -10,6 +10,7 @@ export interface ServerContainerDto {
   managedType: ManagedType;
   deploymentId: string | null;
   templateId: string | null;
+  serviceName: string | null;
   serverId: string;
   isOnline: boolean;
 }

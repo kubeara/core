@@ -33,6 +33,16 @@ export interface PendingTerminalConnect {
   timer: NodeJS.Timeout;
 }
 
+export interface PendingContainerLogsStart {
+  serverId: string;
+  userId: string;
+  containerId: string;
+  sessionId: string;
+  resolve: (sessionId: string) => void;
+  reject: (error: Error) => void;
+  timer: NodeJS.Timeout;
+}
+
 import { TerminalTransport } from "@control-panel/modules/terminal/enums/terminal-transport.enum";
 
 export interface TerminalSessionRecord {
@@ -40,4 +50,11 @@ export interface TerminalSessionRecord {
   serverId: string;
   userId: string;
   transport: TerminalTransport;
+}
+
+export interface ContainerLogsSessionRecord {
+  sessionId: string;
+  serverId: string;
+  userId: string;
+  containerId: string;
 }

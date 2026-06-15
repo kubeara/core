@@ -11,7 +11,18 @@ export enum DeploymentEvents {
   DEPLOY = "deploy",
   REMOVE = "deploy:remove",
   DEPLOYMENT_LOG = "deployment:logs",
-  CONTAINER_LOG = "container:logs",
+  /** Control panel → agent: start streaming container logs. */
+  CONTAINER_LOGS_START = "container:logs:start",
+  /** Agent → control panel: container logs start response. */
+  CONTAINER_LOGS_START_RESULT = "container:logs:start:result",
+  /** Control panel → agent / console → control panel: stop log stream. */
+  CONTAINER_LOGS_STOP = "container:logs:stop",
+  /** Agent → control panel → console: streamed log chunk. */
+  CONTAINER_LOGS_DATA = "container:logs:data",
+  /** Console client joins `container-logs:{sessionId}` before data arrives. */
+  CONTAINER_LOGS_SUBSCRIBE = "container:logs:subscribe",
+  /** Agent → control panel → console: log stream error. */
+  CONTAINER_LOGS_ERROR = "container:logs:error",
   /** Console client joins `deployment:{deploymentId}` before logs arrive. */
   LOGS_SUBSCRIBE = "logs:subscribe",
   /** Unified log envelope broadcast on the deployments namespace. */
@@ -352,5 +363,35 @@ export interface TerminalResizePayload {
 }
 
 export interface TerminalDisconnectPayload {
+  sessionId: string;
+}
+
+export interface ContainerLogsStartRequestPayload {
+  requestId: string;
+  sessionId: string;
+  containerId: string;
+}
+
+export interface ContainerLogsStartResponsePayload {
+  requestId: string;
+  sessionId: string;
+  error?: string;
+}
+
+export interface ContainerLogsStopPayload {
+  sessionId: string;
+}
+
+export interface ContainerLogsDataPayload {
+  sessionId: string;
+  data: string;
+}
+
+export interface ContainerLogsErrorPayload {
+  sessionId: string;
+  error: string;
+}
+
+export interface ContainerLogsSubscribePayload {
   sessionId: string;
 }

@@ -20,6 +20,11 @@ import {
   TerminalInputPayload,
   TerminalOutputPayload,
   TerminalResizePayload,
+  ContainerLogsStartRequestPayload,
+  ContainerLogsStartResponsePayload,
+  ContainerLogsStopPayload,
+  ContainerLogsDataPayload,
+  ContainerLogsErrorPayload,
 } from "@shared/socket-events";
 import { ContainerService } from "../container/container.service";
 import { ServerResourcesService } from "../server-resources/server-resources.service";
@@ -65,6 +70,15 @@ export class SocketClientService {
     });
     this.terminalService.setCloseHandler((sessionId) => {
       this.emitTerminalDisconnect(sessionId);
+    });
+    this.containerService.setLogsDataHandler((sessionId, data) => {
+      this.emitContainerLogsData(sessionId, data);
+    });
+    this.containerService.setLogsErrorHandler((sessionId, error) => {
+      this.emitContainerLogsError(sessionId, error);
+    });
+    this.containerService.setLogsCloseHandler((sessionId) => {
+      this.emitContainerLogsStop(sessionId);
     });
   }
 
@@ -184,6 +198,8 @@ export class SocketClientService {
     this.socket.off(DeploymentEvents.TERMINAL_INPUT);
     this.socket.off(DeploymentEvents.TERMINAL_RESIZE);
     this.socket.off(DeploymentEvents.TERMINAL_DISCONNECT);
+    this.socket.off(DeploymentEvents.CONTAINER_LOGS_START);
+    this.socket.off(DeploymentEvents.CONTAINER_LOGS_STOP);
 
     this.socket.on(DeploymentEvents.DEPLOY, (message: SocketDeployMessage) => {
       void this.handleDeployAction(message);
@@ -251,8 +267,22 @@ export class SocketClientService {
       },
     );
 
+    this.socket.on(
+      DeploymentEvents.CONTAINER_LOGS_START,
+      (payload: ContainerLogsStartRequestPayload) => {
+        void this.handleContainerLogsStart(payload);
+      },
+    );
+
+    this.socket.on(
+      DeploymentEvents.CONTAINER_LOGS_STOP,
+      (payload: ContainerLogsStopPayload) => {
+        this.handleContainerLogsStop(payload);
+      },
+    );
+
     this.logger.log(
-      `[AgentCapabilities] inbound handlers registered: deploy, remove, ${DeploymentEvents.CONTAINER_ACTION}, ${DeploymentEvents.CONTAINER_DISCOVER}, ${DeploymentEvents.SERVER_GET_RESOURCES}, ${DeploymentEvents.TERMINAL_CONNECT}`,
+      `[AgentCapabilities] inbound handlers registered: deploy, remove, ${DeploymentEvents.CONTAINER_ACTION}, ${DeploymentEvents.CONTAINER_DISCOVER}, ${DeploymentEvents.SERVER_GET_RESOURCES}, ${DeploymentEvents.TERMINAL_CONNECT}, ${DeploymentEvents.CONTAINER_LOGS_START}`,
     );
   }
 
@@ -275,6 +305,7 @@ export class SocketClientService {
         DeploymentEvents.CONTAINER_ACTION,
         DeploymentEvents.SERVER_GET_RESOURCES,
         DeploymentEvents.TERMINAL_CONNECT,
+        DeploymentEvents.CONTAINER_LOGS_START,
       ],
       version,
       timestamp: new Date().toISOString(),
@@ -555,6 +586,107 @@ export class SocketClientService {
     this.terminalService.closeSession(sessionId);
   }
 
+  /**
+   * Handles container logs start requests from the control panel.
+   */
+  private async handleContainerLogsStart(
+    payload: ContainerLogsStartRequestPayload,
+  ): Promise<void> {
+    const requestId = payload?.requestId?.trim() ?? "";
+    const sessionId = payload?.sessionId?.trim() ?? "";
+    const containerId = payload?.containerId?.trim() ?? "";
+
+    let response: ContainerLogsStartResponsePayload;
+
+    try {
+      if (!requestId || !sessionId || !containerId) {
+        response = {
+          requestId,
+          sessionId,
+          error: "Missing requestId, sessionId, or containerId",
+        };
+      } else {
+        const startError = await this.containerService.startLogStream(
+          sessionId,
+          containerId,
+        );
+        response = startError
+          ? { requestId, sessionId, error: startError }
+          : { requestId, sessionId };
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Container logs start handler failed: ${message}`);
+      response = { requestId, sessionId, error: message };
+    }
+
+    if (!this.socket?.connected) {
+      this.logger.warn(
+        "Cannot send container logs start result: socket disconnected",
+      );
+      if (!response.error) {
+        this.containerService.stopLogStream(sessionId);
+      }
+      return;
+    }
+
+    this.socket.emit(DeploymentEvents.CONTAINER_LOGS_START_RESULT, response);
+    this.logger.log(
+      `Container logs start result sent requestId=${requestId}${response.error ? ` error=${response.error}` : ""}`,
+    );
+  }
+
+  /**
+   * Handles container logs stop requests from the control panel.
+   */
+  private handleContainerLogsStop(payload: ContainerLogsStopPayload): void {
+    const sessionId = payload?.sessionId?.trim() ?? "";
+    if (!sessionId) {
+      return;
+    }
+
+    this.containerService.stopLogStream(sessionId);
+  }
+
+  /**
+   * Emits container logs data to the control panel.
+   */
+  private emitContainerLogsData(sessionId: string, data: string): void {
+    if (!this.socket?.connected) {
+      return;
+    }
+
+    const payload: ContainerLogsDataPayload = { sessionId, data };
+    this.socket.emit(DeploymentEvents.CONTAINER_LOGS_DATA, payload);
+  }
+
+  /**
+   * Emits container logs error to the control panel.
+   */
+  private emitContainerLogsError(sessionId: string, error: string): void {
+    if (!this.socket?.connected) {
+      return;
+    }
+
+    const payload: ContainerLogsErrorPayload = { sessionId, error };
+    this.socket.emit(DeploymentEvents.CONTAINER_LOGS_ERROR, payload);
+  }
+
+  /**
+   * Emits container logs stop to the control panel.
+   */
+  private emitContainerLogsStop(sessionId: string): void {
+    if (!this.socket?.connected) {
+      return;
+    }
+
+    const payload: ContainerLogsStopPayload = { sessionId };
+    this.socket.emit(DeploymentEvents.CONTAINER_LOGS_STOP, payload);
+  }
+
+  /**
+   * Emits terminal output to the control panel.
+   */
   private emitTerminalOutput(sessionId: string, data: string): void {
     if (!this.socket?.connected) {
       return;
@@ -564,6 +696,9 @@ export class SocketClientService {
     this.socket.emit(DeploymentEvents.TERMINAL_OUTPUT, payload);
   }
 
+  /**
+   * Emits terminal disconnect to the control panel.
+   */
   private emitTerminalDisconnect(sessionId: string): void {
     if (!this.socket?.connected) {
       return;
@@ -612,6 +747,9 @@ export class SocketClientService {
     );
   }
 
+  /**
+   * Handles removal requests from the control panel and tears down deployment resources.
+   */
   private async handleRemoveAction(
     message: SocketRemoveMessage,
   ): Promise<void> {
@@ -638,6 +776,9 @@ export class SocketClientService {
     }
   }
 
+  /**
+   * Decrypts and parses encrypted data.
+   */
   private decryptAndParse(encryptedData: string): Record<string, unknown> {
     try {
       const decrypted = this.encryptionService.decrypt(encryptedData);
@@ -673,6 +814,9 @@ export class SocketClientService {
     }
   }
 
+  /**
+   * Emits deployment status payload to control panel when socket is connected.
+   */
   private emitDeploymentStatus(payload: DeploymentStatusPayload): void {
     this.socket?.emit(DeploymentEvents.DEPLOYMENT_STATUS, {
       ...payload,
@@ -681,6 +825,9 @@ export class SocketClientService {
     });
   }
 
+  /**
+   * Queues a deployment status for sending when the socket is connected.
+   */
   private queuePendingStatus(payload: DeploymentStatusPayload): void {
     this.pendingStatuses.push(payload);
     if (this.pendingStatuses.length > SocketClientService.MAX_PENDING_LOGS) {
@@ -688,6 +835,9 @@ export class SocketClientService {
     }
   }
 
+  /**
+   * Flushes queued deployment statuses when the socket is connected.
+   */
   private flushPendingStatuses(): void {
     if (!this.socket?.connected || this.pendingStatuses.length === 0) {
       return;
@@ -703,7 +853,6 @@ export class SocketClientService {
 
   /**
    * Emits deployment log payload to control panel when socket is connected.
-   * @param payload Deployment log details.
    */
   private sendDeploymentLog(payload: DeploymentLogPayload): void {
     try {
@@ -720,6 +869,9 @@ export class SocketClientService {
     }
   }
 
+  /**
+   * Queues a deployment log for sending when the socket is connected.
+   */
   private queuePendingLog(payload: DeploymentLogPayload): void {
     this.logger.warn(
       `[DEPLOY_TRACE] log queued (socket disconnected) deploymentId=${payload.deploymentId ?? "n/a"} bytes=${payload.message?.length ?? 0}`,
@@ -733,6 +885,9 @@ export class SocketClientService {
     );
   }
 
+  /**
+   * Flushes queued deployment logs when the socket is connected.
+   */
   private flushPendingLogs(): void {
     if (!this.socket?.connected || this.pendingLogs.length === 0) {
       return;
@@ -746,6 +901,9 @@ export class SocketClientService {
     }
   }
 
+  /**
+   * Emits a deployment log to the control panel.
+   */
   private emitDeploymentLog(payload: DeploymentLogPayload): void {
     if (!payload.deploymentId) {
       this.logger.warn(
