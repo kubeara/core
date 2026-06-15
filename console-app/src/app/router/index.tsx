@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import * as Sentry from "@sentry/react";
 import { AppLayout } from "../layouts/app-layout";
 import { AuthLayout } from "../layouts/auth-layout";
 import { GuestRoute, HomeRedirect, ProtectedRoute } from "@/features/auth/routes/auth-routes";
@@ -15,12 +16,14 @@ import { ServerDetailPage } from "@/pages/server-detail-page";
 import { ServersPage } from "@/pages/servers-page";
 import { TemplatesPage } from "@/pages/templates-page";
 
+const SentryRoutes = Sentry.withSentryReactRouterV7Routing(Routes);
+
 /**
  * Application router configuration.
  */
 export function AppRoutes() {
   return (
-    <Routes>
+    <SentryRoutes>
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/dashboard" element={<Navigate to="/servers" replace />} />
 
@@ -64,6 +67,6 @@ export function AppRoutes() {
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+    </SentryRoutes>
   );
 }
