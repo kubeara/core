@@ -18,7 +18,8 @@ export type ServerTerminalViewerApi = {
 
 type ServerTerminalViewerProps = {
   isVisible: boolean;
-  refitToken: number;
+  refitToken?: number;
+  readOnly?: boolean;
   onData: (data: string) => void;
   onResize: (cols: number, rows: number) => void;
   onReady?: (api: ServerTerminalViewerApi) => void;
@@ -26,7 +27,8 @@ type ServerTerminalViewerProps = {
 
 export function ServerTerminalViewer({
   isVisible,
-  refitToken,
+  refitToken = 0,
+  readOnly = false,
   onData,
   onResize,
   onReady,
@@ -52,10 +54,11 @@ export function ServerTerminalViewer({
       fontSize: 14,
       lineHeight: 1.4,
       letterSpacing: 0.2,
-      cursorBlink: true,
+      cursorBlink: !readOnly,
       cursorStyle: "bar",
+      disableStdin: readOnly,
       scrollback: 10000,
-      convertEol: false,
+      convertEol: readOnly,
       allowProposedApi: true,
     });
 
@@ -80,9 +83,11 @@ export function ServerTerminalViewer({
       }
     };
 
-    const dataDisposable = term.onData((data) => {
-      onDataRef.current(data);
-    });
+    const dataDisposable = readOnly
+      ? { dispose: () => undefined }
+      : term.onData((data) => {
+          onDataRef.current(data);
+        });
 
     const resizeDisposable = term.onResize(({ cols, rows }) => {
       onResizeRef.current(cols, rows);
@@ -122,7 +127,7 @@ export function ServerTerminalViewer({
       termRef.current = null;
       fitRef.current = null;
     };
-  }, []);
+  }, [readOnly]);
 
   useEffect(() => {
     if (!isVisible) return;

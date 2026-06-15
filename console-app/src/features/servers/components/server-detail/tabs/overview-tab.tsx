@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ContainerActionConfirmModal } from "@/features/deployments/components/container-action-confirm-modal";
 import { useContainerActionMutation } from "@/features/deployments/hooks";
 import { useTemplatesQuery } from "@/features/templates/hooks";
@@ -8,7 +9,7 @@ import type {
 } from "@/features/deployments/types";
 import { SkeletonGrid } from "@/components/shared/skeleton";
 import { ConnectedServiceCard } from "../connected-service-card";
-import { getContainerDisplayName } from "../utils/container-display";
+import { getContainerDisplayName, getContainerServiceName } from "../utils/container-display";
 
 type ServerOverviewTabProps = {
   serverId: string;
@@ -33,6 +34,7 @@ export function ServerOverviewTab({
   );
 
   const containerActionMutation = useContainerActionMutation();
+  const navigate = useNavigate();
   const [pendingAction, setPendingAction] = useState<{
     containerId: string | null;
     action: ContainerActionType;
@@ -75,6 +77,22 @@ export function ServerOverviewTab({
     } finally {
       setPendingAction(null);
     }
+  }
+
+  function handleViewLogs(container: ServerContainer) {
+    if (!container.containerId) {
+      return;
+    }
+
+    navigate(
+      `/servers/${encodeURIComponent(serverId)}/containers/${encodeURIComponent(container.containerId)}/logs`,
+      {
+        state: {
+          containerName: getContainerDisplayName(container),
+          serviceName: getContainerServiceName(container) ?? undefined,
+        },
+      },
+    );
   }
 
   const kubearaManagedContainers = containers.filter(
@@ -133,6 +151,7 @@ export function ServerOverviewTab({
                 }
                 pendingAction={pendingAction}
                 onAction={handleContainerActionRequest}
+                onViewLogs={handleViewLogs}
               />
             ))}
           </div>
@@ -156,6 +175,7 @@ export function ServerOverviewTab({
                     }
                     pendingAction={pendingAction}
                     onAction={handleContainerActionRequest}
+                    onViewLogs={handleViewLogs}
                   />
                 ))}
               </div>

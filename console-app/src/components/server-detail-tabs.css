@@ -199,6 +199,103 @@
   gap: 0.75rem;
 }
 
+.container-logs-viewer-modal {
+  width: min(100%, 56rem);
+  max-width: 56rem;
+  max-height: min(88vh, 48rem);
+  display: flex;
+  flex-direction: column;
+}
+
+.container-logs-viewer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem 0.75rem;
+}
+
+.container-logs-viewer-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.container-logs-viewer-heading h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.container-logs-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #15803d;
+  background: color-mix(in srgb, #22c55e 14%, transparent);
+}
+
+.container-logs-live-badge::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: container-logs-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes container-logs-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.container-logs-error {
+  margin: 0 1.5rem 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.65rem;
+  font-size: 0.925rem;
+  line-height: 1.5;
+  color: #b91c1c;
+  background: color-mix(in srgb, #ef4444 10%, transparent);
+}
+
+[data-theme="dark"] .container-logs-error {
+  color: #fca5a5;
+}
+
+.container-logs-viewer-body {
+  flex: 1;
+  min-height: 18rem;
+  padding: 0 1.5rem 1.5rem;
+}
+
+.container-logs-viewer-body .server-terminal-log-viewer {
+  height: min(62vh, 36rem);
+  min-height: 18rem;
+}
+
+.container-actions-menu-item-icon--logs {
+  color: #2563eb;
+  background: color-mix(in srgb, #3b82f6 12%, transparent);
+}
+
+[data-theme="dark"] .container-actions-menu-item-icon--logs {
+  color: #93c5fd;
+}
+
 .container-actions-menu-item:hover {
   background: color-mix(in srgb, var(--foreground) 6%, transparent);
 }

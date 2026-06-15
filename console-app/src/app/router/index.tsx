@@ -4,6 +4,7 @@ import { AuthLayout } from "../layouts/auth-layout";
 import { GuestRoute, HomeRedirect, ProtectedRoute } from "@/features/auth/routes/auth-routes";
 import { DeployConfigurePage } from "@/pages/deploy-configure-page";
 import { DeployLogsPage } from "@/pages/deploy-logs-page";
+import { ContainerLogsPage } from "@/pages/container-logs-page";
 import { ForgotPasswordPage } from "@/pages/forgot-password-page";
 import { LoginPage } from "@/pages/login-page";
 import { NotFoundPage } from "@/pages/not-found-page";
@@ -43,6 +44,10 @@ export function AppRoutes() {
           <Route
             path="/servers/:serverId/deploy/:templateSlug/logs"
             element={<DeployLogsPage />}
+          />
+          <Route
+            path="/servers/:serverId/containers/:containerId/logs"
+            element={<ContainerLogsPage />}
           />
           <Route path="/templates" element={<TemplatesPage />} />
           <Route path="/profile" element={<ProfilePage />} />

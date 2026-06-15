@@ -16,6 +16,11 @@ export const SUCCESS_MESSAGES = {
     DISCONNECTED: "Terminal session disconnected successfully",
   },
 
+  CONTAINER_LOGS: {
+    STARTED: "Container log stream started successfully",
+    STOPPED: "Container log stream stopped successfully",
+  },
+
   AUTH: {
     SIGNUP: "User registered successfully",
     LOGIN: "User logged in successfully",
