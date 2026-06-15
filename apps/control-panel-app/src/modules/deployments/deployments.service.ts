@@ -48,11 +48,14 @@ import {
 } from "./dto/deployment.types";
 import { normalizeServerHostForUrls } from "./utils/deployment-server.util";
 import type { ContainerActionResponseDto } from "./dto/container-action-response.dto";
+import type { ContainerLogsStartResponseDto } from "./dto/container-logs.dto";
 import type { ServerContainerDto } from "./dto/server-container.dto";
 import {
   mergeDiscoveredContainersWithDeployments,
   sanitizeDeploymentProjectName,
 } from "./utils/container-discovery.util";
+import { ERROR_MESSAGES } from "@control-panel/constants/error";
+import { SUCCESS_MESSAGES as CP_SUCCESS_MESSAGES } from "@control-panel/constants/success";
 import { assertValidContainerId } from "./utils/container-action.util";
 import type { EnvironmentVariableView } from "./interfaces/deployments.interface";
 
@@ -788,12 +791,14 @@ export class DeploymentsService {
           In(DeploymentsService.OVERVIEW_EXCLUDED_STATUSES),
         ),
       },
+      relations: { template: true },
       order: { updatedAt: "DESC" },
     });
 
     const deployments = deploymentRows.map((deployment) => ({
       id: deployment.id,
       templateSlug: deployment.templateSlug,
+      serviceName: deployment.template?.name?.trim() || null,
       composeProject: sanitizeDeploymentProjectName(deployment.id),
     }));
 
@@ -914,6 +919,95 @@ export class DeploymentsService {
       exitCode: result.exitCode,
       executedVia,
       message,
+    };
+  }
+
+  /**
+   * Starts an on-demand container log stream via the connected agent.
+   */
+  async startContainerLogs(
+    serverId: string,
+    userId: string,
+    containerId: string,
+  ): Promise<ContainerLogsStartResponseDto> {
+    await this.assertActiveServerForUser(serverId, userId);
+    const safeContainerId = assertValidContainerId(containerId);
+
+    if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+      throw new BadRequestException(
+        ERROR_MESSAGES.CONTAINER_LOGS.AGENT_UNAVAILABLE,
+      );
+    }
+
+    const supportsLogs = this.deploymentGateway.agentSupports(
+      serverId,
+      DeploymentEvents.CONTAINER_LOGS_START,
+    );
+
+    if (!supportsLogs) {
+      throw new BadRequestException(
+        ERROR_MESSAGES.CONTAINER_LOGS.AGENT_UNSUPPORTED,
+      );
+    }
+
+    try {
+      const sessionId = await this.deploymentGateway.requestContainerLogsStart(
+        serverId,
+        userId,
+        safeContainerId,
+      );
+
+      return {
+        sessionId,
+        serverId,
+        containerId: safeContainerId,
+      };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new BadRequestException(
+        `${ERROR_MESSAGES.CONTAINER_LOGS.START_FAILED}: ${detail}`,
+      );
+    }
+  }
+
+  /**
+   * Stops an active container log stream.
+   */
+  async stopContainerLogs(
+    serverId: string,
+    userId: string,
+    sessionId: string,
+  ): Promise<{ stopped: true; message: string }> {
+    await this.assertActiveServerForUser(serverId, userId);
+
+    const trimmedSessionId = sessionId.trim();
+    const session =
+      this.deploymentGateway.getContainerLogsSession(trimmedSessionId);
+
+    if (
+      !session ||
+      session.serverId !== serverId ||
+      session.userId !== userId
+    ) {
+      throw new NotFoundException(
+        ERROR_MESSAGES.CONTAINER_LOGS.SESSION_NOT_FOUND,
+      );
+    }
+
+    try {
+      this.deploymentGateway.closeContainerLogsSession(trimmedSessionId, {
+        notifyAgent: true,
+      });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new BadRequestException(
+        `${ERROR_MESSAGES.CONTAINER_LOGS.STOP_FAILED}: ${detail}`,
+      );
+    }
+
+    return {
+      stopped: true,
+      message: CP_SUCCESS_MESSAGES.CONTAINER_LOGS.STOPPED,
     };
   }
 

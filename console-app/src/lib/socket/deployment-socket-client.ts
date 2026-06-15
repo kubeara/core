@@ -8,6 +8,7 @@ import { buildDeploymentsSocketUrl } from "@/api/axios";
 let socket: Socket | null = null;
 const subscribedDeploymentIds = new Set<string>();
 const subscribedTerminalSessionIds = new Set<string>();
+const subscribedContainerLogsSessionIds = new Set<string>();
 
 function emitLogsSubscribe(deploymentId: string): void {
   if (!socket?.connected) {
@@ -25,12 +26,23 @@ function emitTerminalSubscribe(sessionId: string): void {
   socket.emit(DEPLOYMENT_SOCKET_EVENTS.TERMINAL_SUBSCRIBE, { sessionId });
 }
 
+function emitContainerLogsSubscribe(sessionId: string): void {
+  if (!socket?.connected) {
+    return;
+  }
+
+  socket.emit(DEPLOYMENT_SOCKET_EVENTS.CONTAINER_LOGS_SUBSCRIBE, { sessionId });
+}
+
 function handleReconnectSubscribe(): void {
   for (const deploymentId of subscribedDeploymentIds) {
     emitLogsSubscribe(deploymentId);
   }
   for (const sessionId of subscribedTerminalSessionIds) {
     emitTerminalSubscribe(sessionId);
+  }
+  for (const sessionId of subscribedContainerLogsSessionIds) {
+    emitContainerLogsSubscribe(sessionId);
   }
 }
 
@@ -138,6 +150,42 @@ export function emitTerminalDisconnect(sessionId: string): void {
   }
 
   activeSocket.emit(DEPLOYMENT_SOCKET_EVENTS.TERMINAL_DISCONNECT, {
+    sessionId,
+  });
+}
+
+export function subscribeContainerLogsSession(sessionId: string): void {
+  const trimmed = sessionId.trim();
+  if (!trimmed) return;
+
+  subscribedContainerLogsSessionIds.add(trimmed);
+  const activeSocket = getDeploymentSocket();
+
+  if (activeSocket.connected) {
+    emitContainerLogsSubscribe(trimmed);
+    return;
+  }
+
+  activeSocket.connect();
+  activeSocket.once("connect", () => emitContainerLogsSubscribe(trimmed));
+}
+
+export function unsubscribeContainerLogsSession(sessionId?: string): void {
+  if (sessionId) {
+    subscribedContainerLogsSessionIds.delete(sessionId.trim());
+    return;
+  }
+
+  subscribedContainerLogsSessionIds.clear();
+}
+
+export function emitContainerLogsStop(sessionId: string): void {
+  const activeSocket = getDeploymentSocket();
+  if (!activeSocket.connected) {
+    return;
+  }
+
+  activeSocket.emit(DEPLOYMENT_SOCKET_EVENTS.CONTAINER_LOGS_STOP, {
     sessionId,
   });
 }

@@ -10,11 +10,6 @@ import {
 import { DeploymentTerminalViewer } from "@/components/deployment-terminal-viewer";
 import "@/components/shared/kubeara-terminal-shell.css";
 import {
-  IconMaximize,
-  IconMinimize,
-  IconRestore,
-} from "@/components/deployment-terminal-icons";
-import {
   useDeploymentLogStream,
   useDeploymentQuery,
 } from "@/features/deployments/hooks";
@@ -29,6 +24,34 @@ import type { DeploymentStatus } from "@/constants/deployment-events";
 import type { Template } from "@/types";
 import "./deployment-logs.css";
 
+function IconMaximize() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconRestore() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 type DeploymentLogsProps = {
   template: Template;
   deploymentId?: string;
@@ -38,18 +61,16 @@ type DeploymentLogsProps = {
   startError?: string | null;
 };
 
-function DeploymentLogsToolbar({
+function DeploymentLogsIntro({
   title,
   lineCount,
   logView,
   installationLineCount,
   containerLineCount,
   containerLogsAvailable,
-  isCollapsed,
   isFullscreen,
   isSocketConnected,
   onLogViewChange,
-  onToggleCollapse,
   onToggleFullscreen,
 }: {
   title: string;
@@ -58,60 +79,61 @@ function DeploymentLogsToolbar({
   installationLineCount: number;
   containerLineCount: number;
   containerLogsAvailable: boolean;
-  isCollapsed: boolean;
   isFullscreen: boolean;
   isSocketConnected: boolean;
   onLogViewChange: (view: DeploymentLogView) => void;
-  onToggleCollapse: () => void;
   onToggleFullscreen: () => void;
 }) {
   return (
-    <div className="server-terminal-toolbar">
-      <div className="server-terminal-toolbar-main">
-        <span className="server-terminal-host">{title}</span>
-        <div
-          className="server-terminal-source-toggle"
-          role="tablist"
-          aria-label="Log source"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={logView === "installation"}
-            className={`server-terminal-source-btn${logView === "installation" ? " active" : ""}`}
-            onClick={() => onLogViewChange("installation")}
+    <div className="server-terminal-intro">
+      <div className="server-terminal-intro-copy">
+        <h2 className="server-detail-section-title">Deployment logs</h2>
+        <div className="server-terminal-intro-headline">
+          <p className="server-terminal-session-host">{title}</p>
+          <div
+            className="server-terminal-source-toggle"
+            role="tablist"
+            aria-label="Log source"
           >
-            Installation
-            {installationLineCount > 0 ? (
-              <span className="server-terminal-source-count">
-                {installationLineCount}
-              </span>
-            ) : null}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={logView === "container"}
-            className={`server-terminal-source-btn${logView === "container" ? " active" : ""}`}
-            disabled={!containerLogsAvailable}
-            title={
-              containerLogsAvailable
-                ? "Container output"
-                : "Available after the service starts"
-            }
-            onClick={() => onLogViewChange("container")}
-          >
-            Container
-            {containerLineCount > 0 ? (
-              <span className="server-terminal-source-count">
-                {containerLineCount}
-              </span>
-            ) : null}
-          </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={logView === "installation"}
+              className={`server-terminal-source-btn${logView === "installation" ? " active" : ""}`}
+              onClick={() => onLogViewChange("installation")}
+            >
+              Installation
+              {installationLineCount > 0 ? (
+                <span className="server-terminal-source-count">
+                  {installationLineCount}
+                </span>
+              ) : null}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={logView === "container"}
+              className={`server-terminal-source-btn${logView === "container" ? " active" : ""}`}
+              disabled={!containerLogsAvailable}
+              title={
+                containerLogsAvailable
+                  ? "Container output"
+                  : "Available after the service starts"
+              }
+              onClick={() => onLogViewChange("container")}
+            >
+              Container
+              {containerLineCount > 0 ? (
+                <span className="server-terminal-source-count">
+                  {containerLineCount}
+                </span>
+              ) : null}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="server-terminal-toolbar-actions">
+      <div className="server-terminal-intro-actions">
         <span className="server-terminal-line-count">{lineCount} lines</span>
         <span className="server-terminal-status">
           <span
@@ -120,14 +142,6 @@ function DeploymentLogsToolbar({
           />
           {isSocketConnected ? "Live" : "Reconnecting…"}
         </span>
-        <button
-          type="button"
-          className="server-terminal-icon-btn"
-          onClick={onToggleCollapse}
-          aria-label={isCollapsed ? "Expand terminal" : "Minimize terminal"}
-        >
-          <IconMinimize />
-        </button>
         <button
           type="button"
           className="server-terminal-icon-btn"
@@ -150,7 +164,6 @@ export function DeploymentLogs({
   startError = null,
 }: DeploymentLogsProps) {
   const terminalRef = useRef<HTMLElement>(null);
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [logView, setLogView] = useState<DeploymentLogView>("installation");
 
@@ -248,7 +261,7 @@ export function DeploymentLogs({
       window.dispatchEvent(new Event("resize"));
     }, 50);
     return () => window.clearTimeout(timer);
-  }, [isCollapsed, isFullscreen, logView]);
+  }, [isFullscreen, logView]);
 
   const resolvedStatus = liveDeploymentStatus;
 
@@ -307,25 +320,23 @@ export function DeploymentLogs({
 
       <section
         ref={terminalRef}
-        className={`server-terminal-shell is-visible${isFullscreen ? " is-fullscreen" : ""}${isCollapsed ? " is-collapsed" : ""}`}
+        className={`server-terminal-shell is-visible has-session${isFullscreen ? " is-fullscreen" : ""}`}
         aria-label="Deployment logs"
       >
-        <DeploymentLogsToolbar
-          title={`${template.name} — live logs`}
-          lineCount={filteredLineCount}
-          logView={logView}
-          installationLineCount={installationLineCount}
-          containerLineCount={containerLineCount}
-          containerLogsAvailable={containerLogsAvailable}
-          isCollapsed={isCollapsed}
-          isFullscreen={isFullscreen}
-          isSocketConnected={isSocketConnected}
-          onLogViewChange={setLogView}
-          onToggleCollapse={() => setIsCollapsed((value) => !value)}
-          onToggleFullscreen={() => void toggleFullscreen()}
-        />
+        <div className="server-terminal-card has-session">
+          <DeploymentLogsIntro
+            title={`${template.name} — live logs`}
+            lineCount={filteredLineCount}
+            logView={logView}
+            installationLineCount={installationLineCount}
+            containerLineCount={containerLineCount}
+            containerLogsAvailable={containerLogsAvailable}
+            isFullscreen={isFullscreen}
+            isSocketConnected={isSocketConnected}
+            onLogViewChange={setLogView}
+            onToggleFullscreen={() => void toggleFullscreen()}
+          />
 
-        {!isCollapsed && (
           <div className="server-terminal-window">
             {isStreaming && filteredLineCount === 0 && (
               <div className="server-terminal-connecting-overlay" aria-live="polite">
@@ -344,24 +355,7 @@ export function DeploymentLogs({
               isLive={isStreaming}
             />
           </div>
-        )}
-
-        {isCollapsed && (
-          <div className="server-terminal-collapsed-bar">
-            <p>
-              Logs minimized · {filteredLineCount}{" "}
-              {logView === "installation" ? "installation" : "container"} lines
-            </p>
-            <button
-              type="button"
-              className="server-terminal-icon-btn"
-              onClick={() => setIsCollapsed(false)}
-              aria-label="Expand terminal"
-            >
-              <IconMaximize />
-            </button>
-          </div>
-        )}
+        </div>
       </section>
     </div>
   );

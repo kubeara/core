@@ -34,6 +34,16 @@ export const ERROR_MESSAGES = {
     DISCONNECT_FAILED: "Failed to disconnect terminal session",
   },
 
+  CONTAINER_LOGS: {
+    AGENT_UNAVAILABLE:
+      "Container logs are unavailable. Connect the agent on this server first.",
+    AGENT_UNSUPPORTED:
+      "Connected agent does not support container logs. Update the agent.",
+    SESSION_NOT_FOUND: "Container logs session not found",
+    START_FAILED: "Failed to start container log stream",
+    STOP_FAILED: "Failed to stop container log stream",
+  },
+
   AUTH: {
     EMAIL_ALREADY_EXISTS: "Email already exists",
     INVALID_CREDENTIALS: "Invalid email or password",

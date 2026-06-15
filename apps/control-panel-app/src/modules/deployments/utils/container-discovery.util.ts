@@ -129,6 +129,7 @@ export function mergeDiscoveredContainersWithDeployments(
         : ManagedType.SELF_MANAGED,
       deploymentId: deployment?.id ?? null,
       templateId: deployment?.templateSlug ?? null,
+      serviceName: deployment?.serviceName ?? null,
       serverId,
       isOnline: true,
     });
@@ -141,7 +142,7 @@ export function mergeDiscoveredContainersWithDeployments(
 
     rows.push({
       containerId: null,
-      containerName: deployment.templateSlug,
+      containerName: deployment.serviceName ?? deployment.templateSlug,
       imageName: "",
       status: "offline",
       ports: "",
@@ -149,6 +150,7 @@ export function mergeDiscoveredContainersWithDeployments(
       managedType: ManagedType.KUBEARA_MANAGED,
       deploymentId: deployment.id,
       templateId: deployment.templateSlug,
+      serviceName: deployment.serviceName,
       serverId,
       isOnline: false,
     });

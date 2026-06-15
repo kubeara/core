@@ -11,15 +11,206 @@ import {
   BUILTIN_DOCKER_NETWORKS,
   buildDockerActionArgs,
   CONTAINER_ACTION_TIMEOUT_MS,
+  CONTAINER_LOGS_COMMAND,
+  DOCKER_NAME_PATTERN,
   DOCKER_PS_COMMAND,
   DOCKER_PS_TIMEOUT_MS,
 } from "../common/constants/container.constant";
-
-const DOCKER_NAME_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/;
+import type { ContainerLogSession } from "./interfaces/container-log-session.interface";
+import type {
+  ContainerLogsCloseHandler,
+  ContainerLogsDataHandler,
+  ContainerLogsErrorHandler,
+} from "./types/container-logs-handler.types";
 
 @Injectable()
 export class ContainerService {
   private readonly logger = new Logger(ContainerService.name);
+  private readonly logSessions = new Map<string, ContainerLogSession>();
+  private dataHandler: ContainerLogsDataHandler | null = null;
+  private errorHandler: ContainerLogsErrorHandler | null = null;
+  private closeHandler: ContainerLogsCloseHandler | null = null;
+
+  setLogsDataHandler(handler: ContainerLogsDataHandler): void {
+    this.dataHandler = handler;
+  }
+
+  setLogsErrorHandler(handler: ContainerLogsErrorHandler): void {
+    this.errorHandler = handler;
+  }
+
+  setLogsCloseHandler(handler: ContainerLogsCloseHandler): void {
+    this.closeHandler = handler;
+  }
+
+  /**
+   * Starts streaming docker logs for a container.
+   */
+  async startLogStream(
+    sessionId: string,
+    containerId: string,
+  ): Promise<string | null> {
+    const trimmedId = containerId.trim();
+    if (!trimmedId) {
+      return "Missing containerId";
+    }
+
+    if (this.logSessions.has(sessionId)) {
+      this.stopLogStream(sessionId);
+    }
+
+    const inspectResult = await this.execCapture(
+      "docker",
+      ["inspect", "-f", "{{.Id}}", trimmedId],
+      CONTAINER_ACTION_TIMEOUT_MS,
+    );
+
+    if (inspectResult.exitCode !== 0) {
+      const inspectDetail =
+        inspectResult.stderr.trim() ||
+        inspectResult.stdout.trim() ||
+        `Container '${trimmedId}' not found`;
+      return this.classifyDockerError(inspectDetail);
+    }
+
+    const resolvedId =
+      inspectResult.stdout.trim().replace(/^sha256:/, "") || trimmedId;
+    const logsTarget =
+      resolvedId.length >= 12 ? resolvedId.slice(0, 12) : trimmedId;
+
+    const args = CONTAINER_LOGS_COMMAND(logsTarget);
+    this.logger.log(
+      `[CONTAINER_LOGS] starting docker ${args.join(" ")} sessionId=${sessionId}`,
+    );
+
+    const child = spawn("docker", args, { cwd: process.cwd() });
+    const session: ContainerLogSession = {
+      sessionId,
+      containerId: resolvedId,
+      child,
+      stopping: false,
+      stderr: "",
+    };
+
+    child.on("error", (err) => {
+      const message = this.classifyDockerError(err.message);
+      this.logger.error(
+        `[CONTAINER_LOGS] failed to start docker logs sessionId=${sessionId}: ${message}`,
+      );
+      this.cleanupLogSession(sessionId, message);
+    });
+
+    child.stdout.on("data", (chunk: Buffer | string) => {
+      this.dataHandler?.(sessionId, String(chunk));
+    });
+
+    child.stderr.on("data", (chunk: Buffer | string) => {
+      const text = String(chunk);
+      session.stderr += text;
+      this.dataHandler?.(sessionId, text);
+    });
+
+    child.on("close", (code) => {
+      const activeSession = this.logSessions.get(sessionId);
+      if (!activeSession) {
+        return;
+      }
+
+      this.logSessions.delete(sessionId);
+
+      if (!activeSession.stopping && code !== 0 && code !== null) {
+        const detail =
+          activeSession.stderr.trim() || `docker logs exited with code ${code}`;
+        this.errorHandler?.(sessionId, this.classifyDockerError(detail));
+      }
+
+      this.closeHandler?.(sessionId);
+      this.logger.log(
+        `[CONTAINER_LOGS] stream closed sessionId=${sessionId} exitCode=${code ?? "null"} stopping=${activeSession.stopping}`,
+      );
+    });
+
+    this.logSessions.set(sessionId, session);
+
+    return null;
+  }
+
+  /**
+   * Stops an active container log stream.
+   */
+  stopLogStream(sessionId: string): void {
+    const session = this.logSessions.get(sessionId);
+    if (!session) {
+      return;
+    }
+
+    session.stopping = true;
+    try {
+      session.child.kill("SIGTERM");
+    } catch (error) {
+      this.logger.warn(
+        `[CONTAINER_LOGS] failed to kill log process sessionId=${sessionId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+
+    this.logger.log(`[CONTAINER_LOGS] stopping stream sessionId=${sessionId}`);
+  }
+
+  /**
+   * Checks if a log session exists.
+   */
+  hasLogSession(sessionId: string): boolean {
+    return this.logSessions.has(sessionId);
+  }
+
+  /**
+   * Cleans up a log session and triggers error and close handlers.
+   */
+  private cleanupLogSession(sessionId: string, error: string): void {
+    this.logSessions.delete(sessionId);
+    this.errorHandler?.(sessionId, error);
+    this.closeHandler?.(sessionId);
+  }
+
+  /**
+   * Classifies a Docker error message.
+   */
+  private classifyDockerError(raw: string): string {
+    const normalized = raw.toLowerCase();
+
+    if (
+      normalized.includes("no such container") ||
+      normalized.includes("could not find container")
+    ) {
+      return "Container not found";
+    }
+
+    if (
+      normalized.includes("cannot connect to the docker daemon") ||
+      normalized.includes("docker daemon is not running") ||
+      normalized.includes("is the docker daemon running")
+    ) {
+      return "Docker is unavailable on this server";
+    }
+
+    if (normalized.includes("permission denied")) {
+      return "Permission denied when accessing Docker";
+    }
+
+    if (normalized.includes("exited with code 125")) {
+      return "Log streaming failed. The container may be unavailable or Docker rejected the request.";
+    }
+
+    const trimmed = raw.trim();
+    if (trimmed.toLowerCase().startsWith("error response from daemon:")) {
+      return (
+        trimmed.replace(/^error response from daemon:\s*/i, "").trim() ||
+        "Log streaming failed"
+      );
+    }
+
+    return trimmed || "Log streaming failed";
+  }
 
   /**
    * Discovers containers on the host machine.

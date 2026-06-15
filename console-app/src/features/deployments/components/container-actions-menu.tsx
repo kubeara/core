@@ -5,6 +5,7 @@ import {
   CONTAINER_ACTION_LABELS,
   CONTAINER_ACTION_PENDING_LABELS,
 } from "../constants/container-action-messages";
+import { CONTAINER_LOGS_LABEL } from "../constants/container-logs-messages";
 import type { ContainerActionType, ServerContainer } from "../types";
 
 /**
@@ -33,6 +34,7 @@ type ContainerActionsMenuProps = {
   isPending: boolean;
   pendingAction: { containerId: string | null; action: ContainerActionType } | null;
   onAction: (container: ServerContainer, action: ContainerActionType) => void;
+  onViewLogs?: (container: ServerContainer) => void;
 };
 
 /**
@@ -43,6 +45,7 @@ export function ContainerActionsMenu({
   isPending,
   pendingAction,
   onAction,
+  onViewLogs,
 }: ContainerActionsMenuProps) {
   const containerId = container.containerId!;
   const showStop = isContainerRunning(container);
@@ -117,6 +120,11 @@ export function ContainerActionsMenu({
     onAction(container, action);
   }
 
+  function runViewLogs() {
+    setOpen(false);
+    onViewLogs?.(container);
+  }
+
   const actionLabel = (action: ContainerActionType): string => {
     if (pendingAction?.containerId !== containerId) {
       return CONTAINER_ACTION_LABELS[action];
@@ -150,6 +158,20 @@ export function ContainerActionsMenu({
                   <ContainerActionIcon action="stop" />
                 </span>
                 {actionLabel("stop")}
+              </button>
+            ) : null}
+            {onViewLogs ? (
+              <button
+                type="button"
+                role="menuitem"
+                className="container-actions-menu-item"
+                disabled={isPending}
+                onClick={runViewLogs}
+              >
+                <span className="container-actions-menu-item-icon container-actions-menu-item-icon--logs">
+                  <ContainerLogsIcon />
+                </span>
+                {CONTAINER_LOGS_LABEL}
               </button>
             ) : null}
             <button
@@ -212,5 +234,30 @@ export function ContainerActionsMenu({
       </div>
       {dropdown}
     </>
+  );
+}
+
+function ContainerLogsIcon() {
+  return (
+    <svg
+      width={20}
+      height={20}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+    >
+      <path
+        d="M8 6h12M8 12h12M8 18h7"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+      <path
+        d="M4 6h.01M4 12h.01M4 18h.01"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }
