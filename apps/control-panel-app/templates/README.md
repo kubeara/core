@@ -207,7 +207,6 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `drone-ci/` | Container-native CI with Docker runner on port 80 |
 | `woodpecker-ci/` | Lightweight CI/CD engine with Docker agent on port 8000 |
 | `ghost/` | Publishing platform for blogs and newsletters with MariaDB on port 2368 |
-| `signoz/` | OpenTelemetry APM with ClickHouse on ports 8080, 4317, and 4318 |
 | `healthchecks/` | Cron job and heartbeat monitoring with PostgreSQL on port 8000 |
 | `vaultwarden/` | Bitwarden-compatible password manager on port 8080 |
 | `authentik/` | Identity provider with SSO and MFA; PostgreSQL, Redis, server, and worker on port 9000 |
@@ -215,6 +214,8 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `keycloak/` | IAM platform with PostgreSQL on port 8080 |
 | `nocodb/` | Airtable-style database UI with PostgreSQL on port 8080 |
 | `affine/` | Knowledge workspace with PostgreSQL, Redis, and migration job on port 3010 |
+| `signoz/` | OpenTelemetry APM with ClickHouse on ports 8080, 4317, and 4318 |
+| `appwrite/` | Backend-as-a-service with Traefik, MariaDB, Redis, workers, and executor on port 80 |
 
 ---
 

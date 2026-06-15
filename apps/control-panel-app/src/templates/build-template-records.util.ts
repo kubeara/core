@@ -252,6 +252,14 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "AFFiNE",
     version: "stable",
   },
+  signoz: {
+    name: "SigNoz",
+    version: "0.128",
+  },
+  appwrite: {
+    name: "Appwrite",
+    version: "1.6",
+  },
 };
 
 /**
