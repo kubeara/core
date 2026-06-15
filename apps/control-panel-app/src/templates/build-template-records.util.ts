@@ -224,13 +224,25 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Ghost",
     version: "5",
   },
-  signoz: {
-    name: "SigNoz",
-    version: "0.128",
-  },
   healthchecks: {
     name: "Healthchecks.io",
     version: "latest",
+  },
+  vaultwarden: {
+    name: "Vaultwarden",
+    version: "latest",
+  },
+  authentik: {
+    name: "Authentik",
+    version: "2025.8",
+  },
+  authelia: {
+    name: "Authelia",
+    version: "4.39",
+  },
+  keycloak: {
+    name: "Keycloak",
+    version: "26.0",
   },
 };
 
