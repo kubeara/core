@@ -1,0 +1,93 @@
+# documentation: https://docs.langflow.org/get-started-installation
+# shortDescription: Visual IDE for building LLM applications and agents
+# longDescription: <p>Langflow is a visual <strong>low-code IDE</strong> for building LLM apps, agents, and RAG pipelines.</p><p>Includes PostgreSQL for persistent storage. Data and secrets persist under <code>/app/langflow</code>. Open the UI on first launch to get started.</p>
+# category: ai,automation
+# tags: langflow,ai,llm,agents,rag,workflow,low-code
+# logo: svgs/langflow.svg
+# port: 7860
+
+services:
+  langflow:
+    image: ${LANGFLOW_IMAGE:-langflowai/langflow:latest}
+    restart: ${LANGFLOW_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_LANGFLOW:-7860}:7860'
+
+    environment:
+      - SERVICE_URL_LANGFLOW_7860
+      - LANGFLOW_DATABASE_URL=postgresql://${SERVICE_USER_LANGFLOW}:${SERVICE_PASSWORD_LANGFLOW}@postgres:5432/${LANGFLOW_DB_NAME:-langflow}
+      - LANGFLOW_CONFIG_DIR=/app/langflow
+      - LANGFLOW_HOST=0.0.0.0
+      - LANGFLOW_PORT=7860
+      - LANGFLOW_AUTO_LOGIN=${LANGFLOW_AUTO_LOGIN:-false}
+      - DO_NOT_TRACK=${LANGFLOW_DO_NOT_TRACK:-true}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - langflow_data:/app/langflow
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:7860/health_check || exit 1']
+      interval: 20s
+      timeout: 10s
+      retries: 8
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${LANGFLOW_POSTGRES_IMAGE:-postgres:16-trixie}
+    restart: ${LANGFLOW_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_LANGFLOW}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_LANGFLOW}
+      - POSTGRES_DB=${LANGFLOW_DB_NAME:-langflow}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - langflow_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${SERVICE_USER_LANGFLOW} -d ${LANGFLOW_DB_NAME:-langflow}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  langflow_data:
+  langflow_postgres_data:
