@@ -260,6 +260,14 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Appwrite",
     version: "1.6",
   },
+  "flowise-with-databases": {
+    name: "Flowise (with databases)",
+    version: "latest",
+  },
+  langflow: {
+    name: "Langflow",
+    version: "latest",
+  },
 };
 
 /**

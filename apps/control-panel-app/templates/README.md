@@ -216,6 +216,8 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `affine/` | Knowledge workspace with PostgreSQL, Redis, and migration job on port 3010 |
 | `signoz/` | OpenTelemetry APM with ClickHouse on ports 8080, 4317, and 4318 |
 | `appwrite/` | Backend-as-a-service with Traefik, MariaDB, Redis, workers, and executor on port 80 |
+| `flowise-with-databases/` | Flowise with PostgreSQL, Redis, and queue worker on port 3000 |
+| `langflow/` | Visual LLM IDE with PostgreSQL on port 7860 |
 
 ---
 
