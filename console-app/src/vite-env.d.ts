@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_WS_URL?: string;
   /** Set to "true" in dev to log deployment socket events in the console. */
   readonly VITE_DEBUG_DEPLOYMENT_SOCKETS?: string;
+  /** Microsoft Clarity project ID (from Clarity project settings). */
+  readonly VITE_CLARITY_PROJECT_ID?: string;
 }
 
 interface ImportMeta {
