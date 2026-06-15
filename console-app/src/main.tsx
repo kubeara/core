@@ -10,6 +10,9 @@ import "@fontsource/geist-mono/500.css";
 import { App } from "@/App";
 import "@/index.css";
 import "@/features/templates/templates-ui.css";
+import { initClarity } from "@/lib/init-clarity";
+
+initClarity();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
