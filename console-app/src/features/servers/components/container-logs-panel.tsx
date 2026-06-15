@@ -11,6 +11,7 @@ type ContainerLogsPanelProps = {
   serverId: string;
   containerId: string;
   containerName: string;
+  serviceName?: string | null;
   serverName: string;
   serverHost: string;
 };
@@ -47,6 +48,7 @@ export function ContainerLogsPanel({
   serverId,
   containerId,
   containerName,
+  serviceName,
   serverName,
   serverHost,
 }: ContainerLogsPanelProps) {
@@ -109,6 +111,11 @@ export function ContainerLogsPanel({
   const isStreaming = status === "streaming";
   const showTerminal = isConnecting || isStreaming || status === "complete";
 
+  const logsHeadline = serviceName?.trim() || containerName;
+  const showContainerName =
+    Boolean(serviceName?.trim()) &&
+    containerName.trim() !== serviceName?.trim();
+
   const introMessage =
     status === "error"
       ? "Could not stream container logs."
@@ -136,17 +143,33 @@ export function ContainerLogsPanel({
       >
         <div className="server-terminal-intro">
           <div className="server-terminal-intro-copy">
-            <h2 className="server-detail-section-title">Container logs</h2>
+            <h2 className="server-detail-section-title">
+              {serviceName?.trim()
+                ? `Logs — ${serviceName.trim()}`
+                : `Logs — ${containerName}`}
+            </h2>
             {showTerminal ? (
               <p className="server-terminal-session-host">
-                {containerName}
+                <span className="server-terminal-session-primary">
+                  {logsHeadline}
+                </span>
+                {showContainerName ? (
+                  <>
+                    <span className="server-terminal-host-sep">·</span>
+                    <code>{containerName}</code>
+                  </>
+                ) : null}
                 <span className="server-terminal-host-sep">·</span>
                 {serverName}
                 <span className="server-terminal-host-sep">·</span>
                 {serverHost}
               </p>
             ) : (
-              <p className="server-detail-section-desc">{introMessage}</p>
+              <p className="server-detail-section-desc">
+                {serviceName?.trim()
+                  ? `Streaming logs for ${serviceName.trim()} on this server.`
+                  : introMessage}
+              </p>
             )}
             {status === "error" && !showTerminal && (
               <p className="server-terminal-error-text">

@@ -6,7 +6,10 @@ import type {
 } from "@/features/deployments/types";
 import {
   containerStatusClass,
-  getContainerDisplayName,
+  getContainerCardHeadline,
+  getContainerCardSubtitle,
+  getContainerDockerName,
+  getContainerServiceName,
   managedTypeLabel,
 } from "./utils/container-display";
 
@@ -37,14 +40,17 @@ export function ConnectedServiceCard({
       pendingAction.action,
   );
 
-  const displayName =
-    container.containerName || container.templateId || "Container";
-
-  const cleanName = getContainerDisplayName(container);
+  const serviceName = getContainerServiceName(container);
+  const headline = getContainerCardHeadline(container);
+  const subtitle = getContainerCardSubtitle(container);
+  const dockerName = getContainerDockerName(container);
+  const showDockerName =
+    Boolean(serviceName) &&
+    dockerName !== serviceName &&
+    dockerName !== headline;
 
   const statusLabel = container.isOnline ? container.status : "Offline";
   const portsDisplay = container.ports?.match(/:(\d+)->/)?.[1] ?? "N/A";
-  const subtitle = container.templateId ?? container.containerName;
 
   return (
     <article
@@ -61,7 +67,7 @@ export function ConnectedServiceCard({
       ) : null}
       <div className="marketplace-card-header">
         <ServiceBrandIcon
-          name={cleanName || displayName}
+          name={headline}
           logo={logo}
           className="marketplace-card-icon"
         />
@@ -69,8 +75,8 @@ export function ConnectedServiceCard({
           <p className="marketplace-card-category">
             {managedTypeLabel(container.managedType)}
           </p>
-          <h3 className="marketplace-card-name" title={displayName}>
-            {cleanName}
+          <h3 className="marketplace-card-name" title={headline}>
+            {headline}
             {!container.isOnline ? (
               <span className="marketplace-card-status-badge is-offline">
                 Offline
@@ -79,7 +85,7 @@ export function ConnectedServiceCard({
               <span className="marketplace-card-deployed-badge">Deployed</span>
             ) : null}
           </h3>
-          {subtitle ? (
+          {subtitle && subtitle !== headline ? (
             <p className="marketplace-card-slug">
               <code>{subtitle}</code>
             </p>
@@ -102,6 +108,16 @@ export function ConnectedServiceCard({
         )}
 
         <dl className="marketplace-card-meta">
+          {showDockerName ? (
+            <div className="marketplace-card-meta-item">
+              <dt>Container</dt>
+              <dd>
+                <code title={container.containerName || undefined}>
+                  {dockerName}
+                </code>
+              </dd>
+            </div>
+          ) : null}
           <div className="marketplace-card-meta-item">
             <dt>Status</dt>
             <dd>

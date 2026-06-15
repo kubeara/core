@@ -12,6 +12,7 @@ import { NotFoundPage } from "./not-found-page";
 
 type ContainerLogsLocationState = {
   containerName?: string;
+  serviceName?: string;
 };
 
 /**
@@ -26,6 +27,7 @@ export function ContainerLogsPage() {
   }>();
   const location = useLocation();
   const locationState = location.state as ContainerLogsLocationState | null;
+  const serviceName = locationState?.serviceName?.trim() || null;
   const containerName =
     locationState?.containerName?.trim() || containerId || "Container";
 
@@ -79,6 +81,7 @@ export function ContainerLogsPage() {
         serverId={serverId}
         containerId={containerId}
         containerName={containerName}
+        serviceName={serviceName}
         serverName={server.name}
         serverHost={server.host}
       />

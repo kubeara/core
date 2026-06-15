@@ -1,4 +1,4 @@
-export const CONTAINER_LOGS_LABEL = "Logs";
+export const CONTAINER_LOGS_LABEL = "View logs";
 
 export const CONTAINER_LOGS_LOADING_MESSAGE = "Connecting to container logs…";
 

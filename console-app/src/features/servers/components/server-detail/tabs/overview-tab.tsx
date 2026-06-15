@@ -9,7 +9,7 @@ import type {
 } from "@/features/deployments/types";
 import { SkeletonGrid } from "@/components/shared/skeleton";
 import { ConnectedServiceCard } from "../connected-service-card";
-import { getContainerDisplayName } from "../utils/container-display";
+import { getContainerDisplayName, getContainerServiceName } from "../utils/container-display";
 
 type ServerOverviewTabProps = {
   serverId: string;
@@ -89,6 +89,7 @@ export function ServerOverviewTab({
       {
         state: {
           containerName: getContainerDisplayName(container),
+          serviceName: getContainerServiceName(container) ?? undefined,
         },
       },
     );

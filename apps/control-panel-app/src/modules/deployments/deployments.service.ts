@@ -791,12 +791,14 @@ export class DeploymentsService {
           In(DeploymentsService.OVERVIEW_EXCLUDED_STATUSES),
         ),
       },
+      relations: { template: true },
       order: { updatedAt: "DESC" },
     });
 
     const deployments = deploymentRows.map((deployment) => ({
       id: deployment.id,
       templateSlug: deployment.templateSlug,
+      serviceName: deployment.template?.name?.trim() || null,
       composeProject: sanitizeDeploymentProjectName(deployment.id),
     }));
 

@@ -21,10 +21,40 @@ export function containerStatusClass(container: ServerContainer): string {
   return ContainerStatus.DEGRADED;
 }
 
+export function getContainerServiceName(
+  container: ServerContainer,
+): string | null {
+  const name = container.serviceName?.trim();
+  return name || null;
+}
+
+export function getContainerDockerName(container: ServerContainer): string {
+  const raw = container.containerName?.trim();
+  if (!raw) {
+    return container.templateId || "Container";
+  }
+
+  return raw.replace(/^deployment-\d+-[^-]+-/, "");
+}
+
 export function getContainerDisplayName(container: ServerContainer): string {
-  const displayName =
-    container.containerName || container.templateId || "Container";
-  return displayName.replace(/^deployment-\d+-[^-]+-/, "");
+  return getContainerServiceName(container) ?? getContainerDockerName(container);
+}
+
+export function getContainerCardHeadline(container: ServerContainer): string {
+  return getContainerDisplayName(container);
+}
+
+export function getContainerCardSubtitle(
+  container: ServerContainer,
+): string | null {
+  if (container.managedType === "KUBEARA_MANAGED" && container.templateId) {
+    return container.templateId;
+  }
+
+  const dockerName = getContainerDockerName(container);
+  const headline = getContainerCardHeadline(container);
+  return dockerName !== headline ? dockerName : null;
 }
 
 export function getConnectedTemplateIds(
