@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { ContainerActionConfirmModal } from "@/features/deployments/components/container-action-confirm-modal";
 import { useContainerActionMutation } from "@/features/deployments/hooks";
 import { useTemplatesQuery } from "@/features/templates/hooks";
@@ -33,6 +34,7 @@ export function ServerOverviewTab({
   );
 
   const containerActionMutation = useContainerActionMutation();
+  const navigate = useNavigate();
   const [pendingAction, setPendingAction] = useState<{
     containerId: string | null;
     action: ContainerActionType;
@@ -75,6 +77,21 @@ export function ServerOverviewTab({
     } finally {
       setPendingAction(null);
     }
+  }
+
+  function handleViewLogs(container: ServerContainer) {
+    if (!container.containerId) {
+      return;
+    }
+
+    navigate(
+      `/servers/${encodeURIComponent(serverId)}/containers/${encodeURIComponent(container.containerId)}/logs`,
+      {
+        state: {
+          containerName: getContainerDisplayName(container),
+        },
+      },
+    );
   }
 
   const kubearaManagedContainers = containers.filter(
@@ -133,6 +150,7 @@ export function ServerOverviewTab({
                 }
                 pendingAction={pendingAction}
                 onAction={handleContainerActionRequest}
+                onViewLogs={handleViewLogs}
               />
             ))}
           </div>
@@ -156,6 +174,7 @@ export function ServerOverviewTab({
                     }
                     pendingAction={pendingAction}
                     onAction={handleContainerActionRequest}
+                    onViewLogs={handleViewLogs}
                   />
                 ))}
               </div>

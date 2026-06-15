@@ -33,6 +33,10 @@
   display: none;
 }
 
+.server-terminal-shell.is-collapsed .server-terminal-intro {
+  border-bottom: none;
+}
+
 .server-terminal-intro {
   display: flex;
   align-items: flex-start;
@@ -50,6 +54,10 @@
   flex: 1;
   min-width: 0;
   max-width: 42rem;
+}
+
+.server-terminal-intro .server-detail-section-title {
+  margin-bottom: 0;
 }
 
 .server-terminal-session-host {
@@ -88,6 +96,64 @@
 .server-terminal-intro .server-terminal-icon-btn:hover {
   background: color-mix(in srgb, var(--foreground) 6%, var(--background));
   border-color: var(--border);
+  color: var(--foreground);
+}
+
+.server-terminal-intro .server-terminal-line-count {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.server-terminal-intro-headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+}
+
+.server-terminal-intro-headline .server-terminal-session-host {
+  margin: 0;
+}
+
+.server-terminal-intro .server-terminal-source-toggle {
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+  border: 1px solid var(--border);
+}
+
+.server-terminal-intro .server-terminal-source-btn {
+  color: var(--muted);
+}
+
+.server-terminal-intro .server-terminal-source-btn.active {
+  color: var(--foreground);
+  background: var(--background);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+}
+
+.server-terminal-intro .server-terminal-source-count {
+  background: color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+
+.server-terminal-card .server-terminal-collapsed-bar {
+  border: none;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.server-terminal-card .server-terminal-collapsed-bar .server-terminal-icon-btn {
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.server-terminal-card .server-terminal-collapsed-bar .server-terminal-icon-btn:hover {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--background));
   color: var(--foreground);
 }
 

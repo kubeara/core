@@ -65,6 +65,36 @@ export async function fetchServerContainers(
   return data.containers ?? [];
 }
 
+export interface ContainerLogsSession {
+  sessionId: string;
+  serverId: string;
+  containerId: string;
+}
+
+export async function startContainerLogs(
+  serverId: string,
+  containerId: string,
+): Promise<ContainerLogsSession> {
+  const response = await apiClient.post(
+    `/deployments/${encodeURIComponent(serverId)}/containers/${encodeURIComponent(containerId)}/logs/start`,
+  );
+
+  return unwrapServerApiData<ContainerLogsSession>(
+    responseBody(response),
+    "Failed to start container logs",
+  );
+}
+
+export async function stopContainerLogs(
+  serverId: string,
+  sessionId: string,
+): Promise<void> {
+  await apiClient.post(
+    `/deployments/${encodeURIComponent(serverId)}/containers/logs/stop`,
+    { sessionId },
+  );
+}
+
 export async function fetchServerDeployments(
   serverId: string,
 ): Promise<ServerDeploymentSummary[]> {

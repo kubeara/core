@@ -18,6 +18,7 @@ type ConnectedServiceCardProps = {
     action: ContainerActionType;
   } | null;
   onAction: (container: ServerContainer, action: ContainerActionType) => void;
+  onViewLogs?: (container: ServerContainer) => void;
 };
 
 export function ConnectedServiceCard({
@@ -25,6 +26,7 @@ export function ConnectedServiceCard({
   logo,
   pendingAction,
   onAction,
+  onViewLogs,
 }: ConnectedServiceCardProps) {
   const statusClass = containerStatusClass(container);
   const containerId = container.containerId;
@@ -54,6 +56,7 @@ export function ConnectedServiceCard({
           isPending={isPending}
           pendingAction={pendingAction}
           onAction={onAction}
+          onViewLogs={onViewLogs}
         />
       ) : null}
       <div className="marketplace-card-header">

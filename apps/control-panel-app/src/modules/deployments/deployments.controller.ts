@@ -24,6 +24,7 @@ import { AccessTokenGuard } from "@control-panel/modules/auth/guards/auth.guards
 import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
 
 import { DeployTemplateDto } from "./dto/deploy-template.dto";
+import { ContainerLogsStopDto } from "./dto/container-logs.dto";
 import { DeploymentsService } from "./deployments.service";
 import { UpdateEnvironmentVariablesDto } from "./dto/update-environment-variables.dto";
 
@@ -294,6 +295,42 @@ export class DeploymentsController {
       req.user.id,
       containerId,
       "delete",
+    );
+  }
+
+  /**
+   * Start streaming logs for a container via the connected agent.
+   */
+  @Post(":serverId/containers/:containerId/logs/start")
+  @HttpCode(200)
+  async startContainerLogs(
+    @Req() req: { user: UserEntity },
+    @Param("serverId") serverId: string,
+    @Param("containerId") containerId: string,
+  ) {
+    const data = await this.deploymentsService.startContainerLogs(
+      serverId,
+      req.user.id,
+      containerId,
+    );
+    return { message: "Container log stream started", data };
+  }
+
+  /**
+   * Stop an active container log stream.
+   */
+  @Post(":serverId/containers/logs/stop")
+  @HttpCode(200)
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  async stopContainerLogs(
+    @Req() req: { user: UserEntity },
+    @Param("serverId") serverId: string,
+    @Body() body: ContainerLogsStopDto,
+  ) {
+    return this.deploymentsService.stopContainerLogs(
+      serverId,
+      req.user.id,
+      body.sessionId,
     );
   }
 
