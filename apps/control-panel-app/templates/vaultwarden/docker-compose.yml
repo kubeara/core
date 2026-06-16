@@ -1,0 +1,53 @@
+# documentation: https://github.com/dani-garcia/vaultwarden/wiki
+# shortDescription: Self-hosted Bitwarden-compatible password manager
+# longDescription: <p>Vaultwarden is a lightweight, <strong>Bitwarden-compatible</strong> password manager server written in Rust.</p><p>Set <code>DOMAIN</code> via <code>SERVICE_URL_VAULTWARDEN</code> (include <code>https://</code> in production). Admin panel at <code>/admin</code> uses <code>SERVICE_PASSWORD_VAULTWARDEN</code> as <code>ADMIN_TOKEN</code>.</p>
+# category: security,passwords
+# tags: vaultwarden,bitwarden,passwords,secrets,security,self-hosted
+# logo: svgs/vaultwarden.svg
+# port: 8080
+
+services:
+  vaultwarden:
+    image: ${VAULTWARDEN_IMAGE:-vaultwarden/server:latest}
+    restart: ${VAULTWARDEN_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_VAULTWARDEN:-8080}:80'
+
+    environment:
+      - SERVICE_URL_VAULTWARDEN_8080
+      - DOMAIN=${SERVICE_URL_VAULTWARDEN:-${SERVICE_URL_VAULTWARDEN_8080}}
+      - ADMIN_TOKEN=${SERVICE_PASSWORD_VAULTWARDEN}
+      - SIGNUPS_ALLOWED=${VAULTWARDEN_SIGNUPS_ALLOWED:-false}
+      - INVITATIONS_ALLOWED=${VAULTWARDEN_INVITATIONS_ALLOWED:-true}
+      - SHOW_PASSWORD_HINT=${VAULTWARDEN_SHOW_PASSWORD_HINT:-false}
+      - WEBSOCKET_ENABLED=${VAULTWARDEN_WEBSOCKET_ENABLED:-true}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - vaultwarden_data:/data
+
+    healthcheck:
+      test: ['CMD', '/healthcheck.sh']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  vaultwarden_data:

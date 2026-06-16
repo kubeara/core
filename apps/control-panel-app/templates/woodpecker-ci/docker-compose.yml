@@ -1,0 +1,96 @@
+# documentation: https://woodpecker-ci.org/docs/administration/installation/docker-compose
+# shortDescription: Lightweight CI/CD engine for Docker workflows
+# longDescription: <p>Woodpecker CI is a simple, extensible <strong>CI/CD engine</strong> with a GitHub Actions–compatible workflow syntax.</p><p>Includes a Docker agent. Register a GitHub OAuth app and set <code>WOODPECKER_HOST</code> via <code>SERVICE_URL_WOODPECKER_CI</code> before first use.</p>
+# category: development,ci,devops
+# tags: woodpecker,ci,cd,continuous-integration,docker,devops,pipeline
+# logo: svgs/woodpecker.svg
+# port: 8000
+
+services:
+  woodpecker:
+    image: ${WOODPECKER_IMAGE:-woodpeckerci/woodpecker-server:v3}
+    restart: ${WOODPECKER_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_WOODPECKER_CI:-8000}:8000'
+
+    environment:
+      - SERVICE_URL_WOODPECKER_CI_8000
+      - WOODPECKER_HOST=${SERVICE_URL_WOODPECKER_CI:-${SERVICE_URL_WOODPECKER_CI_8000}}
+      - WOODPECKER_OPEN=${WOODPECKER_OPEN:-true}
+      - WOODPECKER_GITHUB=${WOODPECKER_GITHUB:-true}
+      - WOODPECKER_GITHUB_CLIENT=${WOODPECKER_GITHUB_CLIENT:-configure-me}
+      - WOODPECKER_GITHUB_SECRET=${WOODPECKER_GITHUB_SECRET:-configure-me}
+      - WOODPECKER_AGENT_SECRET=${SERVICE_PASSWORD_WOODPECKER_CI}
+      - WOODPECKER_LOG_LEVEL=${WOODPECKER_LOG_LEVEL:-info}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - woodpecker_data:/var/lib/woodpecker
+
+    healthcheck:
+      test: ['CMD', '/bin/woodpecker-server', 'ping']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  woodpecker-agent:
+    image: ${WOODPECKER_AGENT_IMAGE:-woodpeckerci/woodpecker-agent:v3}
+    restart: ${WOODPECKER_AGENT_RESTART_POLICY:-unless-stopped}
+
+    command: agent
+
+    environment:
+      - WOODPECKER_SERVER=woodpecker:9000
+      - WOODPECKER_AGENT_SECRET=${SERVICE_PASSWORD_WOODPECKER_CI}
+      - WOODPECKER_MAX_WORKFLOWS=${WOODPECKER_MAX_WORKFLOWS:-2}
+      - WOODPECKER_HEALTHCHECK=${WOODPECKER_AGENT_HEALTHCHECK:-true}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    depends_on:
+      woodpecker:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD', '/bin/woodpecker-agent', 'ping']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  woodpecker_data:

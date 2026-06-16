@@ -188,6 +188,86 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Netdata",
     version: "stable",
   },
+  activepieces: {
+    name: "Activepieces",
+    version: "0.83",
+  },
+  windmill: {
+    name: "Windmill",
+    version: "1.661",
+  },
+  "node-red": {
+    name: "Node-RED",
+    version: "4.1",
+  },
+  plausible: {
+    name: "Plausible Analytics",
+    version: "3.2",
+  },
+  umami: {
+    name: "Umami Analytics",
+    version: "latest",
+  },
+  matomo: {
+    name: "Matomo",
+    version: "5",
+  },
+  "drone-ci": {
+    name: "Drone CI",
+    version: "2",
+  },
+  "woodpecker-ci": {
+    name: "Woodpecker CI",
+    version: "3",
+  },
+  ghost: {
+    name: "Ghost",
+    version: "5",
+  },
+  healthchecks: {
+    name: "Healthchecks.io",
+    version: "latest",
+  },
+  vaultwarden: {
+    name: "Vaultwarden",
+    version: "latest",
+  },
+  authentik: {
+    name: "Authentik",
+    version: "2025.8",
+  },
+  authelia: {
+    name: "Authelia",
+    version: "4.39",
+  },
+  keycloak: {
+    name: "Keycloak",
+    version: "26.0",
+  },
+  nocodb: {
+    name: "NocoDB",
+    version: "0.263",
+  },
+  affine: {
+    name: "AFFiNE",
+    version: "stable",
+  },
+  signoz: {
+    name: "SigNoz",
+    version: "0.128",
+  },
+  appwrite: {
+    name: "Appwrite",
+    version: "1.6",
+  },
+  "flowise-with-databases": {
+    name: "Flowise (with databases)",
+    version: "latest",
+  },
+  langflow: {
+    name: "Langflow",
+    version: "latest",
+  },
 };
 
 /**

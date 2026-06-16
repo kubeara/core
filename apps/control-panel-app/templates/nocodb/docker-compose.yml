@@ -1,0 +1,93 @@
+# documentation: https://docs.nocodb.com/getting-started/self-hosted/installation
+# shortDescription: Open-source Airtable alternative
+# longDescription: <p>NocoDB turns any SQL database into a <strong>spreadsheet-style</strong> collaborative database with REST and GraphQL APIs.</p><p>Includes PostgreSQL. Set <code>NC_PUBLIC_URL</code> via <code>SERVICE_URL_NOCODB</code>. JWT signing uses <code>SERVICE_HEX_64_NOCODB</code>.</p>
+# category: database,productivity,no-code
+# tags: nocodb,airtable,database,spreadsheet,no-code,postgresql,api
+# logo: svgs/nocodb.svg
+# port: 8080
+
+services:
+  nocodb:
+    image: ${NOCODB_IMAGE:-nocodb/nocodb:0.263.8}
+    restart: ${NOCODB_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_NOCODB:-8080}:8080'
+
+    environment:
+      - SERVICE_URL_NOCODB_8080
+      - NC_DB=pg://postgres:5432?u=${SERVICE_USER_NOCODB}&p=${SERVICE_PASSWORD_NOCODB}&d=${NOCODB_DB_NAME:-nocodb}
+      - NC_AUTH_JWT_SECRET=${SERVICE_HEX_64_NOCODB}
+      - NC_PUBLIC_URL=${SERVICE_URL_NOCODB:-${SERVICE_URL_NOCODB_8080}}
+      - NC_DISABLE_TELE=${NOCODB_DISABLE_TELE:-true}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - nocodb_data:/usr/app/data
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "require('http').get('http://127.0.0.1:8080/api/v1/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${NOCODB_POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${NOCODB_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      POSTGRES_DB: ${NOCODB_DB_NAME:-nocodb}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_NOCODB}
+      POSTGRES_USER: ${SERVICE_USER_NOCODB}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - nocodb_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  nocodb_data:
+  nocodb_postgres_data:

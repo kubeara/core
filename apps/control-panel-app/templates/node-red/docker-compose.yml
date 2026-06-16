@@ -1,0 +1,46 @@
+# documentation: https://nodered.org/docs/getting-started/docker
+# shortDescription: Flow-based programming for IoT and automation
+# longDescription: <p>Node-RED is a flow-based <strong>low-code tool</strong> for wiring together hardware devices, APIs, and online services.</p><p>Flows persist under <code>/data</code>. The editor has no login by default — enable <code>adminAuth</code> in settings for production.</p>
+# category: automation,iot
+# tags: node-red,automation,iot,flows,low-code,integration
+# logo: svgs/nodered.svg
+# port: 1880
+
+services:
+  node-red:
+    image: ${NODE_RED_IMAGE:-nodered/node-red:4.1.7}
+    restart: ${NODE_RED_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_NODE_RED:-1880}:1880'
+
+    environment:
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - node_red_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:1880/ || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  node_red_data:

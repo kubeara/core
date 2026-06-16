@@ -1,0 +1,96 @@
+# documentation: https://www.keycloak.org/server/containers
+# shortDescription: Open-source identity and access management
+# longDescription: <p>Keycloak is an open-source <strong>IAM</strong> platform for single sign-on, OAuth2, and OpenID Connect.</p><p>Includes PostgreSQL. Bootstrap admin uses <code>SERVICE_USER_KEYCLOAK</code> and <code>SERVICE_PASSWORD_KEYCLOAK</code>. Set <code>KC_HOSTNAME</code> via <code>SERVICE_FQDN_KEYCLOAK</code> when deploying behind a reverse proxy.</p>
+# category: security,auth,iam
+# tags: keycloak,sso,oauth,oidc,iam,authentication,identity
+# logo: svgs/keycloak.svg
+# port: 8080
+
+services:
+  keycloak:
+    image: ${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:26.0.7}
+    restart: ${KEYCLOAK_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_KEYCLOAK:-8080}:8080'
+
+    command: start
+
+    environment:
+      - SERVICE_URL_KEYCLOAK_8080
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/${KEYCLOAK_DB_NAME:-keycloak}
+      - KC_DB_USERNAME=${SERVICE_USER_KEYCLOAK}
+      - KC_DB_PASSWORD=${SERVICE_PASSWORD_KEYCLOAK}
+      - KC_HOSTNAME=${SERVICE_FQDN_KEYCLOAK:-${SERVICE_FQDN_KEYCLOAK_8080:-localhost}}
+      - KC_HTTP_ENABLED=true
+      - KC_HEALTH_ENABLED=true
+      - KC_METRICS_ENABLED=true
+      - KC_PROXY_HEADERS=xforwarded
+      - KC_BOOTSTRAP_ADMIN_USERNAME=${SERVICE_USER_KEYCLOAK}
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${SERVICE_PASSWORD_KEYCLOAK}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'exec 3<>/dev/tcp/127.0.0.1/9000 && echo -e "GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n" >&3 && cat <&3 | grep -q "200 OK"']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${KEYCLOAK_POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${KEYCLOAK_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      POSTGRES_DB: ${KEYCLOAK_DB_NAME:-keycloak}
+      POSTGRES_USER: ${SERVICE_USER_KEYCLOAK}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_KEYCLOAK}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - keycloak_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  keycloak_postgres_data:

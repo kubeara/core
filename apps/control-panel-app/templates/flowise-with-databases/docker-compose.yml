@@ -1,0 +1,207 @@
+# documentation: https://docs.flowiseai.com/configuration/deployment
+# shortDescription: Flowise with PostgreSQL, Redis, and queue workers
+# longDescription: <p>Production-style Flowise deployment with <strong>PostgreSQL</strong>, <strong>Redis</strong>, and a dedicated queue worker for background jobs.</p><p>Uses queue mode for scalable agent execution. Register your admin account on first launch. Set <code>APP_URL</code> via <code>SERVICE_URL_FLOWISE_WITH_DATABASES</code> when behind a reverse proxy.</p>
+# category: ai,automation
+# tags: flowise,ai,llm,agents,workflow,postgres,redis,queue
+# logo: svgs/flowise-with-databases.svg
+# port: 3000
+
+services:
+  flowise:
+    image: ${FLOWISE_WITH_DATABASES_IMAGE:-flowiseai/flowise:latest}
+    restart: ${FLOWISE_WITH_DATABASES_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_FLOWISE_WITH_DATABASES:-3000}:3000'
+
+    environment:
+      - SERVICE_URL_FLOWISE_WITH_DATABASES_3000
+      - PORT=3000
+      - DATABASE_TYPE=postgres
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=${FLOWISE_WITH_DATABASES_DB_NAME:-flowise}
+      - DATABASE_USER=${SERVICE_USER_FLOWISEDB}
+      - DATABASE_PASSWORD=${SERVICE_PASSWORD_FLOWISEDB}
+      - DATABASE_SSL=false
+      - DATABASE_PATH=/root/.flowise
+      - SECRETKEY_PATH=/root/.flowise
+      - LOG_PATH=/root/.flowise/logs
+      - BLOB_STORAGE_PATH=/root/.flowise/storage
+      - APP_URL=${SERVICE_URL_FLOWISE_WITH_DATABASES:-${SERVICE_URL_FLOWISE_WITH_DATABASES_3000}}
+      - JWT_AUTH_TOKEN_SECRET=${SERVICE_HEX_64_FLOWISEDB}
+      - JWT_REFRESH_TOKEN_SECRET=${SERVICE_PASSWORD_64_FLOWISEDB}
+      - EXPRESS_SESSION_SECRET=${SERVICE_HEX_32_FLOWISEDB}
+      - TOKEN_HASH_SECRET=${SERVICE_BASE64_32_FLOWISEDB}
+      - TRUST_PROXY=${FLOWISE_WITH_DATABASES_TRUST_PROXY:-true}
+      - DISABLE_FLOWISE_TELEMETRY=${FLOWISE_WITH_DATABASES_DISABLE_TELEMETRY:-true}
+      - MODE=queue
+      - QUEUE_NAME=${FLOWISE_WITH_DATABASES_QUEUE_NAME:-flowise-queue}
+      - REDIS_URL=redis://redis:6379
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - flowise_with_databases_data:/root/.flowise
+
+    entrypoint: ['/bin/sh', '-c', 'sleep 3; exec flowise start']
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:3000/api/v1/ping || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  flowise-worker:
+    image: ${FLOWISE_WITH_DATABASES_WORKER_IMAGE:-flowiseai/flowise-worker:latest}
+    restart: ${FLOWISE_WITH_DATABASES_WORKER_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - WORKER_PORT=5566
+      - DATABASE_TYPE=postgres
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=${FLOWISE_WITH_DATABASES_DB_NAME:-flowise}
+      - DATABASE_USER=${SERVICE_USER_FLOWISEDB}
+      - DATABASE_PASSWORD=${SERVICE_PASSWORD_FLOWISEDB}
+      - DATABASE_SSL=false
+      - DATABASE_PATH=/root/.flowise
+      - SECRETKEY_PATH=/root/.flowise
+      - LOG_PATH=/root/.flowise/logs
+      - BLOB_STORAGE_PATH=/root/.flowise/storage
+      - APP_URL=${SERVICE_URL_FLOWISE_WITH_DATABASES:-${SERVICE_URL_FLOWISE_WITH_DATABASES_3000}}
+      - JWT_AUTH_TOKEN_SECRET=${SERVICE_HEX_64_FLOWISEDB}
+      - JWT_REFRESH_TOKEN_SECRET=${SERVICE_PASSWORD_64_FLOWISEDB}
+      - EXPRESS_SESSION_SECRET=${SERVICE_HEX_32_FLOWISEDB}
+      - TOKEN_HASH_SECRET=${SERVICE_BASE64_32_FLOWISEDB}
+      - TRUST_PROXY=${FLOWISE_WITH_DATABASES_TRUST_PROXY:-true}
+      - DISABLE_FLOWISE_TELEMETRY=${FLOWISE_WITH_DATABASES_DISABLE_TELEMETRY:-true}
+      - MODE=queue
+      - QUEUE_NAME=${FLOWISE_WITH_DATABASES_QUEUE_NAME:-flowise-queue}
+      - REDIS_URL=redis://redis:6379
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - flowise_with_databases_data:/root/.flowise
+
+    entrypoint: ['/bin/sh', '-c', 'node /app/healthcheck/healthcheck.js & sleep 5; exec pnpm run start-worker']
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      flowise:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:5566/healthz || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${FLOWISE_WITH_DATABASES_POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${FLOWISE_WITH_DATABASES_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_FLOWISEDB}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_FLOWISEDB}
+      - POSTGRES_DB=${FLOWISE_WITH_DATABASES_DB_NAME:-flowise}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - flowise_with_databases_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${SERVICE_USER_FLOWISEDB} -d ${FLOWISE_WITH_DATABASES_DB_NAME:-flowise}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: ${FLOWISE_WITH_DATABASES_REDIS_IMAGE:-redis:7-alpine}
+    restart: ${FLOWISE_WITH_DATABASES_REDIS_RESTART_POLICY:-unless-stopped}
+
+    volumes:
+      - flowise_with_databases_redis_data:/data
+
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  flowise_with_databases_data:
+  flowise_with_databases_postgres_data:
+  flowise_with_databases_redis_data:
