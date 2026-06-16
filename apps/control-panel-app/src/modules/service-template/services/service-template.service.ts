@@ -16,12 +16,25 @@ import {
 import * as yaml from "js-yaml";
 
 import { ServiceTemplateEntity } from "../entities/service-template.entity";
+import {
+  PUBLIC_TEMPLATE_DETAIL_FIELDS,
+  PUBLIC_TEMPLATE_LIST_FIELDS,
+  TEMPLATE_LIST_FIELDS,
+  type PublicTemplateDetailsDto,
+  type PublicTemplateListItemDto,
+  type TemplateListField,
+  type TemplateListItemPick,
+} from "../dto/template-list-fields";
 import type {
   TemplateDetailsDto,
   TemplateListItemDto,
 } from "../dto/template-marketplace.dto";
 
 type ComposeJson = Record<string, unknown>;
+
+interface ListTemplatesOptions {
+  category?: string;
+}
 
 export type TemplateResponse =
   | {
@@ -115,15 +128,63 @@ export class ServiceTemplateService {
     }
   }
 
-  async listTemplates(): Promise<TemplateListItemDto[]> {
+  async listPublicTemplates(
+    category?: string,
+  ): Promise<PublicTemplateListItemDto[]> {
+    return this.listTemplates(PUBLIC_TEMPLATE_LIST_FIELDS, { category });
+  }
+
+  async listUniqueCategories(): Promise<string[]> {
+    const templates = await this.listTemplates(["category"]);
+    const categories = new Set<string>();
+
+    for (const template of templates) {
+      for (const category of template.category) {
+        const trimmed = category.trim();
+        if (trimmed) {
+          categories.add(trimmed);
+        }
+      }
+    }
+
+    return Array.from(categories).sort((a, b) => a.localeCompare(b));
+  }
+
+  async getPublicTemplateDetails(
+    slug: string,
+  ): Promise<PublicTemplateDetailsDto> {
+    const template = await this.getTemplateDetails(slug);
+    return this.pickTemplateFields(template, PUBLIC_TEMPLATE_DETAIL_FIELDS);
+  }
+
+  async listTemplates(): Promise<TemplateListItemDto[]>;
+  async listTemplates<F extends TemplateListField>(
+    fields: readonly F[],
+    options?: ListTemplatesOptions,
+  ): Promise<Array<TemplateListItemPick<F>>>;
+  async listTemplates<F extends TemplateListField>(
+    fields?: readonly F[],
+    options?: ListTemplatesOptions,
+  ): Promise<Array<TemplateListItemPick<F>> | TemplateListItemDto[]> {
     try {
+      const resolvedFields = fields ?? TEMPLATE_LIST_FIELDS;
       const templates = await this.serviceTemplateRepository.find({
         where: { isActive: true },
         order: { name: "ASC" },
       });
 
-      return templates.map((template) => this.toTemplateListItem(template));
+      const items = templates.map((template) =>
+        this.toTemplateListItem(template),
+      );
+      const filtered = this.filterTemplatesByCategory(items, options?.category);
+
+      return filtered.map((template) =>
+        this.pickTemplateFields(template, resolvedFields),
+      );
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
       throw new InternalServerErrorException(
         `Failed to list templates: ${error instanceof Error ? error.message : String(error)}`,
       );
@@ -158,6 +219,39 @@ export class ServiceTemplateService {
         noRefs: true,
       },
     );
+  }
+
+  private filterTemplatesByCategory(
+    templates: TemplateListItemDto[],
+    category?: string,
+  ): TemplateListItemDto[] {
+    if (!category) {
+      return templates;
+    }
+
+    const normalizedCategory = category.trim().toLowerCase();
+    if (!normalizedCategory) {
+      throw new BadRequestException("category query parameter cannot be empty");
+    }
+
+    return templates.filter((template) =>
+      template.category.some(
+        (value) => value.trim().toLowerCase() === normalizedCategory,
+      ),
+    );
+  }
+
+  private pickTemplateFields<F extends TemplateListField>(
+    template: TemplateListItemDto,
+    fields: readonly F[],
+  ): TemplateListItemPick<F> {
+    const result = {} as TemplateListItemPick<F>;
+
+    for (const field of fields) {
+      result[field] = template[field];
+    }
+
+    return result;
   }
 
   private toTemplateListItem(
