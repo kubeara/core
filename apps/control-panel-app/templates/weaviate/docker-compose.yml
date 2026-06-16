@@ -1,0 +1,54 @@
+# documentation: https://docs.weaviate.io/deploy/installation-guides/docker-installation
+# shortDescription: AI-native vector database with GraphQL API
+# longDescription: <p>Weaviate is an <strong>AI-native vector database</strong> for semantic search, RAG, and hybrid retrieval.</p><p>API key auth uses <code>SERVICE_USER_WEAVIATE</code> and <code>SERVICE_PASSWORD_WEAVIATE</code>. gRPC is exposed on port 50051.</p>
+# category: ai,database
+# tags: weaviate,vector,database,embeddings,rag,graphql
+# logo: svgs/Weaviate.svg
+# port: 8080
+
+services:
+  weaviate:
+    image: ${WEAVIATE_IMAGE:-cr.weaviate.io/semitechnologies/weaviate:1.27.3}
+    restart: ${WEAVIATE_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_WEAVIATE:-8080}:8080'
+      - '${SERVICE_PORT_WEAVIATE_50051:-50051}:50051'
+
+    environment:
+      - QUERY_DEFAULTS_LIMIT=${WEAVIATE_QUERY_DEFAULTS_LIMIT:-25}
+      - AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=false
+      - AUTHENTICATION_APIKEY_ENABLED=true
+      - AUTHENTICATION_APIKEY_ALLOWED_KEYS=${SERVICE_PASSWORD_WEAVIATE}
+      - AUTHENTICATION_APIKEY_USERS=${SERVICE_USER_WEAVIATE}
+      - PERSISTENCE_DATA_PATH=/var/lib/weaviate
+      - CLUSTER_HOSTNAME=${WEAVIATE_CLUSTER_HOSTNAME:-node1}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/v1/.well-known/ready || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  weaviate_data:

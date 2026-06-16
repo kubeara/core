@@ -1,0 +1,50 @@
+# documentation: https://dev.mysql.com/doc/refman/8.4/en/docker-mysql-getting-started.html
+# shortDescription: Popular open source relational database
+# longDescription: <p>MySQL is a widely used <strong>relational database</strong> for web applications, APIs, and data-driven services.</p><p>Compose-only template using magic <code>SERVICE_*</code> variables for credentials and host port configuration.</p>
+# category: database,mysql,sql
+# tags: mysql,database,sql,relational,mariadb-compatible
+# logo: svgs/mysql-logo-svgrepo-com.svg
+# port: 3306
+
+services:
+  mysql:
+    image: ${MYSQL_IMAGE:-mysql:8.4}
+    restart: ${MYSQL_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_MYSQL:-3306}:3306'
+
+    environment:
+      MYSQL_ROOT_PASSWORD: ${SERVICE_PASSWORD_MYSQL_ROOT}
+      MYSQL_DATABASE: ${MYSQL_DB:-mysql}
+      MYSQL_USER: ${SERVICE_USER_MYSQL}
+      MYSQL_PASSWORD: ${SERVICE_PASSWORD_MYSQL}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h localhost -u "$$MYSQL_USER" -p"$$MYSQL_PASSWORD" || exit 1']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  mysql_data:

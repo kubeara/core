@@ -1,7 +1,4 @@
-import type {
-  ContainerActionExecutionPath,
-  ContainerActionType,
-} from "../types";
+import type { ContainerActionType } from "../types";
 
 export const CONTAINER_ACTION_LABELS: Record<ContainerActionType, string> = {
   stop: "Stop",
@@ -62,7 +59,6 @@ export function getContainerActionConfirmBody(
 export function getContainerActionSuccessMessage(
   action: ContainerActionType,
   containerName: string,
-  _executedVia: ContainerActionExecutionPath,
 ): string {
   const messages: Record<ContainerActionType, string> = {
     stop: `Container "${containerName}" was stopped successfully.`,

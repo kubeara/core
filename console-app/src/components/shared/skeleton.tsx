@@ -120,7 +120,6 @@ export function AppLoadingSkeleton() {
 export function ServersTableSkeleton({ rows = 8 }: { rows?: number }) {
   return (
     <>
-      <span className="skeleton-visually-hidden">Loading servers…</span>
       {Array.from({ length: rows }).map((_, index) => (
         <tr key={index} className="skeleton-table-row" aria-hidden>
           <td>

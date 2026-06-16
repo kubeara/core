@@ -1,0 +1,1207 @@
+# documentation: https://appwrite.io/docs/advanced/self-hosting/installation
+# shortDescription: Open-source backend-as-a-service platform
+# longDescription: <p>Appwrite is an open-source <strong>BaaS</strong> for authentication, databases, storage, and serverless functions.</p><p>Full stack with Traefik, MariaDB, Redis, workers, and executor. Set <code>_APP_DOMAIN</code> via <code>SERVICE_FQDN_APPWRITE</code>. Create your admin account on first launch.</p>
+# category: backend,baas,api
+# tags: appwrite,baas,backend,auth,database,storage,functions,api
+# logo: svgs/appwrite.svg
+# port: 80
+
+services:
+
+  traefik:
+    image: ${APPWRITE_TRAEFIK_IMAGE:-traefik:2.11}
+    restart: ${APPWRITE_TRAEFIK_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_APPWRITE:-80}:80'
+
+    environment:
+      - SERVICE_URL_APPWRITE_80
+
+    command:
+      - --providers.file.directory=/storage/config
+      - --providers.file.watch=true
+      - --providers.docker=true
+      - --providers.docker.exposedByDefault=false
+      - --providers.docker.constraints=Label(`traefik.constraint-label-stack`,`appwrite`)
+      - --entrypoints.appwrite_web.address=:80
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - appwrite_config:/storage/config:ro
+      - appwrite_certificates:/storage/certificates:ro
+
+    depends_on:
+      appwrite:
+        condition: service_healthy
+
+    networks:
+      - gateway
+      - appwrite
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://127.0.0.1:80 || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  appwrite:
+    image: ${APPWRITE_IMAGE:-appwrite/appwrite:1.6.1}
+    restart: ${APPWRITE_RESTART_POLICY:-unless-stopped}
+
+    networks:
+      - appwrite
+
+    labels:
+      - traefik.enable=true
+      - traefik.constraint-label-stack=appwrite
+      - traefik.docker.network=appwrite
+      - traefik.http.services.appwrite_api.loadbalancer.server.port=80
+      - traefik.http.routers.appwrite_api_http.entrypoints=appwrite_web
+      - traefik.http.routers.appwrite_api_http.rule=PathPrefix(`/`)
+      - traefik.http.routers.appwrite_api_http.service=appwrite_api
+
+    volumes:
+      - appwrite_uploads:/storage/uploads
+      - appwrite_cache:/storage/cache
+      - appwrite_config:/storage/config
+      - appwrite_certificates:/storage/certificates
+      - appwrite_functions:/storage/functions
+
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    environment:
+      _APP_ENV: production
+      _APP_LOCALE: en
+      _APP_OPENSSL_KEY_V1: ${SERVICE_HEX_128_APPWRITE}
+      _APP_DOMAIN: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_TARGET: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_FUNCTIONS: ${APPWRITE_DOMAIN_FUNCTIONS:-functions.localhost}
+      _APP_OPTIONS_ABUSE: disabled
+      _APP_OPTIONS_ROUTER_PROTECTION: disabled
+      _APP_OPTIONS_FORCE_HTTPS: disabled
+      _APP_OPTIONS_FUNCTIONS_FORCE_HTTPS: disabled
+      _APP_USAGE_STATS: disabled
+      _APP_DB_HOST: mariadb
+      _APP_DB_PORT: 3306
+      _APP_DB_SCHEMA: ${APPWRITE_DB_NAME:-appwrite}
+      _APP_DB_USER: ${SERVICE_USER_APPWRITE}
+      _APP_DB_PASS: ${SERVICE_PASSWORD_APPWRITE}
+      _APP_REDIS_HOST: redis
+      _APP_REDIS_PORT: 6379
+      _APP_REDIS_USER: ${APPWRITE_REDIS_USER:-unused}
+      _APP_REDIS_PASS: ${SERVICE_HEX_32_APPWRITE}
+      _APP_STORAGE_DEVICE: local
+      _APP_STORAGE_LIMIT: 30000000
+      _APP_FUNCTIONS_SIZE_LIMIT: 30000000
+      _APP_FUNCTIONS_TIMEOUT: 900
+      _APP_FUNCTIONS_BUILD_TIMEOUT: 900
+      _APP_FUNCTIONS_CPUS: 1
+      _APP_FUNCTIONS_MEMORY: 2048
+      _APP_FUNCTIONS_RUNTIMES: node-18.0,php-8.0,python-3.9,ruby-3.0
+      _APP_EXECUTOR_SECRET: ${SERVICE_PASSWORDWITHSYMBOLS_64_APPWRITE}
+      _APP_EXECUTOR_HOST: http://openruntimes-executor/v1
+      _APP_SYSTEM_EMAIL_NAME: Appwrite
+      _APP_SYSTEM_EMAIL_ADDRESS: ${APPWRITE_SYSTEM_EMAIL:-team@example.com}
+      _APP_SYSTEM_SECURITY_EMAIL_ADDRESS: ${APPWRITE_SECURITY_EMAIL:-security@example.com}
+      _APP_SMTP_HOST: ${APPWRITE_SMTP_HOST:-localhost}
+      _APP_SMTP_PORT: ${APPWRITE_SMTP_PORT:-25}
+      _APP_SMTP_SECURE: ${APPWRITE_SMTP_SECURE:-none}
+      _APP_SMTP_USERNAME: ${APPWRITE_SMTP_USERNAME:-unused}
+      _APP_SMTP_PASSWORD: ${APPWRITE_SMTP_PASSWORD:-unused}
+      TZ: ${TZ:-UTC}
+
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1/v1/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  appwrite-realtime:
+    image: ${APPWRITE_IMAGE:-appwrite/appwrite:1.6.1}
+    restart: ${APPWRITE_RESTART_POLICY:-unless-stopped}
+    entrypoint: realtime
+
+    networks:
+      - appwrite
+
+    labels:
+      - traefik.enable=true
+      - traefik.constraint-label-stack=appwrite
+      - traefik.docker.network=appwrite
+      - traefik.http.services.appwrite_realtime.loadbalancer.server.port=80
+      - traefik.http.routers.appwrite_realtime_ws.entrypoints=appwrite_web
+      - traefik.http.routers.appwrite_realtime_ws.rule=PathPrefix(`/v1/realtime`)
+      - traefik.http.routers.appwrite_realtime_ws.service=appwrite_realtime
+
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      appwrite:
+        condition: service_healthy
+
+    environment:
+      _APP_ENV: production
+      _APP_LOCALE: en
+      _APP_OPENSSL_KEY_V1: ${SERVICE_HEX_128_APPWRITE}
+      _APP_DOMAIN: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_TARGET: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_FUNCTIONS: ${APPWRITE_DOMAIN_FUNCTIONS:-functions.localhost}
+      _APP_OPTIONS_ABUSE: disabled
+      _APP_OPTIONS_ROUTER_PROTECTION: disabled
+      _APP_OPTIONS_FORCE_HTTPS: disabled
+      _APP_OPTIONS_FUNCTIONS_FORCE_HTTPS: disabled
+      _APP_USAGE_STATS: disabled
+      _APP_DB_HOST: mariadb
+      _APP_DB_PORT: 3306
+      _APP_DB_SCHEMA: ${APPWRITE_DB_NAME:-appwrite}
+      _APP_DB_USER: ${SERVICE_USER_APPWRITE}
+      _APP_DB_PASS: ${SERVICE_PASSWORD_APPWRITE}
+      _APP_REDIS_HOST: redis
+      _APP_REDIS_PORT: 6379
+      _APP_REDIS_USER: ${APPWRITE_REDIS_USER:-unused}
+      _APP_REDIS_PASS: ${SERVICE_HEX_32_APPWRITE}
+      _APP_STORAGE_DEVICE: local
+      _APP_STORAGE_LIMIT: 30000000
+      _APP_FUNCTIONS_SIZE_LIMIT: 30000000
+      _APP_FUNCTIONS_TIMEOUT: 900
+      _APP_FUNCTIONS_BUILD_TIMEOUT: 900
+      _APP_FUNCTIONS_CPUS: 1
+      _APP_FUNCTIONS_MEMORY: 2048
+      _APP_FUNCTIONS_RUNTIMES: node-18.0,php-8.0,python-3.9,ruby-3.0
+      _APP_EXECUTOR_SECRET: ${SERVICE_PASSWORDWITHSYMBOLS_64_APPWRITE}
+      _APP_EXECUTOR_HOST: http://openruntimes-executor/v1
+      _APP_SYSTEM_EMAIL_NAME: Appwrite
+      _APP_SYSTEM_EMAIL_ADDRESS: ${APPWRITE_SYSTEM_EMAIL:-team@example.com}
+      _APP_SYSTEM_SECURITY_EMAIL_ADDRESS: ${APPWRITE_SECURITY_EMAIL:-security@example.com}
+      _APP_SMTP_HOST: ${APPWRITE_SMTP_HOST:-localhost}
+      _APP_SMTP_PORT: ${APPWRITE_SMTP_PORT:-25}
+      _APP_SMTP_SECURE: ${APPWRITE_SMTP_SECURE:-none}
+      _APP_SMTP_USERNAME: ${APPWRITE_SMTP_USERNAME:-unused}
+      _APP_SMTP_PASSWORD: ${APPWRITE_SMTP_PASSWORD:-unused}
+      TZ: ${TZ:-UTC}
+
+
+    healthcheck:
+      test: ['CMD-SHELL', 'kill -0 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  appwrite-schedule:
+    image: ${APPWRITE_IMAGE:-appwrite/appwrite:1.6.1}
+    restart: ${APPWRITE_RESTART_POLICY:-unless-stopped}
+    entrypoint: schedule
+
+    networks:
+      - appwrite
+
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    environment:
+      _APP_ENV: production
+      _APP_LOCALE: en
+      _APP_OPENSSL_KEY_V1: ${SERVICE_HEX_128_APPWRITE}
+      _APP_DOMAIN: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_TARGET: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_FUNCTIONS: ${APPWRITE_DOMAIN_FUNCTIONS:-functions.localhost}
+      _APP_OPTIONS_ABUSE: disabled
+      _APP_OPTIONS_ROUTER_PROTECTION: disabled
+      _APP_OPTIONS_FORCE_HTTPS: disabled
+      _APP_OPTIONS_FUNCTIONS_FORCE_HTTPS: disabled
+      _APP_USAGE_STATS: disabled
+      _APP_DB_HOST: mariadb
+      _APP_DB_PORT: 3306
+      _APP_DB_SCHEMA: ${APPWRITE_DB_NAME:-appwrite}
+      _APP_DB_USER: ${SERVICE_USER_APPWRITE}
+      _APP_DB_PASS: ${SERVICE_PASSWORD_APPWRITE}
+      _APP_REDIS_HOST: redis
+      _APP_REDIS_PORT: 6379
+      _APP_REDIS_USER: ${APPWRITE_REDIS_USER:-unused}
+      _APP_REDIS_PASS: ${SERVICE_HEX_32_APPWRITE}
+      _APP_STORAGE_DEVICE: local
+      _APP_STORAGE_LIMIT: 30000000
+      _APP_FUNCTIONS_SIZE_LIMIT: 30000000
+      _APP_FUNCTIONS_TIMEOUT: 900
+      _APP_FUNCTIONS_BUILD_TIMEOUT: 900
+      _APP_FUNCTIONS_CPUS: 1
+      _APP_FUNCTIONS_MEMORY: 2048
+      _APP_FUNCTIONS_RUNTIMES: node-18.0,php-8.0,python-3.9,ruby-3.0
+      _APP_EXECUTOR_SECRET: ${SERVICE_PASSWORDWITHSYMBOLS_64_APPWRITE}
+      _APP_EXECUTOR_HOST: http://openruntimes-executor/v1
+      _APP_SYSTEM_EMAIL_NAME: Appwrite
+      _APP_SYSTEM_EMAIL_ADDRESS: ${APPWRITE_SYSTEM_EMAIL:-team@example.com}
+      _APP_SYSTEM_SECURITY_EMAIL_ADDRESS: ${APPWRITE_SECURITY_EMAIL:-security@example.com}
+      _APP_SMTP_HOST: ${APPWRITE_SMTP_HOST:-localhost}
+      _APP_SMTP_PORT: ${APPWRITE_SMTP_PORT:-25}
+      _APP_SMTP_SECURE: ${APPWRITE_SMTP_SECURE:-none}
+      _APP_SMTP_USERNAME: ${APPWRITE_SMTP_USERNAME:-unused}
+      _APP_SMTP_PASSWORD: ${APPWRITE_SMTP_PASSWORD:-unused}
+      TZ: ${TZ:-UTC}
+
+
+    healthcheck:
+      test: ['CMD-SHELL', 'kill -0 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  appwrite-worker-audits:
+    entrypoint: worker-audits
+
+    image: ${APPWRITE_IMAGE:-appwrite/appwrite:1.6.1}
+    restart: ${APPWRITE_RESTART_POLICY:-unless-stopped}
+    networks:
+      - appwrite
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ['CMD-SHELL', 'kill -0 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      _APP_ENV: production
+      _APP_LOCALE: en
+      _APP_OPENSSL_KEY_V1: ${SERVICE_HEX_128_APPWRITE}
+      _APP_DOMAIN: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_TARGET: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_FUNCTIONS: ${APPWRITE_DOMAIN_FUNCTIONS:-functions.localhost}
+      _APP_OPTIONS_ABUSE: disabled
+      _APP_OPTIONS_ROUTER_PROTECTION: disabled
+      _APP_OPTIONS_FORCE_HTTPS: disabled
+      _APP_OPTIONS_FUNCTIONS_FORCE_HTTPS: disabled
+      _APP_USAGE_STATS: disabled
+      _APP_DB_HOST: mariadb
+      _APP_DB_PORT: 3306
+      _APP_DB_SCHEMA: ${APPWRITE_DB_NAME:-appwrite}
+      _APP_DB_USER: ${SERVICE_USER_APPWRITE}
+      _APP_DB_PASS: ${SERVICE_PASSWORD_APPWRITE}
+      _APP_REDIS_HOST: redis
+      _APP_REDIS_PORT: 6379
+      _APP_REDIS_USER: ${APPWRITE_REDIS_USER:-unused}
+      _APP_REDIS_PASS: ${SERVICE_HEX_32_APPWRITE}
+      _APP_STORAGE_DEVICE: local
+      _APP_STORAGE_LIMIT: 30000000
+      _APP_FUNCTIONS_SIZE_LIMIT: 30000000
+      _APP_FUNCTIONS_TIMEOUT: 900
+      _APP_FUNCTIONS_BUILD_TIMEOUT: 900
+      _APP_FUNCTIONS_CPUS: 1
+      _APP_FUNCTIONS_MEMORY: 2048
+      _APP_FUNCTIONS_RUNTIMES: node-18.0,php-8.0,python-3.9,ruby-3.0
+      _APP_EXECUTOR_SECRET: ${SERVICE_PASSWORDWITHSYMBOLS_64_APPWRITE}
+      _APP_EXECUTOR_HOST: http://openruntimes-executor/v1
+      _APP_SYSTEM_EMAIL_NAME: Appwrite
+      _APP_SYSTEM_EMAIL_ADDRESS: ${APPWRITE_SYSTEM_EMAIL:-team@example.com}
+      _APP_SYSTEM_SECURITY_EMAIL_ADDRESS: ${APPWRITE_SECURITY_EMAIL:-security@example.com}
+      _APP_SMTP_HOST: ${APPWRITE_SMTP_HOST:-localhost}
+      _APP_SMTP_PORT: ${APPWRITE_SMTP_PORT:-25}
+      _APP_SMTP_SECURE: ${APPWRITE_SMTP_SECURE:-none}
+      _APP_SMTP_USERNAME: ${APPWRITE_SMTP_USERNAME:-unused}
+      _APP_SMTP_PASSWORD: ${APPWRITE_SMTP_PASSWORD:-unused}
+      TZ: ${TZ:-UTC}
+
+
+  appwrite-worker-webhooks:
+    entrypoint: worker-webhooks
+
+    image: ${APPWRITE_IMAGE:-appwrite/appwrite:1.6.1}
+    restart: ${APPWRITE_RESTART_POLICY:-unless-stopped}
+    networks:
+      - appwrite
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ['CMD-SHELL', 'kill -0 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      _APP_ENV: production
+      _APP_LOCALE: en
+      _APP_OPENSSL_KEY_V1: ${SERVICE_HEX_128_APPWRITE}
+      _APP_DOMAIN: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_TARGET: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_FUNCTIONS: ${APPWRITE_DOMAIN_FUNCTIONS:-functions.localhost}
+      _APP_OPTIONS_ABUSE: disabled
+      _APP_OPTIONS_ROUTER_PROTECTION: disabled
+      _APP_OPTIONS_FORCE_HTTPS: disabled
+      _APP_OPTIONS_FUNCTIONS_FORCE_HTTPS: disabled
+      _APP_USAGE_STATS: disabled
+      _APP_DB_HOST: mariadb
+      _APP_DB_PORT: 3306
+      _APP_DB_SCHEMA: ${APPWRITE_DB_NAME:-appwrite}
+      _APP_DB_USER: ${SERVICE_USER_APPWRITE}
+      _APP_DB_PASS: ${SERVICE_PASSWORD_APPWRITE}
+      _APP_REDIS_HOST: redis
+      _APP_REDIS_PORT: 6379
+      _APP_REDIS_USER: ${APPWRITE_REDIS_USER:-unused}
+      _APP_REDIS_PASS: ${SERVICE_HEX_32_APPWRITE}
+      _APP_STORAGE_DEVICE: local
+      _APP_STORAGE_LIMIT: 30000000
+      _APP_FUNCTIONS_SIZE_LIMIT: 30000000
+      _APP_FUNCTIONS_TIMEOUT: 900
+      _APP_FUNCTIONS_BUILD_TIMEOUT: 900
+      _APP_FUNCTIONS_CPUS: 1
+      _APP_FUNCTIONS_MEMORY: 2048
+      _APP_FUNCTIONS_RUNTIMES: node-18.0,php-8.0,python-3.9,ruby-3.0
+      _APP_EXECUTOR_SECRET: ${SERVICE_PASSWORDWITHSYMBOLS_64_APPWRITE}
+      _APP_EXECUTOR_HOST: http://openruntimes-executor/v1
+      _APP_SYSTEM_EMAIL_NAME: Appwrite
+      _APP_SYSTEM_EMAIL_ADDRESS: ${APPWRITE_SYSTEM_EMAIL:-team@example.com}
+      _APP_SYSTEM_SECURITY_EMAIL_ADDRESS: ${APPWRITE_SECURITY_EMAIL:-security@example.com}
+      _APP_SMTP_HOST: ${APPWRITE_SMTP_HOST:-localhost}
+      _APP_SMTP_PORT: ${APPWRITE_SMTP_PORT:-25}
+      _APP_SMTP_SECURE: ${APPWRITE_SMTP_SECURE:-none}
+      _APP_SMTP_USERNAME: ${APPWRITE_SMTP_USERNAME:-unused}
+      _APP_SMTP_PASSWORD: ${APPWRITE_SMTP_PASSWORD:-unused}
+      TZ: ${TZ:-UTC}
+
+
+  appwrite-worker-deletes:
+    entrypoint: worker-deletes
+
+    image: ${APPWRITE_IMAGE:-appwrite/appwrite:1.6.1}
+    restart: ${APPWRITE_RESTART_POLICY:-unless-stopped}
+    networks:
+      - appwrite
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ['CMD-SHELL', 'kill -0 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    depends_on:
+      redis:
+        condition: service_healthy
+      mariadb:
+        condition: service_healthy
+    environment:
+      _APP_ENV: production
+      _APP_LOCALE: en
+      _APP_OPENSSL_KEY_V1: ${SERVICE_HEX_128_APPWRITE}
+      _APP_DOMAIN: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_TARGET: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_FUNCTIONS: ${APPWRITE_DOMAIN_FUNCTIONS:-functions.localhost}
+      _APP_OPTIONS_ABUSE: disabled
+      _APP_OPTIONS_ROUTER_PROTECTION: disabled
+      _APP_OPTIONS_FORCE_HTTPS: disabled
+      _APP_OPTIONS_FUNCTIONS_FORCE_HTTPS: disabled
+      _APP_USAGE_STATS: disabled
+      _APP_DB_HOST: mariadb
+      _APP_DB_PORT: 3306
+      _APP_DB_SCHEMA: ${APPWRITE_DB_NAME:-appwrite}
+      _APP_DB_USER: ${SERVICE_USER_APPWRITE}
+      _APP_DB_PASS: ${SERVICE_PASSWORD_APPWRITE}
+      _APP_REDIS_HOST: redis
+      _APP_REDIS_PORT: 6379
+      _APP_REDIS_USER: ${APPWRITE_REDIS_USER:-unused}
+      _APP_REDIS_PASS: ${SERVICE_HEX_32_APPWRITE}
+      _APP_STORAGE_DEVICE: local
+      _APP_STORAGE_LIMIT: 30000000
+      _APP_FUNCTIONS_SIZE_LIMIT: 30000000
+      _APP_FUNCTIONS_TIMEOUT: 900
+      _APP_FUNCTIONS_BUILD_TIMEOUT: 900
+      _APP_FUNCTIONS_CPUS: 1
+      _APP_FUNCTIONS_MEMORY: 2048
+      _APP_FUNCTIONS_RUNTIMES: node-18.0,php-8.0,python-3.9,ruby-3.0
+      _APP_EXECUTOR_SECRET: ${SERVICE_PASSWORDWITHSYMBOLS_64_APPWRITE}
+      _APP_EXECUTOR_HOST: http://openruntimes-executor/v1
+      _APP_SYSTEM_EMAIL_NAME: Appwrite
+      _APP_SYSTEM_EMAIL_ADDRESS: ${APPWRITE_SYSTEM_EMAIL:-team@example.com}
+      _APP_SYSTEM_SECURITY_EMAIL_ADDRESS: ${APPWRITE_SECURITY_EMAIL:-security@example.com}
+      _APP_SMTP_HOST: ${APPWRITE_SMTP_HOST:-localhost}
+      _APP_SMTP_PORT: ${APPWRITE_SMTP_PORT:-25}
+      _APP_SMTP_SECURE: ${APPWRITE_SMTP_SECURE:-none}
+      _APP_SMTP_USERNAME: ${APPWRITE_SMTP_USERNAME:-unused}
+      _APP_SMTP_PASSWORD: ${APPWRITE_SMTP_PASSWORD:-unused}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - appwrite_uploads:/storage/uploads
+      - appwrite_cache:/storage/cache
+      - appwrite_functions:/storage/functions
+      - appwrite_builds:/storage/builds
+      - appwrite_certificates:/storage/certificates
+
+  appwrite-worker-databases:
+    entrypoint: worker-databases
+
+    image: ${APPWRITE_IMAGE:-appwrite/appwrite:1.6.1}
+    restart: ${APPWRITE_RESTART_POLICY:-unless-stopped}
+    networks:
+      - appwrite
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ['CMD-SHELL', 'kill -0 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    depends_on:
+      redis:
+        condition: service_healthy
+      mariadb:
+        condition: service_healthy
+    environment:
+      _APP_ENV: production
+      _APP_LOCALE: en
+      _APP_OPENSSL_KEY_V1: ${SERVICE_HEX_128_APPWRITE}
+      _APP_DOMAIN: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_TARGET: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_FUNCTIONS: ${APPWRITE_DOMAIN_FUNCTIONS:-functions.localhost}
+      _APP_OPTIONS_ABUSE: disabled
+      _APP_OPTIONS_ROUTER_PROTECTION: disabled
+      _APP_OPTIONS_FORCE_HTTPS: disabled
+      _APP_OPTIONS_FUNCTIONS_FORCE_HTTPS: disabled
+      _APP_USAGE_STATS: disabled
+      _APP_DB_HOST: mariadb
+      _APP_DB_PORT: 3306
+      _APP_DB_SCHEMA: ${APPWRITE_DB_NAME:-appwrite}
+      _APP_DB_USER: ${SERVICE_USER_APPWRITE}
+      _APP_DB_PASS: ${SERVICE_PASSWORD_APPWRITE}
+      _APP_REDIS_HOST: redis
+      _APP_REDIS_PORT: 6379
+      _APP_REDIS_USER: ${APPWRITE_REDIS_USER:-unused}
+      _APP_REDIS_PASS: ${SERVICE_HEX_32_APPWRITE}
+      _APP_STORAGE_DEVICE: local
+      _APP_STORAGE_LIMIT: 30000000
+      _APP_FUNCTIONS_SIZE_LIMIT: 30000000
+      _APP_FUNCTIONS_TIMEOUT: 900
+      _APP_FUNCTIONS_BUILD_TIMEOUT: 900
+      _APP_FUNCTIONS_CPUS: 1
+      _APP_FUNCTIONS_MEMORY: 2048
+      _APP_FUNCTIONS_RUNTIMES: node-18.0,php-8.0,python-3.9,ruby-3.0
+      _APP_EXECUTOR_SECRET: ${SERVICE_PASSWORDWITHSYMBOLS_64_APPWRITE}
+      _APP_EXECUTOR_HOST: http://openruntimes-executor/v1
+      _APP_SYSTEM_EMAIL_NAME: Appwrite
+      _APP_SYSTEM_EMAIL_ADDRESS: ${APPWRITE_SYSTEM_EMAIL:-team@example.com}
+      _APP_SYSTEM_SECURITY_EMAIL_ADDRESS: ${APPWRITE_SECURITY_EMAIL:-security@example.com}
+      _APP_SMTP_HOST: ${APPWRITE_SMTP_HOST:-localhost}
+      _APP_SMTP_PORT: ${APPWRITE_SMTP_PORT:-25}
+      _APP_SMTP_SECURE: ${APPWRITE_SMTP_SECURE:-none}
+      _APP_SMTP_USERNAME: ${APPWRITE_SMTP_USERNAME:-unused}
+      _APP_SMTP_PASSWORD: ${APPWRITE_SMTP_PASSWORD:-unused}
+      TZ: ${TZ:-UTC}
+
+
+  appwrite-worker-builds:
+    entrypoint: worker-builds
+
+    image: ${APPWRITE_IMAGE:-appwrite/appwrite:1.6.1}
+    restart: ${APPWRITE_RESTART_POLICY:-unless-stopped}
+    networks:
+      - appwrite
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ['CMD-SHELL', 'kill -0 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    depends_on:
+      redis:
+        condition: service_healthy
+      mariadb:
+        condition: service_healthy
+    environment:
+      _APP_ENV: production
+      _APP_LOCALE: en
+      _APP_OPENSSL_KEY_V1: ${SERVICE_HEX_128_APPWRITE}
+      _APP_DOMAIN: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_TARGET: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_FUNCTIONS: ${APPWRITE_DOMAIN_FUNCTIONS:-functions.localhost}
+      _APP_OPTIONS_ABUSE: disabled
+      _APP_OPTIONS_ROUTER_PROTECTION: disabled
+      _APP_OPTIONS_FORCE_HTTPS: disabled
+      _APP_OPTIONS_FUNCTIONS_FORCE_HTTPS: disabled
+      _APP_USAGE_STATS: disabled
+      _APP_DB_HOST: mariadb
+      _APP_DB_PORT: 3306
+      _APP_DB_SCHEMA: ${APPWRITE_DB_NAME:-appwrite}
+      _APP_DB_USER: ${SERVICE_USER_APPWRITE}
+      _APP_DB_PASS: ${SERVICE_PASSWORD_APPWRITE}
+      _APP_REDIS_HOST: redis
+      _APP_REDIS_PORT: 6379
+      _APP_REDIS_USER: ${APPWRITE_REDIS_USER:-unused}
+      _APP_REDIS_PASS: ${SERVICE_HEX_32_APPWRITE}
+      _APP_STORAGE_DEVICE: local
+      _APP_STORAGE_LIMIT: 30000000
+      _APP_FUNCTIONS_SIZE_LIMIT: 30000000
+      _APP_FUNCTIONS_TIMEOUT: 900
+      _APP_FUNCTIONS_BUILD_TIMEOUT: 900
+      _APP_FUNCTIONS_CPUS: 1
+      _APP_FUNCTIONS_MEMORY: 2048
+      _APP_FUNCTIONS_RUNTIMES: node-18.0,php-8.0,python-3.9,ruby-3.0
+      _APP_EXECUTOR_SECRET: ${SERVICE_PASSWORDWITHSYMBOLS_64_APPWRITE}
+      _APP_EXECUTOR_HOST: http://openruntimes-executor/v1
+      _APP_SYSTEM_EMAIL_NAME: Appwrite
+      _APP_SYSTEM_EMAIL_ADDRESS: ${APPWRITE_SYSTEM_EMAIL:-team@example.com}
+      _APP_SYSTEM_SECURITY_EMAIL_ADDRESS: ${APPWRITE_SECURITY_EMAIL:-security@example.com}
+      _APP_SMTP_HOST: ${APPWRITE_SMTP_HOST:-localhost}
+      _APP_SMTP_PORT: ${APPWRITE_SMTP_PORT:-25}
+      _APP_SMTP_SECURE: ${APPWRITE_SMTP_SECURE:-none}
+      _APP_SMTP_USERNAME: ${APPWRITE_SMTP_USERNAME:-unused}
+      _APP_SMTP_PASSWORD: ${APPWRITE_SMTP_PASSWORD:-unused}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - appwrite_functions:/storage/functions
+      - appwrite_builds:/storage/builds
+
+  appwrite-worker-certificates:
+    entrypoint: worker-certificates
+
+    image: ${APPWRITE_IMAGE:-appwrite/appwrite:1.6.1}
+    restart: ${APPWRITE_RESTART_POLICY:-unless-stopped}
+    networks:
+      - appwrite
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ['CMD-SHELL', 'kill -0 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    depends_on:
+      redis:
+        condition: service_healthy
+      mariadb:
+        condition: service_healthy
+    environment:
+      _APP_ENV: production
+      _APP_LOCALE: en
+      _APP_OPENSSL_KEY_V1: ${SERVICE_HEX_128_APPWRITE}
+      _APP_DOMAIN: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_TARGET: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_FUNCTIONS: ${APPWRITE_DOMAIN_FUNCTIONS:-functions.localhost}
+      _APP_OPTIONS_ABUSE: disabled
+      _APP_OPTIONS_ROUTER_PROTECTION: disabled
+      _APP_OPTIONS_FORCE_HTTPS: disabled
+      _APP_OPTIONS_FUNCTIONS_FORCE_HTTPS: disabled
+      _APP_USAGE_STATS: disabled
+      _APP_DB_HOST: mariadb
+      _APP_DB_PORT: 3306
+      _APP_DB_SCHEMA: ${APPWRITE_DB_NAME:-appwrite}
+      _APP_DB_USER: ${SERVICE_USER_APPWRITE}
+      _APP_DB_PASS: ${SERVICE_PASSWORD_APPWRITE}
+      _APP_REDIS_HOST: redis
+      _APP_REDIS_PORT: 6379
+      _APP_REDIS_USER: ${APPWRITE_REDIS_USER:-unused}
+      _APP_REDIS_PASS: ${SERVICE_HEX_32_APPWRITE}
+      _APP_STORAGE_DEVICE: local
+      _APP_STORAGE_LIMIT: 30000000
+      _APP_FUNCTIONS_SIZE_LIMIT: 30000000
+      _APP_FUNCTIONS_TIMEOUT: 900
+      _APP_FUNCTIONS_BUILD_TIMEOUT: 900
+      _APP_FUNCTIONS_CPUS: 1
+      _APP_FUNCTIONS_MEMORY: 2048
+      _APP_FUNCTIONS_RUNTIMES: node-18.0,php-8.0,python-3.9,ruby-3.0
+      _APP_EXECUTOR_SECRET: ${SERVICE_PASSWORDWITHSYMBOLS_64_APPWRITE}
+      _APP_EXECUTOR_HOST: http://openruntimes-executor/v1
+      _APP_SYSTEM_EMAIL_NAME: Appwrite
+      _APP_SYSTEM_EMAIL_ADDRESS: ${APPWRITE_SYSTEM_EMAIL:-team@example.com}
+      _APP_SYSTEM_SECURITY_EMAIL_ADDRESS: ${APPWRITE_SECURITY_EMAIL:-security@example.com}
+      _APP_SMTP_HOST: ${APPWRITE_SMTP_HOST:-localhost}
+      _APP_SMTP_PORT: ${APPWRITE_SMTP_PORT:-25}
+      _APP_SMTP_SECURE: ${APPWRITE_SMTP_SECURE:-none}
+      _APP_SMTP_USERNAME: ${APPWRITE_SMTP_USERNAME:-unused}
+      _APP_SMTP_PASSWORD: ${APPWRITE_SMTP_PASSWORD:-unused}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - appwrite_config:/storage/config
+      - appwrite_certificates:/storage/certificates
+
+  appwrite-worker-functions:
+    entrypoint: worker-functions
+
+    image: ${APPWRITE_IMAGE:-appwrite/appwrite:1.6.1}
+    restart: ${APPWRITE_RESTART_POLICY:-unless-stopped}
+    networks:
+      - appwrite
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ['CMD-SHELL', 'kill -0 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    depends_on:
+      redis:
+        condition: service_healthy
+      mariadb:
+        condition: service_healthy
+      openruntimes-executor:
+        condition: service_healthy
+    environment:
+      _APP_ENV: production
+      _APP_LOCALE: en
+      _APP_OPENSSL_KEY_V1: ${SERVICE_HEX_128_APPWRITE}
+      _APP_DOMAIN: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_TARGET: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_FUNCTIONS: ${APPWRITE_DOMAIN_FUNCTIONS:-functions.localhost}
+      _APP_OPTIONS_ABUSE: disabled
+      _APP_OPTIONS_ROUTER_PROTECTION: disabled
+      _APP_OPTIONS_FORCE_HTTPS: disabled
+      _APP_OPTIONS_FUNCTIONS_FORCE_HTTPS: disabled
+      _APP_USAGE_STATS: disabled
+      _APP_DB_HOST: mariadb
+      _APP_DB_PORT: 3306
+      _APP_DB_SCHEMA: ${APPWRITE_DB_NAME:-appwrite}
+      _APP_DB_USER: ${SERVICE_USER_APPWRITE}
+      _APP_DB_PASS: ${SERVICE_PASSWORD_APPWRITE}
+      _APP_REDIS_HOST: redis
+      _APP_REDIS_PORT: 6379
+      _APP_REDIS_USER: ${APPWRITE_REDIS_USER:-unused}
+      _APP_REDIS_PASS: ${SERVICE_HEX_32_APPWRITE}
+      _APP_STORAGE_DEVICE: local
+      _APP_STORAGE_LIMIT: 30000000
+      _APP_FUNCTIONS_SIZE_LIMIT: 30000000
+      _APP_FUNCTIONS_TIMEOUT: 900
+      _APP_FUNCTIONS_BUILD_TIMEOUT: 900
+      _APP_FUNCTIONS_CPUS: 1
+      _APP_FUNCTIONS_MEMORY: 2048
+      _APP_FUNCTIONS_RUNTIMES: node-18.0,php-8.0,python-3.9,ruby-3.0
+      _APP_EXECUTOR_SECRET: ${SERVICE_PASSWORDWITHSYMBOLS_64_APPWRITE}
+      _APP_EXECUTOR_HOST: http://openruntimes-executor/v1
+      _APP_SYSTEM_EMAIL_NAME: Appwrite
+      _APP_SYSTEM_EMAIL_ADDRESS: ${APPWRITE_SYSTEM_EMAIL:-team@example.com}
+      _APP_SYSTEM_SECURITY_EMAIL_ADDRESS: ${APPWRITE_SECURITY_EMAIL:-security@example.com}
+      _APP_SMTP_HOST: ${APPWRITE_SMTP_HOST:-localhost}
+      _APP_SMTP_PORT: ${APPWRITE_SMTP_PORT:-25}
+      _APP_SMTP_SECURE: ${APPWRITE_SMTP_SECURE:-none}
+      _APP_SMTP_USERNAME: ${APPWRITE_SMTP_USERNAME:-unused}
+      _APP_SMTP_PASSWORD: ${APPWRITE_SMTP_PASSWORD:-unused}
+      TZ: ${TZ:-UTC}
+
+
+  appwrite-worker-mails:
+    entrypoint: worker-mails
+
+    image: ${APPWRITE_IMAGE:-appwrite/appwrite:1.6.1}
+    restart: ${APPWRITE_RESTART_POLICY:-unless-stopped}
+    networks:
+      - appwrite
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ['CMD-SHELL', 'kill -0 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      _APP_ENV: production
+      _APP_LOCALE: en
+      _APP_OPENSSL_KEY_V1: ${SERVICE_HEX_128_APPWRITE}
+      _APP_DOMAIN: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_TARGET: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_FUNCTIONS: ${APPWRITE_DOMAIN_FUNCTIONS:-functions.localhost}
+      _APP_OPTIONS_ABUSE: disabled
+      _APP_OPTIONS_ROUTER_PROTECTION: disabled
+      _APP_OPTIONS_FORCE_HTTPS: disabled
+      _APP_OPTIONS_FUNCTIONS_FORCE_HTTPS: disabled
+      _APP_USAGE_STATS: disabled
+      _APP_DB_HOST: mariadb
+      _APP_DB_PORT: 3306
+      _APP_DB_SCHEMA: ${APPWRITE_DB_NAME:-appwrite}
+      _APP_DB_USER: ${SERVICE_USER_APPWRITE}
+      _APP_DB_PASS: ${SERVICE_PASSWORD_APPWRITE}
+      _APP_REDIS_HOST: redis
+      _APP_REDIS_PORT: 6379
+      _APP_REDIS_USER: ${APPWRITE_REDIS_USER:-unused}
+      _APP_REDIS_PASS: ${SERVICE_HEX_32_APPWRITE}
+      _APP_STORAGE_DEVICE: local
+      _APP_STORAGE_LIMIT: 30000000
+      _APP_FUNCTIONS_SIZE_LIMIT: 30000000
+      _APP_FUNCTIONS_TIMEOUT: 900
+      _APP_FUNCTIONS_BUILD_TIMEOUT: 900
+      _APP_FUNCTIONS_CPUS: 1
+      _APP_FUNCTIONS_MEMORY: 2048
+      _APP_FUNCTIONS_RUNTIMES: node-18.0,php-8.0,python-3.9,ruby-3.0
+      _APP_EXECUTOR_SECRET: ${SERVICE_PASSWORDWITHSYMBOLS_64_APPWRITE}
+      _APP_EXECUTOR_HOST: http://openruntimes-executor/v1
+      _APP_SYSTEM_EMAIL_NAME: Appwrite
+      _APP_SYSTEM_EMAIL_ADDRESS: ${APPWRITE_SYSTEM_EMAIL:-team@example.com}
+      _APP_SYSTEM_SECURITY_EMAIL_ADDRESS: ${APPWRITE_SECURITY_EMAIL:-security@example.com}
+      _APP_SMTP_HOST: ${APPWRITE_SMTP_HOST:-localhost}
+      _APP_SMTP_PORT: ${APPWRITE_SMTP_PORT:-25}
+      _APP_SMTP_SECURE: ${APPWRITE_SMTP_SECURE:-none}
+      _APP_SMTP_USERNAME: ${APPWRITE_SMTP_USERNAME:-unused}
+      _APP_SMTP_PASSWORD: ${APPWRITE_SMTP_PASSWORD:-unused}
+      TZ: ${TZ:-UTC}
+
+
+  appwrite-worker-migrations:
+    entrypoint: worker-migrations
+
+    image: ${APPWRITE_IMAGE:-appwrite/appwrite:1.6.1}
+    restart: ${APPWRITE_RESTART_POLICY:-unless-stopped}
+    networks:
+      - appwrite
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ['CMD-SHELL', 'kill -0 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      _APP_ENV: production
+      _APP_LOCALE: en
+      _APP_OPENSSL_KEY_V1: ${SERVICE_HEX_128_APPWRITE}
+      _APP_DOMAIN: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_TARGET: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_FUNCTIONS: ${APPWRITE_DOMAIN_FUNCTIONS:-functions.localhost}
+      _APP_OPTIONS_ABUSE: disabled
+      _APP_OPTIONS_ROUTER_PROTECTION: disabled
+      _APP_OPTIONS_FORCE_HTTPS: disabled
+      _APP_OPTIONS_FUNCTIONS_FORCE_HTTPS: disabled
+      _APP_USAGE_STATS: disabled
+      _APP_DB_HOST: mariadb
+      _APP_DB_PORT: 3306
+      _APP_DB_SCHEMA: ${APPWRITE_DB_NAME:-appwrite}
+      _APP_DB_USER: ${SERVICE_USER_APPWRITE}
+      _APP_DB_PASS: ${SERVICE_PASSWORD_APPWRITE}
+      _APP_REDIS_HOST: redis
+      _APP_REDIS_PORT: 6379
+      _APP_REDIS_USER: ${APPWRITE_REDIS_USER:-unused}
+      _APP_REDIS_PASS: ${SERVICE_HEX_32_APPWRITE}
+      _APP_STORAGE_DEVICE: local
+      _APP_STORAGE_LIMIT: 30000000
+      _APP_FUNCTIONS_SIZE_LIMIT: 30000000
+      _APP_FUNCTIONS_TIMEOUT: 900
+      _APP_FUNCTIONS_BUILD_TIMEOUT: 900
+      _APP_FUNCTIONS_CPUS: 1
+      _APP_FUNCTIONS_MEMORY: 2048
+      _APP_FUNCTIONS_RUNTIMES: node-18.0,php-8.0,python-3.9,ruby-3.0
+      _APP_EXECUTOR_SECRET: ${SERVICE_PASSWORDWITHSYMBOLS_64_APPWRITE}
+      _APP_EXECUTOR_HOST: http://openruntimes-executor/v1
+      _APP_SYSTEM_EMAIL_NAME: Appwrite
+      _APP_SYSTEM_EMAIL_ADDRESS: ${APPWRITE_SYSTEM_EMAIL:-team@example.com}
+      _APP_SYSTEM_SECURITY_EMAIL_ADDRESS: ${APPWRITE_SECURITY_EMAIL:-security@example.com}
+      _APP_SMTP_HOST: ${APPWRITE_SMTP_HOST:-localhost}
+      _APP_SMTP_PORT: ${APPWRITE_SMTP_PORT:-25}
+      _APP_SMTP_SECURE: ${APPWRITE_SMTP_SECURE:-none}
+      _APP_SMTP_USERNAME: ${APPWRITE_SMTP_USERNAME:-unused}
+      _APP_SMTP_PASSWORD: ${APPWRITE_SMTP_PASSWORD:-unused}
+      TZ: ${TZ:-UTC}
+
+
+  appwrite-worker-maintenance:
+    entrypoint: worker-maintenance
+
+    image: ${APPWRITE_IMAGE:-appwrite/appwrite:1.6.1}
+    restart: ${APPWRITE_RESTART_POLICY:-unless-stopped}
+    networks:
+      - appwrite
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ['CMD-SHELL', 'kill -0 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      _APP_ENV: production
+      _APP_LOCALE: en
+      _APP_OPENSSL_KEY_V1: ${SERVICE_HEX_128_APPWRITE}
+      _APP_DOMAIN: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_TARGET: ${SERVICE_FQDN_APPWRITE:-${SERVICE_FQDN_APPWRITE_80:-localhost}}
+      _APP_DOMAIN_FUNCTIONS: ${APPWRITE_DOMAIN_FUNCTIONS:-functions.localhost}
+      _APP_OPTIONS_ABUSE: disabled
+      _APP_OPTIONS_ROUTER_PROTECTION: disabled
+      _APP_OPTIONS_FORCE_HTTPS: disabled
+      _APP_OPTIONS_FUNCTIONS_FORCE_HTTPS: disabled
+      _APP_USAGE_STATS: disabled
+      _APP_DB_HOST: mariadb
+      _APP_DB_PORT: 3306
+      _APP_DB_SCHEMA: ${APPWRITE_DB_NAME:-appwrite}
+      _APP_DB_USER: ${SERVICE_USER_APPWRITE}
+      _APP_DB_PASS: ${SERVICE_PASSWORD_APPWRITE}
+      _APP_REDIS_HOST: redis
+      _APP_REDIS_PORT: 6379
+      _APP_REDIS_USER: ${APPWRITE_REDIS_USER:-unused}
+      _APP_REDIS_PASS: ${SERVICE_HEX_32_APPWRITE}
+      _APP_STORAGE_DEVICE: local
+      _APP_STORAGE_LIMIT: 30000000
+      _APP_FUNCTIONS_SIZE_LIMIT: 30000000
+      _APP_FUNCTIONS_TIMEOUT: 900
+      _APP_FUNCTIONS_BUILD_TIMEOUT: 900
+      _APP_FUNCTIONS_CPUS: 1
+      _APP_FUNCTIONS_MEMORY: 2048
+      _APP_FUNCTIONS_RUNTIMES: node-18.0,php-8.0,python-3.9,ruby-3.0
+      _APP_EXECUTOR_SECRET: ${SERVICE_PASSWORDWITHSYMBOLS_64_APPWRITE}
+      _APP_EXECUTOR_HOST: http://openruntimes-executor/v1
+      _APP_SYSTEM_EMAIL_NAME: Appwrite
+      _APP_SYSTEM_EMAIL_ADDRESS: ${APPWRITE_SYSTEM_EMAIL:-team@example.com}
+      _APP_SYSTEM_SECURITY_EMAIL_ADDRESS: ${APPWRITE_SECURITY_EMAIL:-security@example.com}
+      _APP_SMTP_HOST: ${APPWRITE_SMTP_HOST:-localhost}
+      _APP_SMTP_PORT: ${APPWRITE_SMTP_PORT:-25}
+      _APP_SMTP_SECURE: ${APPWRITE_SMTP_SECURE:-none}
+      _APP_SMTP_USERNAME: ${APPWRITE_SMTP_USERNAME:-unused}
+      _APP_SMTP_PASSWORD: ${APPWRITE_SMTP_PASSWORD:-unused}
+      TZ: ${TZ:-UTC}
+
+
+  openruntimes-executor:
+    image: ${APPWRITE_EXECUTOR_IMAGE:-openruntimes/executor:0.4.5}
+    restart: ${APPWRITE_EXECUTOR_RESTART_POLICY:-unless-stopped}
+    hostname: appwrite-executor
+
+    networks:
+      - appwrite
+      - runtimes
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - appwrite_builds:/storage/builds
+      - appwrite_functions:/storage/functions
+      - /tmp:/tmp
+
+    environment:
+      OPR_EXECUTOR_INACTIVE_TRESHOLD: ${APPWRITE_FUNCTIONS_INACTIVE_THRESHOLD:-60}
+      OPR_EXECUTOR_MAINTENANCE_INTERVAL: ${APPWRITE_FUNCTIONS_MAINTENANCE_INTERVAL:-3600}
+      OPR_EXECUTOR_NETWORK: ${APPWRITE_FUNCTIONS_RUNTIMES_NETWORK:-runtimes}
+      OPR_EXECUTOR_ENV: production
+      OPR_EXECUTOR_RUNTIMES: node-18.0,php-8.0,python-3.9,ruby-3.0
+      OPR_EXECUTOR_SECRET: ${SERVICE_PASSWORDWITHSYMBOLS_64_APPWRITE}
+      OPR_EXECUTOR_STORAGE_DEVICE: local
+      TZ: ${TZ:-UTC}
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1/v1/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mariadb:
+    image: ${APPWRITE_MARIADB_IMAGE:-mariadb:10.11}
+    restart: ${APPWRITE_MARIADB_RESTART_POLICY:-unless-stopped}
+
+    networks:
+      - appwrite
+
+    environment:
+      MYSQL_ROOT_PASSWORD: ${SERVICE_PASSWORD_64_APPWRITE}
+      MYSQL_DATABASE: ${APPWRITE_DB_NAME:-appwrite}
+      MYSQL_USER: ${SERVICE_USER_APPWRITE}
+      MYSQL_PASSWORD: ${SERVICE_PASSWORD_APPWRITE}
+      TZ: ${TZ:-UTC}
+
+    command: mysqld --innodb-flush-method=fsync
+
+    volumes:
+      - appwrite_mariadb_data:/var/lib/mysql
+
+    healthcheck:
+      test: ['CMD-SHELL', 'healthcheck.sh --connect --innodb_initialized']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: ${APPWRITE_REDIS_IMAGE:-redis:7.4-alpine}
+    restart: ${APPWRITE_REDIS_RESTART_POLICY:-unless-stopped}
+
+    networks:
+      - appwrite
+
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru --maxmemory-samples 5 --requirepass ${SERVICE_HEX_32_APPWRITE}
+
+    volumes:
+      - appwrite_redis_data:/data
+
+    environment:
+      REDIS_PASSWORD: ${SERVICE_HEX_32_APPWRITE}
+      TZ: ${TZ:-UTC}
+
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  gateway:
+  appwrite:
+  runtimes:
+
+volumes:
+  appwrite_mariadb_data:
+  appwrite_redis_data:
+  appwrite_cache:
+  appwrite_uploads:
+  appwrite_certificates:
+  appwrite_functions:
+  appwrite_builds:
+  appwrite_config:

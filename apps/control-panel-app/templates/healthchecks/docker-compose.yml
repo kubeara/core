@@ -1,0 +1,103 @@
+# documentation: https://healthchecks.io/docs/self_hosted_docker/
+# shortDescription: Cron job and heartbeat monitoring
+# longDescription: <p>Healthchecks is a cron job monitoring service that listens for <strong>HTTP pings</strong> from your tasks and alerts you when they fail.</p><p>Includes PostgreSQL. Set <code>SITE_ROOT</code> via <code>SERVICE_URL_HEALTHCHECKS</code>. Create a superuser after deploy with <code>docker compose run healthchecks /opt/healthchecks/manage.py createsuperuser</code>.</p>
+# category: monitoring,uptime
+# tags: healthchecks,cron,monitoring,alerts,heartbeat,ping,dead-man-switch
+# logo: svgs/healthchecks.svg
+# port: 8000
+
+services:
+  healthchecks:
+    image: ${HEALTHCHECKS_IMAGE:-healthchecks/healthchecks:latest}
+    restart: ${HEALTHCHECKS_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_HEALTHCHECKS:-8000}:8000'
+
+    environment:
+      - SERVICE_URL_HEALTHCHECKS_8000
+      - SECRET_KEY=${SERVICE_HEX_64_HEALTHCHECKS}
+      - SITE_ROOT=${SERVICE_URL_HEALTHCHECKS:-${SERVICE_URL_HEALTHCHECKS_8000}}
+      - ALLOWED_HOSTS=${SERVICE_FQDN_HEALTHCHECKS:-${SERVICE_FQDN_HEALTHCHECKS_8000:-localhost}}
+      - SITE_NAME=${HEALTHCHECKS_SITE_NAME:-Healthchecks}
+      - DB=postgres
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${SERVICE_USER_HEALTHCHECKS}
+      - DB_PASSWORD=${SERVICE_PASSWORD_HEALTHCHECKS}
+      - DB_NAME=${HEALTHCHECKS_DB_NAME:-hc}
+      - DEBUG=False
+      - DEFAULT_FROM_EMAIL=${HEALTHCHECKS_DEFAULT_FROM_EMAIL:-healthchecks@example.org}
+      - EMAIL_HOST=${HEALTHCHECKS_EMAIL_HOST:-localhost}
+      - EMAIL_HOST_USER=${HEALTHCHECKS_EMAIL_HOST_USER:-noreply@example.org}
+      - EMAIL_HOST_PASSWORD=${HEALTHCHECKS_EMAIL_HOST_PASSWORD:-unused}
+      - EMAIL_PORT=${HEALTHCHECKS_EMAIL_PORT:-587}
+      - EMAIL_USE_TLS=${HEALTHCHECKS_EMAIL_USE_TLS:-true}
+      - REGISTRATION_OPEN=${HEALTHCHECKS_REGISTRATION_OPEN:-true}
+      - TZ=${TZ:-UTC}
+
+    command: bash -c 'while !</dev/tcp/postgres/5432; do sleep 1; done; uwsgi /opt/healthchecks/docker/uwsgi.ini'
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8000/ || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${HEALTHCHECKS_POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${HEALTHCHECKS_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      POSTGRES_USER: ${SERVICE_USER_HEALTHCHECKS}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_HEALTHCHECKS}
+      POSTGRES_DB: ${HEALTHCHECKS_DB_NAME:-hc}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - healthchecks_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  healthchecks_postgres_data:

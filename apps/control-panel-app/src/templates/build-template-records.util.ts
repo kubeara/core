@@ -64,9 +64,29 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "PostgreSQL",
     version: "16",
   },
+  mysql: {
+    name: "MySQL",
+    version: "8.4",
+  },
+  mariadb: {
+    name: "MariaDB",
+    version: "11.4",
+  },
+  mongodb: {
+    name: "MongoDB",
+    version: "8.0",
+  },
   redis: {
     name: "Redis",
     version: "7",
+  },
+  valkey: {
+    name: "Valkey",
+    version: "8",
+  },
+  clickhouse: {
+    name: "ClickHouse",
+    version: "25.3",
   },
   n8n: {
     name: "n8n",
@@ -111,6 +131,142 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
   strapi: {
     name: "Strapi",
     version: "5.30.1",
+  },
+  pocketbase: {
+    name: "PocketBase",
+    version: "latest",
+  },
+  monica: {
+    name: "Monica",
+    version: "4.1.2",
+  },
+  minio: {
+    name: "MinIO",
+    version: "2025-09",
+  },
+  nextcloud: {
+    name: "Nextcloud",
+    version: "latest",
+  },
+  seafile: {
+    name: "Seafile",
+    version: "13.0",
+  },
+  flowise: {
+    name: "Flowise",
+    version: "latest",
+  },
+  "anything-llm": {
+    name: "AnythingLLM",
+    version: "latest",
+  },
+  litellm: {
+    name: "LiteLLM",
+    version: "main-stable",
+  },
+  ollama: {
+    name: "Ollama",
+    version: "latest",
+  },
+  "open-webui": {
+    name: "Open WebUI",
+    version: "main",
+  },
+  qdrant: {
+    name: "Qdrant",
+    version: "1.13",
+  },
+  weaviate: {
+    name: "Weaviate",
+    version: "1.27",
+  },
+  langfuse: {
+    name: "Langfuse",
+    version: "3",
+  },
+  netdata: {
+    name: "Netdata",
+    version: "stable",
+  },
+  activepieces: {
+    name: "Activepieces",
+    version: "0.83",
+  },
+  windmill: {
+    name: "Windmill",
+    version: "1.661",
+  },
+  "node-red": {
+    name: "Node-RED",
+    version: "4.1",
+  },
+  plausible: {
+    name: "Plausible Analytics",
+    version: "3.2",
+  },
+  umami: {
+    name: "Umami Analytics",
+    version: "latest",
+  },
+  matomo: {
+    name: "Matomo",
+    version: "5",
+  },
+  "drone-ci": {
+    name: "Drone CI",
+    version: "2",
+  },
+  "woodpecker-ci": {
+    name: "Woodpecker CI",
+    version: "3",
+  },
+  ghost: {
+    name: "Ghost",
+    version: "5",
+  },
+  healthchecks: {
+    name: "Healthchecks.io",
+    version: "latest",
+  },
+  vaultwarden: {
+    name: "Vaultwarden",
+    version: "latest",
+  },
+  authentik: {
+    name: "Authentik",
+    version: "2025.8",
+  },
+  authelia: {
+    name: "Authelia",
+    version: "4.39",
+  },
+  keycloak: {
+    name: "Keycloak",
+    version: "26.0",
+  },
+  nocodb: {
+    name: "NocoDB",
+    version: "0.263",
+  },
+  affine: {
+    name: "AFFiNE",
+    version: "stable",
+  },
+  signoz: {
+    name: "SigNoz",
+    version: "0.128",
+  },
+  appwrite: {
+    name: "Appwrite",
+    version: "1.6",
+  },
+  "flowise-with-databases": {
+    name: "Flowise (with databases)",
+    version: "latest",
+  },
+  langflow: {
+    name: "Langflow",
+    version: "latest",
   },
 };
 

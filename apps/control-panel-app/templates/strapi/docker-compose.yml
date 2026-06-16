@@ -1,6 +1,6 @@
 # documentation: https://docs.strapi.io/cms/installation/docker
 # shortDescription: Open-source headless CMS built with Node.js
-# longDescription: <p>Strapi is a flexible <strong>headless CMS</strong> for building APIs and content-rich applications.</p><p>Uses the community <code>naskio/strapi</code> image (Strapi does not publish an official pre-built image). Includes PostgreSQL — first boot creates the project and admin registration wizard.</p>
+# longDescription: <p>Strapi is a flexible <strong>headless CMS</strong> for building APIs and content-rich applications.</p><p>Uses the community <code>naskio/strapi</code> image (Strapi does not publish an official pre-built image). Includes PostgreSQL — JWT secrets use <code>SERVICE_BASE64_32_STRAPI</code>, <code>SERVICE_HEX_64_STRAPI</code>, <code>SERVICE_BASE64_64_STRAPI</code>, and <code>SERVICE_PASSWORD_64_STRAPI</code>.</p>
 # category: cms,content,api
 # tags: strapi,cms,headless,api,nodejs,postgresql,rest
 # logo: svgs/strapi-icon-svgrepo-com.svg
@@ -24,10 +24,10 @@ services:
       - DATABASE_USERNAME=${SERVICE_USER_STRAPI}
       - DATABASE_PASSWORD=${SERVICE_PASSWORD_STRAPI}
       - APP_KEYS=${STRAPI_APP_KEYS:-key1,key2,key3,key4}
-      - API_TOKEN_SALT=${STRAPI_API_TOKEN_SALT:-apiTokenSalt}
-      - ADMIN_JWT_SECRET=${STRAPI_ADMIN_JWT_SECRET:-adminJwtSecret}
-      - TRANSFER_TOKEN_SALT=${STRAPI_TRANSFER_TOKEN_SALT:-transferTokenSalt}
-      - JWT_SECRET=${STRAPI_JWT_SECRET:-jwtSecret}
+      - API_TOKEN_SALT=${SERVICE_BASE64_32_STRAPI}
+      - ADMIN_JWT_SECRET=${SERVICE_HEX_64_STRAPI}
+      - TRANSFER_TOKEN_SALT=${SERVICE_BASE64_64_STRAPI}
+      - JWT_SECRET=${SERVICE_PASSWORD_64_STRAPI}
       - HOST=${STRAPI_HOST:-0.0.0.0}
       - PORT=${STRAPI_PORT:-1337}
       - TZ=${TZ:-UTC}

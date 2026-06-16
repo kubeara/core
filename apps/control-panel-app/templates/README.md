@@ -166,6 +166,13 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | Template | Notes |
 |----------|--------|
 | `postgres/` | Compose-only PostgreSQL; magic vars; `SERVICE_PORT_POSTGRES`, passwords, etc. |
+| `mysql/` | Standalone MySQL 8.4 on port 3306 |
+| `mariadb/` | Standalone MariaDB 11.4 on port 3306 |
+| `mongodb/` | Standalone MongoDB 8.0 on port 27017 |
+| `surrealdb/` | Multi-model database on port 8000 |
+| `clickhouse/` | OLAP analytics database on ports 8123 (HTTP) and 9000 (native) |
+| `redis/` | In-memory cache on port 6379 |
+| `valkey/` | Redis-compatible cache (Valkey) on port 6379 with AOF persistence |
 | `n8n/` | Compose-only; `SERVICE_URL_N8N_5678` declaration + Traefik-friendly URL vars |
 | `uptime-kuma/` | Self-hosted uptime monitoring on port 3001 |
 | `grafana/` | Dashboards; `SERVICE_URL_GRAFANA_3000` + admin credentials |
@@ -177,6 +184,40 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `wordpress/` | WordPress with MariaDB on port 80 |
 | `directus/` | Headless CMS with PostgreSQL on port 8055 |
 | `strapi/` | Headless CMS with PostgreSQL on port 1337 (`naskio/strapi` community image) |
+| `pocketbase/` | Single-container BaaS with SQLite on port 8090 |
+| `monica/` | Personal CRM with MariaDB on port 80 |
+| `minio/` | S3-compatible object storage on ports 9000 (API) and 9001 (console) |
+| `nextcloud/` | File sync and collaboration with MariaDB and Redis on port 80 |
+| `seafile/` | File sync and sharing with MariaDB and Redis on port 80 |
+| `flowise/` | Visual AI agent builder on port 3000 |
+| `anything-llm/` | Private AI document workspace on port 3001 |
+| `litellm/` | LLM proxy gateway with PostgreSQL on port 4000 |
+| `ollama/` | Local LLM inference API on port 11434 |
+| `open-webui/` | Self-hosted chat UI for Ollama on port 8080 |
+| `qdrant/` | Vector database on ports 6333 (HTTP) and 6334 (gRPC) |
+| `weaviate/` | AI-native vector database on ports 8080 and 50051 |
+| `langfuse/` | LLM observability stack on port 3000 (Postgres, ClickHouse, Redis, MinIO) |
+| `netdata/` | Real-time host and container monitoring on port 19999 |
+| `activepieces/` | Workflow automation with PostgreSQL and Redis on port 8080 |
+| `windmill/` | Script and flow platform with PostgreSQL on port 8000 |
+| `node-red/` | Flow-based IoT and automation editor on port 1880 |
+| `plausible/` | Privacy-friendly analytics with PostgreSQL and ClickHouse on port 8000 |
+| `umami/` | Lightweight privacy analytics with PostgreSQL on port 3000 |
+| `matomo/` | Full-featured web analytics with MariaDB on port 8080 |
+| `drone-ci/` | Container-native CI with Docker runner on port 80 |
+| `woodpecker-ci/` | Lightweight CI/CD engine with Docker agent on port 8000 |
+| `ghost/` | Publishing platform for blogs and newsletters with MariaDB on port 2368 |
+| `healthchecks/` | Cron job and heartbeat monitoring with PostgreSQL on port 8000 |
+| `vaultwarden/` | Bitwarden-compatible password manager on port 8080 |
+| `authentik/` | Identity provider with SSO and MFA; PostgreSQL, Redis, server, and worker on port 9000 |
+| `authelia/` | SSO and 2FA portal with Redis on port 9091; embedded config and file-based users |
+| `keycloak/` | IAM platform with PostgreSQL on port 8080 |
+| `nocodb/` | Airtable-style database UI with PostgreSQL on port 8080 |
+| `affine/` | Knowledge workspace with PostgreSQL, Redis, and migration job on port 3010 |
+| `signoz/` | OpenTelemetry APM with ClickHouse on ports 8080, 4317, and 4318 |
+| `appwrite/` | Backend-as-a-service with Traefik, MariaDB, Redis, workers, and executor on port 80 |
+| `flowise-with-databases/` | Flowise with PostgreSQL, Redis, and queue worker on port 3000 |
+| `langflow/` | Visual LLM IDE with PostgreSQL on port 7860 |
 
 ---
 

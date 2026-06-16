@@ -1,0 +1,99 @@
+# documentation: https://matomo.org/faq/how-to-install/install-matomo-with-docker/
+# shortDescription: Full-featured open-source web analytics
+# longDescription: <p>Matomo (formerly Piwik) is a comprehensive <strong>web analytics</strong> platform with dashboards, goals, heatmaps, and GDPR-friendly self-hosting.</p><p>Includes MariaDB. Complete the web installer on first launch. Add a cron container for report archiving in production.</p>
+# category: analytics,monitoring
+# tags: matomo,analytics,privacy,web,statistics,piwik,mariadb
+# logo: svgs/matomo.svg
+# port: 8080
+
+services:
+  matomo:
+    image: ${MATOMO_IMAGE:-matomo:5-apache}
+    restart: ${MATOMO_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_MATOMO:-8080}:80'
+
+    environment:
+      - SERVICE_URL_MATOMO_8080
+      - MATOMO_DATABASE_HOST=${MATOMO_DB_HOST:-mariadb}
+      - MATOMO_DATABASE_ADAPTER=mysql
+      - MATOMO_DATABASE_TABLES_PREFIX=${MATOMO_TABLES_PREFIX:-matomo_}
+      - MATOMO_DATABASE_USERNAME=${SERVICE_USER_MATOMO}
+      - MATOMO_DATABASE_PASSWORD=${SERVICE_PASSWORD_MATOMO}
+      - MATOMO_DATABASE_DBNAME=${MATOMO_DB_NAME:-matomo}
+      - PHP_MEMORY_LIMIT=${MATOMO_PHP_MEMORY_LIMIT:-512M}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - matomo_data:/var/www/html
+
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1/matomo.php || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mariadb:
+    image: ${MATOMO_MARIADB_IMAGE:-mariadb:11.4}
+    restart: ${MATOMO_MARIADB_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      MARIADB_USER: ${SERVICE_USER_MATOMO}
+      MARIADB_PASSWORD: ${SERVICE_PASSWORD_MATOMO}
+      MARIADB_DATABASE: ${MATOMO_DB_NAME:-matomo}
+      MARIADB_ROOT_PASSWORD: ${SERVICE_PASSWORD_MATOMO_ROOT}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - matomo_mariadb_data:/var/lib/mysql
+
+    command:
+      - --max-allowed-packet=64M
+      - --innodb-buffer-pool-size=256M
+
+    healthcheck:
+      test: ['CMD-SHELL', 'healthcheck.sh --connect --innodb_initialized']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  matomo_data:
+  matomo_mariadb_data:

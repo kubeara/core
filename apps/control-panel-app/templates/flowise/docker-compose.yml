@@ -1,0 +1,61 @@
+# documentation: https://docs.flowiseai.com/configuration/deployment
+# shortDescription: Visual builder for AI agents and LLM workflows
+# longDescription: <p>Flowise is a drag-and-drop tool for building <strong>AI agents</strong>, chatbots, and LLM workflows.</p><p>Data persists under <code>/root/.flowise</code>. Register your admin account on first launch. Set <code>APP_URL</code> via <code>SERVICE_URL_FLOWISE</code> when behind a reverse proxy.</p>
+# category: ai,automation
+# tags: flowise,ai,llm,agents,workflow,no-code,chatbot
+# logo: svgs/flowise.svg
+# port: 3000
+
+services:
+  flowise:
+    image: ${FLOWISE_IMAGE:-flowiseai/flowise:latest}
+    restart: ${FLOWISE_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_FLOWISE:-3000}:3000'
+
+    environment:
+      - SERVICE_URL_FLOWISE_3000
+      - PORT=3000
+      - DATABASE_PATH=/root/.flowise
+      - SECRETKEY_PATH=/root/.flowise
+      - LOG_PATH=/root/.flowise/logs
+      - BLOB_STORAGE_PATH=/root/.flowise/storage
+      - APP_URL=${SERVICE_URL_FLOWISE:-${SERVICE_URL_FLOWISE_3000}}
+      - JWT_AUTH_TOKEN_SECRET=${SERVICE_HEX_64_FLOWISE}
+      - JWT_REFRESH_TOKEN_SECRET=${SERVICE_PASSWORD_64_FLOWISE}
+      - EXPRESS_SESSION_SECRET=${SERVICE_HEX_32_FLOWISE}
+      - TOKEN_HASH_SECRET=${SERVICE_BASE64_32_FLOWISE}
+      - TRUST_PROXY=${FLOWISE_TRUST_PROXY:-true}
+      - DISABLE_FLOWISE_TELEMETRY=${FLOWISE_DISABLE_TELEMETRY:-true}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - flowise_data:/root/.flowise
+
+    entrypoint: ['/bin/sh', '-c', 'sleep 3; exec flowise start']
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:3000/api/v1/ping || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  flowise_data:

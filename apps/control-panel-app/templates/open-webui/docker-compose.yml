@@ -1,0 +1,53 @@
+# documentation: https://docs.openwebui.com/getting-started/quick-start/
+# shortDescription: Self-hosted AI chat interface for Ollama and OpenAI
+# longDescription: <p>Open WebUI is a <strong>self-hosted chat interface</strong> for Ollama, OpenAI, and other LLM backends.</p><p>Point <code>OLLAMA_BASE_URL</code> at your Ollama instance (defaults to <code>host.docker.internal:11434</code>). Session signing uses <code>SERVICE_HEX_64_OPENWEBUI</code>.</p>
+# category: ai,llm
+# tags: open-webui,ai,llm,chat,ollama,ui
+# logo: svgs/openwebui.svg
+# port: 8080
+
+services:
+  open-webui:
+    image: ${OPEN_WEBUI_IMAGE:-ghcr.io/open-webui/open-webui:main}
+    restart: ${OPEN_WEBUI_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_OPEN_WEBUI:-8080}:8080'
+
+    environment:
+      - SERVICE_URL_OPEN_WEBUI_8080
+      - WEBUI_SECRET_KEY=${SERVICE_HEX_64_OPENWEBUI}
+      - OLLAMA_BASE_URL=${OPEN_WEBUI_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - ENABLE_PERSISTENT_CONFIG=${OPEN_WEBUI_ENABLE_PERSISTENT_CONFIG:-true}
+      - TZ=${TZ:-UTC}
+
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+    volumes:
+      - open_webui_data:/app/backend/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8080/health | grep -q ''"status":true'' || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  open_webui_data:

@@ -1,0 +1,138 @@
+# documentation: https://www.activepieces.com/docs/install/docker
+# shortDescription: Open-source workflow automation platform
+# longDescription: <p>Activepieces is an open-source <strong>workflow automation</strong> platform (Zapier alternative) with hundreds of integrations and AI actions.</p><p>Includes PostgreSQL and Redis. Set <code>AP_FRONTEND_URL</code> via <code>SERVICE_URL_ACTIVEPIECES</code> for webhooks. Register your admin account on first launch.</p>
+# category: automation,workflow
+# tags: activepieces,workflow,automation,no-code,integration,zapier
+# logo: svgs/activepieces.svg
+# port: 8080
+
+services:
+  activepieces:
+    image: ${ACTIVEPIECES_IMAGE:-ghcr.io/activepieces/activepieces:0.83.0}
+    restart: ${ACTIVEPIECES_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_ACTIVEPIECES:-8080}:80'
+
+    environment:
+      - SERVICE_URL_ACTIVEPIECES_8080
+      - AP_ENGINE_EXECUTABLE_PATH=dist/packages/engine/main.js
+      - AP_ENCRYPTION_KEY=${SERVICE_HEX_32_ACTIVEPIECES}
+      - AP_JWT_SECRET=${SERVICE_HEX_64_ACTIVEPIECES}
+      - AP_ENVIRONMENT=${ACTIVEPIECES_ENVIRONMENT:-prod}
+      - AP_FRONTEND_URL=${SERVICE_URL_ACTIVEPIECES:-${SERVICE_URL_ACTIVEPIECES_8080}}
+      - AP_POSTGRES_DATABASE=${ACTIVEPIECES_DB_NAME:-activepieces}
+      - AP_POSTGRES_HOST=postgres
+      - AP_POSTGRES_PORT=5432
+      - AP_POSTGRES_USERNAME=${SERVICE_USER_ACTIVEPIECES}
+      - AP_POSTGRES_PASSWORD=${SERVICE_PASSWORD_ACTIVEPIECES}
+      - AP_REDIS_HOST=redis
+      - AP_REDIS_PORT=6379
+      - AP_EXECUTION_MODE=UNSANDBOXED
+      - AP_FLOW_TIMEOUT_SECONDS=${ACTIVEPIECES_FLOW_TIMEOUT_SECONDS:-600}
+      - AP_WEBHOOK_TIMEOUT_SECONDS=${ACTIVEPIECES_WEBHOOK_TIMEOUT_SECONDS:-30}
+      - AP_TRIGGER_DEFAULT_POLL_INTERVAL=${ACTIVEPIECES_TRIGGER_POLL_INTERVAL:-5}
+      - AP_TELEMETRY_ENABLED=${ACTIVEPIECES_TELEMETRY_ENABLED:-false}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - activepieces_cache:/usr/src/app/cache
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "require('http').get('http://127.0.0.1:80/api/v1/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1536M
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${ACTIVEPIECES_POSTGRES_IMAGE:-pgvector/pgvector:0.8.0-pg16}
+    restart: ${ACTIVEPIECES_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      POSTGRES_USER: ${SERVICE_USER_ACTIVEPIECES}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_ACTIVEPIECES}
+      POSTGRES_DB: ${ACTIVEPIECES_DB_NAME:-activepieces}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - activepieces_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: ${ACTIVEPIECES_REDIS_IMAGE:-redis:7}
+    restart: ${ACTIVEPIECES_REDIS_RESTART_POLICY:-unless-stopped}
+
+    volumes:
+      - activepieces_redis_data:/data
+
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  activepieces_cache:
+  activepieces_postgres_data:
+  activepieces_redis_data:
