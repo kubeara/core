@@ -210,6 +210,36 @@ export function DeployLogsPageSkeleton() {
   );
 }
 
+export function McpKeysTableSkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <>
+      <span className="skeleton-visually-hidden">Loading tokens…</span>
+      {Array.from({ length: rows }).map((_, index) => (
+        <tr key={index} className="skeleton-table-row" aria-hidden>
+          <td>
+            <SkeletonText width="60%" />
+          </td>
+          <td>
+            <Skeleton className="skeleton-table-cell" style={{ maxWidth: "7rem" }} />
+          </td>
+          <td>
+            <Skeleton className="skeleton-table-cell" style={{ maxWidth: "7rem" }} />
+          </td>
+          <td>
+            <Skeleton
+              className="skeleton-table-cell skeleton-table-cell-short"
+              style={{ maxWidth: "4.5rem", height: "1.5rem", borderRadius: "999px" }}
+            />
+          </td>
+          <td>
+            <Skeleton className="skeleton-table-cell skeleton-table-cell-actions" />
+          </td>
+        </tr>
+      ))}
+    </>
+  );
+}
+
 export function ProfilePageSkeleton() {
   return (
     <div className="profile-page skeleton-page" aria-live="polite" aria-busy="true">

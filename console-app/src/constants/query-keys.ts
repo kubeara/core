@@ -83,4 +83,11 @@ export const QUERY_KEYS = {
         /** User profile query key (same as auth.me) */
         me: ["auth", "me"] as const,
     },
+
+    /**
+     * MCP API key queries
+     */
+    mcpApiKeys: {
+        all: ["mcp-api-keys"] as const,
+    },
 } as const;
