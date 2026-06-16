@@ -39,9 +39,6 @@ export function useCreateMcpApiKeyMutation() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.mcpApiKeys.all });
     },
-    onError: (error) => {
-      showErrorToast(getErrorMessage(error));
-    },
   });
 }
 

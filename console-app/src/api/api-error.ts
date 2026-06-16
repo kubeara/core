@@ -1,6 +1,12 @@
 import { AxiosError } from "axios";
 import { normalizeValidationMessage, normalizeValidationMessages } from "@/lib/validation";
 
+export const GENERIC_ERROR_MESSAGE =
+    "Something went wrong. Please try again later.";
+
+export const NETWORK_ERROR_MESSAGE =
+    "Network error. Please check your connection and try again.";
+
 /**
  * Custom error class for API-related errors.
  * Provides structured error information including HTTP status and response body.
@@ -33,6 +39,54 @@ export class ApiError extends Error {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return value !== null && typeof value === "object";
+}
+
+function isServerErrorStatus(status: number): boolean {
+    return status >= 500;
+}
+
+const TECHNICAL_MESSAGE_PATTERNS = [
+    /typeorm/i,
+    /queryfailederror/i,
+    /econnrefused/i,
+    /etimedout/i,
+    /enotfound/i,
+    /getaddrinfo/i,
+    /socket hang up/i,
+    /cannot connect to/i,
+    /connection refused/i,
+    /prisma/i,
+    /sequelize/i,
+    /mongodb/i,
+    /postgres/i,
+    /syntax error at/i,
+    /internal server error/i,
+    /request failed with status code 5\d\d/i,
+    /\n\s+at\s+/,
+    /unhandled\s+rejection/i,
+];
+
+function looksTechnical(message: string): boolean {
+    const trimmed = message.trim();
+    if (!trimmed) {
+        return false;
+    }
+
+    return TECHNICAL_MESSAGE_PATTERNS.some((pattern) => pattern.test(trimmed));
+}
+
+function sanitizeForDisplay(message: string, status?: number): string {
+    const normalized = normalizeValidationMessage(message);
+
+    if (status !== undefined && isServerErrorStatus(status)) {
+        return GENERIC_ERROR_MESSAGE;
+    }
+
+    if (looksTechnical(normalized)) {
+        return GENERIC_ERROR_MESSAGE;
+    }
+
+    return normalized;
 }
 
 /**
@@ -98,18 +152,14 @@ export function extractMessageFromBody(
 }
 
 /**
- * Extract a human-readable error message from various error types.
+ * Extract a user-facing error message from various error types.
  *
- * Handles:
- * - ApiError instances
- * - Axios errors with response data (including validation arrays)
- * - Network failures
- * - Standard Error objects
- * - Unknown error types
+ * Server and infrastructure failures always return a generic message.
+ * Client errors (4xx) may still surface intentional validation or auth text.
  */
 export function getErrorMessage(error: unknown): string {
     if (error instanceof ApiError) {
-        return normalizeValidationMessage(error.message);
+        return sanitizeForDisplay(error.message, error.status);
     }
 
     if (error instanceof AxiosError) {
@@ -117,32 +167,38 @@ export function getErrorMessage(error: unknown): string {
             if (error.code === "ERR_CANCELED") {
                 return "Request was canceled.";
             }
-            return "Network error. Please check your connection and try again.";
+            return NETWORK_ERROR_MESSAGE;
+        }
+
+        const status = error.response.status;
+
+        if (isServerErrorStatus(status)) {
+            return GENERIC_ERROR_MESSAGE;
         }
 
         const extracted = extractMessageFromBody(
             error.response.data as Record<string, unknown> | undefined,
         );
         if (extracted) {
-            return normalizeValidationMessage(extracted);
+            return sanitizeForDisplay(extracted, status);
         }
 
-        if (error.response.status === 401) {
+        if (status === 401) {
             return "Your session has expired. Please sign in again.";
         }
 
-        if (error.response.status === 403) {
+        if (status === 403) {
             return "You do not have permission to perform this action.";
         }
 
-        return error.message || "Request failed";
+        return GENERIC_ERROR_MESSAGE;
     }
 
     if (error instanceof Error) {
-        return error.message;
+        return sanitizeForDisplay(error.message);
     }
 
-    return "An unexpected error occurred";
+    return GENERIC_ERROR_MESSAGE;
 }
 
 /**
@@ -163,7 +219,7 @@ export function toApiError(error: unknown): ApiError {
     }
 
     if (error instanceof Error) {
-        return new ApiError(error.message, 500);
+        return new ApiError(getErrorMessage(error), 500);
     }
 
     return new ApiError(getErrorMessage(error), 500);

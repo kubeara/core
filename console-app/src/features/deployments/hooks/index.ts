@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, getErrorMessage, toApiError } from "@/api/api-error";
+import { ApiError, toApiError } from "@/api/api-error";
 import { showErrorToast, showSuccessToast } from "@/lib/toast";
 import { QUERY_KEYS } from "@/constants/query-keys";
 import {
@@ -106,14 +106,8 @@ export function useContainerActionMutation() {
         queryKey: QUERY_KEYS.deployments.containers(serverId),
       });
     },
-    onError: (error, { action, containerName }) => {
-      showErrorToast(
-        getContainerActionErrorMessage(
-          action,
-          containerName,
-          getErrorMessage(error),
-        ),
-      );
+    onError: (_error, { action, containerName }) => {
+      showErrorToast(getContainerActionErrorMessage(action, containerName));
     },
   });
 }

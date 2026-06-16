@@ -71,8 +71,6 @@ export function getContainerActionSuccessMessage(
 export function getContainerActionErrorMessage(
   action: ContainerActionType,
   containerName: string,
-  errorMessage: string,
 ): string {
-  const detail = errorMessage.trim() || CONTAINER_ACTION_API_ERRORS[action];
-  return `Could not ${action} "${containerName}". ${detail}`;
+  return `Could not ${action} "${containerName}". ${CONTAINER_ACTION_API_ERRORS[action]}`;
 }

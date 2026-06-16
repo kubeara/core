@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { GENERIC_ERROR_MESSAGE } from "@/api/api-error";
 import { FormFieldLabel } from "@/components/shared/form-field-label";
 import { validateRequired } from "@/lib/validation";
 import { useCreateMcpApiKeyMutation } from "../hooks";
@@ -32,6 +33,7 @@ function GenerateTokenModalContent({ onClose }: GenerateTokenModalContentProps) 
     const [name, setName] = useState("");
     const [generatedToken, setGeneratedToken] = useState<string | null>(null);
     const [fieldError, setFieldError] = useState<string | null>(null);
+    const [submitError, setSubmitError] = useState<string | null>(null);
     const [copied, setCopied] = useState(false);
     const createMutation = useCreateMcpApiKeyMutation();
 
@@ -48,12 +50,13 @@ function GenerateTokenModalContent({ onClose }: GenerateTokenModalContentProps) 
             return;
         }
         setFieldError(null);
+        setSubmitError(null);
 
         try {
             const result = await createMutation.mutateAsync({ name: name.trim() });
             setGeneratedToken(result.token);
         } catch {
-            // Error toast shown by mutation hook
+            setSubmitError(GENERIC_ERROR_MESSAGE);
         }
     }
 
@@ -131,6 +134,7 @@ function GenerateTokenModalContent({ onClose }: GenerateTokenModalContentProps) 
                                 onChange={(event) => {
                                     setName(event.target.value);
                                     setFieldError(null);
+                                    setSubmitError(null);
                                 }}
                                 placeholder="e.g. Kubera dev team's token"
                                 disabled={createMutation.isPending}
@@ -147,6 +151,11 @@ function GenerateTokenModalContent({ onClose }: GenerateTokenModalContentProps) 
                                 </p>
                             )}
                         </div>
+                        {submitError ? (
+                            <p className="form-field-error" role="alert">
+                                {submitError}
+                            </p>
+                        ) : null}
                         <div className="modal-actions">
                             <button
                                 type="button"
