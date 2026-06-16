@@ -10,7 +10,6 @@ export function buildCorsOptions(configService: ConfigService): CorsOptions {
   const allowedOrigins = resolveCorsAllowedOrigins(
     configService.get<string>("CORS_ALLOWED_ORIGINS"),
     configService.get<string>("PUBLIC_API_ALLOWED_ORIGINS"),
-    configService.get<string>("NODE_ENV"),
   );
 
   return {

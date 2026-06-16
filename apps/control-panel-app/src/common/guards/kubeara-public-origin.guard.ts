@@ -26,7 +26,6 @@ export class KubearaPublicOriginGuard implements CanActivate {
 
     const allowedOrigins = resolvePublicApiAllowedOrigins(
       this.configService.get<string>("PUBLIC_API_ALLOWED_ORIGINS"),
-      this.configService.get<string>("NODE_ENV"),
     );
     const requestOrigin = resolveRequestOrigin(request);
 

@@ -1,20 +1,5 @@
 import type { Request } from "express";
 
-import { isProductionEnv } from "@control-panel/constants/env.constant";
-
-const DEV_DEFAULT_ORIGINS = [
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
-] as const;
-
-const KUBEARA_DEFAULT_ORIGINS = [
-  "https://kubeara.dev",
-  "https://www.kubeara.dev",
-  "https://app.kubeara.dev",
-  "https://kubeara.com",
-  "https://www.kubeara.com",
-] as const;
-
 export function normalizeOrigin(origin: string): string {
   return new URL(origin.trim()).origin;
 }
@@ -31,29 +16,22 @@ export function parseAllowedOrigins(raw: string): string[] {
 
 export function resolvePublicApiAllowedOrigins(
   configured: string | undefined,
-  nodeEnv: string | undefined,
 ): string[] {
   if (configured?.trim()) {
     return parseAllowedOrigins(configured);
   }
-
-  if (isProductionEnv(nodeEnv)) {
-    return [...KUBEARA_DEFAULT_ORIGINS];
-  }
-
-  return [...DEV_DEFAULT_ORIGINS];
+  return [];
 }
 
 export function resolveCorsAllowedOrigins(
   corsConfigured: string | undefined,
   publicConfigured: string | undefined,
-  nodeEnv: string | undefined,
 ): string[] {
   if (corsConfigured?.trim()) {
     return parseAllowedOrigins(corsConfigured);
   }
 
-  return resolvePublicApiAllowedOrigins(publicConfigured, nodeEnv);
+  return resolvePublicApiAllowedOrigins(publicConfigured);
 }
 
 export function isOriginAllowed(
