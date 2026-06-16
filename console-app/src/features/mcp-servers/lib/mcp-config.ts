@@ -1,12 +1,10 @@
-import { getApiBaseUrl } from "@/lib/api-config";
 import type { SetupGuideConfigPreset } from "../types";
 
-export function getMcpServerUrl(): string {
-  return `${getApiBaseUrl()}/mcp`;
-}
+/** Public MCP endpoint shown in setup guides (desktop clients use production). */
+export const MCP_SERVER_PUBLIC_URL = "https://api.kubeara.dev/api/mcp";
 
 export function getCursorMcpConfig(): string {
-  const mcpUrl = getMcpServerUrl();
+  const mcpUrl = MCP_SERVER_PUBLIC_URL;
   return `{
   "mcpServers": {
     "kubera": {
@@ -20,7 +18,7 @@ export function getCursorMcpConfig(): string {
 }
 
 export function getClaudeDesktopMcpConfig(): string {
-  const mcpUrl = getMcpServerUrl();
+  const mcpUrl = MCP_SERVER_PUBLIC_URL;
   return `{
   "mcpServers": {
     "kubera": {
@@ -47,7 +45,7 @@ export function getWindsurfMcpConfig(): string {
 }
 
 export function getAntigravityMcpConfig(): string {
-  const mcpUrl = getMcpServerUrl();
+  const mcpUrl = MCP_SERVER_PUBLIC_URL;
   return `{
   "mcpServers": {
     "kubera": {
