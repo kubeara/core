@@ -9,6 +9,18 @@ interface ImportMetaEnv {
   readonly VITE_DEBUG_DEPLOYMENT_SOCKETS?: string;
   /** Microsoft Clarity project ID (from Clarity project settings). */
   readonly VITE_CLARITY_PROJECT_ID?: string;
+  /** Sentry DSN for error monitoring (Project Settings → Client Keys). */
+  readonly VITE_SENTRY_DSN?: string;
+  /** Sentry environment label (defaults to Vite MODE). */
+  readonly VITE_SENTRY_ENVIRONMENT?: string;
+  /** Sentry release identifier (e.g. git SHA). */
+  readonly VITE_SENTRY_RELEASE?: string;
+  /** Performance trace sample rate between 0 and 1. */
+  readonly VITE_SENTRY_TRACES_SAMPLE_RATE?: string;
+  /** Session replay sample rate between 0 and 1. */
+  readonly VITE_SENTRY_REPLAYS_SESSION_SAMPLE_RATE?: string;
+  /** Set to "true" to enable verbose Sentry SDK console logging. */
+  readonly VITE_SENTRY_DEBUG?: string;
 }
 
 interface ImportMeta {

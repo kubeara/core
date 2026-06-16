@@ -98,13 +98,9 @@ export function useContainerActionMutation() {
         throw toApiError(error);
       }
     },
-    onSuccess: (data, { serverId, containerName, action }) => {
+    onSuccess: (_result, { serverId, containerName, action }) => {
       showSuccessToast(
-        getContainerActionSuccessMessage(
-          action,
-          containerName,
-          data.executedVia,
-        ),
+        getContainerActionSuccessMessage(action, containerName),
       );
       void queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.deployments.containers(serverId),

@@ -331,6 +331,7 @@ export function ServersTable() {
           <table
             className="servers-table-do"
             aria-busy={loading}
+            aria-label={loading ? "Loading servers" : undefined}
           >
             <thead>
               <tr>
