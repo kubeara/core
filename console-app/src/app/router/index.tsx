@@ -13,6 +13,7 @@ import { ProfilePage } from "@/pages/profile-page";
 import { RegisterPage } from "@/pages/register-page";
 import { ResetPasswordPage } from "@/pages/reset-password-page";
 import { ServerDetailPage } from "@/pages/server-detail-page";
+import { McpServersPage } from "@/pages/mcp-servers-page";
 import { ServersPage } from "@/pages/servers-page";
 import { TemplatesPage } from "@/pages/templates-page";
 
@@ -39,6 +40,7 @@ export function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/servers" element={<ServersPage />} />
+          <Route path="/mcp-servers" element={<McpServersPage />} />
           <Route path="/servers/:id" element={<ServerDetailPage />} />
           <Route
             path="/servers/:serverId/deploy/:templateSlug"
