@@ -1,4 +1,11 @@
-import { Controller, Get, Header, Param, Query, UseGuards } from "@nestjs/common";
+import {
+  Controller,
+  Get,
+  Header,
+  Param,
+  Query,
+  UseGuards,
+} from "@nestjs/common";
 
 import { KubearaPublicOriginGuard } from "@control-panel/common/guards/kubeara-public-origin.guard";
 

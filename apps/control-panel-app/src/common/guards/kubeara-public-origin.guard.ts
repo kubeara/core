@@ -31,7 +31,9 @@ export class KubearaPublicOriginGuard implements CanActivate {
     const requestOrigin = resolveRequestOrigin(request);
 
     if (!requestOrigin || !isOriginAllowed(requestOrigin, allowedOrigins)) {
-      throw new ForbiddenException("Sorry, this endpoint is not available from your origin.");
+      throw new ForbiddenException(
+        "Sorry, this endpoint is not available from your origin.",
+      );
     }
 
     return true;
