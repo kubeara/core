@@ -1,0 +1,180 @@
+# documentation: https://docs.goauthentik.io/install-config/install/docker-compose
+# shortDescription: Open-source identity provider with SSO and MFA
+# longDescription: <p>Authentik is an open-source <strong>identity provider</strong> for SSO, OAuth2, SAML, and MFA.</p><p>Includes PostgreSQL and Redis with server and worker containers. Secrets use <code>SERVICE_PASSWORD_AUTHENTIK</code> and <code>SERVICE_BASE64_64_AUTHENTIK</code>. Complete the setup wizard on first launch at port 9000.</p>
+# category: security,auth,iam
+# tags: authentik,sso,oauth,saml,mfa,iam,identity,authentication
+# logo: svgs/authentik.svg
+# port: 9000
+
+services:
+  server:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2025.8.6}
+    restart: ${AUTHENTIK_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_AUTHENTIK:-9000}:9000'
+
+    command: server
+
+    environment:
+      - SERVICE_URL_AUTHENTIK_9000
+      - AUTHENTIK_SECRET_KEY=${SERVICE_BASE64_64_AUTHENTIK}
+      - AUTHENTIK_REDIS__HOST=redis
+      - AUTHENTIK_POSTGRESQL__HOST=postgresql
+      - AUTHENTIK_POSTGRESQL__USER=${SERVICE_USER_AUTHENTIK}
+      - AUTHENTIK_POSTGRESQL__NAME=${AUTHENTIK_DB_NAME:-authentik}
+      - AUTHENTIK_POSTGRESQL__PASSWORD=${SERVICE_PASSWORD_AUTHENTIK}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - authentik_media:/media
+      - authentik_templates:/templates
+
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:9000/-/health/live/ || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  worker:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server}:${AUTHENTIK_TAG:-2025.8.6}
+    restart: ${AUTHENTIK_WORKER_RESTART_POLICY:-unless-stopped}
+
+    command: worker
+
+    environment:
+      - AUTHENTIK_SECRET_KEY=${SERVICE_BASE64_64_AUTHENTIK}
+      - AUTHENTIK_REDIS__HOST=redis
+      - AUTHENTIK_POSTGRESQL__HOST=postgresql
+      - AUTHENTIK_POSTGRESQL__USER=${SERVICE_USER_AUTHENTIK}
+      - AUTHENTIK_POSTGRESQL__NAME=${AUTHENTIK_DB_NAME:-authentik}
+      - AUTHENTIK_POSTGRESQL__PASSWORD=${SERVICE_PASSWORD_AUTHENTIK}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - authentik_media:/media
+      - authentik_certs:/certs
+      - authentik_templates:/templates
+
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'ak healthcheck || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgresql:
+    image: ${AUTHENTIK_POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${AUTHENTIK_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      POSTGRES_DB: ${AUTHENTIK_DB_NAME:-authentik}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_AUTHENTIK}
+      POSTGRES_USER: ${SERVICE_USER_AUTHENTIK}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - authentik_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -d $$POSTGRES_DB -U $$POSTGRES_USER']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: ${AUTHENTIK_REDIS_IMAGE:-redis:alpine}
+    restart: ${AUTHENTIK_REDIS_RESTART_POLICY:-unless-stopped}
+
+    command: --save 60 1 --loglevel warning
+
+    volumes:
+      - authentik_redis_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli ping | grep PONG']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  authentik_media:
+  authentik_certs:
+  authentik_templates:
+  authentik_postgres_data:
+  authentik_redis_data:

@@ -1,0 +1,189 @@
+# documentation: https://docs.affine.pro/self-host-affine/install/docker-compose-recommend
+# shortDescription: Open-source knowledge base and workspace
+# longDescription: <p>AFFiNE is an open-source <strong>all-in-one workspace</strong> for docs, whiteboards, and knowledge management.</p><p>Includes PostgreSQL (pgvector), Redis, and a one-shot migration job. Set <code>AFFINE_SERVER_EXTERNAL_URL</code> via <code>SERVICE_URL_AFFINE</code>. Create the first admin account on first launch.</p>
+# category: productivity,collaboration,notes
+# tags: affine,notes,docs,whiteboard,knowledge-base,collaboration,workspace
+# logo: svgs/affine.svg
+# port: 3010
+
+configs:
+  affine_config_json:
+    content: |
+      {
+        "$$schema": "https://github.com/toeverything/affine/releases/latest/download/config.schema.json",
+        "server": {
+          "name": "AFFiNE Self Hosted Server"
+        }
+      }
+
+services:
+  affine:
+    image: ${AFFINE_IMAGE:-ghcr.io/toeverything/affine}:${AFFINE_REVISION:-stable}
+    restart: ${AFFINE_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_AFFINE:-3010}:3010'
+
+    environment:
+      - SERVICE_URL_AFFINE_3010
+      - REDIS_SERVER_HOST=redis
+      - DATABASE_URL=postgresql://${SERVICE_USER_AFFINE}:${SERVICE_PASSWORD_AFFINE}@postgres:5432/${AFFINE_DB_NAME:-affine}
+      - AFFINE_INDEXER_ENABLED=false
+      - AFFINE_SERVER_EXTERNAL_URL=${SERVICE_URL_AFFINE:-${SERVICE_URL_AFFINE_3010}}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - affine_storage:/root/.affine/storage
+      - affine_config:/root/.affine/config
+
+    configs:
+      - source: affine_config_json
+        target: /root/.affine/config/config.json
+
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      affine_migration:
+        condition: service_completed_successfully
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "require('http').get('http://127.0.0.1:3010/api/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  affine_migration:
+    image: ${AFFINE_IMAGE:-ghcr.io/toeverything/affine}:${AFFINE_REVISION:-stable}
+    restart: ${AFFINE_MIGRATION_RESTART_POLICY:-no}
+
+    command: ['sh', '-c', 'npx prisma migrate deploy && node ./dist/main.js run']
+
+    environment:
+      - REDIS_SERVER_HOST=redis
+      - DATABASE_URL=postgresql://${SERVICE_USER_AFFINE}:${SERVICE_PASSWORD_AFFINE}@postgres:5432/${AFFINE_DB_NAME:-affine}
+      - AFFINE_INDEXER_ENABLED=false
+      - SERVER_FLAVOR=script
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - affine_storage:/root/.affine/storage
+      - affine_config:/root/.affine/config
+
+    configs:
+      - source: affine_config_json
+        target: /root/.affine/config/config.json
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'exit 0']
+      interval: 5s
+      timeout: 3s
+      retries: 1
+      start_period: 5s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: ${AFFINE_REDIS_IMAGE:-redis:7.4-alpine}
+    restart: ${AFFINE_REDIS_RESTART_POLICY:-unless-stopped}
+
+    healthcheck:
+      test: ['CMD', 'redis-cli', '--raw', 'incr', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${AFFINE_POSTGRES_IMAGE:-pgvector/pgvector:pg16}
+    restart: ${AFFINE_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      POSTGRES_DB: ${AFFINE_DB_NAME:-affine}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_AFFINE}
+      POSTGRES_USER: ${SERVICE_USER_AFFINE}
+      POSTGRES_INITDB_ARGS: '--data-checksums'
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - affine_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  affine_storage:
+  affine_config:
+  affine_postgres_data:

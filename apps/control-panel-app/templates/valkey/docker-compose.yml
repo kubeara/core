@@ -1,0 +1,49 @@
+# documentation: https://valkey.io/docs/
+# shortDescription: Redis-compatible in-memory data structure store
+# longDescription: <p>Valkey is an open-source, <strong>Redis-compatible</strong> in-memory data store for caching, pub/sub, sessions, and queues.</p><p>Password authentication uses <code>SERVICE_PASSWORD_VALKEY</code>. Data persists with AOF under <code>/data</code>.</p>
+# category: cache,database
+# tags: valkey,redis,cache,key-value,in-memory
+# logo: svgs/valkey.svg
+# port: 6379
+
+services:
+  valkey:
+    image: ${VALKEY_IMAGE:-valkey/valkey:8}
+    restart: ${VALKEY_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_VALKEY:-6379}:6379'
+
+    command: >
+      sh -c "exec valkey-server --requirepass \"$$VALKEY_PASSWORD\" --appendonly yes"
+
+    environment:
+      VALKEY_PASSWORD: ${SERVICE_PASSWORD_VALKEY}
+
+    volumes:
+      - valkey_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'valkey-cli -a "$$VALKEY_PASSWORD" ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  valkey_data:

@@ -14,6 +14,9 @@ services:
     ports:
       - '${SERVICE_PORT_PROMETHEUS:-9090}:9090'
 
+    environment:
+      - SERVICE_URL_PROMETHEUS_9090
+
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'

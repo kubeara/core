@@ -1,0 +1,96 @@
+# documentation: https://docs.drone.io/server/overview/
+# shortDescription: Container-native continuous integration platform
+# longDescription: <p>Drone CI is a lightweight <strong>continuous integration</strong> platform built for containers and Kubernetes.</p><p>Includes a Docker runner. Configure a Git forge OAuth app (GitHub, Gitea, GitLab, etc.) before first use. Uses embedded SQLite by default.</p>
+# category: development,ci,devops
+# tags: drone,ci,cd,continuous-integration,docker,devops,pipeline
+# logo: svgs/drone.svg
+# port: 80
+
+services:
+  drone:
+    image: ${DRONE_IMAGE:-drone/drone:2}
+    restart: ${DRONE_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_DRONE_CI:-80}:80'
+
+    environment:
+      - SERVICE_URL_DRONE_CI_80
+      - DRONE_SERVER_HOST=${SERVICE_FQDN_DRONE_CI:-${SERVICE_FQDN_DRONE_CI_80:-localhost}}
+      - DRONE_SERVER_PROTO=${DRONE_SERVER_PROTO:-http}
+      - DRONE_RPC_SECRET=${SERVICE_PASSWORD_DRONE_CI}
+      - DRONE_DATABASE_DRIVER=sqlite3
+      - DRONE_DATABASE_DATASOURCE=/data/database.sqlite
+      - DRONE_GITHUB_CLIENT_ID=${DRONE_GITHUB_CLIENT_ID:-configure-me}
+      - DRONE_GITHUB_CLIENT_SECRET=${DRONE_GITHUB_CLIENT_SECRET:-configure-me}
+      - DRONE_LOGS_DEBUG=${DRONE_LOGS_DEBUG:-false}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - drone_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://127.0.0.1/healthz || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  drone-runner:
+    image: ${DRONE_RUNNER_IMAGE:-drone/drone-runner-docker:1}
+    restart: ${DRONE_RUNNER_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - DRONE_RPC_PROTO=http
+      - DRONE_RPC_HOST=drone
+      - DRONE_RPC_SECRET=${SERVICE_PASSWORD_DRONE_CI}
+      - DRONE_RUNNER_CAPACITY=${DRONE_RUNNER_CAPACITY:-2}
+      - DRONE_RUNNER_NAME=${DRONE_RUNNER_NAME:-docker-runner}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    depends_on:
+      drone:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://127.0.0.1:3000/healthz || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  drone_data:

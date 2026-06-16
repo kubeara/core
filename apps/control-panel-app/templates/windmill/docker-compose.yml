@@ -1,0 +1,133 @@
+# documentation: https://www.windmill.dev/docs/advanced/self_host
+# shortDescription: Developer platform for scripts, flows, and apps
+# longDescription: <p>Windmill is an open-source <strong>developer platform</strong> for building and running scripts, flows, and internal apps with scheduling and webhooks.</p><p>Includes PostgreSQL and a default worker. Set <code>BASE_URL</code> via <code>SERVICE_URL_WINDMILL</code> for OAuth and webhooks. Default login: <code>admin@windmill.dev</code> / <code>changeme</code>.</p>
+# category: automation,workflow
+# tags: windmill,workflow,automation,scripts,flows,developer
+# logo: svgs/windmill.svg
+# port: 8000
+
+services:
+  windmill:
+    image: ${WINDMILL_IMAGE:-ghcr.io/windmill-labs/windmill:1.661.0}
+    restart: ${WINDMILL_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_WINDMILL:-8000}:8000'
+
+    environment:
+      - SERVICE_URL_WINDMILL_8000
+      - DATABASE_URL=postgres://${SERVICE_USER_WINDMILL}:${SERVICE_PASSWORD_WINDMILL}@postgres:5432/${WINDMILL_DB_NAME:-windmill}?sslmode=disable
+      - MODE=server
+      - BASE_URL=${SERVICE_URL_WINDMILL:-${SERVICE_URL_WINDMILL_8000}}
+      - SILENCE_HEALTH_LOGS=${WINDMILL_SILENCE_HEALTH_LOGS:-true}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - windmill_worker_logs:/tmp/windmill/logs
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8000/api/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  windmill-worker:
+    image: ${WINDMILL_IMAGE:-ghcr.io/windmill-labs/windmill:1.661.0}
+    restart: ${WINDMILL_WORKER_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - DATABASE_URL=postgres://${SERVICE_USER_WINDMILL}:${SERVICE_PASSWORD_WINDMILL}@postgres:5432/${WINDMILL_DB_NAME:-windmill}?sslmode=disable
+      - MODE=worker
+      - WORKER_GROUP=default
+      - METRICS_ADDR=${WINDMILL_WORKER_METRICS_ADDR:-0.0.0.0:8001}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - windmill_worker_cache:/tmp/windmill/cache
+      - windmill_worker_logs:/tmp/windmill/logs
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8001/ready || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1536M
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${WINDMILL_POSTGRES_IMAGE:-postgres:16}
+    restart: ${WINDMILL_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      POSTGRES_USER: ${SERVICE_USER_WINDMILL}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_WINDMILL}
+      POSTGRES_DB: ${WINDMILL_DB_NAME:-windmill}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - windmill_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  windmill_postgres_data:
+  windmill_worker_cache:
+  windmill_worker_logs:
