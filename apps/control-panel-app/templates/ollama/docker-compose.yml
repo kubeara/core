@@ -1,6 +1,6 @@
 # documentation: https://github.com/ollama/ollama/blob/main/docs/docker.md
 # shortDescription: Run open-source LLMs locally
-# longDescription: <p>Ollama runs <strong>open-source large language models</strong> locally with a simple HTTP API.</p><p>Models persist under <code>/root/.ollama</code>. Pull models after deploy with <code>ollama pull &lt;model&gt;</code>.</p>
+# longDescription: <p>Ollama runs <strong>open-source large language models</strong> locally with a simple HTTP API.</p><p>On first deploy, a one-shot init job pulls <code>llama3.2</code> automatically. Models persist under <code>/root/.ollama</code>. Override with <code>OLLAMA_MODEL</code> if needed.</p>
 # category: ai,llm
 # tags: ollama,ai,llm,local,inference,models
 # logo: svgs/ollama.svg
@@ -25,17 +25,60 @@ services:
       test: ['CMD', 'ollama', 'list']
       interval: 15s
       timeout: 10s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 60s
 
     deploy:
       resources:
         limits:
           cpus: '2.0'
-          memory: 2G
+          memory: 4G
         reservations:
           cpus: '0.5'
-          memory: 512M
+          memory: 1G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  ollama-model-init:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    restart: ${OLLAMA_MODEL_INIT_RESTART_POLICY:-no}
+
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+    network_mode: service:ollama
+
+    environment:
+      - OLLAMA_HOST=127.0.0.1:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - ollama_data:/root/.ollama
+
+    # Image ENTRYPOINT is already "ollama" — command is only subcommand + model name.
+    command: ['pull', '${OLLAMA_MODEL:-llama3.2}']
+
+    healthcheck:
+      test: ['CMD-SHELL', 'exit 0']
+      interval: 5s
+      timeout: 3s
+      retries: 1
+      start_period: 5s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
 
     logging:
       driver: json-file
