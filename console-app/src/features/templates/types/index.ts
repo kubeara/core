@@ -12,7 +12,7 @@ export interface ApiTemplate {
   name: string;
   shortDescription: string | null;
   longDescription?: string | null;
-  category: string | null;
+  category: string[] | null;
   tags: string[] | null;
   logo?: string | null;
   port: number | null;

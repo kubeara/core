@@ -306,6 +306,7 @@ function ServerFormContent({
                 </FormFieldLabel>
                 <textarea
                   id="server-private-key"
+                  className="server-private-key-input"
                   value={addForm.privateKey}
                   onChange={(e) => {
                     setAddForm((prev) => ({
@@ -315,8 +316,11 @@ function ServerFormContent({
                     clearFieldError("private-key");
                   }}
                   disabled={loading}
-                  rows={3}
-                  placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                  rows={4}
+                  placeholder={
+                    "-----BEGIN OPENSSH PRIVATE KEY-----\n...\n-----END OPENSSH PRIVATE KEY-----"
+                  }
+                  spellCheck={false}
                   aria-invalid={fieldErrors["private-key"] ? true : undefined}
                   aria-describedby={
                     fieldErrors["private-key"]
@@ -438,7 +442,7 @@ export function ServerFormModal({
   return (
     <div className="modal-overlay" role="presentation" onClick={onClose}>
       <div
-        className="modal-dialog modal-dialog-wide"
+        className="modal-dialog modal-dialog-server"
         role="dialog"
         aria-modal="true"
         aria-labelledby="server-modal-title"

@@ -7,6 +7,7 @@ import {
   KUBEARA_TERMINAL_THEME,
 } from "@/components/shared/kubeara-terminal-theme";
 import type { DeploymentLogLine } from "@/features/deployments/types";
+import { formatDeploymentLogAnsi } from "@/features/deployments/utils/format-deployment-log-ansi";
 
 const SCROLL_STICK_THRESHOLD_PX = 48;
 
@@ -117,10 +118,7 @@ export function DeploymentTerminalViewer({
       const messages = line.message.split(/\r?\n/);
       for (const msg of messages) {
         if (msg === "") continue;
-        const colored =
-          line.stream === "stderr"
-            ? `\x1b[38;5;203m${msg}\x1b[0m`
-            : msg;
+        const colored = formatDeploymentLogAnsi(msg, line.stream);
         term.writeln(colored);
       }
     }

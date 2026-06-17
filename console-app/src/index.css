@@ -197,6 +197,7 @@ a:hover {
 }
 
 .form-field input {
+  width: 100%;
   padding: 0.625rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -210,6 +211,15 @@ a:hover {
 .form-field input:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.form-field input::placeholder,
+.modal-form textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 0.9375rem;
+  font-weight: 400;
 }
 
 .form-field input:disabled {
@@ -622,6 +632,10 @@ a:hover {
   max-width: 560px;
 }
 
+.modal-dialog-server {
+  max-width: 640px;
+}
+
 .modal-advanced-section {
   display: flex;
   flex-direction: column;
@@ -675,6 +689,19 @@ a:hover {
 
 .modal-form textarea:focus {
   border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.server-private-key-input {
+  min-height: 6.75rem;
+  resize: none;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.server-private-key-input::-webkit-scrollbar {
+  display: none;
 }
 
 .modal-header {
@@ -712,6 +739,10 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 0.875rem;
+}
+
+.modal-form .modal-actions {
+  padding: 0;
 }
 
 .modal-form .form-field select {
