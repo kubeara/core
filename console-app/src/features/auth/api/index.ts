@@ -13,6 +13,7 @@ import type {
   LoginRequest,
   MessageResponse,
   ResetPasswordRequest,
+  ResendOtpRequest,
   SignupRequest,
   SignupResponse,
   VerifyOtpRequest,
@@ -86,6 +87,16 @@ export async function forgotPassword(
 ): Promise<MessageResponse> {
   const response = await apiClient.post<AuthApiResponse>(
     "/auth/forgot-password",
+    input,
+  );
+  return { message: response.data.message };
+}
+
+export async function resendOtp(
+  input: ResendOtpRequest,
+): Promise<MessageResponse> {
+  const response = await apiClient.post<AuthApiResponse>(
+    "/auth/resend-otp",
     input,
   );
   return { message: response.data.message };

@@ -7,6 +7,7 @@ import { DeployConfigurePage } from "@/pages/deploy-configure-page";
 import { DeployLogsPage } from "@/pages/deploy-logs-page";
 import { ContainerLogsPage } from "@/pages/container-logs-page";
 import { ForgotPasswordPage } from "@/pages/forgot-password-page";
+import { ForgotPasswordVerifyPage } from "@/pages/forgot-password-verify-page";
 import { LoginPage } from "@/pages/login-page";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { ProfilePage } from "@/pages/profile-page";
@@ -16,6 +17,7 @@ import { ServerDetailPage } from "@/pages/server-detail-page";
 import { McpServersPage } from "@/pages/mcp-servers-page";
 import { ServersPage } from "@/pages/servers-page";
 import { TemplatesPage } from "@/pages/templates-page";
+import { VerifyEmailPage } from "@/pages/verify-email-page";
 
 const SentryRoutes = Sentry.withSentryReactRouterV7Routing(Routes);
 
@@ -33,6 +35,8 @@ export function AppRoutes() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/forgot-password/verify" element={<ForgotPasswordVerifyPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
         </Route>
       </Route>

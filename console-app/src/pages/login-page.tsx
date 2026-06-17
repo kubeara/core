@@ -3,7 +3,7 @@ import { useState } from "react";
 import { AuthCard } from "@/features/auth/components/auth-card";
 import { AuthForm } from "@/features/auth/components/auth-form";
 import { useLoginMutation } from "@/features/auth/hooks";
-import { getErrorMessage } from "@/api/api-error";
+import { getErrorMessage, toApiError } from "@/api/api-error";
 import { validateEmail, validateRequired } from "@/lib/validation";
 
 /**
@@ -52,6 +52,14 @@ export function LoginPage() {
             const from = searchParams.get("from") ?? "/servers";
             navigate(from, { replace: true });
         } catch (err) {
+            const apiError = toApiError(err);
+            if (apiError.message.toLowerCase().includes("email not verified")) {
+                navigate(
+                    `/verify-email?email=${encodeURIComponent(email.trim())}`,
+                    { replace: true },
+                );
+                return;
+            }
             setError(getErrorMessage(err));
         }
     }
@@ -88,6 +96,7 @@ export function LoginPage() {
                 submitLabel="Sign in"
                 onSubmit={handleSubmit}
                 error={error}
+                errorAfterFields
                 fieldErrors={fieldErrors}
                 loading={loginMutation.isPending}
             >

@@ -1,10 +1,11 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { AuthCard } from "@/features/auth/components/auth-card";
 import { AuthForm } from "@/features/auth/components/auth-form";
 import { useForgotPasswordMutation } from "@/features/auth/hooks";
 import { getErrorMessage } from "@/api/api-error";
 import { validateEmail } from "@/lib/validation";
+import { showSuccessToast } from "@/lib/toast";
 
 /**
  * Forgot password page component.
@@ -16,16 +17,15 @@ import { validateEmail } from "@/lib/validation";
  * - Error handling and display
  */
 export function ForgotPasswordPage() {
+    const navigate = useNavigate();
     const forgotMutation = useForgotPasswordMutation();
     const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState<string | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
     async function handleSubmit(formData: FormData) {
         setError(null);
-        setSuccess(null);
 
-        const email = String(formData.get("email") ?? "");
+        const email = String(formData.get("email") ?? "").trim();
         const emailError = validateEmail(email);
         if (emailError) {
             setFieldErrors({ email: emailError });
@@ -34,10 +34,11 @@ export function ForgotPasswordPage() {
         setFieldErrors({});
 
         try {
-            const data = await forgotMutation.mutateAsync({
-                email: String(formData.get("email") ?? "").trim(),
+            const data = await forgotMutation.mutateAsync({ email });
+            showSuccessToast(data.message);
+            navigate(`/forgot-password/verify?email=${encodeURIComponent(email)}`, {
+                replace: true,
             });
-            setSuccess(data.message);
         } catch (err) {
             setError(getErrorMessage(err));
         }
@@ -64,11 +65,11 @@ export function ForgotPasswordPage() {
                         placeholder: "you@company.com",
                     },
                 ]}
-                submitLabel="Send reset link"
+                submitLabel="Send verification code"
                 onSubmit={handleSubmit}
                 error={error}
+                errorAfterFields
                 fieldErrors={fieldErrors}
-                success={success}
                 loading={forgotMutation.isPending}
             />
         </AuthCard>

@@ -122,6 +122,14 @@ export class AuthController {
   }
 
   /**
+   * Resend registration OTP
+   */
+  @Post("resend-otp")
+  async resendOtp(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.resendOtp(forgotPasswordDto.email);
+  }
+
+  /**
    * Verify OTP
    */
   @Post("verify-otp")

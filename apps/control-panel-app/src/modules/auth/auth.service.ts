@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, IsNull, Repository } from "typeorm";
+import { DataSource, Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import dayjs from "dayjs";
 import * as bcrypt from "bcrypt";
@@ -31,6 +31,7 @@ import { SALT_ROUNDS } from "@control-panel/constants/env.constant";
 import { isJwtToken } from "./utils/cookie-extractor.util";
 import { hashToken } from "./utils/token-hash.util";
 import { AuthSessionLookupService } from "./services/auth-session-lookup.service";
+import { EmailService } from "../email/email.service";
 
 export interface AuthTokens {
   accessToken: string;
@@ -53,6 +54,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly authSessionLookupService: AuthSessionLookupService,
+    private readonly emailService: EmailService,
   ) {}
 
   private resolveRefreshExpiresIn(): StringValue {
@@ -68,6 +70,80 @@ export class AuthService {
       throw new Error(`Invalid refresh token expiry: ${expiresIn}`);
     }
     return dayjs().add(expiresInMs, "millisecond").unix();
+  }
+
+  private getOtpExpiresAt(): number {
+    const expiresIn = this.configService.getOrThrow<StringValue>("OTP_EXPIRES_IN");
+    const expiresInMs = ms(expiresIn);
+    if (typeof expiresInMs !== "number") {
+      throw new Error(`Invalid OTP expiry: ${expiresIn}`);
+    }
+    return dayjs().add(expiresInMs, "millisecond").unix();
+  }
+
+  private async replaceOtp(userId: string, codeType: CODE_TYPE): Promise<void> {
+    await this.userCodeRepository.update(
+      {
+        userId,
+        codeType,
+        status: EntityStatus.ACTIVE,
+      },
+      {
+        status: EntityStatus.INACTIVE,
+      },
+    );
+  }
+
+  private async createOtpRecord(
+    userId: string,
+    codeType: CODE_TYPE,
+  ): Promise<{ otp: string }> {
+    await this.replaceOtp(userId, codeType);
+
+    const otp = GenerateOTP();
+    const otpHash = await bcrypt.hash(otp, SALT_ROUNDS);
+
+    await this.userCodeRepository.save(
+      this.userCodeRepository.create({
+        userId,
+        codeType,
+        otpHash,
+        expiresAt: this.getOtpExpiresAt(),
+        attempts: 0,
+      }),
+    );
+
+    return { otp };
+  }
+
+  private async sendOtpEmail(user: UserEntity, codeType: CODE_TYPE, otp: string) {
+    const purposeLabel =
+      codeType === CODE_TYPE.EMAIL_VERIFICATION
+        ? "Email verification"
+        : "Password reset";
+
+    await this.emailService.sendOtpEmail({
+      toEmail: user.email,
+      toName: user.name,
+      otp,
+      purposeLabel,
+    });
+  }
+
+  private async getLatestActiveOtpRecord(
+    userId: string,
+    codeType: CODE_TYPE,
+  ): Promise<UserCodeEntity | null> {
+    return this.userCodeRepository.findOne({
+      where: {
+        userId,
+        codeType,
+        status: EntityStatus.ACTIVE,
+      },
+      order: {
+        createdAt: "DESC",
+      },
+    });
   }
 
   /**
@@ -165,7 +241,7 @@ export class AuthService {
 
       const savedOrganization = await organizationRepository.save(organization);
 
-      const passwordHash = await bcrypt.hash(signupDto.password, 10);
+      const passwordHash = await bcrypt.hash(signupDto.password, SALT_ROUNDS);
 
       const userRepository = queryRunner.manager.getRepository(UserEntity);
 
@@ -175,13 +251,20 @@ export class AuthService {
         passwordHash,
         organizationId: savedOrganization.id,
         signUpAt: dayjs().unix(),
-        isEmailVerified: true,
-        emailVerifiedAt: dayjs().unix(),
+        isEmailVerified: false,
+        emailVerifiedAt: undefined,
+        dateOfBirth: undefined,
       });
 
       const savedUser = await userRepository.save(user);
 
       await queryRunner.commitTransaction();
+
+      const { otp } = await this.createOtpRecord(
+        savedUser.id,
+        CODE_TYPE.EMAIL_VERIFICATION,
+      );
+      await this.sendOtpEmail(savedUser, CODE_TYPE.EMAIL_VERIFICATION, otp);
 
       return {
         message: SUCCESS_MESSAGES.AUTH.SIGNUP,
@@ -232,6 +315,10 @@ export class AuthService {
     );
     if (!isPasswordValid) {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_CREDENTIALS);
+    }
+
+    if (!user.isEmailVerified) {
+      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.EMAIL_NOT_VERIFIED);
     }
 
     user.lastLoginAt = dayjs().valueOf();
@@ -407,41 +494,37 @@ export class AuthService {
     });
 
     if (!user) {
-      return {
-        message: SUCCESS_MESSAGES.AUTH.OTP_SENT,
-      };
+      throw new NotFoundException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
     }
 
-    await this.userCodeRepository.update(
-      {
-        userId: user.id,
-        codeType: CODE_TYPE.FORGOT_PASSWORD,
-        verifiedAt: IsNull(),
-      },
-      {
-        status: EntityStatus.INACTIVE,
-      },
+    const { otp } = await this.createOtpRecord(
+      user.id,
+      CODE_TYPE.FORGOT_PASSWORD,
     );
-
-    const otp = GenerateOTP();
-
-    const otpHash = await bcrypt.hash(otp, 10);
-
-    await this.userCodeRepository.save(
-      this.userCodeRepository.create({
-        userId: user.id,
-        codeType: CODE_TYPE.FORGOT_PASSWORD,
-        otpHash,
-        expiresAt: dayjs().add(10, "minute").unix(),
-        attempts: 0,
-      }),
-    );
+    await this.sendOtpEmail(user, CODE_TYPE.FORGOT_PASSWORD, otp);
 
     return {
       message: SUCCESS_MESSAGES.AUTH.OTP_SENT,
-      data: {
-        otp,
-      },
+    };
+  }
+
+  async resendOtp(email: string) {
+    const user = await this.userRepository.findOne({
+      where: { email: email.toLowerCase().trim() },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
+    }
+
+    const { otp } = await this.createOtpRecord(
+      user.id,
+      CODE_TYPE.EMAIL_VERIFICATION,
+    );
+    await this.sendOtpEmail(user, CODE_TYPE.EMAIL_VERIFICATION, otp);
+
+    return {
+      message: SUCCESS_MESSAGES.AUTH.OTP_RESENT,
     };
   }
 
@@ -459,16 +542,7 @@ export class AuthService {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
     }
 
-    const otpRecord = await this.userCodeRepository.findOne({
-      where: {
-        userId: user.id,
-        codeType: CODE_TYPE.FORGOT_PASSWORD,
-        status: EntityStatus.ACTIVE,
-      },
-      order: {
-        createdAt: "DESC",
-      },
-    });
+    const otpRecord = await this.getLatestActiveOtpRecord(user.id, verifyOtpDto.purpose);
 
     if (!otpRecord) {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
@@ -496,6 +570,12 @@ export class AuthService {
 
     await this.userCodeRepository.save(otpRecord);
 
+    if (verifyOtpDto.purpose === CODE_TYPE.EMAIL_VERIFICATION) {
+      user.isEmailVerified = true;
+      user.emailVerifiedAt = dayjs().unix();
+      await this.userRepository.save(user);
+    }
+
     return {
       message: SUCCESS_MESSAGES.AUTH.OTP_VERIFIED,
     };
@@ -515,16 +595,10 @@ export class AuthService {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
     }
 
-    const otpRecord = await this.userCodeRepository.findOne({
-      where: {
-        userId: user.id,
-        codeType: CODE_TYPE.FORGOT_PASSWORD,
-        status: EntityStatus.ACTIVE,
-      },
-      order: {
-        createdAt: "DESC",
-      },
-    });
+    const otpRecord = await this.getLatestActiveOtpRecord(
+      user.id,
+      CODE_TYPE.FORGOT_PASSWORD,
+    );
 
     if (!otpRecord?.verifiedAt) {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.OTP_NOT_VERIFIED);
@@ -542,6 +616,15 @@ export class AuthService {
     otpRecord.status = EntityStatus.INACTIVE;
 
     await this.userCodeRepository.save(otpRecord);
+    await this.userCodeRepository.update(
+      {
+        userId: user.id,
+        codeType: CODE_TYPE.FORGOT_PASSWORD,
+      },
+      {
+        status: EntityStatus.INACTIVE,
+      },
+    );
 
     await this.revokeAllUserSessions(user.id);
 

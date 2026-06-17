@@ -2,9 +2,11 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
 import { AuthCard } from "@/features/auth/components/auth-card";
 import { PasswordField } from "@/components/shared/password-field";
+import { FormErrorsSummary } from "@/components/shared/form-errors-summary";
 import { useResetPasswordMutation } from "@/features/auth/hooks";
 import { getErrorMessage } from "@/api/api-error";
 import { validatePassword } from "@/lib/validation";
+import { showSuccessToast } from "@/lib/toast";
 
 export function ResetPasswordPage() {
     const navigate = useNavigate();
@@ -15,7 +17,6 @@ export function ResetPasswordPage() {
     const [error, setError] = useState<string | null>(
         email ? null : "Missing email parameter.",
     );
-    const [success, setSuccess] = useState<string | null>(null);
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -45,7 +46,7 @@ export function ResetPasswordPage() {
                 email,
                 newPassword: password,
             });
-            setSuccess(data.message);
+            showSuccessToast(data.message);
 
             setTimeout(() => {
                 navigate("/login", { replace: true });
@@ -95,8 +96,7 @@ export function ResetPasswordPage() {
                             {fieldErrors.confirmPassword}
                         </p>
                     )}
-                    {error && <p className="form-message error">{error}</p>}
-                    {success && <p className="form-message success">{success}</p>}
+                    <FormErrorsSummary formError={error} />
                     <button
                         type="submit"
                         className="btn-primary"

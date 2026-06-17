@@ -70,7 +70,10 @@ export function RegisterPage() {
                 password,
             });
 
-            navigate("/login", { replace: true });
+            navigate(
+                `/verify-email?email=${encodeURIComponent(email.trim())}`,
+                { replace: true },
+            );
         } catch (err) {
             setError(getErrorMessage(err));
         }
@@ -87,7 +90,6 @@ export function RegisterPage() {
             }
         >
             <form onSubmit={handleSubmit} className="auth-form" noValidate>
-                <FormErrorsSummary formError={error} />
                 <div className="form-field">
                     <FormFieldLabel htmlFor="name" required>
                         Full name
@@ -172,6 +174,7 @@ export function RegisterPage() {
                     disabled={signupMutation.isPending}
                     error={fieldErrors.confirmPassword}
                 />
+                <FormErrorsSummary formError={error} />
                 <button
                     type="submit"
                     className="btn-primary"
