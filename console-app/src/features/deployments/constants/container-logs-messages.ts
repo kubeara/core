@@ -49,8 +49,8 @@ export function mapContainerLogsErrorMessage(errorMessage: string): string {
   }
 
   if (normalized.includes("log stream") || normalized.includes("streaming failed")) {
-    return errorMessage.trim() || "Log streaming failed.";
+    return "Log streaming failed.";
   }
 
-  return errorMessage.trim() || "Could not load container logs.";
+  return "Could not load container logs.";
 }
