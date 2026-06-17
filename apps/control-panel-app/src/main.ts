@@ -8,6 +8,7 @@ import { ConfigService } from "@nestjs/config";
 import { ValidationPipe } from "@nestjs/common";
 
 import { AppModule } from "./app.module";
+import { buildCorsOptions } from "./common/config/cors.util";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
 
@@ -152,10 +153,7 @@ async function bootstrap(): Promise<void> {
 
   app.use(cookieParser());
 
-  app.enableCors({
-    origin: true,
-    credentials: true,
-  });
+  app.enableCors(buildCorsOptions(configService));
 
   app.useGlobalPipes(
     new ValidationPipe({
