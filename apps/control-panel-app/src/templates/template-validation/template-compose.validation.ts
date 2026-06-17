@@ -9,10 +9,6 @@ import {
 import * as yaml from "js-yaml";
 
 export interface TemplateComposeValidationOptions {
-  /** Maximum allowed CPU cores per service (limits.cpus). */
-  maxCpuCores?: number;
-  /** Maximum allowed memory per service in bytes (limits.memory). */
-  maxMemoryBytes?: number;
   /** Maximum allowed log file size in bytes (logging.options.max-size). */
   maxLogFileSizeBytes?: number;
   /** Maximum allowed rotated log file count. */
@@ -50,8 +46,6 @@ export interface TemplateValidationResult {
 
 export const DEFAULT_TEMPLATE_COMPOSE_POLICY: Required<TemplateComposeValidationOptions> =
   {
-    maxCpuCores: 2,
-    maxMemoryBytes: 2 * 1024 * 1024 * 1024,
     maxLogFileSizeBytes: 50 * 1024 * 1024,
     maxLogFileCount: 10,
     requiredLogMaxSize: "10m",
@@ -209,7 +203,6 @@ function validateServices(
       validateResourceLimits(
         service.deploy,
         `${basePath}.deploy.resources`,
-        policy,
         issues,
       );
     }
@@ -439,7 +432,6 @@ function formatComposeValue(value: unknown): string {
 function validateResourceLimits(
   deploy: unknown,
   path: string,
-  policy: Required<TemplateComposeValidationOptions>,
   issues: TemplateValidationIssue[],
 ): void {
   if (!deploy || typeof deploy !== "object" || Array.isArray(deploy)) {
@@ -477,19 +469,6 @@ function validateResourceLimits(
       path: `${path}.limits.cpus`,
       message: "Resource limit cpus is required",
     });
-  } else {
-    const cpuCores = parseCpuToCores(formatComposeValue(cpu));
-    if (cpuCores === null) {
-      issues.push({
-        path: `${path}.limits.cpus`,
-        message: `Invalid cpu limit value: ${formatComposeValue(cpu)}`,
-      });
-    } else if (cpuCores > policy.maxCpuCores) {
-      issues.push({
-        path: `${path}.limits.cpus`,
-        message: `Cpu limit ${formatComposeValue(cpu)} exceeds platform maximum of ${policy.maxCpuCores} cores`,
-      });
-    }
   }
 
   if (memory === undefined || memory === null || memory === "") {
@@ -497,19 +476,6 @@ function validateResourceLimits(
       path: `${path}.limits.memory`,
       message: "Resource limit memory is required",
     });
-  } else {
-    const memoryBytes = parseMemoryToBytes(formatComposeValue(memory));
-    if (memoryBytes === null) {
-      issues.push({
-        path: `${path}.limits.memory`,
-        message: `Invalid memory limit value: ${formatComposeValue(memory)}`,
-      });
-    } else if (memoryBytes > policy.maxMemoryBytes) {
-      issues.push({
-        path: `${path}.limits.memory`,
-        message: `Memory limit ${formatComposeValue(memory)} exceeds platform maximum of ${formatBytes(policy.maxMemoryBytes)}`,
-      });
-    }
   }
 }
 
