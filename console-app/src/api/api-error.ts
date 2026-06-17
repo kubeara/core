@@ -97,6 +97,21 @@ export function extractMessageFromBody(
     return null;
 }
 
+export function extractRetryAfterSeconds(
+    data: Record<string, unknown> | undefined,
+): number | null {
+    if (!data) {
+        return null;
+    }
+
+    const value = data.retryAfterSeconds;
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+        return Math.ceil(value);
+    }
+
+    return null;
+}
+
 /**
  * Extract a human-readable error message from various error types.
  *
@@ -133,6 +148,10 @@ export function getErrorMessage(error: unknown): string {
 
         if (error.response.status === 403) {
             return "You do not have permission to perform this action.";
+        }
+
+        if (error.response.status === 429) {
+            return "Too many requests. Please try again later.";
         }
 
         return error.message || "Request failed";

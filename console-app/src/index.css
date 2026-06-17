@@ -276,6 +276,14 @@ a:hover {
   font-size: 0.875rem;
 }
 
+.auth-form-note {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
 .verify-email-address {
   margin: 0;
   font-size: 0.9375rem;

@@ -6,13 +6,29 @@ import { FormErrorsSummary } from "@/components/shared/form-errors-summary";
 import {
   OTP_CODE_TYPE,
   OTP_RESEND_COOLDOWN_SECONDS,
+  OTP_RESEND_MAX_ATTEMPTS,
+  OTP_RESEND_WINDOW_MS,
 } from "@/features/auth/constants";
+import {
+  clearOtpResendLimitState,
+  getOtpResendRetrySecondsForState,
+  loadOtpResendLimitState,
+  recordOtpResend,
+  startOtpWindow,
+  syncOtpResendLimitFromApiError,
+} from "@/features/auth/utils/otp-resend-limit";
 import {
   useForgotPasswordMutation,
   useVerifyOtpMutation,
 } from "@/features/auth/hooks";
-import { getErrorMessage } from "@/api/api-error";
+import {
+  extractRetryAfterSeconds,
+  getErrorMessage,
+  toApiError,
+} from "@/api/api-error";
 import { showSuccessToast } from "@/lib/toast";
+
+const OTP_RESEND_FLOW = "forgot-password" as const;
 
 export function ForgotPasswordVerifyPage() {
   const navigate = useNavigate();
@@ -27,8 +43,62 @@ export function ForgotPasswordVerifyPage() {
     email ? null : "Missing email parameter.",
   );
   const [cooldown, setCooldown] = useState(OTP_RESEND_COOLDOWN_SECONDS);
+  console.log("🚀 ~ ForgotPasswordVerifyPage ~ OTP_RESEND_COOLDOWN_SECONDS -> ", OTP_RESEND_COOLDOWN_SECONDS)
+  const [resendLimitState, setResendLimitState] = useState(() =>
+    loadOtpResendLimitState(email, OTP_RESEND_FLOW),
+  );
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState(0);
+
+  const resendCount = resendLimitState.count;
+  const isResendLimitReached = resendCount >= OTP_RESEND_MAX_ATTEMPTS;
+  const retryAfterMinutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
 
   const isPending = verifyMutation.isPending || resendMutation.isPending;
+
+  useEffect(() => {
+    if (email) {
+      setResendLimitState(startOtpWindow(email, OTP_RESEND_FLOW));
+    }
+  }, [email]);
+
+  useEffect(() => {
+    if (!email || resendLimitState.startedAt <= 0) {
+      return;
+    }
+
+    const elapsed = Date.now() - resendLimitState.startedAt;
+    const remaining = OTP_RESEND_WINDOW_MS - elapsed;
+
+    if (remaining <= 0) {
+      clearOtpResendLimitState(email, OTP_RESEND_FLOW);
+      setResendLimitState({ count: 0, startedAt: 0 });
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      clearOtpResendLimitState(email, OTP_RESEND_FLOW);
+      setResendLimitState({ count: 0, startedAt: 0 });
+    }, remaining);
+
+    return () => window.clearTimeout(timer);
+  }, [email, resendLimitState.startedAt]);
+
+  useEffect(() => {
+    if (!isResendLimitReached || resendLimitState.startedAt <= 0) {
+      setRetryAfterSeconds(0);
+      return;
+    }
+
+    function updateRetryAfterSeconds() {
+      setRetryAfterSeconds(
+        getOtpResendRetrySecondsForState(resendLimitState.startedAt),
+      );
+    }
+
+    updateRetryAfterSeconds();
+    const interval = window.setInterval(updateRetryAfterSeconds, 1000);
+    return () => window.clearInterval(interval);
+  }, [isResendLimitReached, resendLimitState.startedAt]);
 
   useEffect(() => {
     if (cooldown <= 0) {
@@ -67,7 +137,12 @@ export function ForgotPasswordVerifyPage() {
   }
 
   async function handleResend() {
-    if (!email || cooldown > 0 || resendMutation.isPending) {
+    if (
+      !email ||
+      cooldown > 0 ||
+      resendMutation.isPending ||
+      isResendLimitReached
+    ) {
       return;
     }
 
@@ -78,7 +153,18 @@ export function ForgotPasswordVerifyPage() {
       showSuccessToast(data.message);
       setCooldown(OTP_RESEND_COOLDOWN_SECONDS);
       setOtp("");
+      setResendLimitState(recordOtpResend(email, OTP_RESEND_FLOW));
     } catch (err) {
+      const apiError = toApiError(err);
+      if (apiError.status === 429) {
+        setResendLimitState(
+          syncOtpResendLimitFromApiError(
+            email,
+            OTP_RESEND_FLOW,
+            extractRetryAfterSeconds(apiError.body) ?? undefined,
+          ),
+        );
+      }
       setError(getErrorMessage(err));
     }
   }
@@ -86,7 +172,16 @@ export function ForgotPasswordVerifyPage() {
   return (
     <AuthCard
       title="Verify your email"
-      subtitle="Enter the 6-digit code sent to your email address."
+      subtitle={
+        email ? (
+          <>
+            <p className="verify-email-address">{email}</p>
+            <p>Enter the 6-digit code sent to your email address.</p>
+          </>
+        ) : (
+          "Enter the 6-digit code sent to your email address."
+        )
+      }
       footer={
         <p>
           <Link to="/login">Back to sign in</Link>
@@ -96,7 +191,6 @@ export function ForgotPasswordVerifyPage() {
       {email ? (
         <form onSubmit={handleVerify} className="auth-form" noValidate>
           <FormErrorsSummary formError={error} />
-          <p className="verify-email-address">{email}</p>
           <div className="form-field">
             <label>Verification code</label>
             <OtpInput
@@ -119,14 +213,22 @@ export function ForgotPasswordVerifyPage() {
             type="button"
             className="btn-secondary"
             onClick={handleResend}
-            disabled={isPending || cooldown > 0}
+            disabled={isPending || cooldown > 0 || isResendLimitReached}
           >
             {resendMutation.isPending
               ? "Please wait…"
-              : cooldown > 0
-                ? `Resend code in ${cooldown}s`
-                : "Resend code"}
+              : isResendLimitReached
+                ? "Resend limit reached"
+                : cooldown > 0
+                  ? `Resend code in ${cooldown}s`
+                  : "Resend code"}
           </button>
+          {isResendLimitReached && retryAfterSeconds > 0 && (
+            <p className="auth-form-note">
+              You have reached the resend limit. Try again after{" "}
+              {retryAfterMinutes} minute{retryAfterMinutes === 1 ? "" : "s"}.
+            </p>
+          )}
         </form>
       ) : (
         <p className="form-message error">{error}</p>

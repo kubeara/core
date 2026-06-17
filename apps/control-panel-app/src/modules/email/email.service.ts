@@ -40,8 +40,8 @@ export class EmailService {
       },
       to: [
         {
-        email: input.toEmail,
-        ...(input.toName ? { name: input.toName } : {}),
+          email: input.toEmail,
+          ...(input.toName ? { name: input.toName } : {}),
         },
       ],
     });

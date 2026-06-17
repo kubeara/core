@@ -21,6 +21,9 @@ interface ImportMetaEnv {
   readonly VITE_SENTRY_REPLAYS_SESSION_SAMPLE_RATE?: string;
   /** Set to "true" to enable verbose Sentry SDK console logging. */
   readonly VITE_SENTRY_DEBUG?: string;
+  readonly VITE_RESEND_OTP_MINUTES?: string;
+  readonly VITE_RESEND_OTP_MAX_ATTEMPTS?: string;
+  readonly VITE_RESEND_OTP_COOLDOWN_SECONDS?: string;
 }
 
 interface ImportMeta {

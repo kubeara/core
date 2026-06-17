@@ -9,7 +9,42 @@ export const OTP_CODE_TYPE = {
 export type OtpCodeType =
   (typeof OTP_CODE_TYPE)[keyof typeof OTP_CODE_TYPE];
 
-export const OTP_RESEND_COOLDOWN_SECONDS = 60;
+const parsedResendCooldownSeconds = Number(
+  import.meta.env.VITE_RESEND_OTP_COOLDOWN_SECONDS,
+);
+export const OTP_RESEND_COOLDOWN_SECONDS =
+  Number.isFinite(parsedResendCooldownSeconds) && parsedResendCooldownSeconds > 0
+    ? parsedResendCooldownSeconds
+    : 60;
+
+export const OTP_RESEND_MAX_ATTEMPTS = (() => {
+  const parsed = Number(import.meta.env.VITE_RESEND_OTP_MAX_ATTEMPTS);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
+})();
+
+const parsedResendWindowMinutes = Number(import.meta.env.VITE_RESEND_OTP_MINUTES);
+export const OTP_RESEND_WINDOW_MINUTES =
+  Number.isFinite(parsedResendWindowMinutes) && parsedResendWindowMinutes > 0
+    ? parsedResendWindowMinutes
+    : 15;
+export const OTP_RESEND_WINDOW_MS = OTP_RESEND_WINDOW_MINUTES * 60 * 1000;
+
+export function getOtpResendRetrySecondsRemaining(startedAt: number): number {
+  const remaining = OTP_RESEND_WINDOW_MS - (Date.now() - startedAt);
+  return Math.max(1, Math.ceil(remaining / 1000));
+}
+
+export function getOtpResendRetryMinutesRemaining(startedAt: number): number {
+  return Math.max(1, Math.ceil(getOtpResendRetrySecondsRemaining(startedAt) / 60));
+}
+
+export const AUTH_TOAST_MESSAGES = {
+  OTP_SENT: "Verification code sent to your email.",
+  OTP_RESENT: "A new verification code has been sent to your email.",
+  EMAIL_VERIFIED: "Your email has been verified. You can sign in now.",
+  RESET_CODE_VERIFIED: "Code verified. You can set a new password.",
+  PASSWORD_RESET: "Your password has been updated. You can sign in now.",
+} as const;
 
 /** BroadcastChannel name for cross-tab auth synchronization */
 export const AUTH_BROADCAST_CHANNEL = "kubeara-auth";

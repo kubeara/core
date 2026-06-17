@@ -1,11 +1,13 @@
 import {
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   UnauthorizedException,
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, Repository } from "typeorm";
+import { DataSource, MoreThan, Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import dayjs from "dayjs";
 import * as bcrypt from "bcrypt";
@@ -73,12 +75,91 @@ export class AuthService {
   }
 
   private getOtpExpiresAt(): number {
-    const expiresIn = this.configService.getOrThrow<StringValue>("OTP_EXPIRES_IN");
+    const expiresIn =
+      this.configService.getOrThrow<StringValue>("OTP_EXPIRES_IN");
     const expiresInMs = ms(expiresIn);
     if (typeof expiresInMs !== "number") {
       throw new Error(`Invalid OTP expiry: ${expiresIn}`);
     }
     return dayjs().add(expiresInMs, "millisecond").unix();
+  }
+
+  private getOtpResendMaxAttempts(): number {
+    const parsed = Number(this.configService.get("OTP_RESEND_MAX_ATTEMPTS", 3));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
+  }
+
+  private getOtpResendWindowSeconds(): number {
+    const parsed = Number(
+      this.configService.get("OTP_RESEND_WINDOW_MINUTES", 15),
+    );
+    const minutes = Number.isFinite(parsed) && parsed > 0 ? parsed : 15;
+    return minutes * 60;
+  }
+
+  private async countOtpSendsInWindow(
+    userId: string,
+    codeType: CODE_TYPE,
+  ): Promise<number> {
+    const windowStart = dayjs().unix() - this.getOtpResendWindowSeconds();
+
+    return this.userCodeRepository.count({
+      where: {
+        userId,
+        codeType,
+        createdAt: MoreThan(windowStart),
+      },
+    });
+  }
+
+  private async getOtpResendRetryAfterSeconds(
+    userId: string,
+    codeType: CODE_TYPE,
+  ): Promise<number> {
+    const windowStart = dayjs().unix() - this.getOtpResendWindowSeconds();
+    const oldest = await this.userCodeRepository.findOne({
+      where: {
+        userId,
+        codeType,
+        createdAt: MoreThan(windowStart),
+      },
+      order: {
+        createdAt: "ASC",
+      },
+    });
+
+    if (!oldest) {
+      return this.getOtpResendWindowSeconds();
+    }
+
+    const windowEnd =
+      Number(oldest.createdAt) + this.getOtpResendWindowSeconds();
+    return Math.max(1, windowEnd - dayjs().unix());
+  }
+
+  private async assertOtpResendAllowed(
+    userId: string,
+    codeType: CODE_TYPE,
+  ): Promise<void> {
+    const sendCount = await this.countOtpSendsInWindow(userId, codeType);
+    if (sendCount >= 1 + this.getOtpResendMaxAttempts()) {
+      const retryAfterSeconds = await this.getOtpResendRetryAfterSeconds(
+        userId,
+        codeType,
+      );
+      const retryMinutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
+
+      throw new HttpException(
+        {
+          message: ERROR_MESSAGES.AUTH.OTP_RESEND_LIMIT_REACHED.replace(
+            "{minutes}",
+            String(retryMinutes),
+          ),
+          retryAfterSeconds,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
   }
 
   private async replaceOtp(userId: string, codeType: CODE_TYPE): Promise<void> {
@@ -116,7 +197,11 @@ export class AuthService {
     return { otp };
   }
 
-  private async sendOtpEmail(user: UserEntity, codeType: CODE_TYPE, otp: string) {
+  private async sendOtpEmail(
+    user: UserEntity,
+    codeType: CODE_TYPE,
+    otp: string,
+  ) {
     const purposeLabel =
       codeType === CODE_TYPE.EMAIL_VERIFICATION
         ? "Email verification"
@@ -497,6 +582,8 @@ export class AuthService {
       throw new NotFoundException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
     }
 
+    await this.assertOtpResendAllowed(user.id, CODE_TYPE.FORGOT_PASSWORD);
+
     const { otp } = await this.createOtpRecord(
       user.id,
       CODE_TYPE.FORGOT_PASSWORD,
@@ -505,6 +592,7 @@ export class AuthService {
 
     return {
       message: SUCCESS_MESSAGES.AUTH.OTP_SENT,
+      data: null,
     };
   }
 
@@ -517,6 +605,8 @@ export class AuthService {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
     }
 
+    await this.assertOtpResendAllowed(user.id, CODE_TYPE.EMAIL_VERIFICATION);
+
     const { otp } = await this.createOtpRecord(
       user.id,
       CODE_TYPE.EMAIL_VERIFICATION,
@@ -525,6 +615,7 @@ export class AuthService {
 
     return {
       message: SUCCESS_MESSAGES.AUTH.OTP_RESENT,
+      data: null,
     };
   }
 
@@ -542,7 +633,10 @@ export class AuthService {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
     }
 
-    const otpRecord = await this.getLatestActiveOtpRecord(user.id, verifyOtpDto.purpose);
+    const otpRecord = await this.getLatestActiveOtpRecord(
+      user.id,
+      verifyOtpDto.purpose,
+    );
 
     if (!otpRecord) {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
@@ -576,8 +670,14 @@ export class AuthService {
       await this.userRepository.save(user);
     }
 
+    const message =
+      verifyOtpDto.purpose === CODE_TYPE.EMAIL_VERIFICATION
+        ? SUCCESS_MESSAGES.AUTH.EMAIL_VERIFIED
+        : SUCCESS_MESSAGES.AUTH.RESET_CODE_VERIFIED;
+
     return {
-      message: SUCCESS_MESSAGES.AUTH.OTP_VERIFIED,
+      message,
+      data: null,
     };
   }
 
@@ -630,6 +730,7 @@ export class AuthService {
 
     return {
       message: SUCCESS_MESSAGES.AUTH.PASSWORD_RESET,
+      data: null,
     };
   }
 }
