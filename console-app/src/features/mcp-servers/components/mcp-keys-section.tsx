@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { getErrorMessage } from "@/api/api-error";
+import { GENERIC_ERROR_MESSAGE } from "@/api/api-error";
 import { McpKeysTableSkeleton } from "@/components/shared/skeleton";
 import { formatApiTimestamp } from "@/lib/unix-timestamp";
 import {
@@ -92,7 +92,6 @@ export function McpKeysSection() {
     isPending,
     isFetching,
     isError,
-    error,
   } = useMcpApiKeysQuery();
   const revokeMutation = useRevokeMcpApiKeyMutation();
 
@@ -128,7 +127,7 @@ export function McpKeysSection() {
 
         {isError && (
           <p className="form-field-error" role="alert">
-            {getErrorMessage(error)}
+            {GENERIC_ERROR_MESSAGE}
           </p>
         )}
 
