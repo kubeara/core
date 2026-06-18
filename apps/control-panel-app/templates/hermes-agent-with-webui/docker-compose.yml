@@ -1,0 +1,102 @@
+# documentation: https://github.com/nesquena/hermes-webui
+# shortDescription: Autonomous AI agent with persistent memory and web chat UI
+# longDescription: <p>Hermes Agent is an <strong>autonomous AI agent</strong> with scheduling, persistent memory, and a self-hosted web chat UI.</p><p>Web UI password uses <code>SERVICE_PASSWORD_HERMESWEBUI</code>. Provide at least one LLM provider API key (OpenRouter, Anthropic, or OpenAI).</p>
+# category: ai,agent
+# tags: ai,agent,llm,chatbot,hermes,openrouter,anthropic,openai
+# port: 8787
+
+services:
+  hermes-agent:
+    image: ${HERMES_AGENT_IMAGE:-nousresearch/hermes-agent@sha256:2f1f2f1725e5dc9a61cf6a2dea5aca52a776ec4d022cb29679e6aa3ff303e77a}
+    restart: ${HERMES_AGENT_RESTART_POLICY:-unless-stopped}
+
+    command: gateway run
+
+    environment:
+      - HERMES_HOME=/home/hermes/.hermes
+      - HERMES_UID=${HERMES_UID:-1000}
+      - HERMES_GID=${HERMES_GID:-1000}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-optional}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-optional}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-optional}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-optional}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - hermes_home:/home/hermes/.hermes
+      - hermes_agent_src:/opt/hermes
+
+    healthcheck:
+      test: ['CMD-SHELL', 'test -d /home/hermes/.hermes || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  hermes-webui:
+    image: ${HERMES_WEBUI_IMAGE:-ghcr.io/nesquena/hermes-webui:0.51.92}
+    restart: ${HERMES_WEBUI_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_HERMES_WEBUI:-8787}:8787'
+
+    depends_on:
+      hermes-agent:
+        condition: service_healthy
+
+    environment:
+      - SERVICE_URL_HERMES_WEBUI_8787
+      - HERMES_WEBUI_HOST=${HERMES_WEBUI_HOST:-0.0.0.0}
+      - HERMES_WEBUI_PORT=${HERMES_WEBUI_PORT:-8787}
+      - HERMES_WEBUI_STATE_DIR=/home/hermeswebui/.hermes/webui
+      - WANTED_UID=${HERMES_WEBUI_UID:-1000}
+      - WANTED_GID=${HERMES_WEBUI_GID:-1000}
+      - HERMES_WEBUI_PASSWORD=${SERVICE_PASSWORD_HERMESWEBUI}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - hermes_home:/home/hermeswebui/.hermes
+      - hermes_agent_src:/home/hermeswebui/.hermes/hermes-agent:ro
+      - hermes_workspace:/workspace
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8787/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  hermes_home:
+  hermes_agent_src:
+  hermes_workspace:

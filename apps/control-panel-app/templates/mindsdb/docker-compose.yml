@@ -1,0 +1,100 @@
+# documentation: https://docs.mindsdb.com/what-is-mindsdb
+# shortDescription: Platform for building AI from enterprise data
+# longDescription: <p>MindsDB is an <strong>AI data platform</strong> for building machine learning workflows over SQL databases and integrations.</p><p>Includes PostgreSQL for metadata storage. Data persists under <code>/mindsdb/var</code>. Optional provider keys can be set after deploy.</p>
+# category: ai,database
+# tags: mindsdb,ai,machine-learning,mysql,postgres,sql,analytics
+# logo: svgs/mindsdb.svg
+# port: 47334
+
+services:
+  mindsdb:
+    image: ${MINDSDB_IMAGE:-mindsdb/mindsdb:latest}
+    restart: ${MINDSDB_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_MINDSDB:-47334}:47334'
+      - '${SERVICE_PORT_MINDSDB_API:-47335}:47335'
+
+    environment:
+      - SERVICE_URL_MINDSDB_47334
+      - MINDSDB_DOCKER_ENV=true
+      - MINDSDB_STORAGE_DIR=/mindsdb/var
+      - FLASK_DEBUG=${MINDSDB_FLASK_DEBUG:-0}
+      - OPENAI_API_KEY=${MINDSDB_OPENAI_API_KEY:-user_provided}
+      - LANGFUSE_HOST=${MINDSDB_LANGFUSE_HOST:-disabled}
+      - LANGFUSE_PUBLIC_KEY=${MINDSDB_LANGFUSE_PUBLIC_KEY:-disabled}
+      - LANGFUSE_SECRET_KEY=${MINDSDB_LANGFUSE_SECRET_KEY:-disabled}
+      - LANGFUSE_RELEASE=${MINDSDB_LANGFUSE_RELEASE:-local}
+      - LANGFUSE_DEBUG=${MINDSDB_LANGFUSE_DEBUG:-false}
+      - LANGFUSE_TIMEOUT=${MINDSDB_LANGFUSE_TIMEOUT:-10}
+      - LANGFUSE_SAMPLE_RATE=${MINDSDB_LANGFUSE_SAMPLE_RATE:-1.0}
+      - MINDSDB_DB_CON=postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${POSTGRES_DB:-mindsdb}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - mindsdb_data:/mindsdb/var
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:47334/api/util/ping || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${MINDSDB_POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${MINDSDB_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_POSTGRES}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+      - POSTGRES_DB=${POSTGRES_DB:-mindsdb}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - mindsdb_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${SERVICE_USER_POSTGRES} -d ${POSTGRES_DB:-mindsdb}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  mindsdb_data:
+  mindsdb_postgres_data:

@@ -218,6 +218,25 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `appwrite/` | Backend-as-a-service with Traefik, MariaDB, Redis, workers, and executor on port 80 |
 | `flowise-with-databases/` | Flowise with PostgreSQL, Redis, and queue worker on port 3000 |
 | `langflow/` | Visual LLM IDE with PostgreSQL on port 7860 |
+| `label-studio/` | Data labeling and annotation platform with PostgreSQL on port 8080 |
+| `librechat/` | Multi-model AI chat UI with MongoDB, Meilisearch, pgvector, and RAG API on port 3080 |
+| `lobe-chat/` | Modern open-source AI chat UI on port 3210 |
+| `mage-ai/` | Data pipeline builder for ETL and transformations on port 6789 |
+| `mindsdb/` | AI platform over SQL data with PostgreSQL on ports 47334 and 47335 |
+| `bifrost/` | OpenAI-compatible AI gateway on port 8080 |
+| `comfyui/` | Node-based Stable Diffusion workflow UI on port 8188; requires NVIDIA GPU |
+| `continue-dev/` | Ollama backend for the Continue IDE extension on port 11434 |
+| `helicone/` | LLM observability stack (dashboard, API, MinIO) on port 3000 |
+| `hermes-agent-with-webui/` | Autonomous AI agent with web chat UI on port 8787 |
+| `lm-studio/` | Headless LM Studio daemon with OpenAI-compatible API on port 1234 |
+| `metamcp/` | MCP aggregator and gateway with PostgreSQL on port 12008 |
+| `openclaw/` | AI coding assistant with browser automation on port 8080 |
+| `stable-diffusion-webui/` | AUTOMATIC1111 Stable Diffusion WebUI on port 7860; requires NVIDIA GPU |
+| `tabby/` | Self-hosted AI coding assistant on port 8080 |
+| `argilla/` | Dataset annotation platform with PostgreSQL, Redis, Elasticsearch, and worker on port 6900 |
+| `dify/` | LLM app platform with API, worker, web, PostgreSQL, Redis, Weaviate, and sandbox on ports 3000 and 5001 |
+| `zep/` | Long-term memory for AI agents with PostgreSQL and NLP server on port 8000; web UI at `/admin` |
+| `unstructured/` | Document parsing and preprocessing API on port 8000 |
 
 ---
 

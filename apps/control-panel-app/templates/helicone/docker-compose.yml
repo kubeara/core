@@ -1,0 +1,52 @@
+# documentation: https://docs.helicone.ai/getting-started/self-host/docker
+# shortDescription: Open-source LLM observability and analytics platform
+# longDescription: <p>Helicone provides <strong>LLM tracing, analytics, and monitoring</strong> for production AI applications.</p><p>All-in-one image includes dashboard (3000), Jawn API (8585), and MinIO (9080). Auth secret uses <code>SERVICE_PASSWORD_64_HELICONE</code>.</p>
+# category: ai,observability
+# tags: helicone,ai,llm,observability,tracing,analytics
+# port: 3000
+
+services:
+  helicone:
+    image: ${HELICONE_IMAGE:-helicone/helicone-all-in-one:latest}
+    restart: ${HELICONE_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_HELICONE:-3000}:3000'
+      - '${SERVICE_PORT_HELICONE_JAWN:-8585}:8585'
+      - '${SERVICE_PORT_HELICONE_S3:-9080}:9080'
+
+    environment:
+      - SERVICE_URL_HELICONE_3000
+      - SITE_URL=${SERVICE_URL_HELICONE:-${SERVICE_URL_HELICONE_3000:-http://localhost:3000}}
+      - BETTER_AUTH_URL=${SERVICE_URL_HELICONE:-${SERVICE_URL_HELICONE_3000:-http://localhost:3000}}
+      - NEXT_PUBLIC_APP_URL=${SERVICE_URL_HELICONE:-${SERVICE_URL_HELICONE_3000:-http://localhost:3000}}
+      - BETTER_AUTH_SECRET=${SERVICE_PASSWORD_64_HELICONE}
+      - NEXT_PUBLIC_HELICONE_JAWN_SERVICE=${HELICONE_JAWN_PUBLIC_URL:-http://localhost:8585}
+      - NEXT_PUBLIC_IS_ON_PREM=${HELICONE_IS_ON_PREM:-true}
+      - S3_ENDPOINT=${HELICONE_S3_PUBLIC_URL:-http://localhost:9080}
+      - S3_ACCESS_KEY=${HELICONE_S3_ACCESS_KEY:-minioadmin}
+      - S3_SECRET_KEY=${HELICONE_S3_SECRET_KEY:-minioadmin}
+      - S3_BUCKET_NAME=${HELICONE_S3_BUCKET_NAME:-request-response-storage}
+      - TZ=${TZ:-UTC}
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:3000 || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

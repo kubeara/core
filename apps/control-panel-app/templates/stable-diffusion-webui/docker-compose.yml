@@ -1,0 +1,55 @@
+# documentation: https://github.com/AUTOMATIC1111/stable-diffusion-webui
+# shortDescription: AUTOMATIC1111 Stable Diffusion WebUI for image generation
+# longDescription: <p>AUTOMATIC1111 is a popular <strong>Stable Diffusion web UI</strong> for text-to-image and image-to-image generation.</p><p>Requires an NVIDIA GPU for practical use. Models persist under <code>/data/models</code>; outputs under <code>/data/outputs</code>.</p>
+# category: ai,image
+# tags: stable-diffusion,automatic1111,a1111,image-generation,ai,gpu
+# port: 7860
+
+services:
+  stable-diffusion-webui:
+    image: ${STABLE_DIFFUSION_WEBUI_IMAGE:-universonic/stable-diffusion-webui:latest}
+    restart: ${STABLE_DIFFUSION_WEBUI_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_STABLE_DIFFUSION_WEBUI:-7860}:7860'
+
+    environment:
+      - SERVICE_URL_STABLE_DIFFUSION_WEBUI_7860
+      - CLI_ARGS=${STABLE_DIFFUSION_WEBUI_CLI_ARGS:---listen --api --xformers}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - stable_diffusion_webui_models:/data/models
+      - stable_diffusion_webui_outputs:/data/outputs
+      - stable_diffusion_webui_extensions:/data/extensions
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:7860/ || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+          devices:
+            - driver: nvidia
+              count: ${STABLE_DIFFUSION_WEBUI_GPU_COUNT:-1}
+              capabilities: [gpu]
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  stable_diffusion_webui_models:
+  stable_diffusion_webui_outputs:
+  stable_diffusion_webui_extensions:
