@@ -7,10 +7,8 @@ import {
   KUBEARA_TERMINAL_FONT,
   KUBEARA_TERMINAL_THEME,
 } from "@/components/shared/kubeara-terminal-theme";
-import {
-  TerminalScrollDownButton,
-  useTerminalScrollDown,
-} from "@/components/shared/terminal-scroll-down-button";
+import { TerminalScrollDownButton } from "@/components/shared/terminal-scroll-down-button";
+import { useTerminalScrollDown } from "@/components/shared/use-terminal-scroll-down";
 import "@/components/shared/terminal-scroll-down-button.css";
 
 export type ServerTerminalViewerApi = {

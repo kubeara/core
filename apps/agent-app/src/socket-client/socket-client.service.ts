@@ -25,6 +25,8 @@ import {
   ContainerLogsStopPayload,
   ContainerLogsDataPayload,
   ContainerLogsErrorPayload,
+  AgentRemoveRequestPayload,
+  AgentRemoveResponsePayload,
 } from "@shared/socket-events";
 import { ContainerService } from "../container/container.service";
 import { ServerResourcesService } from "../server-resources/server-resources.service";
@@ -200,6 +202,7 @@ export class SocketClientService {
     this.socket.off(DeploymentEvents.TERMINAL_DISCONNECT);
     this.socket.off(DeploymentEvents.CONTAINER_LOGS_START);
     this.socket.off(DeploymentEvents.CONTAINER_LOGS_STOP);
+    this.socket.off(DeploymentEvents.AGENT_REMOVE);
 
     this.socket.on(DeploymentEvents.DEPLOY, (message: SocketDeployMessage) => {
       void this.handleDeployAction(message);
@@ -281,8 +284,15 @@ export class SocketClientService {
       },
     );
 
+    this.socket.on(
+      DeploymentEvents.AGENT_REMOVE,
+      (payload: AgentRemoveRequestPayload) => {
+        void this.handleAgentRemove(payload);
+      },
+    );
+
     this.logger.log(
-      `[AgentCapabilities] inbound handlers registered: deploy, remove, ${DeploymentEvents.CONTAINER_ACTION}, ${DeploymentEvents.CONTAINER_DISCOVER}, ${DeploymentEvents.SERVER_GET_RESOURCES}, ${DeploymentEvents.TERMINAL_CONNECT}, ${DeploymentEvents.CONTAINER_LOGS_START}`,
+      `[AgentCapabilities] inbound handlers registered: deploy, remove, ${DeploymentEvents.CONTAINER_ACTION}, ${DeploymentEvents.CONTAINER_DISCOVER}, ${DeploymentEvents.SERVER_GET_RESOURCES}, ${DeploymentEvents.TERMINAL_CONNECT}, ${DeploymentEvents.CONTAINER_LOGS_START}, ${DeploymentEvents.AGENT_REMOVE}`,
     );
   }
 
@@ -306,6 +316,7 @@ export class SocketClientService {
         DeploymentEvents.SERVER_GET_RESOURCES,
         DeploymentEvents.TERMINAL_CONNECT,
         DeploymentEvents.CONTAINER_LOGS_START,
+        DeploymentEvents.AGENT_REMOVE,
       ],
       version,
       timestamp: new Date().toISOString(),
@@ -524,7 +535,7 @@ export class SocketClientService {
   }
 
   /**
-   * Handles remove requests from control panel and tears down deployment resources.
+   * Handles terminal connect requests from the control panel.
    */
   private handleTerminalConnect(payload: TerminalConnectRequestPayload): void {
     const requestId = payload?.requestId?.trim() ?? "";
@@ -774,6 +785,66 @@ export class SocketClientService {
         error: msg,
       });
     }
+  }
+
+  /**
+   * Handles agent removal requests from the control panel.
+   */
+  private async handleAgentRemove(
+    payload: AgentRemoveRequestPayload,
+  ): Promise<void> {
+    const requestId = payload?.requestId?.trim() ?? "";
+    const installDir = payload?.installDir?.trim() || "/opt/kubeara/agent";
+    const agentImage = payload?.agentImage?.trim();
+
+    let response: AgentRemoveResponsePayload;
+
+    try {
+      if (!requestId) {
+        response = {
+          requestId: "",
+          success: false,
+          error: "Missing requestId",
+        };
+      } else {
+        const imageRefs = await this.executor.collectAgentRemovalTargets({
+          agentImage,
+        });
+        response = { requestId, success: true, imageRefs };
+
+        if (!this.socket?.connected) {
+          this.logger.warn(
+            "Cannot send agent remove result: socket disconnected",
+          );
+          return;
+        }
+
+        this.socket.emit(DeploymentEvents.AGENT_REMOVE_RESULT, response);
+        this.logger.log(
+          `Agent remove result sent requestId=${requestId} success=true imageRefs=${imageRefs.join(", ") || "none"}`,
+        );
+
+        void this.executor.runAgentRemovalAfterAck({
+          installDir,
+          imageRefs,
+        });
+        return;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Agent remove handler failed: ${message}`);
+      response = { requestId, success: false, error: message };
+    }
+
+    if (!this.socket?.connected) {
+      this.logger.warn("Cannot send agent remove result: socket disconnected");
+      return;
+    }
+
+    this.socket.emit(DeploymentEvents.AGENT_REMOVE_RESULT, response);
+    this.logger.log(
+      `Agent remove result sent requestId=${requestId} success=${response.success}${response.error ? ` error=${response.error}` : ""}`,
+    );
   }
 
   /**

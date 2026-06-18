@@ -9,6 +9,7 @@ import {
   NotFoundException,
   forwardRef,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import {
   DataSource,
   FindOneOptions,
@@ -97,13 +98,17 @@ import {
   OnboardSshServerInfo,
 } from "../utils/server-ssh-credential.util";
 import { isUUID } from "class-validator";
+import { DeploymentsService } from "@control-panel/modules/deployments/deployments.service";
+import {
+  AGENT_INSTALL,
+  AGENT_INSTALL_ENV_KEYS,
+} from "../constants/agent-install.constants";
+import { buildAgentHostCleanupShellCommand } from "../utils/agent-host-cleanup.util";
+import { SERVER_CONNECTIONS } from "../constants/server-connections.constants";
 
 @Injectable()
 export class ServerConnectionsService {
   private readonly logger = new Logger(ServerConnectionsService.name);
-
-  private static readonly SOCKET_RESOURCES_ATTEMPT_MS = 5_000;
-  private static readonly SOCKET_CONTAINER_DISCOVER_ATTEMPT_MS = 15_000;
 
   constructor(
     @InjectRepository(ServerEntity)
@@ -119,6 +124,9 @@ export class ServerConnectionsService {
     private readonly agentInstall: AgentInstallService,
     @Inject(forwardRef(() => DeploymentGateway))
     private readonly deploymentGateway: DeploymentGateway,
+    @Inject(forwardRef(() => DeploymentsService))
+    private readonly deploymentsService: DeploymentsService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -217,7 +225,7 @@ export class ServerConnectionsService {
         try {
           discovered = await this.deploymentGateway.requestContainerDiscovery(
             serverId,
-            ServerConnectionsService.SOCKET_CONTAINER_DISCOVER_ATTEMPT_MS,
+            SERVER_CONNECTIONS.SOCKET_CONTAINER_DISCOVER_ATTEMPT_MS,
           );
           this.logger.log(
             `[CONTAINER_DISCOVER] agent returned ${discovered.length} container(s) for server '${serverId}'`,
@@ -389,6 +397,170 @@ export class ServerConnectionsService {
   }
 
   /**
+   * Ensures the connected agent removes itself from the remote host (last step of server deletion).
+   */
+  private async removeAgentFromRemoteServer(serverId: string): Promise<void> {
+    const agentImage =
+      this.configService.get<string>(
+        AGENT_INSTALL_ENV_KEYS.KUBEARA_AGENT_IMAGE,
+      ) ?? AGENT_INSTALL.DEFAULT_IMAGE;
+
+    let imageRefs: string[] = [];
+
+    try {
+      if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+        await this.deploymentsService.ensureAgentConnectedForServer(serverId);
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Server delete: could not connect agent for removal on server '${serverId}': ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      await this.removeLeftoverAgentResourcesOnHost(
+        serverId,
+        imageRefs,
+        agentImage,
+      );
+      return;
+    }
+
+    if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+      this.logger.warn(
+        `Server delete: skipping agent socket removal — no connected agent for server '${serverId}'`,
+      );
+      await this.removeLeftoverAgentResourcesOnHost(
+        serverId,
+        imageRefs,
+        agentImage,
+      );
+      return;
+    }
+
+    try {
+      const removal = await this.deploymentGateway.requestAgentRemove(
+        serverId,
+        {
+          installDir: AGENT_INSTALL.REMOTE_DIR,
+          agentImage,
+        },
+      );
+      imageRefs = removal.imageRefs;
+      this.logger.log(
+        `Server delete: agent teardown acknowledged for server '${serverId}'`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Server delete: agent socket removal failed for server '${serverId}': ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+
+    await this.removeLeftoverAgentResourcesOnHost(
+      serverId,
+      imageRefs,
+      agentImage,
+    );
+  }
+
+  /**
+   * Force-removes leftover Kubeara agent containers, volumes, and images on the host.
+   * Uses local shell for local servers and SSH for remote servers when socket teardown did not finish the job.
+   */
+  private async removeLeftoverAgentResourcesOnHost(
+    serverId: string,
+    imageRefs: string[],
+    configuredImage: string,
+  ): Promise<void> {
+    const server = await this.serverRepository.findOne({
+      where: { id: serverId, deletedAt: IsNull() },
+    });
+
+    if (!server) {
+      return;
+    }
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, SERVER_CONNECTIONS.AGENT_TEARDOWN_SETTLE_MS),
+    );
+
+    const command = buildAgentHostCleanupShellCommand(imageRefs, {
+      installDir: AGENT_INSTALL.REMOTE_DIR,
+      configuredImage,
+    });
+
+    try {
+      if (server.serverType === ServerType.LOCAL) {
+        const host = new LocalAgentHostAdapter();
+        const result = await host.executeCommand(
+          command,
+          SERVER_CONNECTIONS.AGENT_IMAGE_REMOVE_TIMEOUT_MS,
+        );
+        if (!result.success) {
+          this.logger.warn(
+            `Server delete: local agent cleanup on '${serverId}' reported: ${
+              result.stderr?.trim() || result.stdout?.trim() || "unknown error"
+            }`,
+          );
+        } else {
+          this.logger.log(
+            `Server delete: completed local agent resource cleanup for server '${serverId}'`,
+          );
+        }
+        return;
+      }
+
+      const credential = await this.credentialRepository.findOne({
+        where: {
+          serverId,
+          status: EntityStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
+        order: { createdAt: "DESC" },
+      });
+
+      if (!credential) {
+        this.logger.warn(
+          `Server delete: SSH agent cleanup skipped — no credentials for server '${serverId}'`,
+        );
+        return;
+      }
+
+      const sshOptions = this.buildSshOptions(server, credential);
+      let client = this.sshManager.getConnection(serverId);
+      if (!client) {
+        client = await this.sshManager.connect(sshOptions);
+      }
+
+      const host = new SshAgentHostAdapter(client, this.executor);
+      const result = await host.executeCommand(
+        command,
+        SERVER_CONNECTIONS.AGENT_IMAGE_REMOVE_TIMEOUT_MS,
+      );
+
+      if (!result.success) {
+        this.logger.warn(
+          `Server delete: SSH agent cleanup on '${serverId}' reported: ${
+            result.stderr?.trim() || result.stdout?.trim() || "unknown error"
+          }`,
+        );
+        return;
+      }
+
+      this.logger.log(
+        `Server delete: completed SSH agent resource cleanup for server '${serverId}'`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Server delete: agent resource cleanup failed for server '${serverId}': ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
+  }
+
+  /**
    * Fetches on-demand server resource metrics.
    * Tries the connected agent via WebSocket first, then falls back to host SSH/local
    */
@@ -422,7 +594,7 @@ export class ServerConnectionsService {
         try {
           resources = await this.deploymentGateway.requestServerResources(
             serverId,
-            ServerConnectionsService.SOCKET_RESOURCES_ATTEMPT_MS,
+            SERVER_CONNECTIONS.SOCKET_RESOURCES_ATTEMPT_MS,
           );
           this.logger.log(
             `[SERVER_RESOURCES] agent returned metrics for server '${serverId}'`,
@@ -649,14 +821,23 @@ export class ServerConnectionsService {
    */
   private async restoreServer(
     serverId: string,
+    updates?: { name?: string },
   ): Promise<ServerSshCredentialEntity | null> {
-    await this.serverRepository.update(
-      { id: serverId },
-      {
-        status: EntityStatus.ACTIVE,
-        deletedAt: null,
-      },
-    );
+    const patch: {
+      status: EntityStatus;
+      deletedAt: null;
+      name?: string;
+    } = {
+      status: EntityStatus.ACTIVE,
+      deletedAt: null,
+    };
+
+    const trimmedName = updates?.name?.trim();
+    if (trimmedName) {
+      patch.name = trimmedName;
+    }
+
+    await this.serverRepository.update({ id: serverId }, patch);
 
     await this.credentialRepository.update(
       { serverId },
@@ -758,7 +939,9 @@ export class ServerConnectionsService {
 
     await this.updateInactiveCredentialFromInput(credential.id, ssh);
 
-    const restoredCredential = await this.restoreServer(existingServer.id);
+    const restoredCredential = await this.restoreServer(existingServer.id, {
+      name: input.server.name,
+    });
 
     if (!restoredCredential) {
       this.throwOnboardFailure({
@@ -1019,7 +1202,26 @@ export class ServerConnectionsService {
   async deleteServer(
     userId: string,
     id: string,
+    options?: { removeManagedServices?: boolean },
   ): Promise<ServiceResponse<{ deleted: true }>> {
+    const removeManagedServices = options?.removeManagedServices === true;
+
+    const server = await this.serverRepository.findOne({
+      where: { id, userId, deletedAt: IsNull() },
+    });
+
+    if (!server) {
+      throw new NotFoundException(ERROR_MESSAGES.SERVER.NOT_FOUND);
+    }
+
+    await this.deploymentsService.deactivateDeploymentsForServerDeletion(
+      id,
+      userId,
+      { removeManagedServices },
+    );
+
+    await this.removeAgentFromRemoteServer(id);
+
     const queryRunner = this.dataSource.createQueryRunner();
 
     await queryRunner.connect();
@@ -1031,15 +1233,6 @@ export class ServerConnectionsService {
         ServerSshCredentialEntity,
       );
 
-      const server = await serverRepo.findOne({
-        where: { id, userId, deletedAt: IsNull() },
-      });
-
-      if (!server) {
-        throw new NotFoundException(ERROR_MESSAGES.SERVER.NOT_FOUND);
-      }
-
-      // Disconnect active SSH session
       if (this.sshManager.isConnected(id)) {
         this.sshManager.disconnect(id);
       }
