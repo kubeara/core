@@ -40,6 +40,22 @@ export function getClaudeDesktopMcpConfig(): string {
 }`;
 }
 
+export function getVsCodeMcpConfig(): string {
+  const mcpUrl = MCP_SERVER_PUBLIC_URL;
+  return `{
+  "servers": {
+    "kubera": {
+      "url": "${mcpUrl}",
+      "type": "http",
+      "headers": {
+        "Authorization": "Bearer YOUR_TOKEN_HERE"
+      }
+    }
+  },
+  "inputs": []
+}`;
+}
+
 export function getWindsurfMcpConfig(): string {
   return getCursorMcpConfig();
 }
@@ -62,6 +78,9 @@ export function getMcpConfigForPreset(preset: SetupGuideConfigPreset): string {
   if (preset === "claude-desktop") {
     return getClaudeDesktopMcpConfig();
   }
+  if (preset === "vscode") {
+    return getVsCodeMcpConfig();
+  }
   if (preset === "windsurf") {
     return getWindsurfMcpConfig();
   }
@@ -74,6 +93,9 @@ export function getMcpConfigForPreset(preset: SetupGuideConfigPreset): string {
 export function getMcpConfigLabel(preset: SetupGuideConfigPreset): string {
   if (preset === "claude-desktop") {
     return "claude_desktop_config.json";
+  }
+  if (preset === "vscode") {
+    return "mcp.json";
   }
   if (preset === "windsurf") {
     return "mcp_config.json";
