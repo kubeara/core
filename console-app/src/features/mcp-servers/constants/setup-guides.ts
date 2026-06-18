@@ -1,4 +1,5 @@
 import type { SetupGuide } from "../types";
+import { MCP_SERVER_PUBLIC_URL } from "../lib/mcp-config";
 
 export const SETUP_GUIDES: SetupGuide[] = [
   {
@@ -114,6 +115,81 @@ export const SETUP_GUIDES: SetupGuide[] = [
     ],
     outro:
       "Claude Desktop is now connected to your Kubera workspace. Your AI assistant can list servers, check GPU metrics, get server status, and more — all from the chat window.",
+    available: true,
+  },
+  {
+    id: "vscode",
+    label: "VS Code with Copilot",
+    title: "Connecting Kubera to VS Code with Copilot via MCP",
+    intro:
+      "Connect VS Code to your Kubera workspace using the Model Context Protocol. Once set up, GitHub Copilot in VS Code can read server data, check statuses, and interact with your infrastructure directly from chat.",
+    requirements: [
+      "VS Code installed on your machine",
+      "GitHub Copilot extension enabled in VS Code",
+      "A Kubera account with MCP Server enabled",
+      "Your Kubera MCP token — generated from the MCP page",
+    ],
+    steps: [
+      {
+        title: "Open the Command Palette",
+        body: "Open VS Code. Press Ctrl + Shift + P (Windows/Linux) or Cmd + Shift + P (Mac) to open the Command Palette.",
+      },
+      {
+        title: "Add an MCP Server",
+        body: 'Type "add mcp" in the Command Palette and select MCP: Add Server.',
+      },
+      {
+        title: "Select HTTP Transport",
+        body: 'When prompted for the transport type, select HTTP from the dropdown and press Enter.',
+      },
+      {
+        title: "Enter the Kubera MCP URL",
+        body: "When prompted for the server URL, paste the Kubera MCP endpoint below and press Enter.",
+        example: MCP_SERVER_PUBLIC_URL,
+      },
+      {
+        title: "Name Your Server",
+        body: 'When prompted for a name, enter a short label such as kubera or Kubera MCP, then press Enter.',
+      },
+      {
+        title: "Dismiss the OAuth Popup",
+        body: 'VS Code may show a popup saying dynamic client registration is not supported. Click Cancel on that dialog — you may need to cancel twice. This is expected; Kubera uses a bearer token instead of OAuth.',
+      },
+      {
+        title: "Paste the Kubera Configuration",
+        body: "VS Code opens your mcp.json file. Replace its contents with the configuration below. Replace YOUR_TOKEN_HERE with the token generated on the Kubera MCP Servers page.",
+        configPreset: "vscode",
+        note: "Your token is shown only once on the Kubera dashboard. If you have lost it, go back to the MCP Servers page and generate a new one.",
+      },
+      {
+        title: "Save the File",
+        body: "Save mcp.json with Cmd + S (Mac) or Ctrl + S (Windows).",
+      },
+      {
+        title: "Start the MCP Server",
+        body: 'Press Ctrl + Shift + P (or Cmd + Shift + P on Mac) again, type "mcp list", and select MCP: List Servers. Choose your Kubera server from the list and select Start Server.',
+      },
+      {
+        title: "Verify the Connection",
+        body: "Check the VS Code terminal for connection logs — you should see your connected tools listed. Open a Copilot chat and ask about your servers. If it responds with your real data, you're all set.",
+      },
+    ],
+    troubleshooting: [
+      {
+        issue: "Dynamic client registration not supported popup",
+        fix: "Click Cancel on the popup, then add your bearer token in mcp.json as shown in the configuration step",
+      },
+      {
+        issue: "Kubera not showing in MCP server list",
+        fix: "Check that mcp.json is valid JSON and the Authorization header contains your token",
+      },
+      {
+        issue: "Token invalid or rejected",
+        fix: "MCP Servers page → revoke old key → generate a new one and update mcp.json",
+      },
+    ],
+    outro:
+      "VS Code is now connected to your Kubera workspace. Your AI assistant can list servers, check GPU metrics, get server status, and more — all from the Copilot chat window.",
     available: true,
   },
   {

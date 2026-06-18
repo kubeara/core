@@ -28,6 +28,7 @@ export type McpApiKeysApiResponse<T = unknown> = {
 export type SetupGuideConfigPreset =
   | "cursor"
   | "claude-desktop"
+  | "vscode"
   | "windsurf"
   | "antigravity";
 
