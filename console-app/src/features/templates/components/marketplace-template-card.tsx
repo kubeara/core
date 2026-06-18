@@ -43,9 +43,6 @@ export function MarketplaceTemplateCard({
           className="marketplace-card-icon"
         />
         <div className="marketplace-card-headline">
-          {template.category && (
-            <p className="marketplace-card-category">{template.category}</p>
-          )}
           <h3 className="marketplace-card-name">
             {template.name}
             {isDeployed ? (

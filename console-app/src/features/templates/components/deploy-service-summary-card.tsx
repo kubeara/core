@@ -1,6 +1,7 @@
 import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
 import type { ApiTemplate } from "../types";
 import { getTemplateAccentColor } from "../utils/deploy-form-schema";
+import { formatTemplateCategory } from "../utils/format-template-category";
 
 type DeployServiceSummaryCardProps = {
   template: ApiTemplate;
@@ -15,6 +16,7 @@ export function DeployServiceSummaryCard({
   serverId,
 }: DeployServiceSummaryCardProps) {
   const accent = getTemplateAccentColor(template.slug);
+  const categoryLabel = formatTemplateCategory(template.category);
 
   return (
     <article className="deploy-service-card">
@@ -33,8 +35,8 @@ export function DeployServiceSummaryCard({
           <div className="deploy-service-headline">
             <h1>{template.name}</h1>
           </div>
-          {template.category ? (
-            <p className="deploy-service-category">{template.category}</p>
+          {categoryLabel ? (
+            <p className="deploy-service-category">{categoryLabel}</p>
           ) : null}
           {template.shortDescription ? (
             <p className="deploy-service-description">{template.shortDescription}</p>
