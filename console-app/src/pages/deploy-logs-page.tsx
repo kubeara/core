@@ -15,6 +15,7 @@ import {
   subscribeDeploymentLogs,
 } from "@/lib/socket/deployment-socket-client";
 import { getTemplateAccentColor } from "@/features/templates/utils/deploy-form-schema";
+import { formatTemplateCategory } from "@/features/templates/utils/format-template-category";
 import type { DeployTemplateRequest } from "@/features/templates/types";
 import { DeployLogsPageSkeleton } from "@/components/shared/skeleton";
 import { buildServerDetailHref } from "@/features/servers/components/server-detail/utils/server-detail-tab-url";
@@ -145,7 +146,7 @@ export function DeployLogsPage() {
         id: template.slug,
         name: template.name,
         description: template.shortDescription ?? "",
-        category: template.category ?? "",
+        category: formatTemplateCategory(template.category) ?? "",
         color: getTemplateAccentColor(template.slug),
         logo: template.logo ?? null,
       }}
