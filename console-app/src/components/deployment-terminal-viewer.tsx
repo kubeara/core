@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
@@ -6,6 +6,11 @@ import {
   KUBEARA_TERMINAL_FONT,
   KUBEARA_TERMINAL_THEME,
 } from "@/components/shared/kubeara-terminal-theme";
+import {
+  TerminalScrollDownButton,
+  useTerminalScrollDown,
+} from "@/components/shared/terminal-scroll-down-button";
+import "@/components/shared/terminal-scroll-down-button.css";
 import type { DeploymentLogLine } from "@/features/deployments/types";
 import { formatDeploymentLogAnsi } from "@/features/deployments/utils/format-deployment-log-ansi";
 
@@ -135,6 +140,14 @@ export function DeploymentTerminalViewer({
     }
   }, [isLive, lines]);
 
+  const scrollToBottom = useCallback(() => {
+    stickToBottomRef.current = true;
+    termRef.current?.scrollToBottom();
+  }, []);
+
+  const { visible: showScrollDown, handleClick: handleScrollDown } =
+    useTerminalScrollDown(hostRef, scrollToBottom);
+
   return (
     <div
       className={`server-terminal-log-viewer${isEmpty ? " is-empty" : ""}${isActive ? " is-active" : ""}`}
@@ -145,7 +158,15 @@ export function DeploymentTerminalViewer({
           <span>{emptyMessage}</span>
         </div>
       )}
-      <div ref={hostRef} className="server-terminal-xterm-host" />
+      <div className="terminal-viewer-frame">
+        <div ref={hostRef} className="server-terminal-xterm-host" />
+        <TerminalScrollDownButton
+          visible={showScrollDown && !isEmpty}
+          onClick={handleScrollDown}
+          hostRef={hostRef}
+          tooltip="Go to latest output"
+        />
+      </div>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { getErrorMessage } from "@/api/api-error";
 import { useTemplatesQuery } from "../hooks";
-import { SkeletonGrid } from "@/components/shared/skeleton";
+import { SkeletonMarketplaceGrid } from "@/components/shared/skeleton";
 import { MarketplaceTemplateCard } from "./marketplace-template-card";
 import type { ApiTemplate } from "../types";
 import "../templates-ui.css";
@@ -23,7 +23,7 @@ export function ServerTemplatesPanel({
   }
 
   if (templatesQuery.isPending) {
-    return <SkeletonGrid count={6} label="Loading templates…" />;
+    return <SkeletonMarketplaceGrid count={6} label="Loading templates…" />;
   }
 
   if (templatesQuery.isError) {
