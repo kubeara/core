@@ -73,7 +73,11 @@
 }
 
 .server-terminal-intro .server-detail-section-title {
-  margin-bottom: 0;
+  margin: 0 0 0.25rem;
+}
+
+.server-terminal-intro .server-detail-section-desc {
+  margin: 0;
 }
 
 .server-terminal-session-host {
@@ -465,6 +469,7 @@
 
 .server-terminal-xterm-host .xterm-viewport {
   scrollbar-color: rgb(255 153 0 / 45%) transparent;
+  overscroll-behavior: contain;
 }
 
 @media (max-width: 720px) {

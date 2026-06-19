@@ -9,6 +9,7 @@ import {
 } from "@/components/shared/kubeara-terminal-theme";
 import { TerminalScrollDownButton } from "@/components/shared/terminal-scroll-down-button";
 import { useTerminalScrollDown } from "@/components/shared/use-terminal-scroll-down";
+import { useTerminalWheelTrap } from "@/components/shared/use-terminal-wheel-trap";
 import "@/components/shared/terminal-scroll-down-button.css";
 
 export type ServerTerminalViewerApi = {
@@ -37,6 +38,7 @@ export function ServerTerminalViewer({
   onReady,
 }: ServerTerminalViewerProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const onDataRef = useRef(onData);
@@ -158,8 +160,10 @@ export function ServerTerminalViewer({
   const { visible: showScrollDown, handleClick: handleScrollDown } =
     useTerminalScrollDown(hostRef, scrollToBottom);
 
+  useTerminalWheelTrap(frameRef);
+
   return (
-    <div className="terminal-viewer-frame">
+    <div ref={frameRef} className="terminal-viewer-frame">
       <div ref={hostRef} className="server-terminal-xterm-host" />
       <TerminalScrollDownButton
         visible={showScrollDown}

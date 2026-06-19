@@ -397,7 +397,7 @@ export function ServersTable() {
           {hasFilters && (
             <button
               type="button"
-              className="servers-filter-clear"
+              className="filter-clear-btn"
               onClick={clearFilters}
             >
               Clear

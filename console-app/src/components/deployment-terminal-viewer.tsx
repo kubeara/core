@@ -8,6 +8,7 @@ import {
 } from "@/components/shared/kubeara-terminal-theme";
 import { TerminalScrollDownButton } from "@/components/shared/terminal-scroll-down-button";
 import { useTerminalScrollDown } from "@/components/shared/use-terminal-scroll-down";
+import { useTerminalWheelTrap } from "@/components/shared/use-terminal-wheel-trap";
 import "@/components/shared/terminal-scroll-down-button.css";
 import type { DeploymentLogLine } from "@/features/deployments/types";
 import { formatDeploymentLogAnsi } from "@/features/deployments/utils/format-deployment-log-ansi";
@@ -28,6 +29,7 @@ export function DeploymentTerminalViewer({
   isLive = false,
 }: DeploymentTerminalViewerProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const writtenCountRef = useRef(0);
@@ -146,6 +148,8 @@ export function DeploymentTerminalViewer({
   const { visible: showScrollDown, handleClick: handleScrollDown } =
     useTerminalScrollDown(hostRef, scrollToBottom);
 
+  useTerminalWheelTrap(frameRef);
+
   return (
     <div
       className={`server-terminal-log-viewer${isEmpty ? " is-empty" : ""}${isActive ? " is-active" : ""}`}
@@ -156,7 +160,7 @@ export function DeploymentTerminalViewer({
           <span>{emptyMessage}</span>
         </div>
       )}
-      <div className="terminal-viewer-frame">
+      <div ref={frameRef} className="terminal-viewer-frame">
         <div ref={hostRef} className="server-terminal-xterm-host" />
         <TerminalScrollDownButton
           visible={showScrollDown && !isEmpty}
