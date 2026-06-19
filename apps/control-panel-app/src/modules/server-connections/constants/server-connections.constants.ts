@@ -1,0 +1,8 @@
+export const SERVER_CONNECTIONS = {
+  /** Expected upper bound for POST /servers/:id/delete (matches console client timeout). */
+  SERVER_DELETE_OPERATION_TIMEOUT_MS: 120_000,
+  SOCKET_RESOURCES_ATTEMPT_MS: 5_000,
+  SOCKET_CONTAINER_DISCOVER_ATTEMPT_MS: 15_000,
+  AGENT_IMAGE_REMOVE_TIMEOUT_MS: 60_000,
+  AGENT_TEARDOWN_SETTLE_MS: 5_000,
+} as const;

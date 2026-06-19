@@ -24,6 +24,8 @@ services:
       AGENT_PUBLIC_IP: ${AGENT_PUBLIC_IP:-}
       TRAEFIK_ENABLED: ${TRAEFIK_ENABLED:-false}
     volumes:
+      # Host install dir (compose + env) for agent self-removal via socket
+      - .:/opt/kubeara/agent-install:ro
       # Agent bootstrap reads env from this path inside the container
       - ./.env.agent:/app/apps/agent-app/.env:ro
       # Deployment workspaces (compose files written here)

@@ -8,6 +8,7 @@ import {
   forwardRef,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
+import dayjs from "dayjs";
 import { In, IsNull, Not, Repository } from "typeorm";
 
 import {
@@ -46,6 +47,7 @@ import {
   ResolveDeploymentServerInput,
   ResolvedDeploymentTarget,
 } from "./dto/deployment.types";
+import { DEPLOYMENT_MESSAGES } from "./constants/deployment-messages.constants";
 import { normalizeServerHostForUrls } from "./utils/deployment-server.util";
 import type { ContainerActionResponseDto } from "./dto/container-action-response.dto";
 import type { ContainerLogsStartResponseDto } from "./dto/container-logs.dto";
@@ -1318,6 +1320,79 @@ export class DeploymentsService {
 
   private decryptValue(encrypted: string): string {
     return this.encryptionService.decrypt(encrypted);
+  }
+
+  /**
+   * Deactivates deployment records and optionally purges remote resources via the connected agent.
+   * Called while the server row is still active so agent install can run when needed.
+   */
+  async deactivateDeploymentsForServerDeletion(
+    serverId: string,
+    userId: string,
+    options: { removeManagedServices: boolean },
+  ): Promise<void> {
+    const terminalStatuses: DeploymentStatus[] = ["removed", "removing"];
+
+    const deployments = await this.deploymentRepository.find({
+      where: {
+        serverId,
+        userId,
+        deletedAt: IsNull(),
+        status: EntityStatus.ACTIVE,
+        deploymentStatus: Not(In(terminalStatuses)),
+      },
+    });
+
+    if (deployments.length === 0) {
+      return;
+    }
+
+    if (options.removeManagedServices) {
+      await this.ensureAgentConnectedForServer(serverId);
+
+      for (const deployment of deployments) {
+        if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+          this.logger.warn(
+            `Server delete: no connected agent for deployment '${deployment.id}' on server '${serverId}'`,
+          );
+          continue;
+        }
+
+        try {
+          await this.deploymentGateway.requestDeploymentRemove(
+            serverId,
+            deployment.id,
+            deployment.templateSlug,
+          );
+          this.logger.log(
+            `Server delete: agent removed deployment '${deployment.id}' on server '${serverId}'`,
+          );
+        } catch (error) {
+          this.logger.warn(
+            `Server delete: agent removal failed for deployment '${deployment.id}' on server '${serverId}': ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        }
+      }
+    }
+
+    const now = dayjs().unix();
+    await this.deploymentRepository.update(
+      { id: In(deployments.map((deployment) => deployment.id)) },
+      {
+        status: EntityStatus.INACTIVE,
+        deploymentStatus: "removed",
+        statusMessage: DEPLOYMENT_MESSAGES.SERVER_DELETE_DEACTIVATED,
+        lastError: null,
+        deletedAt: now,
+        updatedAt: now,
+      },
+    );
+
+    this.logger.log(
+      `Marked ${deployments.length} deployment(s) inactive for deleted server '${serverId}'`,
+    );
   }
 
   /**

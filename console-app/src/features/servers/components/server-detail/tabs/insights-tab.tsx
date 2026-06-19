@@ -7,7 +7,7 @@ import {
   formatPercent,
   formatUptime,
 } from "@/lib/format-metrics";
-import { SkeletonGrid } from "@/components/shared/skeleton";
+import { SkeletonInsightStack } from "@/components/shared/skeleton";
 import { InsightMetricCard } from "../insight-metric-card";
 import "../insights-tab.css";
 
@@ -56,11 +56,7 @@ export function ServerInsightsTab({ serverId, isActive }: ServerInsightsTabProps
     return (
       <div className="server-detail-panel">
         <InsightsPanelHeader />
-        <SkeletonGrid
-          count={5}
-          cardHeight={200}
-          label="Loading server resources…"
-        />
+        <SkeletonInsightStack count={5} label="Loading server resources…" />
       </div>
     );
   }

@@ -48,10 +48,9 @@ export function ServerDetailPage() {
 
   return (
     <div className="dashboard server-detail">
-      <BackLink to="/servers" label="Back" />
-
-      <header className="dashboard-header">
-        <div>
+      <header className="server-detail-header">
+        <BackLink to="/servers" label="Back" />
+        <div className="server-detail-header-main">
           <h1>{server.name}</h1>
           <p>
             <code>{server.host}</code> · {server.username}

@@ -202,6 +202,7 @@ export function ServersTable() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<Server | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Server | null>(null);
+  const [removeManagedServices, setRemoveManagedServices] = useState(false);
 
   const listParams = useMemo(
     () => ({
@@ -268,8 +269,12 @@ export function ServersTable() {
   async function confirmDelete() {
     if (!deleteTarget) return;
     try {
-      await deleteMutation.mutateAsync(deleteTarget.id);
+      await deleteMutation.mutateAsync({
+        id: deleteTarget.id,
+        removeManagedServices,
+      });
       setDeleteTarget(null);
+      setRemoveManagedServices(false);
     } catch {
       /* errors surfaced via mutation onError toast */
     }
@@ -278,6 +283,7 @@ export function ServersTable() {
   function closeDeleteModal() {
     if (deleting) return;
     setDeleteTarget(null);
+    setRemoveManagedServices(false);
   }
 
   const deleting = deleteMutation.isPending;
@@ -453,7 +459,7 @@ export function ServersTable() {
           onClick={closeDeleteModal}
         >
           <div
-            className="modal-dialog modal-dialog-sm"
+            className="modal-dialog delete-server-modal"
             role="alertdialog"
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
@@ -465,6 +471,17 @@ export function ServersTable() {
               Delete <strong>{deleteTarget.name}</strong> ({deleteTarget.host})?
               This cannot be undone.
             </p>
+            <label className="delete-server-option">
+              <input
+                type="checkbox"
+                checked={removeManagedServices}
+                onChange={(event) =>
+                  setRemoveManagedServices(event.target.checked)
+                }
+                disabled={deleting}
+              />
+              <span>Remove Kubeara managed services from this server</span>
+            </label>
             <div className="modal-actions">
               <button
                 type="button"
