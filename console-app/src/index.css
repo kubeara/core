@@ -633,7 +633,8 @@ a:hover {
 }
 
 .modal-dialog-server {
-  max-width: 640px;
+  max-width: 52rem;
+  width: min(52rem, calc(100vw - 2rem));
 }
 
 .modal-advanced-section {
@@ -693,15 +694,22 @@ a:hover {
 }
 
 .server-private-key-input {
-  min-height: 6.75rem;
-  resize: none;
-  overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  min-height: 10rem;
+  resize: vertical;
+  overflow: auto;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 .server-private-key-input::-webkit-scrollbar {
-  display: none;
+  width: 8px;
+  height: 8px;
+}
+
+.server-private-key-input::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--foreground) 25%, transparent);
+  border-radius: 4px;
 }
 
 .modal-header {

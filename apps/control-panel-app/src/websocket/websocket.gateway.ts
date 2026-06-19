@@ -44,6 +44,7 @@ import {
   ContainerLogsDataPayload,
   ContainerLogsErrorPayload,
   ContainerLogsSubscribePayload,
+  ServerOperationUpdatedPayload,
 } from "@shared/socket-events";
 import { randomUUID } from "node:crypto";
 import { DeploymentsService } from "@control-panel/modules/deployments/deployments.service";
@@ -287,6 +288,7 @@ export class DeploymentGateway
         const ns = this.getNamespaceServer();
         ns?.emit(DeploymentEvents.AGENT_DISCONNECTED, {
           agentId: socketId,
+          serverId: serverId ?? undefined,
           timestamp: new Date().toISOString(),
           totalAgents: this.connectedAgents.size,
         });
@@ -819,6 +821,28 @@ export class DeploymentGateway
         `Failed to process deployment status event: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+  /**
+   * Broadcasts the server operation updated event to the websocket.
+   */
+  broadcastServerOperationUpdated(
+    payload: ServerOperationUpdatedPayload,
+  ): void {
+    const ns = this.getNamespaceServer();
+    if (!ns) {
+      return;
+    }
+
+    const enriched: ServerOperationUpdatedPayload = {
+      ...payload,
+      timestamp: payload.timestamp ?? new Date().toISOString(),
+    };
+
+    this.logger.log(
+      `[SERVER_OPERATION] broadcast serverId=${enriched.serverId} status=${String(enriched.operationStatus)} deleted=${Boolean(enriched.deleted)}`,
+    );
+
+    ns.emit(DeploymentEvents.SERVER_OPERATION_UPDATED, enriched);
   }
 
   broadcastDeploymentLog(

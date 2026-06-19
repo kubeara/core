@@ -4,6 +4,7 @@ export const DEPLOYMENT_SOCKET_EVENTS = {
   DEPLOYMENT_STREAM: "deployment:stream",
   AGENT_CONNECTED: "agent:connected",
   AGENT_DISCONNECTED: "agent:disconnected",
+  SERVER_OPERATION_UPDATED: "server:operation-updated",
   TERMINAL_SUBSCRIBE: "terminal:subscribe",
   TERMINAL_INPUT: "terminal:input",
   TERMINAL_OUTPUT: "terminal:output",

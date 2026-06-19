@@ -316,7 +316,7 @@ function ServerFormContent({
                     clearFieldError("private-key");
                   }}
                   disabled={loading}
-                  rows={4}
+                  rows={8}
                   placeholder={
                     "-----BEGIN OPENSSH PRIVATE KEY-----\n...\n-----END OPENSSH PRIVATE KEY-----"
                   }

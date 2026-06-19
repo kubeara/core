@@ -30,6 +30,9 @@ export function createServer(input: {
     username: input.username.trim(),
     host: input.host.trim(),
     connected: input.connected ?? false,
+    agentConnected: false,
+    operationStatus: null,
+    operationError: null,
     createdAt: now,
     lastConnectedAt: now,
   };
@@ -62,7 +65,7 @@ export function deleteServer(id: string): boolean {
 function seedServers() {
   if (servers.size > 0) return;
 
-  const seed: Omit<Server, "id" | "createdAt" | "lastConnectedAt">[] = [
+  const seed: Parameters<typeof createServer>[0][] = [
     {
       name: "Production API",
       username: "deploy",

@@ -25,6 +25,7 @@ import {
   CreateServerDto,
   CreateServerSshCredentialRequestDto,
   CreateServerOnboardRequestDto,
+  DeleteServerResponseDto,
   OnboardSuccessData,
   ListServersQueryDto,
   UpdateServerDto,
@@ -105,6 +106,12 @@ import {
 } from "../constants/agent-install.constants";
 import { buildAgentHostCleanupShellCommand } from "../utils/agent-host-cleanup.util";
 import { SERVER_CONNECTIONS } from "../constants/server-connections.constants";
+import {
+  buildServerOperationMetadata,
+  readServerOperationFromMetadata,
+  SERVER_OPERATION_STATUS,
+  type ServerOperationStatus,
+} from "../utils/server-operation.util";
 
 @Injectable()
 export class ServerConnectionsService {
@@ -754,6 +761,205 @@ export class ServerConnectionsService {
     }
   }
 
+  /**
+   * Sets the operation status for a server in the database.
+   */
+  private async setServerOperationStatus(
+    serverId: string,
+    status: ServerOperationStatus | null,
+    error?: string | null,
+  ): Promise<void> {
+    try {
+      const server = await this.serverRepository.findOne({
+        where: { id: serverId, deletedAt: IsNull() },
+      });
+
+      if (!server) {
+        return;
+      }
+
+      const metadata = buildServerOperationMetadata(
+        server.metadata,
+        status,
+        error,
+      );
+
+      server.metadata = metadata;
+      await this.serverRepository.save(server);
+      this.notifyServerOperationUpdated(serverId, metadata);
+    } catch (error) {
+      this.logger.error(
+        `Failed to set server operation status: ${String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Broadcasts the server operation status update to the websocket.
+   */
+  private notifyServerOperationUpdated(
+    serverId: string,
+    metadata: Record<string, unknown> | null,
+    options?: { deleted?: boolean },
+  ): void {
+    try {
+      const { operationStatus, operationError } =
+        readServerOperationFromMetadata(metadata);
+
+      this.deploymentGateway.broadcastServerOperationUpdated({
+        serverId,
+        operationStatus,
+        operationError,
+        deleted: options?.deleted ?? false,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to broadcast server operation updated: ${String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Runs the agent install after onboard asynchronously.
+   */
+  private runAgentInstallAfterOnboardAsync(
+    params: RunAgentInstallAfterOnboardParams,
+  ): void {
+    void (async () => {
+      try {
+        const result = await this.runAgentInstallAfterOnboard(params);
+
+        if (result.success || result.skipped) {
+          await this.setServerOperationStatus(params.server.id, null);
+          return;
+        }
+
+        await this.setServerOperationStatus(
+          params.server.id,
+          SERVER_OPERATION_STATUS.ERROR,
+          result.error ?? ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
+        );
+      } catch (error) {
+        this.logger.error(
+          `Background agent install failed for server '${params.server.id}': ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        await this.setServerOperationStatus(
+          params.server.id,
+          SERVER_OPERATION_STATUS.ERROR,
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+    })();
+  }
+
+  /**
+   * Builds the pending agent install response for the onboard success data.
+   */
+  private buildPendingAgentInstallResponse(
+    installAgent: boolean | undefined,
+  ): OnboardSuccessData["agentInstall"] {
+    if (!this.shouldInstallAgent(installAgent)) {
+      return undefined;
+    }
+
+    return {
+      success: false,
+      pending: true,
+      logs: [],
+    };
+  }
+
+  /**
+   * Finalizes the server deletion.
+   */
+  private async finalizeServerDeletion(serverId: string): Promise<void> {
+    const queryRunner = this.dataSource.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const serverRepo = queryRunner.manager.getRepository(ServerEntity);
+      const credentialRepo = queryRunner.manager.getRepository(
+        ServerSshCredentialEntity,
+      );
+
+      if (this.sshManager.isConnected(serverId)) {
+        this.sshManager.disconnect(serverId);
+      }
+
+      const currentTime = dayjs().unix();
+
+      await serverRepo.update(
+        { id: serverId },
+        {
+          status: EntityStatus.INACTIVE,
+          deletedAt: currentTime,
+          metadata: null,
+        },
+      );
+
+      await credentialRepo.update(
+        { serverId },
+        {
+          status: EntityStatus.INACTIVE,
+          deletedAt: currentTime,
+        },
+      );
+
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Runs the server deletion process asynchronously.
+   */
+  private runServerDeletionAsync(
+    userId: string,
+    serverId: string,
+    options?: { removeManagedServices?: boolean },
+  ): void {
+    void (async () => {
+      const removeManagedServices = options?.removeManagedServices === true;
+
+      try {
+        await this.deploymentsService.deactivateDeploymentsForServerDeletion(
+          serverId,
+          userId,
+          { removeManagedServices },
+        );
+
+        await this.removeAgentFromRemoteServer(serverId);
+        await this.finalizeServerDeletion(serverId);
+        this.notifyServerOperationUpdated(serverId, null, { deleted: true });
+      } catch (error) {
+        this.logger.error(
+          `Background server deletion failed for server '${serverId}': ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+
+        await this.setServerOperationStatus(
+          serverId,
+          SERVER_OPERATION_STATUS.ERROR,
+          error instanceof Error
+            ? error.message
+            : ERROR_MESSAGES.SERVER.DELETE_FAILED,
+        );
+      }
+    })();
+  }
+
   private async getOwnedServer(
     userId: string,
     id: string,
@@ -952,7 +1158,15 @@ export class ServerConnectionsService {
     }
 
     const restoreLogs: string[] = [SERVER_ONBOARD_LOGS.DELETED_SERVER_RESTORED];
-    const agentInstall = await this.runAgentInstallAfterOnboard({
+
+    if (this.shouldInstallAgent(input.installAgent)) {
+      await this.setServerOperationStatus(
+        existingServer.id,
+        SERVER_OPERATION_STATUS.STARTING,
+      );
+    }
+
+    this.runAgentInstallAfterOnboardAsync({
       installAgent: input.installAgent,
       server: existingServer,
       credential: restoredCredential,
@@ -966,7 +1180,7 @@ export class ServerConnectionsService {
         serverId: existingServer.id,
         sshCredentialId: restoredCredential.id,
         sshTest: { success: true },
-        agentInstall,
+        agentInstall: this.buildPendingAgentInstallResponse(input.installAgent),
       },
     };
   }
@@ -1074,7 +1288,14 @@ export class ServerConnectionsService {
 
       await queryRunner.commitTransaction();
 
-      const agentInstall = await this.runAgentInstallAfterOnboard({
+      if (this.shouldInstallAgent(input.installAgent)) {
+        await this.setServerOperationStatus(
+          savedServer.id,
+          SERVER_OPERATION_STATUS.STARTING,
+        );
+      }
+
+      this.runAgentInstallAfterOnboardAsync({
         installAgent: input.installAgent,
         server: savedServer,
         credential: savedCredential,
@@ -1088,7 +1309,9 @@ export class ServerConnectionsService {
           serverId: savedServer.id,
           sshCredentialId: savedCredential.id,
           sshTest: { success: true },
-          agentInstall,
+          agentInstall: this.buildPendingAgentInstallResponse(
+            input.installAgent,
+          ),
         },
       };
     } catch (err) {
@@ -1203,81 +1426,43 @@ export class ServerConnectionsService {
     userId: string,
     id: string,
     options?: { removeManagedServices?: boolean },
-  ): Promise<ServiceResponse<{ deleted: true }>> {
-    const removeManagedServices = options?.removeManagedServices === true;
-
-    const server = await this.serverRepository.findOne({
-      where: { id, userId, deletedAt: IsNull() },
-    });
-
-    if (!server) {
-      throw new NotFoundException(ERROR_MESSAGES.SERVER.NOT_FOUND);
-    }
-
-    await this.deploymentsService.deactivateDeploymentsForServerDeletion(
-      id,
-      userId,
-      { removeManagedServices },
-    );
-
-    await this.removeAgentFromRemoteServer(id);
-
-    const queryRunner = this.dataSource.createQueryRunner();
-
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
+  ): Promise<ServiceResponse<DeleteServerResponseDto>> {
     try {
-      const serverRepo = queryRunner.manager.getRepository(ServerEntity);
-      const credentialRepo = queryRunner.manager.getRepository(
-        ServerSshCredentialEntity,
-      );
+      const server = await this.serverRepository.findOne({
+        where: { id, userId, deletedAt: IsNull() },
+      });
 
-      if (this.sshManager.isConnected(id)) {
-        this.sshManager.disconnect(id);
+      if (!server) {
+        throw new NotFoundException(ERROR_MESSAGES.SERVER.NOT_FOUND);
       }
 
-      const currentTime = dayjs().unix();
-
-      await serverRepo.update(
-        { id },
-        {
-          status: EntityStatus.INACTIVE,
-          deletedAt: currentTime,
-        },
+      const { operationStatus } = readServerOperationFromMetadata(
+        server.metadata,
       );
 
-      await credentialRepo.update(
-        { serverId: id },
-        {
-          status: EntityStatus.INACTIVE,
-          deletedAt: currentTime,
-        },
-      );
+      if (operationStatus === SERVER_OPERATION_STATUS.REMOVING) {
+        return {
+          message: SUCCESS_MESSAGES.SERVER.DELETE_STARTED,
+          data: { deleted: false, pending: true },
+        };
+      }
 
-      await queryRunner.commitTransaction();
+      if (operationStatus === SERVER_OPERATION_STATUS.STARTING) {
+        throw new ConflictException(
+          ERROR_MESSAGES.SERVER.OPERATION_IN_PROGRESS,
+        );
+      }
+
+      await this.setServerOperationStatus(id, SERVER_OPERATION_STATUS.REMOVING);
+      this.runServerDeletionAsync(userId, id, options);
 
       return {
-        message: SUCCESS_MESSAGES.SERVER.DELETED,
-        data: { deleted: true as const },
+        message: SUCCESS_MESSAGES.SERVER.DELETE_STARTED,
+        data: { deleted: false, pending: true },
       };
     } catch (error) {
-      await queryRunner.rollbackTransaction();
-
-      if (error instanceof HttpException) {
-        throw error;
-      }
-
-      throw new OperationFailedException(
-        ERROR_MESSAGES.SERVER.DELETE_FAILED,
-        error instanceof Error
-          ? error.message
-          : ERROR_MESSAGES.SERVER.DELETE_FAILED,
-        HttpStatus.BAD_REQUEST,
-        { errorCode: ServerErrorCode.DELETE_FAILED },
-      );
-    } finally {
-      await queryRunner.release();
+      this.logger.error(`Failed to delete server ${id}: ${String(error)}`);
+      throw error;
     }
   }
 
@@ -1381,7 +1566,9 @@ export class ServerConnectionsService {
       message: SUCCESS_MESSAGES.SERVER.LIST,
       data: {
         data: servers.map((server) =>
-          toServerResponseDto(server, this.sshManager),
+          toServerResponseDto(server, this.sshManager, (id) =>
+            this.deploymentGateway.isAgentConnectedForServer(id),
+          ),
         ),
         pagination: {
           page,
@@ -1404,7 +1591,9 @@ export class ServerConnectionsService {
 
     return {
       message: SUCCESS_MESSAGES.SERVER.FETCHED,
-      data: toServerResponseDto(server, this.sshManager),
+      data: toServerResponseDto(server, this.sshManager, (id) =>
+        this.deploymentGateway.isAgentConnectedForServer(id),
+      ),
     };
   }
 
@@ -1422,7 +1611,9 @@ export class ServerConnectionsService {
 
     return {
       message: SUCCESS_MESSAGES.SERVER.UPDATED,
-      data: toServerResponseDto(server, this.sshManager),
+      data: toServerResponseDto(server, this.sshManager, (serverId) =>
+        this.deploymentGateway.isAgentConnectedForServer(serverId),
+      ),
     };
   }
 

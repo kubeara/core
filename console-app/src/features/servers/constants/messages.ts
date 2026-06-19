@@ -6,6 +6,7 @@ export const SERVER_API_FALLBACK_MESSAGES = {
   CONNECT: "Failed to connect server",
   DISCONNECT: "Failed to disconnect server",
   DELETE: "Failed to delete server",
+  DELETE_STARTED: "Server removal started",
   ONBOARD_SUCCESS: "Server added successfully",
   UPDATE_SUCCESS: "Server updated successfully",
   CONNECT_SUCCESS: "Server connected successfully",

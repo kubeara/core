@@ -59,6 +59,8 @@ export enum DeploymentEvents {
   AGENT_REMOVE = "agent:remove",
   /** Agent → control panel: agent uninstall response. */
   AGENT_REMOVE_RESULT = "agent:remove:result",
+  /** Control panel → console: server add/delete background operation update. */
+  SERVER_OPERATION_UPDATED = "server:operation-updated",
 }
 
 export type ContainerActionType = "stop" | "restart" | "delete";
@@ -217,6 +219,7 @@ export interface DeploymentLogPayload {
  */
 export interface AgentConnectedPayload {
   agentId: string;
+  serverId?: string;
   timestamp: string;
   totalAgents: number;
 }
@@ -226,6 +229,7 @@ export interface AgentConnectedPayload {
  */
 export interface AgentDisconnectedPayload {
   agentId: string;
+  serverId?: string;
   timestamp: string;
   totalAgents: number;
 }
@@ -412,4 +416,20 @@ export interface AgentRemoveResponsePayload {
   error?: string;
   /** Image refs/IDs still on the host after compose down (for SSH cleanup if needed). */
   imageRefs?: string[];
+}
+
+export type ServerOperationStatusValue =
+  | "starting"
+  | "removing"
+  | "error"
+  | null;
+
+/** Control panel → console when a server background operation changes. */
+export interface ServerOperationUpdatedPayload {
+  serverId: string;
+  operationStatus: ServerOperationStatusValue;
+  operationError?: string | null;
+  /** True when the server row was soft-deleted and should disappear from lists. */
+  deleted?: boolean;
+  timestamp: string;
 }
