@@ -8,6 +8,7 @@ export const SUCCESS_MESSAGES = {
     CONNECTED: "Server connected successfully",
     DISCONNECTED: "Server disconnected successfully",
     DELETED: "Server deleted successfully",
+    DELETE_STARTED: "Server removal started",
   },
 
   TERMINAL: {

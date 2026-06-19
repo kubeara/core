@@ -39,12 +39,17 @@ export type Template = {
 /**
  * Server entity
  */
+export type ServerOperationStatus = "starting" | "removing" | "error";
+
 export type Server = {
     id: string;
     name: string;
     username: string;
     host: string;
     connected: boolean;
+    agentConnected: boolean;
+    operationStatus: ServerOperationStatus | null;
+    operationError: string | null;
     lastConnectedAt: string | null;
     createdAt: string;
 };

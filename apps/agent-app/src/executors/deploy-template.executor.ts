@@ -841,6 +841,8 @@ export class DeployTemplateExecutor {
       collectedImages.imageIds,
     );
 
+    await this.removeProjectNetworks(projectName, name, notifier);
+
     notifier.sendLog({
       deployment: name,
       type: "stdout",
@@ -1054,6 +1056,26 @@ export class DeployTemplateExecutor {
         }
       }
 
+      await this.removeProjectNetworks(projectName, name, notifier);
+
+      await this.removeCollectedImages(projectName, imageRefs, imageIds);
+    } catch (error) {
+      this.logger.error(
+        `Failed to force remove compose project ${projectName}: ${String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Removes compose project networks by label and common default naming.
+   */
+  private async removeProjectNetworks(
+    projectName: string,
+    name: string,
+    notifier: ExecutionNotifier,
+  ): Promise<void> {
+    try {
       const networkIds = await this.execCapture(
         "docker",
         [
@@ -1066,10 +1088,24 @@ export class DeployTemplateExecutor {
         process.cwd(),
       );
 
-      const networks = networkIds.stdout
-        .split("\n")
-        .map((line) => line.trim())
-        .filter(Boolean);
+      const networks = new Set(this.parseDockerOutputLines(networkIds.stdout));
+
+      const defaultNetwork = `${projectName}_default`;
+      const defaultInspect = await this.execCapture(
+        "docker",
+        ["network", "inspect", "-f", "{{.Id}}", defaultNetwork],
+        process.cwd(),
+      );
+      if (defaultInspect.exitCode === 0) {
+        const defaultId = defaultInspect.stdout.trim();
+        if (defaultId) {
+          networks.add(defaultId);
+        }
+      }
+
+      if (networks.size === 0) {
+        return;
+      }
 
       for (const networkId of networks) {
         const removeNetwork = await this.execCapture(
@@ -1081,13 +1117,20 @@ export class DeployTemplateExecutor {
           this.logger.warn(
             `Network removal for ${projectName} reported: ${removeNetwork.stderr || removeNetwork.stdout}`,
           );
+          continue;
         }
-      }
 
-      await this.removeCollectedImages(projectName, imageRefs, imageIds);
+        notifier.sendLog({
+          deployment: name,
+          type: "stdout",
+          message: `Network removed for ${projectName}`,
+          timestamp: new Date().toISOString(),
+          source: "deployment",
+        });
+      }
     } catch (error) {
       this.logger.error(
-        `Failed to force remove compose project ${projectName}: ${String(error)}`,
+        `Failed to remove project networks for ${projectName}: ${String(error)}`,
       );
       throw error;
     }

@@ -2,6 +2,7 @@ import { useParams } from "react-router-dom";
 import { BackLink } from "@/components/shared/back-link";
 import { ServerDetailTabs } from "@/components/server-detail-tabs";
 import { useServerQuery } from "@/features/servers/hooks";
+import { isServerOperationBusy } from "@/features/servers/types";
 import { ApiError, getErrorMessage } from "@/api/api-error";
 import { ServerFeedbackMessage } from "@/features/servers/components/server-feedback-message";
 import { ServerDetailPageSkeleton } from "@/components/shared/skeleton";
@@ -46,6 +47,14 @@ export function ServerDetailPage() {
     return <NotFoundPage />;
   }
 
+  const busy = isServerOperationBusy(server.operationStatus);
+  const operationLabel =
+    server.operationStatus === "starting"
+      ? "Starting…"
+      : server.operationStatus === "removing"
+        ? "Removing…"
+        : null;
+
   return (
     <div className="dashboard server-detail">
       <header className="server-detail-header">
@@ -55,10 +64,33 @@ export function ServerDetailPage() {
           <p>
             <code>{server.host}</code> · {server.username}
           </p>
+          {operationLabel && (
+            <span
+              className={`server-tag-pill ${
+                server.operationStatus === "starting"
+                  ? "starting"
+                  : server.operationStatus === "removing"
+                    ? "removing"
+                    : server.operationStatus === "error"
+                      ? "error"
+                      : "pending"
+              }`}
+            >
+              {operationLabel}
+            </span>
+          )}
         </div>
       </header>
 
-      <ServerDetailTabs server={server} />
+      {busy ? (
+        <p className="server-detail-operation-notice" role="status">
+          {server.operationStatus === "starting"
+            ? "Agent installation is in progress. Server features will be available when setup completes."
+            : "Server removal is in progress."}
+        </p>
+      ) : (
+        <ServerDetailTabs server={server} />
+      )}
     </div>
   );
 }

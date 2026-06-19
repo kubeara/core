@@ -16,6 +16,7 @@ export const ERROR_MESSAGES = {
     ALREADY_CONNECTED: "Server is already connected",
     CONNECTION_FAILED: "Failed to connect to server",
     DELETE_FAILED: "Failed to delete server",
+    OPERATION_IN_PROGRESS: "Server setup is still in progress",
     HOST_ALREADY_EXISTS: "A server with this host and port already exists",
     AGENT_CREDENTIALS_MISSING:
       "No SSH credentials for this server. Onboard the server first.",

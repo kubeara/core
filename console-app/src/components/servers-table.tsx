@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useDeleteServerMutation,
   useServersQuery,
@@ -8,13 +8,15 @@ import { ServerFormModal } from "./server-form-modal";
 import { formatApiTimestamp } from "@/lib/unix-timestamp";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
+  isServerOperationBusy,
   mapServerApiToServer,
   type ServerListSortField,
 } from "@/features/servers/types";
-import type { Server } from "@/types";
+import type { Server, ServerOperationStatus } from "@/types";
 import { getErrorMessage } from "@/api/api-error";
 import { ServerFeedbackMessage } from "@/features/servers/components/server-feedback-message";
 import { ServersTableSkeleton } from "@/components/shared/skeleton";
+import { showErrorToast } from "@/lib/toast";
 import "./servers-table.css";
 
 type SortDir = "asc" | "desc";
@@ -86,24 +88,76 @@ function DeleteIcon() {
     </svg>
   );
 }
+/**
+ * Returns the operation status label.
+ */
+function operationStatusLabel(status: ServerOperationStatus): string {
+  switch (status) {
+    case "starting":
+      return "Starting…";
+    case "removing":
+      return "Removing…";
+    case "error":
+      return "Error";
+    default:
+      return "";
+  }
+}
 
+/**
+ * Server name cell.
+ */
 function ServerNameCell({ server }: { server: Server }) {
+  const busy = isServerOperationBusy(server.operationStatus);
+  const statusLabel = server.operationStatus
+    ? operationStatusLabel(server.operationStatus)
+    : null;
+  const statusPillClass =
+    server.operationStatus === "starting"
+      ? "starting"
+      : server.operationStatus === "removing"
+        ? "removing"
+        : server.operationStatus === "error"
+          ? "error"
+          : null;
+  const statusDotClass =
+    server.operationStatus === "removing"
+      ? "removing"
+      : server.operationStatus === "error"
+        ? "error"
+        : server.agentConnected
+          ? "online"
+          : "offline";
+
   return (
-    <div className="server-name-cell">
+    <div className={`server-name-cell${busy ? " is-busy" : ""}`}>
       <div className="server-avatar">
         <div className="server-avatar-ring">
           <span className="server-avatar-letter">
             {server.name.charAt(0).toUpperCase()}
           </span>
         </div>
+        <span
+          className={`server-status-dot ${statusDotClass}`}
+          aria-hidden
+        />
       </div>
       <div className="server-name-block">
-        <Link to={`/servers/${server.id}`} className="server-name-link">
-          {server.name}
-        </Link>
-        <p className="server-name-meta">
-          {server.username}
-        </p>
+        <div className="server-name-row">
+          {busy ? (
+            <span className="server-name-link is-disabled">{server.name}</span>
+          ) : (
+            <Link to={`/servers/${server.id}`} className="server-name-link">
+              {server.name}
+            </Link>
+          )}
+          {statusLabel && statusPillClass && (
+            <span className={`server-tag-pill ${statusPillClass}`}>
+              {statusLabel}
+            </span>
+          )}
+        </div>
+        <p className="server-name-meta">{server.username}</p>
       </div>
     </div>
   );
@@ -230,6 +284,29 @@ export function ServersTable() {
     () => (listResponse?.data ?? []).map(mapServerApiToServer),
     [listResponse?.data],
   );
+  /**
+   * Ref to track notified operation errors.
+   */
+  const notifiedOperationErrorsRef = useRef<Set<string>>(new Set());
+
+  /**
+   * Effect to show error toast for operation errors.
+   */
+  useEffect(() => {
+    for (const server of servers) {
+      if (server.operationStatus !== "error" || !server.operationError) {
+        continue;
+      }
+
+      const key = `${server.id}:${server.operationError}`;
+      if (notifiedOperationErrorsRef.current.has(key)) {
+        continue;
+      }
+
+      notifiedOperationErrorsRef.current.add(key);
+      showErrorToast(server.operationError);
+    }
+  }, [servers]);
 
   const pagination = listResponse?.pagination;
   const total = pagination?.total ?? 0;
@@ -367,8 +444,11 @@ export function ServersTable() {
               )}
               {!loading &&
                 !isError &&
-                servers.map((server) => (
-                  <tr key={server.id}>
+                servers.map((server) => {
+                  const busy = isServerOperationBusy(server.operationStatus);
+
+                  return (
+                  <tr key={server.id} className={busy ? "server-row-busy" : undefined}>
                     <td>
                       <ServerNameCell server={server} />
                     </td>
@@ -392,6 +472,7 @@ export function ServersTable() {
                           onClick={() => openEdit(server)}
                           aria-label={`Edit ${server.name}`}
                           title="Edit"
+                          disabled={busy}
                         >
                           <EditIcon />
                         </button>
@@ -401,13 +482,15 @@ export function ServersTable() {
                           onClick={() => setDeleteTarget(server)}
                           aria-label={`Delete ${server.name}`}
                           title="Delete"
+                          disabled={busy}
                         >
                           <DeleteIcon />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
             </tbody>
           </table>
         </div>
@@ -498,7 +581,7 @@ export function ServersTable() {
                 disabled={deleting}
                 aria-busy={deleting}
               >
-                {deleting ? "Deleting…" : "Delete"}
+                {deleting ? "Starting removal…" : "Delete"}
               </button>
             </div>
           </div>
