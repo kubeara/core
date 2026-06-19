@@ -686,6 +686,7 @@
 .deploy-logs-page .deploy-terminal-xterm-host .xterm-viewport {
   overflow-y: auto !important;
   width: 100% !important;
+  overscroll-behavior: contain;
 }
 
 .deploy-logs-page .deploy-terminal-loading {

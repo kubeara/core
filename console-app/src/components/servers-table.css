@@ -62,17 +62,20 @@
   box-shadow: 0 0 0 3px rgb(0 105 255 / 12%);
 }
 
-.servers-filter-clear {
+.servers-filter-clear,
+.filter-clear-btn {
   padding: 0.5rem 0.625rem;
   border: none;
   background: none;
-  color: #0069ff;
+  color: var(--primary);
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 
-.servers-filter-clear:hover {
+.servers-filter-clear:hover,
+.filter-clear-btn:hover {
   text-decoration: underline;
 }
 

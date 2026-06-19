@@ -45,4 +45,9 @@ export const SUCCESS_MESSAGES = {
     LIST: "MCP API keys fetched successfully",
     REVOKED: "MCP API key revoked successfully",
   },
+
+  TEMPLATE: {
+    LIST: "Templates fetched successfully",
+    CATEGORIES: "Template categories fetched successfully",
+  },
 };

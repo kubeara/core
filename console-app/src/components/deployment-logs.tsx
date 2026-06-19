@@ -1,12 +1,6 @@
 import { BackLink } from "@/components/shared/back-link";
 import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeploymentTerminalViewer } from "@/components/deployment-terminal-viewer";
 import "@/components/shared/kubeara-terminal-shell.css";
 import {
@@ -168,12 +162,17 @@ export function DeploymentLogs({
   const [logView, setLogView] = useState<DeploymentLogView>("installation");
 
   const deploymentQuery = useDeploymentQuery(deploymentId);
-  const { logs, status, deploymentStatus, hasReceivedStatus, isSocketConnected } =
-    useDeploymentLogStream({
-      deploymentId,
-      serverId,
-      enabled: Boolean(serverId && deploymentId),
-    });
+  const {
+    logs,
+    status,
+    deploymentStatus,
+    hasReceivedStatus,
+    isSocketConnected,
+  } = useDeploymentLogStream({
+    deploymentId,
+    serverId,
+    enabled: Boolean(serverId && deploymentId),
+  });
 
   const liveDeploymentStatus =
     hasReceivedStatus && deploymentStatus
@@ -310,7 +309,11 @@ export function DeploymentLogs({
                       : null) ??
                     deploymentQuery.data?.statusMessage ??
                     resolvedStatus ??
-                    deploymentStateLabel(status, isStarting, liveDeploymentStatus)}
+                    deploymentStateLabel(
+                      status,
+                      isStarting,
+                      liveDeploymentStatus,
+                    )}
                 </dd>
               </div>
             </dl>
@@ -339,7 +342,10 @@ export function DeploymentLogs({
 
           <div className="server-terminal-window">
             {isStreaming && filteredLineCount === 0 && (
-              <div className="server-terminal-connecting-overlay" aria-live="polite">
+              <div
+                className="server-terminal-connecting-overlay"
+                aria-live="polite"
+              >
                 <span
                   className="server-terminal-connecting-spinner"
                   aria-hidden
@@ -399,7 +405,9 @@ function statusLabel(
   }
 }
 
-function formatDeploymentStatus(status: DeploymentStatus | null): string | null {
+function formatDeploymentStatus(
+  status: DeploymentStatus | null,
+): string | null {
   if (!status) return null;
   switch (status) {
     case "pending":

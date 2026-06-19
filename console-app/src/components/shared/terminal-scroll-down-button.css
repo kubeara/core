@@ -5,11 +5,17 @@
   min-height: inherit;
   display: flex;
   flex-direction: column;
+  overscroll-behavior: contain;
 }
 
 .terminal-viewer-frame .server-terminal-xterm-host {
   flex: 1;
   min-height: 0;
+  overscroll-behavior: contain;
+}
+
+.terminal-viewer-frame .xterm-viewport {
+  overscroll-behavior: contain;
 }
 
 .terminal-scroll-down-anchor {

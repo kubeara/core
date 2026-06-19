@@ -5,7 +5,13 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import {
+  ArrayContains,
+  ArrayOverlap,
+  FindOptionsWhere,
+  ILike,
+  Repository,
+} from "typeorm";
 import {
   getTemplateDescriptionFromComments,
   getTemplateLongDescriptionFromComments,
@@ -15,7 +21,16 @@ import {
 } from "@shared/common";
 import * as yaml from "js-yaml";
 
+import { SUCCESS_MESSAGES } from "@control-panel/constants/success";
+import { ServiceResponse } from "@control-panel/common/interfaces/success-response.interface";
+import { PaginatedResponse } from "@shared/common";
+
 import { ServiceTemplateEntity } from "../entities/service-template.entity";
+import {
+  DEFAULT_TEMPLATE_LIST_LIMIT,
+  DEFAULT_TEMPLATE_LIST_PAGE,
+} from "../constants/template-list.constants";
+import { ListTemplatesQueryDto } from "../dto/list-templates-query.dto";
 import {
   PUBLIC_TEMPLATE_DETAIL_FIELDS,
   PUBLIC_TEMPLATE_LIST_FIELDS,
@@ -54,6 +69,9 @@ export class ServiceTemplateService {
     private readonly templatePayloadService: TemplatePayloadService,
   ) {}
 
+  /**
+   * Gets the template by slug and format.
+   */
   async getTemplate(
     slug: string,
     format: string = "yml",
@@ -134,6 +152,101 @@ export class ServiceTemplateService {
     return this.listTemplates(PUBLIC_TEMPLATE_LIST_FIELDS, { category });
   }
 
+  /**
+   * Lists templates with pagination.
+   */
+  async listTemplatesPaginated(
+    query: ListTemplatesQueryDto,
+  ): Promise<ServiceResponse<PaginatedResponse<TemplateListItemDto>>> {
+    const page = query.page ?? DEFAULT_TEMPLATE_LIST_PAGE;
+    const limit = query.limit ?? DEFAULT_TEMPLATE_LIST_LIMIT;
+    const skip = (page - 1) * limit;
+
+    if (query.category !== undefined && query.category.trim() === "") {
+      throw new BadRequestException("category query parameter cannot be empty");
+    }
+
+    const baseWhere: FindOptionsWhere<ServiceTemplateEntity> = {
+      isActive: true,
+    };
+
+    if (query.category?.trim()) {
+      baseWhere.category = ArrayContains([query.category.trim().toLowerCase()]);
+    }
+
+    let where:
+      | FindOptionsWhere<ServiceTemplateEntity>
+      | FindOptionsWhere<ServiceTemplateEntity>[];
+
+    if (query.search?.trim()) {
+      const searchTerm = query.search.trim();
+      const search = ILike(`%${searchTerm}%`);
+
+      where = [
+        { ...baseWhere, name: search },
+        { ...baseWhere, slug: search },
+        { ...baseWhere, shortDescription: search },
+        { ...baseWhere, tags: ArrayOverlap([searchTerm]) },
+      ];
+    } else {
+      where = baseWhere;
+    }
+
+    try {
+      const [templates, total] =
+        await this.serviceTemplateRepository.findAndCount({
+          where,
+          order: { name: "ASC" },
+          skip,
+          take: limit,
+        });
+      const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+
+      return {
+        message: SUCCESS_MESSAGES.TEMPLATE.LIST,
+        data: {
+          data: templates.map((template) => this.toTemplateListItem(template)),
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+          },
+        },
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Failed to list templates: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Lists unique template categories.
+   */
+  async listTemplateCategories(): Promise<ServiceResponse<string[]>> {
+    try {
+      const categories = await this.listUniqueCategories();
+      return {
+        message: SUCCESS_MESSAGES.TEMPLATE.CATEGORIES,
+        data: categories,
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Failed to list template categories: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Lists unique template categories.
+   */
   async listUniqueCategories(): Promise<string[]> {
     const templates = await this.listTemplates(["category"]);
     const categories = new Set<string>();
@@ -150,6 +263,9 @@ export class ServiceTemplateService {
     return Array.from(categories).sort((a, b) => a.localeCompare(b));
   }
 
+  /**
+   * Gets the template details for the public template.
+   */
   async getPublicTemplateDetails(
     slug: string,
   ): Promise<PublicTemplateDetailsDto> {
@@ -191,6 +307,9 @@ export class ServiceTemplateService {
     }
   }
 
+  /**
+   * Gets the template details.
+   */
   async getTemplateDetails(slug: string): Promise<TemplateDetailsDto> {
     try {
       const template = await this.getTemplateEntity(slug);
