@@ -1,6 +1,5 @@
 import { getErrorMessage } from "@/api/api-error";
 import { useServerResourcesQuery } from "@/features/servers/hooks";
-import { formatRelativeTime } from "@/lib/format-relative-time";
 import {
   formatBytes,
   formatLoadAverage,
@@ -8,6 +7,7 @@ import {
   formatUptime,
 } from "@/lib/format-metrics";
 import { SkeletonInsightStack } from "@/components/shared/skeleton";
+import { ServerDetailSectionHeader } from "../server-detail-section-header";
 import { InsightMetricCard } from "../insight-metric-card";
 import "../insights-tab.css";
 
@@ -16,30 +16,24 @@ type ServerInsightsTabProps = {
   isActive: boolean;
 };
 
-function InsightsPanelHeader({
-  timestamp,
-}: {
-  timestamp?: string | null;
-}) {
+function InsightsPanelHeader() {
   return (
-    <header className="insights-panel-header">
-      <h2 className="server-detail-section-title">Resource usage</h2>
-      <p className="server-detail-section-desc">
-        On-demand snapshot for this server. CPU is sampled over one second; network
-        totals are cumulative since boot.
-        {timestamp ? (
-          <>
-            {" "}
-            Collected{" "}
-            <time dateTime={timestamp}>{formatRelativeTime(timestamp)}</time>.
-          </>
-        ) : null}
-      </p>
-    </header>
+    <ServerDetailSectionHeader
+      title="Resource usage"
+      description={
+        <>
+          On-demand snapshot for this server. CPU is sampled over one second;
+          network totals are cumulative since boot.
+        </>
+      }
+    />
   );
 }
 
-export function ServerInsightsTab({ serverId, isActive }: ServerInsightsTabProps) {
+export function ServerInsightsTab({
+  serverId,
+  isActive,
+}: ServerInsightsTabProps) {
   const {
     data: resources,
     isLoading,
@@ -96,7 +90,7 @@ export function ServerInsightsTab({ serverId, isActive }: ServerInsightsTabProps
 
   return (
     <div className="server-detail-panel">
-      <InsightsPanelHeader timestamp={resources.timestamp} />
+      <InsightsPanelHeader />
 
       <div className="insights-grid">
         <InsightMetricCard
@@ -105,7 +99,10 @@ export function ServerInsightsTab({ serverId, isActive }: ServerInsightsTabProps
           valueUnit="%"
           usagePercent={resources.cpu.usagePercent}
           stats={[
-            { label: "Usage", value: formatPercent(resources.cpu.usagePercent) },
+            {
+              label: "Usage",
+              value: formatPercent(resources.cpu.usagePercent),
+            },
             { label: "Cores", value: resources.cpu.cores },
             {
               label: "Load average",
@@ -123,7 +120,10 @@ export function ServerInsightsTab({ serverId, isActive }: ServerInsightsTabProps
             { label: "Total", value: formatBytes(resources.memory.total) },
             { label: "Used", value: formatBytes(resources.memory.used) },
             { label: "Free", value: formatBytes(resources.memory.free) },
-            { label: "Usage", value: formatPercent(resources.memory.usagePercent) },
+            {
+              label: "Usage",
+              value: formatPercent(resources.memory.usagePercent),
+            },
           ]}
         />
 
@@ -136,7 +136,10 @@ export function ServerInsightsTab({ serverId, isActive }: ServerInsightsTabProps
             { label: "Total", value: formatBytes(resources.disk.total) },
             { label: "Used", value: formatBytes(resources.disk.used) },
             { label: "Free", value: formatBytes(resources.disk.free) },
-            { label: "Usage", value: formatPercent(resources.disk.usagePercent) },
+            {
+              label: "Usage",
+              value: formatPercent(resources.disk.usagePercent),
+            },
           ]}
         />
 

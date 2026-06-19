@@ -12,7 +12,7 @@
     "build:console-app": "npm run clean && cd console-app && npm run build",
     "build:agent-app": "nest build agent-app",
     "start": "nest start",
-    "start:console-app:dev": "npm run clean && cd console-app && npm run dev",
+    "start:console-app:dev": "cd console-app && npm run dev",
     "start:console-app": "npm run clean && cd console-app && npm run build && npm run start",
     "start:control-panel-app": "nest start control-panel-app",
     "start:control-panel-app:dev": "nest start control-panel-app --watch",

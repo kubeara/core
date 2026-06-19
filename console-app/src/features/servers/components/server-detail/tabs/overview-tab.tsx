@@ -8,8 +8,12 @@ import type {
   ServerContainer,
 } from "@/features/deployments/types";
 import { SkeletonMarketplaceGrid } from "@/components/shared/skeleton";
+import { ServerDetailSectionHeader } from "../server-detail-section-header";
 import { ConnectedServiceCard } from "../connected-service-card";
-import { getContainerDisplayName, getContainerServiceName } from "../utils/container-display";
+import {
+  getContainerDisplayName,
+  getContainerServiceName,
+} from "../utils/container-display";
 
 type ServerOverviewTabProps = {
   serverId: string;
@@ -24,13 +28,16 @@ export function ServerOverviewTab({
   isLoading,
   isError,
 }: ServerOverviewTabProps) {
-  const { data: templates = [] } = useTemplatesQuery(serverId);
+  const { data: templatesResponse } = useTemplatesQuery(undefined, serverId);
   const templateLogos = useMemo(
     () =>
       new Map(
-        templates.map((template) => [template.slug, template.logo ?? null]),
+        (templatesResponse?.data ?? []).map((template) => [
+          template.slug,
+          template.logo ?? null,
+        ]),
       ),
-    [templates],
+    [templatesResponse?.data],
   );
 
   const containerActionMutation = useContainerActionMutation();
@@ -46,8 +53,8 @@ export function ServerOverviewTab({
 
   const isConfirmPending = Boolean(
     confirmAction &&
-      pendingAction?.containerId === confirmAction.container.containerId &&
-      pendingAction.action === confirmAction.action,
+    pendingAction?.containerId === confirmAction.container.containerId &&
+    pendingAction.action === confirmAction.action,
   );
 
   function handleContainerActionRequest(
@@ -119,12 +126,10 @@ export function ServerOverviewTab({
         />
       ) : null}
 
-      <h2 className="server-detail-section-title">Connected services</h2>
-
-      <p className="server-detail-section-desc">
-        Containers discovered on this server, including Kubeara deployments and
-        self-managed workloads.
-      </p>
+      <ServerDetailSectionHeader
+        title="Connected services"
+        description="Containers discovered on this server, including Kubeara deployments and self-managed workloads."
+      />
 
       {isLoading ? (
         <SkeletonMarketplaceGrid count={3} label="Loading containers…" />
