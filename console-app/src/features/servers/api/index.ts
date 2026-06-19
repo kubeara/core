@@ -3,6 +3,7 @@ import type {
   OnboardServerRequest,
   OnboardSuccessData,
   PaginatedServersResponse,
+  DeleteServerResponse,
   ServerApiResponse,
   ServerResources,
   ServersApiResponse,
@@ -17,7 +18,7 @@ import {
   runServerApiCall,
   unwrapServerApiData,
 } from "../utils/server-api-error";
-import { DELETE_SERVER_OPERATION_TIMEOUT_MS } from "../constants/api-timeouts";
+import { DELETE_SERVER_OPERATION_TIMEOUT_MS, ONBOARD_SERVER_OPERATION_TIMEOUT_MS } from "../constants/api-timeouts";
 import { SERVER_API_FALLBACK_MESSAGES } from "../constants/messages";
 
 function responseBody(
@@ -72,7 +73,9 @@ export async function onboardServer(
   return runServerApiCall(async () => {
     const response = await apiClient.post<
       ServersApiResponse<OnboardSuccessData>
-    >("/servers/onboard", input);
+    >("/servers/onboard", input, {
+      timeout: ONBOARD_SERVER_OPERATION_TIMEOUT_MS,
+    });
     const body = responseBody(response);
     const result = unwrapServerApiData<OnboardSuccessData>(
       body,
@@ -210,10 +213,10 @@ export type DeleteServerInput = {
 
 export async function deleteServer(
   input: DeleteServerInput,
-): Promise<{ deleted: true; message: string }> {
+): Promise<{ deleted: boolean; pending?: boolean; message: string }> {
   return runServerApiCall(async () => {
     const response = await apiClient.post<
-      ServersApiResponse<{ deleted: true }>
+      ServersApiResponse<DeleteServerResponse>
     >(
       `/servers/${input.id}/delete`,
       {
@@ -222,15 +225,18 @@ export async function deleteServer(
       { timeout: DELETE_SERVER_OPERATION_TIMEOUT_MS },
     );
     const body = responseBody(response);
-    unwrapServerApiData<{ deleted: true }>(
+    const data = unwrapServerApiData<DeleteServerResponse>(
       body,
       SERVER_API_FALLBACK_MESSAGES.DELETE,
     );
     return {
-      deleted: true as const,
+      deleted: data.deleted,
+      pending: data.pending,
       message: extractApiMessage(
         body,
-        SERVER_API_FALLBACK_MESSAGES.DELETE_SUCCESS,
+        data.pending
+          ? SERVER_API_FALLBACK_MESSAGES.DELETE_STARTED
+          : SERVER_API_FALLBACK_MESSAGES.DELETE_SUCCESS,
       ),
     };
   });

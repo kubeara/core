@@ -269,6 +269,10 @@
   background: #f59e0b;
 }
 
+.server-status-dot.removing {
+  background: #f59e0b;
+}
+
 .server-status-dot.error {
   background: #ef4444;
 }
@@ -277,8 +281,20 @@
   min-width: 0;
 }
 
+.server-name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.server-name-row .server-tag-pill {
+  flex-shrink: 0;
+}
+
 .server-name-link {
-  display: block;
+  display: inline-block;
   font-size: 0.9375rem;
   font-weight: 600;
   color: #0069ff;
@@ -288,6 +304,30 @@
 
 .server-name-link:hover {
   text-decoration: underline;
+}
+
+.server-name-link.is-disabled {
+  color: #62788e;
+  cursor: default;
+  pointer-events: none;
+  text-decoration: none;
+}
+
+.server-name-cell.is-busy .server-name-link.is-disabled {
+  color: #334155;
+}
+
+[data-theme="dark"] .server-name-cell.is-busy .server-name-link.is-disabled {
+  color: var(--foreground);
+}
+
+.server-row-busy {
+  opacity: 0.92;
+}
+
+.server-row-busy .server-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .server-name-meta {
@@ -428,9 +468,19 @@
   color: #007a4d;
 }
 
+.server-tag-pill.starting {
+  background: #e6f7ef;
+  color: #007a4d;
+}
+
 .server-tag-pill.offline {
   background: #f1f5f9;
   color: #64748b;
+}
+
+.server-tag-pill.removing {
+  background: #fef3c7;
+  color: #b45309;
 }
 
 .server-tag-pill.pending {
