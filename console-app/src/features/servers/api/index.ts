@@ -17,6 +17,7 @@ import {
   runServerApiCall,
   unwrapServerApiData,
 } from "../utils/server-api-error";
+import { DELETE_SERVER_OPERATION_TIMEOUT_MS } from "../constants/api-timeouts";
 import { SERVER_API_FALLBACK_MESSAGES } from "../constants/messages";
 
 function responseBody(
@@ -202,13 +203,24 @@ export async function disconnectTerminal(
   });
 }
 
+export type DeleteServerInput = {
+  id: string;
+  removeManagedServices?: boolean;
+};
+
 export async function deleteServer(
-  id: string,
+  input: DeleteServerInput,
 ): Promise<{ deleted: true; message: string }> {
   return runServerApiCall(async () => {
     const response = await apiClient.post<
       ServersApiResponse<{ deleted: true }>
-    >(`/servers/${id}/delete`);
+    >(
+      `/servers/${input.id}/delete`,
+      {
+        removeManagedServices: input.removeManagedServices === true,
+      },
+      { timeout: DELETE_SERVER_OPERATION_TIMEOUT_MS },
+    );
     const body = responseBody(response);
     unwrapServerApiData<{ deleted: true }>(
       body,

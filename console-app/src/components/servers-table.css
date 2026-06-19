@@ -538,3 +538,22 @@
 [data-theme="dark"] .servers-page-indicator {
   color: var(--foreground);
 }
+
+.delete-server-modal {
+  max-width: 32rem;
+}
+
+.delete-server-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  margin: 0.75rem 1.25rem 0;
+  font-size: 0.9375rem;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.delete-server-option input {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}

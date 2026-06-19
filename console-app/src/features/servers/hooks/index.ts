@@ -11,6 +11,7 @@ import {
   fetchServers,
   onboardServer,
   updateServer,
+  type DeleteServerInput,
 } from "../api";
 import type {
   OnboardServerRequest,
@@ -170,13 +171,13 @@ export function useDeleteServerMutation() {
   return useMutation<
     { deleted: true; message: string },
     ApiError,
-    string
+    DeleteServerInput
   >({
     mutationFn: withServerMutationError(deleteServer),
-    onSuccess: (data, id) => {
+    onSuccess: (data, input) => {
       showSuccessToast(data.message);
       void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.servers.lists() });
-      queryClient.removeQueries({ queryKey: QUERY_KEYS.servers.detail(id) });
+      queryClient.removeQueries({ queryKey: QUERY_KEYS.servers.detail(input.id) });
     },
     onError: (error) => {
       showErrorToast(getErrorMessage(error));

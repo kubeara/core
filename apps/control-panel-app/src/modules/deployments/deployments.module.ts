@@ -23,7 +23,7 @@ import { ServiceTemplateEntity } from "../service-template/entities/service-temp
       EnvironmentVariableEntity,
       ServiceTemplateEntity,
     ]),
-    ServerConnectionsModule,
+    forwardRef(() => ServerConnectionsModule),
     forwardRef(() => WebsocketModule),
     EncryptionModule,
     TemplatePayloadModule,

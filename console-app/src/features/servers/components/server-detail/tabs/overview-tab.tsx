@@ -7,7 +7,7 @@ import type {
   ContainerActionType,
   ServerContainer,
 } from "@/features/deployments/types";
-import { SkeletonGrid } from "@/components/shared/skeleton";
+import { SkeletonMarketplaceGrid } from "@/components/shared/skeleton";
 import { ConnectedServiceCard } from "../connected-service-card";
 import { getContainerDisplayName, getContainerServiceName } from "../utils/container-display";
 
@@ -127,7 +127,7 @@ export function ServerOverviewTab({
       </p>
 
       {isLoading ? (
-        <SkeletonGrid count={3} cardHeight={200} label="Loading containers…" />
+        <SkeletonMarketplaceGrid count={3} label="Loading containers…" />
       ) : isError ? (
         <p className="server-detail-empty">
           Could not load containers. Check that this server is online.

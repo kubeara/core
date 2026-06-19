@@ -180,3 +180,143 @@
     background-position: -200% 0;
   }
 }
+
+.skeleton-insight-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.skeleton-insight-card {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  width: 100%;
+  min-height: 9.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.skeleton-insight-accent {
+  width: 4px;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+
+.skeleton-insight-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: 1.25rem 1.375rem;
+  gap: 1rem;
+}
+
+.skeleton-insight-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.skeleton-insight-progress {
+  height: 5px;
+  width: 100%;
+  border-radius: 999px;
+}
+
+.skeleton-insight-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.875rem 1.25rem;
+}
+
+.skeleton-insight-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.skeleton-marketplace-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.skeleton-marketplace-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 280px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.skeleton-marketplace-accent {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+
+.skeleton-marketplace-header {
+  display: flex;
+  gap: 0.875rem;
+  padding: 1.125rem 1.125rem 0.75rem;
+}
+
+.skeleton-marketplace-headline {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.skeleton-marketplace-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0 1.125rem 1.125rem;
+}
+
+.skeleton-marketplace-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.875rem 1rem;
+  margin-top: auto;
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--border);
+}
+
+.skeleton-marketplace-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.skeleton-server-detail-back {
+  width: 5rem;
+  height: 2.25rem;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .skeleton-marketplace-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .skeleton-insight-stats {
+    grid-template-columns: 1fr;
+  }
+}

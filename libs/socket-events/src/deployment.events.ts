@@ -55,6 +55,10 @@ export enum DeploymentEvents {
   TERMINAL_RESIZE = "terminal:resize",
   /** Console/control panel → agent: close terminal session. */
   TERMINAL_DISCONNECT = "terminal:disconnect",
+  /** Control panel → agent: uninstall the Kubeara agent from the host. */
+  AGENT_REMOVE = "agent:remove",
+  /** Agent → control panel: agent uninstall response. */
+  AGENT_REMOVE_RESULT = "agent:remove:result",
 }
 
 export type ContainerActionType = "stop" | "restart" | "delete";
@@ -394,4 +398,18 @@ export interface ContainerLogsErrorPayload {
 
 export interface ContainerLogsSubscribePayload {
   sessionId: string;
+}
+
+export interface AgentRemoveRequestPayload {
+  requestId: string;
+  installDir?: string;
+  agentImage?: string;
+}
+
+export interface AgentRemoveResponsePayload {
+  requestId: string;
+  success: boolean;
+  error?: string;
+  /** Image refs/IDs still on the host after compose down (for SSH cleanup if needed). */
+  imageRefs?: string[];
 }
