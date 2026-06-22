@@ -10,3 +10,5 @@ export * from "./server-ssh-credential-response.dto";
 export * from "./onboard-response.dto";
 export * from "./create-server-with-credentials.response.dto";
 export * from "./server-resources-response.dto";
+export * from "./delete-server.request.dto";
+export * from "./delete-server.response.dto";

@@ -62,17 +62,20 @@
   box-shadow: 0 0 0 3px rgb(0 105 255 / 12%);
 }
 
-.servers-filter-clear {
+.servers-filter-clear,
+.filter-clear-btn {
   padding: 0.5rem 0.625rem;
   border: none;
   background: none;
-  color: #0069ff;
+  color: var(--primary);
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 
-.servers-filter-clear:hover {
+.servers-filter-clear:hover,
+.filter-clear-btn:hover {
   text-decoration: underline;
 }
 
@@ -269,6 +272,10 @@
   background: #f59e0b;
 }
 
+.server-status-dot.removing {
+  background: #f59e0b;
+}
+
 .server-status-dot.error {
   background: #ef4444;
 }
@@ -277,8 +284,20 @@
   min-width: 0;
 }
 
+.server-name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.server-name-row .server-tag-pill {
+  flex-shrink: 0;
+}
+
 .server-name-link {
-  display: block;
+  display: inline-block;
   font-size: 0.9375rem;
   font-weight: 600;
   color: #0069ff;
@@ -288,6 +307,30 @@
 
 .server-name-link:hover {
   text-decoration: underline;
+}
+
+.server-name-link.is-disabled {
+  color: #62788e;
+  cursor: default;
+  pointer-events: none;
+  text-decoration: none;
+}
+
+.server-name-cell.is-busy .server-name-link.is-disabled {
+  color: #334155;
+}
+
+[data-theme="dark"] .server-name-cell.is-busy .server-name-link.is-disabled {
+  color: var(--foreground);
+}
+
+.server-row-busy {
+  opacity: 0.92;
+}
+
+.server-row-busy .server-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .server-name-meta {
@@ -428,9 +471,19 @@
   color: #007a4d;
 }
 
+.server-tag-pill.starting {
+  background: #e6f7ef;
+  color: #007a4d;
+}
+
 .server-tag-pill.offline {
   background: #f1f5f9;
   color: #64748b;
+}
+
+.server-tag-pill.removing {
+  background: #fef3c7;
+  color: #b45309;
 }
 
 .server-tag-pill.pending {
@@ -537,4 +590,23 @@
 [data-theme="dark"] .servers-page-btn,
 [data-theme="dark"] .servers-page-indicator {
   color: var(--foreground);
+}
+
+.delete-server-modal {
+  max-width: 32rem;
+}
+
+.delete-server-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  margin: 0.75rem 1.25rem 0;
+  font-size: 0.9375rem;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.delete-server-option input {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
 }

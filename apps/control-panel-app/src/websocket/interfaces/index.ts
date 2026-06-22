@@ -18,9 +18,26 @@ export interface PendingServerResources {
   timer: NodeJS.Timeout;
 }
 
+/**
+ * Represents a pending container action request.
+ */
 export interface PendingContainerAction {
   serverId: string;
   resolve: (result: ContainerActionResponsePayload) => void;
+  reject: (error: Error) => void;
+  timer: NodeJS.Timeout;
+}
+
+export interface PendingDeploymentRemove {
+  serverId: string;
+  resolve: () => void;
+  reject: (error: Error) => void;
+  timer: NodeJS.Timeout;
+}
+
+export interface PendingAgentRemove {
+  serverId: string;
+  resolve: (result: { imageRefs: string[] }) => void;
   reject: (error: Error) => void;
   timer: NodeJS.Timeout;
 }

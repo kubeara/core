@@ -16,6 +16,8 @@ import { ServerConnectionsService } from "../services/server-connections.service
 import { LocalServerService } from "../services/local-server.service";
 import {
   CreateServerOnboardRequestDto,
+  DeleteServerRequestDto,
+  DeleteServerResponseDto,
   ListServersQueryDto,
   OnboardSuccessData,
   ServerResponseDto,
@@ -146,7 +148,10 @@ export class ServersController {
   deleteServer(
     @Req() req: AuthenticatedRequest,
     @Param("id") id: string,
-  ): Promise<ServiceResponse<{ deleted: true }>> {
-    return this.connectionsService.deleteServer(req.user.id, id);
+    @Body() body: DeleteServerRequestDto,
+  ): Promise<ServiceResponse<DeleteServerResponseDto>> {
+    return this.connectionsService.deleteServer(req.user.id, id, {
+      removeManagedServices: body.removeManagedServices === true,
+    });
   }
 }

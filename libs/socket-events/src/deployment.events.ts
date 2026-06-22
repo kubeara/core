@@ -55,6 +55,12 @@ export enum DeploymentEvents {
   TERMINAL_RESIZE = "terminal:resize",
   /** Console/control panel → agent: close terminal session. */
   TERMINAL_DISCONNECT = "terminal:disconnect",
+  /** Control panel → agent: uninstall the Kubeara agent from the host. */
+  AGENT_REMOVE = "agent:remove",
+  /** Agent → control panel: agent uninstall response. */
+  AGENT_REMOVE_RESULT = "agent:remove:result",
+  /** Control panel → console: server add/delete background operation update. */
+  SERVER_OPERATION_UPDATED = "server:operation-updated",
 }
 
 export type ContainerActionType = "stop" | "restart" | "delete";
@@ -213,6 +219,7 @@ export interface DeploymentLogPayload {
  */
 export interface AgentConnectedPayload {
   agentId: string;
+  serverId?: string;
   timestamp: string;
   totalAgents: number;
 }
@@ -222,6 +229,7 @@ export interface AgentConnectedPayload {
  */
 export interface AgentDisconnectedPayload {
   agentId: string;
+  serverId?: string;
   timestamp: string;
   totalAgents: number;
 }
@@ -394,4 +402,34 @@ export interface ContainerLogsErrorPayload {
 
 export interface ContainerLogsSubscribePayload {
   sessionId: string;
+}
+
+export interface AgentRemoveRequestPayload {
+  requestId: string;
+  installDir?: string;
+  agentImage?: string;
+}
+
+export interface AgentRemoveResponsePayload {
+  requestId: string;
+  success: boolean;
+  error?: string;
+  /** Image refs/IDs still on the host after compose down (for SSH cleanup if needed). */
+  imageRefs?: string[];
+}
+
+export type ServerOperationStatusValue =
+  | "starting"
+  | "removing"
+  | "error"
+  | null;
+
+/** Control panel → console when a server background operation changes. */
+export interface ServerOperationUpdatedPayload {
+  serverId: string;
+  operationStatus: ServerOperationStatusValue;
+  operationError?: string | null;
+  /** True when the server row was soft-deleted and should disappear from lists. */
+  deleted?: boolean;
+  timestamp: string;
 }

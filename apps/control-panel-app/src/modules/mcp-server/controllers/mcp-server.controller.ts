@@ -51,10 +51,18 @@ export class McpServerController {
     @Headers("authorization") authHeader: string,
   ): Promise<void> {
     try {
-      let userId: string;
-      if (body.method !== MCP_JSON_RPC_METHODS.INITIALIZE) {
+      const isInitialize = body.method === MCP_JSON_RPC_METHODS.INITIALIZE;
+
+      let userId: string | undefined;
+
+      try {
         const user = await this.mcpAuthService.validateToken(authHeader);
         userId = user.id;
+      } catch (authError) {
+        if (!isInitialize) {
+          throw authError;
+        }
+        // VS Code sends initialize without token — allow it
       }
 
       const server = this.mcpServerService.createServer(userId!);
@@ -64,6 +72,7 @@ export class McpServerController {
       });
 
       await server.connect(transport);
+      req.headers.accept = "application/json, text/event-stream";
       await transport.handleRequest(req, res, req.body);
 
       res.on("close", () => {

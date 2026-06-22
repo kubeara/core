@@ -787,6 +787,9 @@ export class DeployTemplateExecutor {
       source: "deployment",
     });
 
+    const containerIds = await this.listProjectContainerIds(projectName);
+    const collectedImages = await this.collectContainerImageRefs(containerIds);
+
     const envPath = path.join(cwd, ".env");
     const hasEnv = await this.exists(envPath);
     const downArgs = hasEnv
@@ -800,6 +803,8 @@ export class DeployTemplateExecutor {
           projectName,
           "down",
           "--volumes",
+          "--rmi",
+          "all",
           "--remove-orphans",
         ]
       : [
@@ -810,6 +815,8 @@ export class DeployTemplateExecutor {
           projectName,
           "down",
           "--volumes",
+          "--rmi",
+          "all",
           "--remove-orphans",
         ];
 
@@ -828,6 +835,14 @@ export class DeployTemplateExecutor {
       return;
     }
 
+    await this.removeCollectedImages(
+      projectName,
+      collectedImages.imageRefs,
+      collectedImages.imageIds,
+    );
+
+    await this.removeProjectNetworks(projectName, name, notifier);
+
     notifier.sendLog({
       deployment: name,
       type: "stdout",
@@ -836,6 +851,145 @@ export class DeployTemplateExecutor {
       source: "deployment",
     });
   }
+
+  /**
+   * Parses Docker output lines.
+   */
+  private parseDockerOutputLines(stdout: string): string[] {
+    return stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }
+
+  /**
+   * Lists container IDs by project label.
+   */
+  private async listProjectContainerIds(
+    projectName: string,
+  ): Promise<string[]> {
+    try {
+      const containerIds = await this.execCapture(
+        "docker",
+        [
+          "ps",
+          "-aq",
+          "--filter",
+          `label=com.docker.compose.project=${projectName}`,
+        ],
+        process.cwd(),
+      );
+
+      return this.parseDockerOutputLines(containerIds.stdout);
+    } catch (error) {
+      this.logger.error(
+        `Failed to list project container IDs for ${projectName}: ${String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Collects container image references and IDs.
+   */
+  private async collectContainerImageRefs(containerIds: string[]): Promise<{
+    imageRefs: Set<string>;
+    imageIds: Set<string>;
+  }> {
+    try {
+      const imageRefs = new Set<string>();
+      const imageIds = new Set<string>();
+
+      for (const id of containerIds) {
+        const refResult = await this.execCapture(
+          "docker",
+          ["inspect", "-f", "{{.Config.Image}}", id],
+          process.cwd(),
+        );
+        const idResult = await this.execCapture(
+          "docker",
+          ["inspect", "-f", "{{.Image}}", id],
+          process.cwd(),
+        );
+
+        const imageRef = refResult.stdout.trim();
+        const imageId = idResult.stdout.trim();
+        if (imageRef) {
+          imageRefs.add(imageRef);
+        }
+        if (imageId) {
+          imageIds.add(imageId);
+        }
+      }
+
+      return { imageRefs, imageIds };
+    } catch (error) {
+      this.logger.error(
+        `Failed to collect container image refs: ${String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Removes collected container images.
+   */
+  private async removeCollectedImages(
+    projectName: string,
+    imageRefs: Set<string>,
+    imageIds: Set<string>,
+  ): Promise<void> {
+    for (const imageRef of imageRefs) {
+      const removeImage = await this.execCapture(
+        "docker",
+        ["rmi", "-f", imageRef],
+        process.cwd(),
+      );
+      if (removeImage.exitCode !== 0) {
+        this.logger.warn(
+          `Image ref removal for ${projectName} (${imageRef}): ${removeImage.stderr || removeImage.stdout}`,
+        );
+      }
+    }
+
+    for (const imageId of imageIds) {
+      const removeImage = await this.execCapture(
+        "docker",
+        ["rmi", "-f", imageId],
+        process.cwd(),
+      );
+      if (removeImage.exitCode !== 0) {
+        this.logger.warn(
+          `Image ID removal for ${projectName} (${imageId}): ${removeImage.stderr || removeImage.stdout}`,
+        );
+      }
+    }
+
+    const labeledImages = await this.execCapture(
+      "docker",
+      [
+        "images",
+        "-q",
+        "--filter",
+        `label=com.docker.compose.project=${projectName}`,
+      ],
+      process.cwd(),
+    );
+
+    for (const imageId of this.parseDockerOutputLines(labeledImages.stdout)) {
+      const removeImage = await this.execCapture(
+        "docker",
+        ["rmi", "-f", imageId],
+        process.cwd(),
+      );
+      if (removeImage.exitCode !== 0) {
+        this.logger.warn(
+          `Labeled image removal for ${projectName} reported: ${removeImage.stderr || removeImage.stdout}`,
+        );
+      }
+    }
+  }
+
   /**
    * Removes compose-managed containers, volumes, and networks by project label
    * when compose files are unavailable.
@@ -845,103 +999,140 @@ export class DeployTemplateExecutor {
     name: string,
     notifier: ExecutionNotifier,
   ): Promise<void> {
-    notifier.sendLog({
-      deployment: name,
-      type: "stdout",
-      message: `Force-removing Docker resources for project ${projectName}`,
-      timestamp: new Date().toISOString(),
-      source: "deployment",
-    });
+    try {
+      notifier.sendLog({
+        deployment: name,
+        type: "stdout",
+        message: `Force-removing Docker resources for project ${projectName}`,
+        timestamp: new Date().toISOString(),
+        source: "deployment",
+      });
 
-    const containerIds = await this.execCapture(
-      "docker",
-      [
-        "ps",
-        "-aq",
-        "--filter",
-        `label=com.docker.compose.project=${projectName}`,
-      ],
-      process.cwd(),
-    );
+      const ids = await this.listProjectContainerIds(projectName);
+      const { imageRefs, imageIds } = await this.collectContainerImageRefs(ids);
 
-    const ids = containerIds.stdout
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
+      if (ids.length > 0) {
+        const removeContainers = await this.execCapture(
+          "docker",
+          ["rm", "-f", ...ids],
+          process.cwd(),
+        );
+        if (removeContainers.exitCode !== 0) {
+          throw new Error(
+            removeContainers.stderr ||
+              removeContainers.stdout ||
+              "Failed to remove containers",
+          );
+        }
+      }
 
-    if (ids.length > 0) {
-      const removeContainers = await this.execCapture(
+      const volumeIds = await this.execCapture(
         "docker",
-        ["rm", "-f", ...ids],
+        [
+          "volume",
+          "ls",
+          "-q",
+          "--filter",
+          `label=com.docker.compose.project=${projectName}`,
+        ],
         process.cwd(),
       );
-      if (removeContainers.exitCode !== 0) {
-        throw new Error(
-          removeContainers.stderr ||
-            removeContainers.stdout ||
-            "Failed to remove containers",
+
+      const volumes = volumeIds.stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      if (volumes.length > 0) {
+        const removeVolumes = await this.execCapture(
+          "docker",
+          ["volume", "rm", "-f", ...volumes],
+          process.cwd(),
         );
+        if (removeVolumes.exitCode !== 0) {
+          this.logger.warn(
+            `Volume removal for ${projectName} reported: ${removeVolumes.stderr || removeVolumes.stdout}`,
+          );
+        }
       }
+
+      await this.removeProjectNetworks(projectName, name, notifier);
+
+      await this.removeCollectedImages(projectName, imageRefs, imageIds);
+    } catch (error) {
+      this.logger.error(
+        `Failed to force remove compose project ${projectName}: ${String(error)}`,
+      );
+      throw error;
     }
+  }
 
-    const volumeIds = await this.execCapture(
-      "docker",
-      [
-        "volume",
-        "ls",
-        "-q",
-        "--filter",
-        `label=com.docker.compose.project=${projectName}`,
-      ],
-      process.cwd(),
-    );
-
-    const volumes = volumeIds.stdout
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    if (volumes.length > 0) {
-      const removeVolumes = await this.execCapture(
+  /**
+   * Removes compose project networks by label and common default naming.
+   */
+  private async removeProjectNetworks(
+    projectName: string,
+    name: string,
+    notifier: ExecutionNotifier,
+  ): Promise<void> {
+    try {
+      const networkIds = await this.execCapture(
         "docker",
-        ["volume", "rm", "-f", ...volumes],
+        [
+          "network",
+          "ls",
+          "-q",
+          "--filter",
+          `label=com.docker.compose.project=${projectName}`,
+        ],
         process.cwd(),
       );
-      if (removeVolumes.exitCode !== 0) {
-        this.logger.warn(
-          `Volume removal for ${projectName} reported: ${removeVolumes.stderr || removeVolumes.stdout}`,
-        );
-      }
-    }
 
-    const networkIds = await this.execCapture(
-      "docker",
-      [
-        "network",
-        "ls",
-        "-q",
-        "--filter",
-        `label=com.docker.compose.project=${projectName}`,
-      ],
-      process.cwd(),
-    );
+      const networks = new Set(this.parseDockerOutputLines(networkIds.stdout));
 
-    const networks = networkIds.stdout
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    for (const networkId of networks) {
-      const removeNetwork = await this.execCapture(
+      const defaultNetwork = `${projectName}_default`;
+      const defaultInspect = await this.execCapture(
         "docker",
-        ["network", "rm", networkId],
+        ["network", "inspect", "-f", "{{.Id}}", defaultNetwork],
         process.cwd(),
       );
-      if (removeNetwork.exitCode !== 0) {
-        this.logger.warn(
-          `Network removal for ${projectName} reported: ${removeNetwork.stderr || removeNetwork.stdout}`,
-        );
+      if (defaultInspect.exitCode === 0) {
+        const defaultId = defaultInspect.stdout.trim();
+        if (defaultId) {
+          networks.add(defaultId);
+        }
       }
+
+      if (networks.size === 0) {
+        return;
+      }
+
+      for (const networkId of networks) {
+        const removeNetwork = await this.execCapture(
+          "docker",
+          ["network", "rm", networkId],
+          process.cwd(),
+        );
+        if (removeNetwork.exitCode !== 0) {
+          this.logger.warn(
+            `Network removal for ${projectName} reported: ${removeNetwork.stderr || removeNetwork.stdout}`,
+          );
+          continue;
+        }
+
+        notifier.sendLog({
+          deployment: name,
+          type: "stdout",
+          message: `Network removed for ${projectName}`,
+          timestamp: new Date().toISOString(),
+          source: "deployment",
+        });
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to remove project networks for ${projectName}: ${String(error)}`,
+      );
+      throw error;
     }
   }
 
@@ -1547,5 +1738,231 @@ export class DeployTemplateExecutor {
         );
       },
     );
+  }
+
+  /**
+   * Collects agent container image refs before teardown (used in the socket ack payload).
+   */
+  async collectAgentRemovalTargets(opts: {
+    agentImage?: string;
+  }): Promise<string[]> {
+    try {
+      const containerName = "kubeara-agent";
+      const configuredImage =
+        opts.agentImage?.trim() ||
+        process.env.KUBEARA_AGENT_IMAGE?.trim() ||
+        "kubeara/agent:prod";
+
+      const imageRefs: string[] = [];
+
+      const refResult = await this.execCapture(
+        "docker",
+        ["inspect", "-f", "{{.Config.Image}}", containerName],
+        process.cwd(),
+      );
+      if (refResult.exitCode === 0 && refResult.stdout.trim()) {
+        imageRefs.push(refResult.stdout.trim());
+      }
+
+      const idResult = await this.execCapture(
+        "docker",
+        ["inspect", "-f", "{{.Image}}", containerName],
+        process.cwd(),
+      );
+      if (idResult.exitCode === 0 && idResult.stdout.trim()) {
+        imageRefs.push(idResult.stdout.trim());
+      }
+
+      if (configuredImage) {
+        imageRefs.push(configuredImage);
+      }
+
+      return [...new Set(imageRefs)];
+    } catch (error) {
+      this.logger.error(
+        `Failed to collect agent removal targets: ${String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Tears down the Kubeara agent on the host using existing Docker CLI (no extra images).
+   * Must run after the socket ack is sent — compose down stops this container.
+   */
+  async runAgentRemovalAfterAck(opts: {
+    installDir: string;
+    imageRefs: string[];
+  }): Promise<void> {
+    try {
+      const installMount = "/opt/kubeara/agent-install";
+      const composePath = `${installMount}/docker-compose.agent.yml`;
+      const envPath = `${installMount}/.env.agent`;
+      const projectName = this.resolveAgentComposeProjectName(opts.installDir);
+
+      this.logger.log(
+        `[AGENT_REMOVE] starting host teardown installMount=${installMount} project=${projectName}`,
+      );
+
+      const composeAvailable =
+        (await this.exists(composePath)) && (await this.exists(envPath));
+
+      if (composeAvailable) {
+        const composeDown = await this.execCapture(
+          "docker",
+          [
+            "compose",
+            "-f",
+            composePath,
+            "--env-file",
+            envPath,
+            "-p",
+            projectName,
+            "down",
+            "--volumes",
+            "--rmi",
+            "all",
+            "--remove-orphans",
+          ],
+          installMount,
+        );
+
+        if (composeDown.exitCode !== 0) {
+          this.logger.warn(
+            `[AGENT_REMOVE] compose down reported: ${composeDown.stderr.trim() || composeDown.stdout.trim()}`,
+          );
+        }
+      } else {
+        this.logger.warn(
+          `[AGENT_REMOVE] install mount unavailable at ${installMount}; using direct docker cleanup`,
+        );
+      }
+
+      await this.forceRemoveAgentHostArtifacts({
+        imageRefs: opts.imageRefs,
+        projectName,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to run agent removal after ack: ${String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  private resolveAgentComposeProjectName(installDir: string): string {
+    const base = installDir
+      .replace(/\/+$/, "")
+      .split("/")
+      .filter(Boolean)
+      .pop();
+    const normalized = (base ?? "agent")
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, "");
+    return normalized || "agent";
+  }
+
+  /**
+   * Forces removal of agent host artifacts.
+   */
+  private async forceRemoveAgentHostArtifacts(opts: {
+    imageRefs: string[];
+    projectName: string;
+  }): Promise<void> {
+    try {
+      const containerName = "kubeara-agent";
+      const { projectName, imageRefs } = opts;
+
+      await this.execCapture(
+        "docker",
+        ["update", "--restart=no", containerName],
+        process.cwd(),
+      );
+
+      await this.execCapture(
+        "docker",
+        ["rm", "-f", containerName],
+        process.cwd(),
+      );
+
+      const projectContainers = await this.execCapture(
+        "docker",
+        [
+          "ps",
+          "-aq",
+          "--filter",
+          `label=com.docker.compose.project=${projectName}`,
+        ],
+        process.cwd(),
+      );
+      const containerIds = this.parseDockerOutputLines(
+        projectContainers.stdout,
+      );
+      if (containerIds.length > 0) {
+        await this.execCapture(
+          "docker",
+          ["rm", "-f", ...containerIds],
+          process.cwd(),
+        );
+      }
+
+      const volumes = await this.execCapture(
+        "docker",
+        ["volume", "ls", "-q", "--filter", "name=agent_deployments"],
+        process.cwd(),
+      );
+      const volumeIds = this.parseDockerOutputLines(volumes.stdout);
+      if (volumeIds.length > 0) {
+        await this.execCapture(
+          "docker",
+          ["volume", "rm", "-f", ...volumeIds],
+          process.cwd(),
+        );
+      }
+
+      const networks = await this.execCapture(
+        "docker",
+        [
+          "network",
+          "ls",
+          "-q",
+          "--filter",
+          `label=com.docker.compose.project=${projectName}`,
+        ],
+        process.cwd(),
+      );
+      for (const networkId of this.parseDockerOutputLines(networks.stdout)) {
+        await this.execCapture(
+          "docker",
+          ["network", "rm", networkId],
+          process.cwd(),
+        );
+      }
+
+      const imagesToRemove = [...new Set(imageRefs.filter(Boolean))];
+      for (const imageRef of imagesToRemove) {
+        await this.execCapture(
+          "docker",
+          ["rmi", "-f", imageRef],
+          process.cwd(),
+        );
+      }
+
+      const taggedImages = await this.execCapture(
+        "docker",
+        ["images", "kubeara/agent", "-q"],
+        process.cwd(),
+      );
+      for (const imageId of this.parseDockerOutputLines(taggedImages.stdout)) {
+        await this.execCapture("docker", ["rmi", "-f", imageId], process.cwd());
+      }
+
+      this.logger.log("[AGENT_REMOVE] force host cleanup finished");
+    } catch (error) {
+      this.logger.error(
+        `Failed to force remove agent host artifacts: ${String(error)}`,
+      );
+      throw error;
+    }
   }
 }

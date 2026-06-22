@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
@@ -7,6 +7,10 @@ import {
   KUBEARA_TERMINAL_FONT,
   KUBEARA_TERMINAL_THEME,
 } from "@/components/shared/kubeara-terminal-theme";
+import { TerminalScrollDownButton } from "@/components/shared/terminal-scroll-down-button";
+import { useTerminalScrollDown } from "@/components/shared/use-terminal-scroll-down";
+import { useTerminalWheelTrap } from "@/components/shared/use-terminal-wheel-trap";
+import "@/components/shared/terminal-scroll-down-button.css";
 
 export type ServerTerminalViewerApi = {
   write: (data: string) => void;
@@ -34,6 +38,7 @@ export function ServerTerminalViewer({
   onReady,
 }: ServerTerminalViewerProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const onDataRef = useRef(onData);
@@ -148,5 +153,24 @@ export function ServerTerminalViewer({
     return () => window.clearTimeout(timer);
   }, [isVisible, refitToken]);
 
-  return <div ref={hostRef} className="server-terminal-xterm-host" />;
+  const scrollToBottom = useCallback(() => {
+    termRef.current?.scrollToBottom();
+  }, []);
+
+  const { visible: showScrollDown, handleClick: handleScrollDown } =
+    useTerminalScrollDown(hostRef, scrollToBottom);
+
+  useTerminalWheelTrap(frameRef);
+
+  return (
+    <div ref={frameRef} className="terminal-viewer-frame">
+      <div ref={hostRef} className="server-terminal-xterm-host" />
+      <TerminalScrollDownButton
+        visible={showScrollDown}
+        onClick={handleScrollDown}
+        hostRef={hostRef}
+        tooltip="Scroll to bottom"
+      />
+    </div>
+  );
 }

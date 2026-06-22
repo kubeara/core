@@ -1,11 +1,17 @@
 import { SshConnectionManager } from "@shared/ssh";
 import { ServerResponseDto } from "../dto/server-response.dto";
 import { ServerEntity } from "../entities/server.entity";
+import { readServerOperationFromMetadata } from "./server-operation.util";
 
 export function toServerResponseDto(
   server: ServerEntity,
   sshManager: SshConnectionManager,
+  isAgentConnected: (serverId: string) => boolean,
 ): ServerResponseDto {
+  const { operationStatus, operationError } = readServerOperationFromMetadata(
+    server.metadata,
+  );
+
   return {
     id: server.id,
     status: server.status,
@@ -20,6 +26,9 @@ export function toServerResponseDto(
     serverType: server.serverType,
     lastConnectedAt: server.lastConnectedAt,
     connected: sshManager.isConnected(server.id),
+    agentConnected: isAgentConnected(server.id),
+    operationStatus,
+    operationError,
     createdAt: server.createdAt,
     updatedAt: server.updatedAt,
     deletedAt: server.deletedAt,

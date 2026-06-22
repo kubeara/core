@@ -1,5 +1,5 @@
 import { unixTimestampToIso } from "@/lib/unix-timestamp";
-import type { Server } from "@/types";
+import type { Server, ServerOperationStatus } from "@/types";
 
 export type EntityStatus = "ACTIVE" | "INACTIVE";
 
@@ -19,6 +19,8 @@ export type ServerSshAuthType = "PASSWORD" | "PRIVATE_KEY";
 
 export type ServerListSortField = "name" | "host" | "createdAt";
 
+export type { ServerOperationStatus } from "@/types";
+
 export type ServerApiResponse = {
   id: string;
   status: EntityStatus;
@@ -33,6 +35,9 @@ export type ServerApiResponse = {
   serverType: ServerType;
   lastConnectedAt: number | string | null;
   connected: boolean;
+  agentConnected: boolean;
+  operationStatus: ServerOperationStatus | null;
+  operationError: string | null;
   createdAt: number | string;
   updatedAt: number | string;
   deletedAt: number | string | null;
@@ -90,7 +95,13 @@ export type OnboardSuccessData = {
     logs: string[];
     error?: string;
     skipped?: boolean;
+    pending?: boolean;
   };
+};
+
+export type DeleteServerResponse = {
+  deleted: boolean;
+  pending?: boolean;
 };
 
 export type UpdateServerRequest = {
@@ -181,7 +192,16 @@ export function mapServerApiToServer(api: ServerApiResponse): Server {
     username: api.username,
     host: api.host,
     connected: api.connected,
+    agentConnected: api.agentConnected ?? false,
+    operationStatus: api.operationStatus ?? null,
+    operationError: api.operationError ?? null,
     createdAt: unixTimestampToIso(api.createdAt) ?? new Date(0).toISOString(),
     lastConnectedAt: unixTimestampToIso(api.lastConnectedAt),
   };
+}
+
+export function isServerOperationBusy(
+  operationStatus: ServerOperationStatus | null | undefined,
+): boolean {
+  return operationStatus === "starting" || operationStatus === "removing";
 }

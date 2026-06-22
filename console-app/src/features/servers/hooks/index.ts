@@ -11,6 +11,7 @@ import {
   fetchServers,
   onboardServer,
   updateServer,
+  type DeleteServerInput,
 } from "../api";
 import type {
   OnboardServerRequest,
@@ -20,6 +21,8 @@ import type {
 } from "../types";
 import { mapServerApiToServer } from "../types";
 import type { Server } from "@/types";
+
+export { useServerOperationUpdates } from "./use-server-operation-updates";
 
 function withServerMutationError<TData, TVariables>(
   mutationFn: (variables: TVariables) => Promise<TData>,
@@ -91,7 +94,9 @@ export function useCreateServerMutation() {
     mutationFn: withServerMutationError(onboardServer),
     onSuccess: ({ server, message }) => {
       showSuccessToast(message);
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.servers.lists() });
+      void queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.servers.lists(),
+      });
       queryClient.setQueryData<ServerApiResponse>(
         QUERY_KEYS.servers.detail(server.id),
         server,
@@ -114,7 +119,9 @@ export function useUpdateServerMutation() {
     ),
     onSuccess: ({ server, message }) => {
       showSuccessToast(message);
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.servers.lists() });
+      void queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.servers.lists(),
+      });
       queryClient.setQueryData(QUERY_KEYS.servers.detail(server.id), server);
     },
   });
@@ -123,60 +130,66 @@ export function useUpdateServerMutation() {
 export function useConnectServerMutation() {
   const queryClient = useQueryClient();
 
-  return useMutation<
-    { connected: boolean; message: string },
-    ApiError,
-    string
-  >({
-    mutationFn: withServerMutationError(connectServer),
-    onSuccess: (data, id) => {
-      showSuccessToast(data.message);
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.servers.lists() });
-      void queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.servers.detail(id),
-      });
+  return useMutation<{ connected: boolean; message: string }, ApiError, string>(
+    {
+      mutationFn: withServerMutationError(connectServer),
+      onSuccess: (data, id) => {
+        showSuccessToast(data.message);
+        void queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.servers.lists(),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.servers.detail(id),
+        });
+      },
+      onError: (error) => {
+        showErrorToast(getErrorMessage(error));
+      },
     },
-    onError: (error) => {
-      showErrorToast(getErrorMessage(error));
-    },
-  });
+  );
 }
 
 export function useDisconnectServerMutation() {
   const queryClient = useQueryClient();
 
-  return useMutation<
-    { connected: boolean; message: string },
-    ApiError,
-    string
-  >({
-    mutationFn: withServerMutationError(disconnectServer),
-    onSuccess: (data, id) => {
-      showSuccessToast(data.message);
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.servers.lists() });
-      void queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.servers.detail(id),
-      });
+  return useMutation<{ connected: boolean; message: string }, ApiError, string>(
+    {
+      mutationFn: withServerMutationError(disconnectServer),
+      onSuccess: (data, id) => {
+        showSuccessToast(data.message);
+        void queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.servers.lists(),
+        });
+        void queryClient.invalidateQueries({
+          queryKey: QUERY_KEYS.servers.detail(id),
+        });
+      },
+      onError: (error) => {
+        showErrorToast(getErrorMessage(error));
+      },
     },
-    onError: (error) => {
-      showErrorToast(getErrorMessage(error));
-    },
-  });
+  );
 }
 
 export function useDeleteServerMutation() {
   const queryClient = useQueryClient();
 
   return useMutation<
-    { deleted: true; message: string },
+    { deleted: boolean; pending?: boolean; message: string },
     ApiError,
-    string
+    DeleteServerInput
   >({
     mutationFn: withServerMutationError(deleteServer),
-    onSuccess: (data, id) => {
+    onSuccess: (data, input) => {
       showSuccessToast(data.message);
-      void queryClient.invalidateQueries({ queryKey: QUERY_KEYS.servers.lists() });
-      queryClient.removeQueries({ queryKey: QUERY_KEYS.servers.detail(id) });
+      void queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.servers.lists(),
+      });
+      if (!data.pending) {
+        queryClient.removeQueries({
+          queryKey: QUERY_KEYS.servers.detail(input.id),
+        });
+      }
     },
     onError: (error) => {
       showErrorToast(getErrorMessage(error));

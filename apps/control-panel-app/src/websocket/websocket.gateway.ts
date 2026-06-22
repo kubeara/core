@@ -28,6 +28,8 @@ import {
   DiscoveredContainerPayload,
   ServerGetResourcesRequestPayload,
   ServerGetResourcesResponsePayload,
+  AgentRemoveRequestPayload,
+  AgentRemoveResponsePayload,
   ServerResourcesMetricsPayload,
   TerminalConnectRequestPayload,
   TerminalConnectResponsePayload,
@@ -42,6 +44,7 @@ import {
   ContainerLogsDataPayload,
   ContainerLogsErrorPayload,
   ContainerLogsSubscribePayload,
+  ServerOperationUpdatedPayload,
 } from "@shared/socket-events";
 import { randomUUID } from "node:crypto";
 import { DeploymentsService } from "@control-panel/modules/deployments/deployments.service";
@@ -53,6 +56,8 @@ import type {
   PendingContainerAction,
   PendingContainerDiscovery,
   PendingContainerLogsStart,
+  PendingDeploymentRemove,
+  PendingAgentRemove,
   PendingServerResources,
   PendingTerminalConnect,
   TerminalSessionRecord,
@@ -63,6 +68,8 @@ import {
   CONTAINER_ACTION_TIMEOUT_MS,
   CONTAINER_DISCOVER_TIMEOUT_MS,
   CONTAINER_LOGS_START_TIMEOUT_MS,
+  DEPLOYMENT_REMOVE_TIMEOUT_MS,
+  AGENT_REMOVE_TIMEOUT_MS,
   SERVER_GET_RESOURCES_TIMEOUT_MS,
   TERMINAL_CONNECT_TIMEOUT_MS,
   STREAM_DEBUG,
@@ -120,6 +127,11 @@ export class DeploymentGateway
     string,
     PendingContainerAction
   >();
+  private readonly pendingDeploymentRemoves = new Map<
+    string,
+    PendingDeploymentRemove
+  >();
+  private readonly pendingAgentRemoves = new Map<string, PendingAgentRemove>();
   private readonly pendingTerminalConnects = new Map<
     string,
     PendingTerminalConnect
@@ -250,6 +262,14 @@ export class DeploymentGateway
             serverId,
             "Agent disconnected during container action",
           );
+          this.rejectPendingDeploymentRemovesForServer(
+            serverId,
+            "Agent disconnected during deployment removal",
+          );
+          this.rejectPendingAgentRemovesForServer(
+            serverId,
+            "Agent disconnected during agent removal",
+          );
           this.rejectPendingTerminalConnectsForServer(
             serverId,
             "Agent disconnected during terminal connect",
@@ -268,6 +288,7 @@ export class DeploymentGateway
         const ns = this.getNamespaceServer();
         ns?.emit(DeploymentEvents.AGENT_DISCONNECTED, {
           agentId: socketId,
+          serverId: serverId ?? undefined,
           timestamp: new Date().toISOString(),
           totalAgents: this.connectedAgents.size,
         });
@@ -350,6 +371,52 @@ export class DeploymentGateway
     } catch (error) {
       this.logger.error(
         `Failed to process server get-resources result: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  @SubscribeMessage(DeploymentEvents.AGENT_REMOVE_RESULT)
+  handleAgentRemoveResult(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: AgentRemoveResponsePayload,
+  ): void {
+    try {
+      const requestId = payload?.requestId?.trim();
+      if (!requestId) {
+        this.logger.warn(
+          `Ignoring agent remove result without requestId from ${client.id}`,
+        );
+        return;
+      }
+
+      const pending = this.pendingAgentRemoves.get(requestId);
+      if (!pending) {
+        this.logger.warn(`No pending agent remove for requestId=${requestId}`);
+        return;
+      }
+
+      const serverId = this.serverIdBySocketId.get(client.id);
+      if (serverId && serverId !== pending.serverId) {
+        this.logger.warn(
+          `Agent remove result server mismatch requestId=${requestId} expected=${pending.serverId} got=${serverId}`,
+        );
+        return;
+      }
+
+      clearTimeout(pending.timer);
+      this.pendingAgentRemoves.delete(requestId);
+
+      if (!payload.success) {
+        pending.reject(
+          new Error(payload.error?.trim() || "Agent removal failed"),
+        );
+        return;
+      }
+
+      pending.resolve({ imageRefs: payload.imageRefs ?? [] });
+    } catch (error) {
+      this.logger.error(
+        `Failed to process agent remove result: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -681,7 +748,31 @@ export class DeploymentGateway
         room,
       });
 
+      /**
+       * Handles pending deployment removal status updates.
+       */
       try {
+        const pendingRemove = this.pendingDeploymentRemoves.get(
+          payload.deploymentId,
+        );
+        if (pendingRemove) {
+          if (payload.status === "removed") {
+            clearTimeout(pendingRemove.timer);
+            this.pendingDeploymentRemoves.delete(payload.deploymentId);
+            pendingRemove.resolve();
+          } else if (payload.status === "failed") {
+            clearTimeout(pendingRemove.timer);
+            this.pendingDeploymentRemoves.delete(payload.deploymentId);
+            pendingRemove.reject(
+              new Error(
+                payload.error?.trim() ||
+                  payload.message?.trim() ||
+                  "Deployment removal failed",
+              ),
+            );
+          }
+        }
+
         if (payload.status === "removed") {
           await this.deploymentsService.softDeleteDeploymentRecord(
             payload.deploymentId,
@@ -730,6 +821,28 @@ export class DeploymentGateway
         `Failed to process deployment status event: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+  /**
+   * Broadcasts the server operation updated event to the websocket.
+   */
+  broadcastServerOperationUpdated(
+    payload: ServerOperationUpdatedPayload,
+  ): void {
+    const ns = this.getNamespaceServer();
+    if (!ns) {
+      return;
+    }
+
+    const enriched: ServerOperationUpdatedPayload = {
+      ...payload,
+      timestamp: payload.timestamp ?? new Date().toISOString(),
+    };
+
+    this.logger.log(
+      `[SERVER_OPERATION] broadcast serverId=${enriched.serverId} status=${String(enriched.operationStatus)} deleted=${Boolean(enriched.deleted)}`,
+    );
+
+    ns.emit(DeploymentEvents.SERVER_OPERATION_UPDATED, enriched);
   }
 
   broadcastDeploymentLog(
@@ -872,6 +985,115 @@ export class DeploymentGateway
       );
       throw error;
     }
+  }
+
+  /**
+   * Requests deployment removal via the connected agent and waits for completion.
+   */
+  requestDeploymentRemove(
+    serverId: string,
+    deploymentId: string,
+    templateSlug: string,
+    timeoutMs: number = DEPLOYMENT_REMOVE_TIMEOUT_MS,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      try {
+        const client = this.agentsByServerId.get(serverId);
+        if (!client?.connected) {
+          reject(new Error(`No connected agent for server '${serverId}'`));
+          return;
+        }
+
+        const timer = setTimeout(() => {
+          this.pendingDeploymentRemoves.delete(deploymentId);
+          reject(
+            new Error(
+              `Deployment remove timed out after ${timeoutMs / 1000}s for server '${serverId}'`,
+            ),
+          );
+        }, timeoutMs);
+
+        this.pendingDeploymentRemoves.set(deploymentId, {
+          serverId,
+          resolve,
+          reject,
+          timer,
+        });
+
+        /**
+         * Emits a deployment removal request to the connected agent.
+         */
+        const message: SocketRemoveMessage = {
+          type: "REMOVE",
+          payload: { deploymentId, templateSlug },
+        };
+
+        this.logger.log(
+          `[DEPLOY_REMOVE] requesting removal deploymentId=${deploymentId} serverId=${serverId}`,
+        );
+        client.emit(DeploymentEvents.REMOVE, message);
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  }
+
+  /**
+   * Requests agent self-removal from the connected agent (must run last during server deletion).
+   */
+  requestAgentRemove(
+    serverId: string,
+    options?: { installDir?: string; agentImage?: string },
+    timeoutMs: number = AGENT_REMOVE_TIMEOUT_MS,
+  ): Promise<{ imageRefs: string[] }> {
+    return new Promise((resolve, reject) => {
+      try {
+        const client = this.agentsByServerId.get(serverId);
+        if (!client?.connected) {
+          reject(new Error(`No connected agent for server '${serverId}'`));
+          return;
+        }
+
+        if (!this.agentSupports(serverId, DeploymentEvents.AGENT_REMOVE)) {
+          reject(
+            new Error(
+              `Connected agent for server '${serverId}' does not support agent removal`,
+            ),
+          );
+          return;
+        }
+
+        const requestId = randomUUID();
+        const payload: AgentRemoveRequestPayload = {
+          requestId,
+          installDir: options?.installDir?.trim() || undefined,
+          agentImage: options?.agentImage?.trim() || undefined,
+        };
+
+        const timer = setTimeout(() => {
+          this.pendingAgentRemoves.delete(requestId);
+          reject(
+            new Error(
+              `Agent removal timed out after ${timeoutMs / 1000}s for server '${serverId}'`,
+            ),
+          );
+        }, timeoutMs);
+
+        this.pendingAgentRemoves.set(requestId, {
+          serverId,
+          resolve,
+          reject,
+          timer,
+        });
+
+        this.logger.log(
+          `[AGENT_REMOVE] requesting removal serverId=${serverId} requestId=${requestId}`,
+        );
+        client.emit(DeploymentEvents.AGENT_REMOVE, payload);
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
   }
 
   emitDeploy(message: SocketDeployMessage, serverId: string): void {
@@ -1809,6 +2031,37 @@ export class DeploymentGateway
       }
       clearTimeout(pending.timer);
       this.pendingContainerActions.delete(requestId);
+      pending.reject(new Error(reason));
+    }
+  }
+
+  /**
+   * Rejects pending deployment removes for a server.
+   */
+  private rejectPendingDeploymentRemovesForServer(
+    serverId: string,
+    reason: string,
+  ): void {
+    for (const [deploymentId, pending] of this.pendingDeploymentRemoves) {
+      if (pending.serverId !== serverId) {
+        continue;
+      }
+      clearTimeout(pending.timer);
+      this.pendingDeploymentRemoves.delete(deploymentId);
+      pending.reject(new Error(reason));
+    }
+  }
+
+  private rejectPendingAgentRemovesForServer(
+    serverId: string,
+    reason: string,
+  ): void {
+    for (const [requestId, pending] of this.pendingAgentRemoves) {
+      if (pending.serverId !== serverId) {
+        continue;
+      }
+      clearTimeout(pending.timer);
+      this.pendingAgentRemoves.delete(requestId);
       pending.reject(new Error(reason));
     }
   }

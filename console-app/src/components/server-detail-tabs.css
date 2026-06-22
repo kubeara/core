@@ -1,25 +1,25 @@
 .server-detail-tabs {
-  margin-top: 1.5rem;
+  margin-top: 0.625rem;
 }
 
 .server-detail-tablist {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.25rem;
-  padding: 0.25rem;
+  gap: 0.125rem;
+  padding: 0.1875rem;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   box-shadow: var(--shadow);
 }
 
 .server-detail-tab {
-  padding: 0.5rem 1rem;
+  padding: 0.4375rem 0.875rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
@@ -36,19 +36,47 @@
 }
 
 .server-detail-panel {
-  margin-top: 1.25rem;
+  margin-top: 0.75rem;
+}
+
+.server-detail-section-header {
+  margin-bottom: 0.875rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
 }
 
 .server-detail-section-title {
-  margin: 0 0 1rem;
-  font-size: 1rem;
+  margin: 0 0 0.25rem;
+  font-size: 0.9375rem;
   font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
 }
 
 .server-detail-section-desc {
-  margin: -0.5rem 0 1.25rem;
-  font-size: 0.875rem;
+  margin: 0;
+  max-width: 72ch;
+  font-size: 0.8125rem;
+  line-height: 1.5;
   color: var(--muted);
+}
+
+.server-detail-section-desc time {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--foreground) 72%, var(--muted));
+}
+
+.server-detail-templates .server-detail-section-header {
+  margin-bottom: 0.625rem;
+  padding-bottom: 0.625rem;
+}
+
+.server-detail button:not(:disabled),
+.server-detail [role="tab"],
+.server-detail .dropdown-trigger,
+.server-detail .dropdown-option,
+.server-detail a[href] {
+  cursor: pointer;
 }
 
 /* Connected services (overview tab) */
@@ -314,9 +342,14 @@
 }
 
 .connected-services-section-title {
-  margin: 1.5rem 0 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 600;
+  margin: 0.875rem 0 0.625rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
 }
 
 .marketplace-card-offline {
@@ -378,10 +411,10 @@
 }
 
 .server-detail-empty {
-  padding: 2rem;
+  padding: 1.5rem;
   text-align: center;
   color: var(--muted);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   background: var(--surface);
   border: 1px dashed var(--border);
   border-radius: 12px;

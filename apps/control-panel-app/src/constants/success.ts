@@ -8,6 +8,7 @@ export const SUCCESS_MESSAGES = {
     CONNECTED: "Server connected successfully",
     DISCONNECTED: "Server disconnected successfully",
     DELETED: "Server deleted successfully",
+    DELETE_STARTED: "Server removal started",
   },
 
   TERMINAL: {
@@ -45,5 +46,10 @@ export const SUCCESS_MESSAGES = {
     CREATED: "MCP API key created successfully",
     LIST: "MCP API keys fetched successfully",
     REVOKED: "MCP API key revoked successfully",
+  },
+
+  TEMPLATE: {
+    LIST: "Templates fetched successfully",
+    CATEGORIES: "Template categories fetched successfully",
   },
 };

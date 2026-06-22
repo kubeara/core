@@ -8,6 +8,11 @@ import {
 } from "@nestjs/common";
 import type { Response } from "express";
 
+import { PaginatedResponse } from "@shared/common";
+import { ServiceResponse } from "@control-panel/common/interfaces/success-response.interface";
+
+import { ListTemplatesQueryDto } from "../dto/list-templates-query.dto";
+import type { TemplateListItemDto } from "../dto/template-marketplace.dto";
 import { ServiceTemplateService } from "../services/service-template.service";
 
 @Controller("templates")
@@ -16,11 +21,27 @@ export class ServiceTemplateController {
     private readonly serviceTemplateService: ServiceTemplateService,
   ) {}
 
+  /**
+   * Lists templates with pagination.
+   */
   @Get()
-  listTemplates() {
-    return this.serviceTemplateService.listTemplates();
+  listTemplates(
+    @Query() query: ListTemplatesQueryDto,
+  ): Promise<ServiceResponse<PaginatedResponse<TemplateListItemDto>>> {
+    return this.serviceTemplateService.listTemplatesPaginated(query);
   }
 
+  /**
+   * Lists unique template categories.
+   */
+  @Get("categories")
+  listCategories(): Promise<ServiceResponse<string[]>> {
+    return this.serviceTemplateService.listTemplateCategories();
+  }
+
+  /**
+   * Gets the template by slug and format.
+   */
   @Get(":slug")
   async getTemplate(
     @Param("slug") slug: string,

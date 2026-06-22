@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { getServerActivity } from "@/lib/server-detail-data";
 import { formatRelativeTime } from "@/lib/format-relative-time";
+import { ServerDetailSectionHeader } from "../server-detail-section-header";
 import { activityIcon } from "../utils/activity-icon";
 
 type ServerActivityTabProps = {
@@ -19,10 +20,10 @@ export function ServerActivityTab({
 
   return (
     <div className="server-detail-panel">
-      <h2 className="server-detail-section-title">Recent activity</h2>
-      <p className="server-detail-section-desc">
-        Deployments, configuration changes, and alerts for this server.
-      </p>
+      <ServerDetailSectionHeader
+        title="Recent activity"
+        description="Deployments, configuration changes, and alerts for this server."
+      />
       <div className="activity-feed">
         {activity.map((entry) => (
           <div key={entry.id} className="activity-item">
