@@ -126,7 +126,6 @@ export class AuthController {
    */
   @Post("resend-otp")
   async resendOtp(@Body() forgotPasswordDto: ForgotPasswordDto) {
-    console.log('the email called !')
     return this.authService.resendOtp(forgotPasswordDto.email);
   }
 
