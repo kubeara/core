@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, MoreThan, Repository } from "typeorm";
+import { DataSource, EntityManager, MoreThan, Repository } from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import dayjs from "dayjs";
 import * as bcrypt from "bcrypt";
@@ -162,8 +162,22 @@ export class AuthService {
     }
   }
 
-  private async replaceOtp(userId: string, codeType: CODE_TYPE): Promise<void> {
-    await this.userCodeRepository.update(
+  private getUserCodeRepository(
+    manager?: EntityManager,
+  ): Repository<UserCodeEntity> {
+    return manager
+      ? manager.getRepository(UserCodeEntity)
+      : this.userCodeRepository;
+  }
+
+  private async replaceOtp(
+    userId: string,
+    codeType: CODE_TYPE,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const userCodeRepository = this.getUserCodeRepository(manager);
+
+    await userCodeRepository.update(
       {
         userId,
         codeType,
@@ -178,14 +192,16 @@ export class AuthService {
   private async createOtpRecord(
     userId: string,
     codeType: CODE_TYPE,
+    manager?: EntityManager,
   ): Promise<{ otp: string }> {
-    await this.replaceOtp(userId, codeType);
+    await this.replaceOtp(userId, codeType, manager);
 
     const otp = GenerateOTP();
     const otpHash = await bcrypt.hash(otp, SALT_ROUNDS);
+    const userCodeRepository = this.getUserCodeRepository(manager);
 
-    await this.userCodeRepository.save(
-      this.userCodeRepository.create({
+    await userCodeRepository.save(
+      userCodeRepository.create({
         userId,
         codeType,
         otpHash,
@@ -343,13 +359,14 @@ export class AuthService {
 
       const savedUser = await userRepository.save(user);
 
-      await queryRunner.commitTransaction();
-
       const { otp } = await this.createOtpRecord(
         savedUser.id,
         CODE_TYPE.EMAIL_VERIFICATION,
+        queryRunner.manager,
       );
       await this.sendOtpEmail(savedUser, CODE_TYPE.EMAIL_VERIFICATION, otp);
+
+      await queryRunner.commitTransaction();
 
       return {
         message: SUCCESS_MESSAGES.AUTH.SIGNUP,
@@ -361,7 +378,9 @@ export class AuthService {
         },
       };
     } catch (error) {
-      await queryRunner.rollbackTransaction();
+      if (queryRunner.isTransactionActive) {
+        await queryRunner.rollbackTransaction();
+      }
       throw error;
     } finally {
       await queryRunner.release();
