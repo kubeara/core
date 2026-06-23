@@ -21,6 +21,22 @@ export function ContainerActionIcon({ action }: ContainerActionIconProps) {
           <rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" />
         </svg>
       );
+    case "start":
+      return (
+        <svg
+          width={ICON_SIZE}
+          height={ICON_SIZE}
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden
+        >
+          <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.75" />
+          <path
+            d="M10 8.5v7l6-3.5-6-3.5Z"
+            fill="currentColor"
+          />
+        </svg>
+      );
     case "restart":
       return (
         <svg

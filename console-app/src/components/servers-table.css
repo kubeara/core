@@ -62,21 +62,32 @@
   box-shadow: 0 0 0 3px rgb(0 105 255 / 12%);
 }
 
-.servers-filter-clear,
-.filter-clear-btn {
-  padding: 0.5rem 0.625rem;
-  border: none;
-  background: none;
-  color: var(--primary);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-}
+@media (max-width: 640px) {
+  .servers-table-toolbar {
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
 
-.servers-filter-clear:hover,
-.filter-clear-btn:hover {
-  text-decoration: underline;
+  .servers-table-filters {
+    flex: 1;
+    min-width: 0;
+    flex-wrap: nowrap;
+    align-items: stretch;
+  }
+
+  .servers-search {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .servers-table-wrap .btn-add-server {
+    flex-shrink: 0;
+    align-self: stretch;
+    padding-inline: 0.75rem;
+    font-size: 0.8125rem;
+  }
 }
 
 .servers-table-wrap .btn-add-server {

@@ -5,5 +5,6 @@ export interface McpApiKeyListItem {
   name: string;
   lastUsedAt: number | null;
   createdAt: number;
+  deletedAt: number | null;
   status: EntityStatus;
 }

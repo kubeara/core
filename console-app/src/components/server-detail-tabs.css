@@ -187,6 +187,16 @@
   background: color-mix(in srgb, #fbbf24 14%, transparent);
 }
 
+.container-actions-menu-item-icon--start {
+  color: #059669;
+  background: color-mix(in srgb, #10b981 14%, transparent);
+}
+
+[data-theme="dark"] .container-actions-menu-item-icon--start {
+  color: #34d399;
+  background: color-mix(in srgb, #10b981 12%, transparent);
+}
+
 .container-actions-menu-item-icon--restart {
   color: color-mix(in srgb, var(--primary) 82%, #2563eb);
   background: color-mix(in srgb, var(--primary) 12%, transparent);
@@ -352,6 +362,10 @@
   color: var(--muted);
 }
 
+.connected-services-toolbar {
+  margin-bottom: 1rem;
+}
+
 .marketplace-card-offline {
   opacity: 0.88;
   border-style: dashed;
@@ -394,6 +408,15 @@
 .service-status-running {
   background: color-mix(in srgb, var(--success) 18%, transparent);
   color: var(--success);
+}
+
+.service-status-healthy {
+  background: color-mix(in srgb, #10b981 18%, transparent);
+  color: #059669;
+}
+
+[data-theme="dark"] .service-status-healthy {
+  color: #34d399;
 }
 
 .service-status-degraded {
@@ -660,5 +683,88 @@
   color: var(--muted);
   font-weight: 400;
   margin-top: 0.125rem;
+}
+
+@media (max-width: 768px) {
+  .server-detail-tablist {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .server-detail-tablist::-webkit-scrollbar {
+    display: none;
+  }
+
+  .server-detail-tab {
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 0.375rem 0.6875rem;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .server-detail-panel {
+    margin-top: 0.625rem;
+  }
+
+  .server-detail-section-header {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.625rem;
+  }
+
+  .connected-services-toolbar {
+    margin-bottom: 0.75rem;
+  }
+
+  .overview-container-card .marketplace-card-headline {
+    padding-right: 2.5rem;
+  }
+
+  .container-actions-menu {
+    top: 0.625rem;
+    right: 0.625rem;
+  }
+
+  .activity-item {
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    padding: 0.875rem 1rem;
+  }
+
+  .activity-time {
+    flex-basis: 100%;
+    margin-left: calc(2.25rem + 0.75rem);
+    white-space: normal;
+  }
+
+  .settings-section,
+  .settings-danger-zone {
+    padding: 1rem;
+  }
+
+  .settings-toggle-row {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .container-logs-viewer-header {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 1rem 1rem 0.625rem;
+  }
+
+  .container-logs-viewer-body {
+    padding: 0 1rem 1rem;
+  }
+
+  .container-logs-error {
+    margin-left: 1rem;
+    margin-right: 1rem;
+  }
 }
 
