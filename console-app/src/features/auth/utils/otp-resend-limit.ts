@@ -1,3 +1,7 @@
+/**
+ * Client-side OTP resend rate limiting persisted in localStorage.
+ * Tracks resend attempts per email and auth flow within a rolling time window.
+ */
 import {
   OTP_RESEND_MAX_ATTEMPTS,
   OTP_RESEND_WINDOW_MS,
@@ -14,6 +18,10 @@ export type OtpResendLimitState = {
 
 const EMPTY_STATE: OtpResendLimitState = { count: 0, startedAt: 0 };
 
+/**
+ * Builds a stable localStorage key for the given email and OTP flow.
+ * Email is normalized to lowercase and trimmed before use.
+ */
 function getResendLimitStorageKey(
   email: string,
   flow: OtpResendFlow,
@@ -21,6 +29,10 @@ function getResendLimitStorageKey(
   return `otp-resend-limit:${flow}:${email.toLowerCase().trim()}`;
 }
 
+/**
+ * Reads and validates persisted resend-limit state from localStorage.
+ * Returns an empty state when the entry is missing, expired, or malformed.
+ */
 export function loadOtpResendLimitState(
   email: string,
   flow: OtpResendFlow,
@@ -30,12 +42,13 @@ export function loadOtpResendLimitState(
   }
 
   const storageKey = getResendLimitStorageKey(email, flow);
-  const raw = window.localStorage.getItem(storageKey);
-  if (!raw) {
-    return EMPTY_STATE;
-  }
 
   try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) {
+      return EMPTY_STATE;
+    }
+
     const parsed = JSON.parse(raw) as { count?: number; startedAt?: number };
     const count = Number(parsed.count ?? 0);
     const startedAt = Number(parsed.startedAt ?? 0);
@@ -57,29 +70,50 @@ export function loadOtpResendLimitState(
 
     return { count, startedAt };
   } catch {
-    window.localStorage.removeItem(storageKey);
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch {
+      // localStorage may be unavailable; ignore cleanup failure.
+    }
     return EMPTY_STATE;
   }
 }
 
+/**
+ * Persists resend-limit state for the given email and OTP flow.
+ */
 export function saveOtpResendLimitState(
   email: string,
   flow: OtpResendFlow,
   state: OtpResendLimitState,
 ): void {
-  window.localStorage.setItem(
-    getResendLimitStorageKey(email, flow),
-    JSON.stringify(state),
-  );
+  try {
+    window.localStorage.setItem(
+      getResendLimitStorageKey(email, flow),
+      JSON.stringify(state),
+    );
+  } catch {
+    // localStorage may be unavailable or full; limit state won't persist client-side.
+  }
 }
 
+/**
+ * Removes persisted resend-limit state for the given email and OTP flow.
+ */
 export function clearOtpResendLimitState(
   email: string,
   flow: OtpResendFlow,
 ): void {
-  window.localStorage.removeItem(getResendLimitStorageKey(email, flow));
+  try {
+    window.localStorage.removeItem(getResendLimitStorageKey(email, flow));
+  } catch {
+    // localStorage may be unavailable; nothing to clear.
+  }
 }
 
+/**
+ * Returns whether a resend-limit window is currently active for the email and flow.
+ */
 export function hasActiveOtpWindow(
   email: string,
   flow: OtpResendFlow,
@@ -87,6 +121,9 @@ export function hasActiveOtpWindow(
   return loadOtpResendLimitState(email, flow).startedAt > 0;
 }
 
+/**
+ * Returns whether the maximum number of OTP resend attempts has been reached.
+ */
 export function isOtpResendLimitReached(
   email: string,
   flow: OtpResendFlow,
@@ -95,6 +132,10 @@ export function isOtpResendLimitReached(
   return state.count >= OTP_RESEND_MAX_ATTEMPTS;
 }
 
+/**
+ * Opens a new resend-limit window if one is not already active.
+ * The initial OTP send does not increment the resend count.
+ */
 export function startOtpWindow(
   email: string,
   flow: OtpResendFlow,
@@ -109,6 +150,10 @@ export function startOtpWindow(
   return state;
 }
 
+/**
+ * Records one OTP resend attempt and persists the updated state.
+ * Starts a new window automatically when none is active.
+ */
 export function recordOtpResend(
   email: string,
   flow: OtpResendFlow,
@@ -124,6 +169,10 @@ export function recordOtpResend(
   return next;
 }
 
+/**
+ * Aligns local resend-limit state with a server-side rate-limit response.
+ * Marks the limit as reached and back-calculates window start from retryAfterSeconds when provided.
+ */
 export function syncOtpResendLimitFromApiError(
   email: string,
   flow: OtpResendFlow,
@@ -141,6 +190,9 @@ export function syncOtpResendLimitFromApiError(
   return state;
 }
 
+/**
+ * Returns the number of seconds remaining before the resend window resets.
+ */
 export function getOtpResendRetrySecondsForState(
   startedAt: number,
 ): number {
