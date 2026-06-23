@@ -143,7 +143,7 @@ function initializeEnvironment(): void {
 async function bootstrap(): Promise<void> {
   initializeEnvironment();
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   const configService = app.get(ConfigService);
 

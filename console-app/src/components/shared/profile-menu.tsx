@@ -18,6 +18,8 @@ export function ProfileMenu({ user }: ProfileMenuProps) {
     const rootRef = useRef<HTMLDivElement>(null);
 
     const isProfileActive = pathname === "/profile";
+    const isSubscriptionActive =
+        pathname === "/subscription" || pathname === "/plans";
 
     useEffect(() => {
         if (!open) return;
@@ -89,6 +91,22 @@ export function ProfileMenu({ user }: ProfileMenuProps) {
                         onClick={() => setOpen(false)}
                     >
                         Profile
+                    </Link>
+                    <Link
+                        to="/subscription"
+                        role="menuitem"
+                        className={`profile-menu-item${isSubscriptionActive ? " active" : ""}`}
+                        onClick={() => setOpen(false)}
+                    >
+                        Subscription
+                    </Link>
+                    <Link
+                        to="/plans"
+                        role="menuitem"
+                        className={`profile-menu-item${pathname === "/plans" ? " active" : ""}`}
+                        onClick={() => setOpen(false)}
+                    >
+                        Plans
                     </Link>
                     <button
                         type="button"

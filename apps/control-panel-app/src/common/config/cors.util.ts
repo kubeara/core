@@ -2,6 +2,8 @@ import type { CorsOptions } from "@nestjs/common/interfaces/external/cors-option
 import type { ConfigService } from "@nestjs/config";
 
 import {
+  isDevelopmentEnvironment,
+  isLocalhostOrigin,
   isOriginAllowed,
   resolveCorsAllowedOrigins,
 } from "./allowed-origins.util";
@@ -24,8 +26,21 @@ export function buildCorsOptions(configService: ConfigService): CorsOptions {
         return;
       }
 
+      if (isDevelopmentEnvironment() && isLocalhostOrigin(origin)) {
+        callback(null, true);
+        return;
+      }
+
       callback(null, false);
     },
     credentials: true,
+    methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Accept",
+      "Origin",
+      "X-Requested-With",
+    ],
   };
 }

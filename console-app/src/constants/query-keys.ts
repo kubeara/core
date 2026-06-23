@@ -90,4 +90,11 @@ export const QUERY_KEYS = {
     mcpApiKeys: {
         all: ["mcp-api-keys"] as const,
     },
+
+    subscriptions: {
+        plans: ["subscriptions", "plans"] as const,
+        current: ["subscriptions", "current"] as const,
+        checkout: (planSlug: string) =>
+            ["subscriptions", "checkout", planSlug] as const,
+    },
 } as const;

@@ -31,6 +31,7 @@ import { SALT_ROUNDS } from "@control-panel/constants/env.constant";
 import { isJwtToken } from "./utils/cookie-extractor.util";
 import { hashToken } from "./utils/token-hash.util";
 import { AuthSessionLookupService } from "./services/auth-session-lookup.service";
+import { SubscriptionService } from "../subscriptions/services/subscription.service";
 
 export interface AuthTokens {
   accessToken: string;
@@ -53,6 +54,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly authSessionLookupService: AuthSessionLookupService,
+    private readonly subscriptionService: SubscriptionService,
   ) {}
 
   private resolveRefreshExpiresIn(): StringValue {
@@ -182,6 +184,12 @@ export class AuthService {
       const savedUser = await userRepository.save(user);
 
       await queryRunner.commitTransaction();
+
+      await this.subscriptionService.createFreeSubscription({
+        organizationId: savedOrganization.id,
+        email: savedUser.email,
+        name: savedUser.name,
+      });
 
       return {
         message: SUCCESS_MESSAGES.AUTH.SIGNUP,

@@ -44,4 +44,12 @@ export const SUCCESS_MESSAGES = {
     LIST: "MCP API keys fetched successfully",
     REVOKED: "MCP API key revoked successfully",
   },
+
+  SUBSCRIPTIONS: {
+    PLANS: "Plans fetched successfully",
+    CURRENT: "Subscription fetched successfully",
+    CHECKOUT: "Checkout session created successfully",
+    PLAN_CHANGED: "Plan changed successfully",
+    CANCELED: "Subscription canceled successfully",
+  },
 };

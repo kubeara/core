@@ -17,6 +17,7 @@ import { ProfileModule } from "./modules/profile/profile.module";
 import { McpApiKeysModule } from "./modules/mcp-api-keys/mcp-api-keys.module";
 import { McpServerModule } from "./modules/mcp-server/mcp-server.module";
 import { TerminalModule } from "./modules/terminal/terminal.module";
+import { SubscriptionsModule } from "./modules/subscriptions/subscriptions.module";
 import { AppController } from "./app.controller";
 import { isProductionEnv } from "@control-panel/constants/env.constant";
 
@@ -68,6 +69,7 @@ import { isProductionEnv } from "@control-panel/constants/env.constant";
     McpApiKeysModule,
     McpServerModule,
     TerminalModule,
+    SubscriptionsModule,
   ],
   controllers: [AppController],
   providers: [],
