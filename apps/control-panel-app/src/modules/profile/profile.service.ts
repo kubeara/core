@@ -1,7 +1,7 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
@@ -105,7 +105,7 @@ export class ProfileService {
     );
 
     if (!isCurrentPasswordValid) {
-      throw new UnauthorizedException(
+      throw new BadRequestException(
         ERROR_MESSAGES.PROFILE.INVALID_CURRENT_PASSWORD,
       );
     }
@@ -116,7 +116,7 @@ export class ProfileService {
     );
 
     if (isSamePassword) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.OLD_SAME_PASSWORD);
+      throw new BadRequestException(ERROR_MESSAGES.AUTH.OLD_SAME_PASSWORD);
     }
 
     user.passwordHash = await bcrypt.hash(dto.newPassword, SALT_ROUNDS);

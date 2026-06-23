@@ -11,6 +11,7 @@ const DOCKER_ACTION_COMMAND: Record<
   string
 > = {
   stop: "docker stop",
+  start: "docker start",
   restart: "docker restart",
 };
 

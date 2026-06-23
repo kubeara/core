@@ -263,6 +263,24 @@ export class DeploymentsController {
   }
 
   /**
+   * Start a container on a server (agent-first, host fallback).
+   */
+  @Post(":serverId/containers/:containerId/start")
+  @HttpCode(200)
+  async startContainer(
+    @Req() req: { user: UserEntity },
+    @Param("serverId") serverId: string,
+    @Param("containerId") containerId: string,
+  ) {
+    return this.deploymentsService.executeContainerAction(
+      serverId,
+      req.user.id,
+      containerId,
+      "start",
+    );
+  }
+
+  /**
    * Restart a container on a server (agent-first, host fallback).
    */
   @Post(":serverId/containers/:containerId/restart")

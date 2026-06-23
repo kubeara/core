@@ -102,7 +102,7 @@ export function ResetPasswordPage() {
                         className="btn-primary"
                         disabled={resetMutation.isPending}
                     >
-                        {resetMutation.isPending ? "Please wait…" : "Update password"}
+                        {resetMutation.isPending ? "Please wait…" : "Save"}
                     </button>
                 </form>
             ) : (

@@ -63,7 +63,7 @@ export enum DeploymentEvents {
   SERVER_OPERATION_UPDATED = "server:operation-updated",
 }
 
-export type ContainerActionType = "stop" | "restart" | "delete";
+export type ContainerActionType = "stop" | "start" | "restart" | "delete";
 
 export type DeploymentLogPhase = "install" | "deploy" | "container";
 
