@@ -7,10 +7,11 @@ import type {
 import {
   containerStatusClass,
   getContainerCardHeadline,
-  getContainerCardSubtitle,
   getContainerDockerName,
   getContainerServiceName,
+  getContainerStatusLabel,
   managedTypeLabel,
+  shouldShowDeployedBadge,
 } from "./utils/container-display";
 
 type ConnectedServiceCardProps = {
@@ -42,14 +43,13 @@ export function ConnectedServiceCard({
 
   const serviceName = getContainerServiceName(container);
   const headline = getContainerCardHeadline(container);
-  const subtitle = getContainerCardSubtitle(container);
   const dockerName = getContainerDockerName(container);
   const showDockerName =
     Boolean(serviceName) &&
     dockerName !== serviceName &&
     dockerName !== headline;
 
-  const statusLabel = container.isOnline ? container.status : "Offline";
+  const statusLabel = getContainerStatusLabel(container);
   const portsDisplay = container.ports?.match(/:(\d+)->/)?.[1] ?? "N/A";
 
   return (
@@ -81,15 +81,10 @@ export function ConnectedServiceCard({
               <span className="marketplace-card-status-badge is-offline">
                 Offline
               </span>
-            ) : container.managedType === "KUBEARA_MANAGED" ? (
+            ) : shouldShowDeployedBadge(container) ? (
               <span className="marketplace-card-deployed-badge">Deployed</span>
             ) : null}
           </h3>
-          {subtitle && subtitle !== headline ? (
-            <p className="marketplace-card-slug">
-              <code>{subtitle}</code>
-            </p>
-          ) : null}
         </div>
       </div>
 
@@ -134,7 +129,7 @@ export function ConnectedServiceCard({
           </div>
           {container.runningSince ? (
             <div className="marketplace-card-meta-item">
-              <dt>Running</dt>
+              <dt>Created</dt>
               <dd>{container.runningSince}</dd>
             </div>
           ) : null}

@@ -1,9 +1,18 @@
-import { useTheme } from "./use-theme";
+import { ThemePreference, useTheme } from "./use-theme";
 
 type ThemeToggleProps = {
   compact?: boolean;
   variant?: "button" | "switch";
 };
+
+const THEME_PREFERENCE_OPTIONS: Array<{
+  value: ThemePreference;
+  label: string;
+}> = [
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
+  { value: "system", label: "System" },
+];
 
 function SunIcon({ size }: { size: number }) {
   return (
@@ -33,17 +42,96 @@ function MoonIcon({ size }: { size: number }) {
   );
 }
 
+function SystemIcon({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect
+        x="3"
+        y="4"
+        width="18"
+        height="12"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      <path
+        d="M8 20h8M12 16v4"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/**
+ * Theme preference selector for profile/settings pages.
+ */
+export function ThemePreferenceSelector({
+  compact = false,
+  firstOptionId = "profile-theme-light",
+  labelledBy,
+}: {
+  compact?: boolean;
+  firstOptionId?: string;
+  labelledBy?: string;
+}) {
+  const { themePreference, setThemePreference } = useTheme();
+  const iconSize = compact ? 14 : 18;
+
+  return (
+    <div
+      className={`theme-preference-selector${compact ? " theme-preference-selector--compact" : ""}`}
+      role="radiogroup"
+      aria-label={labelledBy ? undefined : "Appearance"}
+      aria-labelledby={labelledBy}
+    >
+      {THEME_PREFERENCE_OPTIONS.map((option) => {
+        const isSelected = themePreference === option.value;
+
+        return (
+          <button
+            key={option.value}
+            id={option.value === "light" ? firstOptionId : undefined}
+            type="button"
+            role="radio"
+            aria-checked={isSelected}
+            className={`theme-preference-option${isSelected ? " is-selected" : ""}`}
+            onClick={() => setThemePreference(option.value)}
+          >
+            <span className="theme-preference-option-icon" aria-hidden>
+              {option.value === "light" ? (
+                <SunIcon size={iconSize} />
+              ) : option.value === "dark" ? (
+                <MoonIcon size={iconSize} />
+              ) : (
+                <SystemIcon size={iconSize} />
+              )}
+            </span>
+            <span className="theme-preference-option-label">
+              {option.label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /**
  * Theme toggle button component.
  *
  * Displays a sun icon in light mode and moon icon in dark mode.
  * Toggles between light and dark themes when clicked.
  */
-export function ThemeToggle({ compact = false, variant = "button" }: ThemeToggleProps) {
-  const { theme, toggleTheme } = useTheme();
-  const nextTheme = theme === "light" ? "dark" : "light";
+export function ThemeToggle({
+  compact = false,
+  variant = "button",
+}: ThemeToggleProps) {
+  const { resolvedTheme, toggleTheme } = useTheme();
+  const nextTheme = resolvedTheme === "light" ? "dark" : "light";
   const iconSize = compact ? 16 : 18;
-  const isDark = theme === "dark";
+  const isDark = resolvedTheme === "dark";
 
   if (variant === "switch") {
     const switchIconSize = 16;
@@ -77,7 +165,7 @@ export function ThemeToggle({ compact = false, variant = "button" }: ThemeToggle
       aria-label={`Switch to ${nextTheme} mode`}
       title={`Switch to ${nextTheme} mode`}
     >
-      {theme === "light" ? (
+      {resolvedTheme === "light" ? (
         <MoonIcon size={iconSize} />
       ) : (
         <SunIcon size={iconSize} />

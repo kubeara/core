@@ -12,11 +12,14 @@
     <script>
       (function () {
         try {
-          var t = localStorage.getItem("kubeara-theme");
-          if (t !== "light" && t !== "dark") {
-            t = "dark";
+          var preference = localStorage.getItem("kubeara-theme");
+          var resolved = preference;
+          if (preference !== "light" && preference !== "dark") {
+            resolved = window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
           }
-          document.documentElement.setAttribute("data-theme", t);
+          document.documentElement.setAttribute("data-theme", resolved);
         } catch (e) {}
       })();
     </script>

@@ -105,18 +105,25 @@
 
 .skeleton-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.25rem;
   padding: 0.25rem;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.skeleton-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .skeleton-tab {
   width: 5.5rem;
   height: 2.25rem;
   border-radius: 8px;
+  flex-shrink: 0;
 }
 
 .skeleton-form-field {

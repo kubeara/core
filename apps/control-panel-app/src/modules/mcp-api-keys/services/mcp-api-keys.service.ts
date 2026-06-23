@@ -123,6 +123,7 @@ export class McpApiKeysService {
       }
 
       key.status = EntityStatus.INACTIVE;
+      key.deletedAt = dayjs().unix();
       await this.mcpApiKeyRepository.save(key);
 
       return {
@@ -217,6 +218,7 @@ export class McpApiKeysService {
       name: key.name,
       lastUsedAt: key.lastUsedAt,
       createdAt: key.createdAt,
+      deletedAt: key.deletedAt,
       status: key.status,
     };
   }

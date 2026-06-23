@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getErrorMessage } from "@/api/api-error";
 import { Dropdown } from "@/components/shared/dropdown";
+import { FilterClearButton } from "@/components/shared/filter-clear-button";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   useTemplateCategoriesQuery,
@@ -120,28 +121,24 @@ export function ServerTemplatesPanel({
             onChange={(e) => handleSearchChange(e.target.value)}
             aria-label="Search templates"
           />
-          <Dropdown
-            id="server-templates-category"
-            className="server-templates-category-dropdown"
-            value={category}
-            options={categoryOptions}
-            onChange={handleCategoryChange}
-            disabled={categoriesQuery.isPending}
-            ariaLabel="Filter by category"
-            searchable
-            searchPlaceholder="Search categories…"
-            noResultsLabel="No categories found"
-            pinnedOptionValue=""
-          />
-          {hasFilters && (
-            <button
-              type="button"
-              className="filter-clear-btn"
-              onClick={clearFilters}
-            >
-              Clear
-            </button>
-          )}
+          <div className="server-templates-filter-row">
+            <Dropdown
+              id="server-templates-category"
+              className="server-templates-category-dropdown"
+              value={category}
+              options={categoryOptions}
+              onChange={handleCategoryChange}
+              disabled={categoriesQuery.isPending}
+              ariaLabel="Filter by category"
+              searchable
+              searchPlaceholder="Search categories…"
+              noResultsLabel="No categories found"
+              pinnedOptionValue=""
+            />
+            {hasFilters ? (
+              <FilterClearButton onClick={clearFilters} />
+            ) : null}
+          </div>
         </div>
       </div>
 
