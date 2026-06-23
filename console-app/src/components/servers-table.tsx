@@ -388,16 +388,16 @@ export function ServersTable() {
       <div className="servers-table-toolbar">
         <div className="servers-table-filters">
           <input
-            type="search"
+            type="text"
             className="servers-search"
             placeholder="Search by name, host, or username…"
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             aria-label="Search servers"
           />
-          {hasFilters && (
+          {hasFilters ? (
             <FilterClearButton onClick={clearFilters} />
-          )}
+          ) : null}
         </div>
         <button type="button" className="btn-add-server" onClick={openAdd}>
           + Add server

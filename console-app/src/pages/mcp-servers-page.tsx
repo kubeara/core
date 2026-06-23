@@ -21,10 +21,8 @@ export function McpServersPage() {
         </div>
       </header>
 
-      <div className="mcp-servers-page-body">
-        <McpKeysSection />
-        <SetupGuidesSection />
-      </div>
+      <McpKeysSection />
+      <SetupGuidesSection />
     </div>
   );
 }
