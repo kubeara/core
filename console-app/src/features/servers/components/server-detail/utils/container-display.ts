@@ -47,6 +47,12 @@ export function managedTypeLabel(
   return managedType === "KUBEARA_MANAGED" ? "Kubeara Managed" : "Self Managed";
 }
 
+export function getManagedTypeLabel(container: ServerContainer): string {
+  return isKubearaManagedContainer(container)
+    ? "Kubeara Managed"
+    : "Self Managed";
+}
+
 function normalizeContainerStatus(status: string): string {
   return status.trim().toLowerCase();
 }
@@ -110,9 +116,10 @@ export function isContainerHealthy(container: ServerContainer): boolean {
 
 export function shouldShowDeployedBadge(container: ServerContainer): boolean {
   return (
-    container.managedType === "KUBEARA_MANAGED" &&
+    isKubearaManagedContainer(container) &&
     container.isOnline &&
-    isContainerRunning(container)
+    isContainerRunning(container) &&
+    !isKubearaAgentContainer(container)
   );
 }
 
@@ -175,7 +182,22 @@ export function getContainerDockerName(container: ServerContainer): string {
   return raw.replace(/^deployment-\d+-[^-]+-/, "");
 }
 
+export function isKubearaAgentContainer(container: ServerContainer): boolean {
+  return getContainerDockerName(container).toLowerCase() === "kubeara-agent";
+}
+
+export function isKubearaManagedContainer(container: ServerContainer): boolean {
+  return (
+    container.managedType === "KUBEARA_MANAGED" ||
+    isKubearaAgentContainer(container)
+  );
+}
+
 export function getContainerDisplayName(container: ServerContainer): string {
+  if (isKubearaAgentContainer(container)) {
+    return "Kubeara Agent";
+  }
+
   return getContainerServiceName(container) ?? getContainerDockerName(container);
 }
 

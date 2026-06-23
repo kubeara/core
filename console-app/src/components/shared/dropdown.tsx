@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import "./dropdown.css";
 
 export type DropdownOption<T extends string = string> = {
@@ -20,6 +20,8 @@ type DropdownProps<T extends string = string> = {
   noResultsLabel?: string;
   /** When set, this option value always stays visible while filtering. */
   pinnedOptionValue?: T;
+  /** Formats the display label for an option value (trigger, menu, search). */
+  formatLabel?: (value: T) => string;
 };
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -56,6 +58,7 @@ export function Dropdown<T extends string = string>({
   searchPlaceholder = "Search…",
   noResultsLabel = "No results found",
   pinnedOptionValue,
+  formatLabel,
 }: DropdownProps<T>) {
   const autoId = useId();
   const id = idProp ?? autoId;
@@ -65,8 +68,15 @@ export function Dropdown<T extends string = string>({
   const rootRef = useRef<HTMLDivElement>(null);
   const comboboxInputRef = useRef<HTMLInputElement>(null);
 
+  const resolveOptionLabel = useCallback(
+    (option: DropdownOption<T>) =>
+      formatLabel ? formatLabel(option.value) : option.label,
+    [formatLabel],
+  );
+
   const selected =
     options.find((option) => option.value === value) ?? options[0];
+  const selectedLabel = resolveOptionLabel(selected);
 
   const visibleOptions = useMemo(() => {
     if (!searchable) {
@@ -86,9 +96,14 @@ export function Dropdown<T extends string = string>({
         return true;
       }
 
-      return option.label.toLowerCase().includes(query);
+      const displayLabel = resolveOptionLabel(option).toLowerCase();
+      return (
+        displayLabel.includes(query) ||
+        option.value.toLowerCase().includes(query) ||
+        option.label.toLowerCase().includes(query)
+      );
     });
-  }, [options, pinnedOptionValue, searchQuery, searchable]);
+  }, [options, pinnedOptionValue, resolveOptionLabel, searchQuery, searchable]);
 
   useEffect(() => {
     if (!open) {
@@ -169,7 +184,7 @@ export function Dropdown<T extends string = string>({
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => selectOption(option.value)}
         >
-          {option.label}
+          {resolveOptionLabel(option)}
         </button>
       </li>
     ));
@@ -190,6 +205,14 @@ export function Dropdown<T extends string = string>({
         <>
           <div
             className={`dropdown-trigger dropdown-trigger--combobox${open ? " is-open" : ""}`}
+            onClick={(event) => {
+              if (disabled || open) return;
+
+              const target = event.target as HTMLElement;
+              if (target.closest(".dropdown-combobox-toggle")) return;
+
+              openCombobox();
+            }}
           >
             <input
               ref={comboboxInputRef}
@@ -197,7 +220,7 @@ export function Dropdown<T extends string = string>({
               type="text"
               role="combobox"
               className="dropdown-combobox-input"
-              value={open ? searchQuery : selected.label}
+              value={open ? searchQuery : selectedLabel}
               readOnly={!open}
               placeholder={open ? searchPlaceholder : undefined}
               aria-label={ariaLabel ?? label ?? searchPlaceholder}
@@ -209,6 +232,11 @@ export function Dropdown<T extends string = string>({
               autoComplete="off"
               spellCheck={false}
               onFocus={openCombobox}
+              onClick={() => {
+                if (!disabled && !open) {
+                  openCombobox();
+                }
+              }}
               onChange={(event) => {
                 setSearchQuery(event.target.value);
                 if (!open) {
@@ -258,7 +286,7 @@ export function Dropdown<T extends string = string>({
             disabled={disabled}
             onClick={() => setOpen((prev) => !prev)}
           >
-            <span className="dropdown-trigger-label">{selected.label}</span>
+            <span className="dropdown-trigger-label">{selectedLabel}</span>
             <ChevronIcon open={open} />
           </button>
           {open && (
