@@ -22,6 +22,7 @@ const DOCKER_ACTION_ARGS: Record<
   string[]
 > = {
   stop: ["stop"],
+  start: ["start"],
   restart: ["restart"],
 };
 

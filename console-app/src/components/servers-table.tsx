@@ -5,6 +5,7 @@ import {
   useServersQuery,
 } from "@/features/servers/hooks";
 import { ServerFormModal } from "./server-form-modal";
+import { FilterClearButton } from "@/components/shared/filter-clear-button";
 import { formatApiTimestamp } from "@/lib/unix-timestamp";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
@@ -395,13 +396,7 @@ export function ServersTable() {
             aria-label="Search servers"
           />
           {hasFilters && (
-            <button
-              type="button"
-              className="filter-clear-btn"
-              onClick={clearFilters}
-            >
-              Clear
-            </button>
+            <FilterClearButton onClick={clearFilters} />
           )}
         </div>
         <button type="button" className="btn-add-server" onClick={openAdd}>

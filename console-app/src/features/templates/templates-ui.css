@@ -60,6 +60,10 @@
   min-width: min(100%, 280px);
 }
 
+.server-templates-filters .filter-clear-btn {
+  border-radius: 10px;
+}
+
 .server-templates-search {
   flex: 1;
   min-width: 200px;

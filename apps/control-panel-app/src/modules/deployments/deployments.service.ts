@@ -903,6 +903,7 @@ export class DeploymentsService {
 
     const actionPastTense: Record<ContainerActionType, string> = {
       stop: "stopped",
+      start: "started",
       restart: "restarted",
       delete: "deleted",
     };

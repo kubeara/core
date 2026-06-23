@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getErrorMessage } from "@/api/api-error";
+import { ContainerLogsStopConfirmModal } from "@/features/deployments/components/container-logs-stop-confirm-modal";
 import { useContainerLogs } from "@/features/deployments/hooks/use-container-logs";
 import {
   ServerTerminalViewer,
@@ -55,6 +56,8 @@ export function ContainerLogsPanel({
   const shellRef = useRef<HTMLElement>(null);
   const terminalApiRef = useRef<ServerTerminalViewerApi | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showStopConfirm, setShowStopConfirm] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
 
   const handleOutput = useCallback((data: string) => {
     terminalApiRef.current?.write(data);
@@ -123,9 +126,19 @@ export function ContainerLogsPanel({
         ? "Log stream ended."
         : "Streaming container logs from this server.";
 
-  const handleStop = () => {
-    void stop();
-    terminalApiRef.current?.reset();
+  const handleStopRequest = () => {
+    setShowStopConfirm(true);
+  };
+
+  const handleStopConfirm = async () => {
+    setIsStopping(true);
+    try {
+      await stop();
+      terminalApiRef.current?.reset();
+      setShowStopConfirm(false);
+    } finally {
+      setIsStopping(false);
+    }
   };
 
   const handleRetry = () => {
@@ -134,10 +147,23 @@ export function ContainerLogsPanel({
   };
 
   return (
-    <section
-      ref={shellRef}
-      className={`server-terminal-shell${showTerminal ? " has-session" : ""}${isFullscreen ? " is-fullscreen" : ""} is-visible`}
-    >
+    <>
+      {showStopConfirm ? (
+        <ContainerLogsStopConfirmModal
+          isPending={isStopping}
+          onCancel={() => {
+            if (!isStopping) {
+              setShowStopConfirm(false);
+            }
+          }}
+          onConfirm={() => void handleStopConfirm()}
+        />
+      ) : null}
+
+      <section
+        ref={shellRef}
+        className={`server-terminal-shell${showTerminal ? " has-session" : ""}${isFullscreen ? " is-fullscreen" : ""} is-visible`}
+      >
       <div
         className={`server-terminal-card${showTerminal ? " has-session" : ""}`}
       >
@@ -216,7 +242,11 @@ export function ContainerLogsPanel({
             )}
 
             {isStreaming && (
-              <button type="button" className="btn-danger" onClick={handleStop}>
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={handleStopRequest}
+              >
                 Stop
               </button>
             )}
@@ -262,5 +292,6 @@ export function ContainerLogsPanel({
         )}
       </div>
     </section>
+    </>
   );
 }

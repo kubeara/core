@@ -187,6 +187,16 @@
   background: color-mix(in srgb, #fbbf24 14%, transparent);
 }
 
+.container-actions-menu-item-icon--start {
+  color: #059669;
+  background: color-mix(in srgb, #10b981 14%, transparent);
+}
+
+[data-theme="dark"] .container-actions-menu-item-icon--start {
+  color: #34d399;
+  background: color-mix(in srgb, #10b981 12%, transparent);
+}
+
 .container-actions-menu-item-icon--restart {
   color: color-mix(in srgb, var(--primary) 82%, #2563eb);
   background: color-mix(in srgb, var(--primary) 12%, transparent);
@@ -352,6 +362,10 @@
   color: var(--muted);
 }
 
+.connected-services-toolbar {
+  margin-bottom: 1rem;
+}
+
 .marketplace-card-offline {
   opacity: 0.88;
   border-style: dashed;
@@ -394,6 +408,15 @@
 .service-status-running {
   background: color-mix(in srgb, var(--success) 18%, transparent);
   color: var(--success);
+}
+
+.service-status-healthy {
+  background: color-mix(in srgb, #10b981 18%, transparent);
+  color: #059669;
+}
+
+[data-theme="dark"] .service-status-healthy {
+  color: #34d399;
 }
 
 .service-status-degraded {

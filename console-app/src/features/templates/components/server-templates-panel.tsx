@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getErrorMessage } from "@/api/api-error";
 import { Dropdown } from "@/components/shared/dropdown";
+import { FilterClearButton } from "@/components/shared/filter-clear-button";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
   useTemplateCategoriesQuery,
@@ -134,13 +135,7 @@ export function ServerTemplatesPanel({
             pinnedOptionValue=""
           />
           {hasFilters && (
-            <button
-              type="button"
-              className="filter-clear-btn"
-              onClick={clearFilters}
-            >
-              Clear
-            </button>
+            <FilterClearButton onClick={clearFilters} />
           )}
         </div>
       </div>

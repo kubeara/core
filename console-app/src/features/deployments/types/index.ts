@@ -66,7 +66,7 @@ export interface DeployTemplateResult {
   publicUrl?: string;
 }
 
-export type ContainerActionType = "stop" | "restart" | "delete";
+export type ContainerActionType = "stop" | "start" | "restart" | "delete";
 
 export type ContainerActionExecutionPath = "agent" | "host";
 
