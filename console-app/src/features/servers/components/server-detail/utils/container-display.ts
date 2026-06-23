@@ -16,7 +16,7 @@ export const CONTAINER_STATUS_FILTER_OPTIONS: {
   value: ContainerStatusFilter;
   label: string;
 }[] = [
-  { value: "", label: "All statuses" },
+  { value: "", label: "All" },
   { value: "running", label: "Running" },
   { value: "healthy", label: "Healthy" },
   { value: "restarting", label: "Restarting" },

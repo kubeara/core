@@ -121,22 +121,24 @@ export function ServerTemplatesPanel({
             onChange={(e) => handleSearchChange(e.target.value)}
             aria-label="Search templates"
           />
-          <Dropdown
-            id="server-templates-category"
-            className="server-templates-category-dropdown"
-            value={category}
-            options={categoryOptions}
-            onChange={handleCategoryChange}
-            disabled={categoriesQuery.isPending}
-            ariaLabel="Filter by category"
-            searchable
-            searchPlaceholder="Search categories…"
-            noResultsLabel="No categories found"
-            pinnedOptionValue=""
-          />
-          {hasFilters && (
-            <FilterClearButton onClick={clearFilters} />
-          )}
+          <div className="server-templates-filter-row">
+            <Dropdown
+              id="server-templates-category"
+              className="server-templates-category-dropdown"
+              value={category}
+              options={categoryOptions}
+              onChange={handleCategoryChange}
+              disabled={categoriesQuery.isPending}
+              ariaLabel="Filter by category"
+              searchable
+              searchPlaceholder="Search categories…"
+              noResultsLabel="No categories found"
+              pinnedOptionValue=""
+            />
+            {hasFilters ? (
+              <FilterClearButton onClick={clearFilters} />
+            ) : null}
+          </div>
         </div>
       </div>
 

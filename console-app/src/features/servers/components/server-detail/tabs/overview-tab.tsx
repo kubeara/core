@@ -170,18 +170,20 @@ export function ServerOverviewTab({
       {!isLoading && !isError && containers.length > 0 ? (
         <div className="server-templates-toolbar connected-services-toolbar">
           <div className="server-templates-filters">
-            <Dropdown
-              id="connected-services-status"
-              className="server-templates-category-dropdown"
-              value={statusFilter}
-              options={CONTAINER_STATUS_FILTER_OPTIONS}
-              onChange={setStatusFilter}
-              ariaLabel="Filter by status"
-              pinnedOptionValue=""
-            />
-            {hasActiveFilter ? (
-              <FilterClearButton onClick={() => setStatusFilter("")} />
-            ) : null}
+            <div className="server-templates-filter-row">
+              <Dropdown
+                id="connected-services-status"
+                className="server-templates-category-dropdown"
+                value={statusFilter}
+                options={CONTAINER_STATUS_FILTER_OPTIONS}
+                onChange={setStatusFilter}
+                ariaLabel="Filter by status"
+                pinnedOptionValue=""
+              />
+              {hasActiveFilter ? (
+                <FilterClearButton onClick={() => setStatusFilter("")} />
+              ) : null}
+            </div>
           </div>
         </div>
       ) : null}
