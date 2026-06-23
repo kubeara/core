@@ -6,6 +6,7 @@ import { getErrorMessage } from "@/api/api-error";
 import { KubearaLogo } from "@/components/shared/kubeara-logo";
 import { ProfilePageSkeleton } from "@/components/shared/skeleton";
 import { useAuth } from "@/features/auth/context/use-auth";
+import { confirmCheckoutPayment } from "@/features/subscriptions/api";
 import {
   formatPrice,
   useCheckoutSetupQuery,
@@ -64,7 +65,13 @@ function CheckoutPaymentForm({
       return;
     }
 
-    navigate(`/subscription?checkout=success&plan=${planSlug}`, { replace: true });
+    try {
+      await confirmCheckoutPayment({ planSlug });
+      navigate("/subscription", { replace: true });
+    } catch (err) {
+      setError(getErrorMessage(err));
+      setIsSubmitting(false);
+    }
   }
 
   return (

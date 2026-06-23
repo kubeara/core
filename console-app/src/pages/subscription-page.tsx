@@ -1,5 +1,4 @@
-import { Link, useSearchParams } from "react-router-dom";
-import { useEffect } from "react";
+import { Link } from "react-router-dom";
 import { getErrorMessage } from "@/api/api-error";
 import { BackLink } from "@/components/shared/back-link";
 import { ProfilePageSkeleton } from "@/components/shared/skeleton";
@@ -10,46 +9,14 @@ import {
   useCancelSubscriptionMutation,
   useCurrentSubscriptionQuery,
 } from "@/features/subscriptions/hooks";
-import type { PlanSlug } from "@/features/subscriptions/types";
-import { showSuccessToast } from "@/lib/toast";
 import "@/features/subscriptions/subscriptions-ui.css";
 
-const PAID_PLAN_SLUGS: PlanSlug[] = ["starter", "pro", "business"];
-
 export function SubscriptionPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const checkoutSuccess = searchParams.get("checkout") === "success";
-  const expectedPlanParam = searchParams.get("plan");
-  const expectedPlan = PAID_PLAN_SLUGS.includes(expectedPlanParam as PlanSlug)
-    ? (expectedPlanParam as PlanSlug)
-    : null;
-  const pollUntilPlan = checkoutSuccess ? expectedPlan : null;
-
   const { data: subscription, isPending, isError, error } =
-    useCurrentSubscriptionQuery({ pollUntilPlan });
+    useCurrentSubscriptionQuery();
   const cancelMutation = useCancelSubscriptionMutation();
 
-  const isAwaitingCheckoutUpdate =
-    !!pollUntilPlan &&
-    (!subscription ||
-      subscription.plan.slug !== pollUntilPlan ||
-      subscription.subscriptionStatus !== "active");
-
-  useEffect(() => {
-    if (!checkoutSuccess || !expectedPlan || isAwaitingCheckoutUpdate) {
-      return;
-    }
-
-    showSuccessToast("Subscription updated successfully");
-    setSearchParams({}, { replace: true });
-  }, [
-    checkoutSuccess,
-    expectedPlan,
-    isAwaitingCheckoutUpdate,
-    setSearchParams,
-  ]);
-
-  if (isPending || isAwaitingCheckoutUpdate) {
+  if (isPending) {
     return <ProfilePageSkeleton />;
   }
 
@@ -67,7 +34,9 @@ export function SubscriptionPage() {
   }
 
   const isFree = subscription.plan.slug === "free";
-  const canCancel = !isFree && subscription.subscriptionStatus === "active";
+  const isCancelScheduled = subscription.pendingPlan?.slug === "free";
+  const canCancel =
+    !isFree && subscription.subscriptionStatus === "active" && !isCancelScheduled;
 
   return (
     <div className="profile-page">
@@ -87,9 +56,20 @@ export function SubscriptionPage() {
             {subscription.plan.name} — {formatPrice(subscription.billingAmount)}/month
           </p>
           {subscription.pendingPlan && (
-            <p className="profile-section-desc">
-              Downgrade to {subscription.pendingPlan.name} scheduled for{" "}
-              {formatUnixDate(subscription.scheduledChangeAt)}
+            <p className="profile-section-desc subscription-notice">
+              {subscription.pendingPlan.slug === "free" ? (
+                <>
+                  Your subscription is canceled. You will not be charged again.
+                  <br />
+                  Access continues until{" "}
+                  {formatUnixDate(subscription.scheduledChangeAt)}.
+                </>
+              ) : (
+                <>
+                  Downgrade to {subscription.pendingPlan.name} scheduled for{" "}
+                  {formatUnixDate(subscription.scheduledChangeAt)}
+                </>
+              )}
             </p>
           )}
 

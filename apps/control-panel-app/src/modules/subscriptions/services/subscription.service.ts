@@ -92,7 +92,10 @@ export class SubscriptionService {
   private async getPendingPlan(
     subscription: SubscriptionEntity,
   ): Promise<PlanEntity | null> {
-    if (!subscription.stripeSubscriptionId || !this.stripeService.isConfigured()) {
+    if (
+      !subscription.stripeSubscriptionId ||
+      !this.stripeService.isConfigured()
+    ) {
       return null;
     }
 
@@ -158,7 +161,7 @@ export class SubscriptionService {
   }
 
   async getOrganizationSubscription(organizationId: string) {
-    const subscription = await this.subscriptionRepository.findOne({
+    let subscription = await this.subscriptionRepository.findOne({
       where: { organizationId, status: EntityStatus.ACTIVE },
       relations: { plan: true },
       order: { createdAt: "DESC" },
@@ -167,6 +170,8 @@ export class SubscriptionService {
     if (!subscription) {
       throw new NotFoundException("No active subscription found");
     }
+
+    subscription = await this.syncSubscriptionFromStripe(subscription);
 
     const pendingPlan = await this.getPendingPlan(subscription);
 
@@ -215,7 +220,9 @@ export class SubscriptionService {
     userName: string,
   ) {
     if (planSlug === PlanSlug.FREE) {
-      throw new BadRequestException("Use change-plan to switch to the free plan");
+      throw new BadRequestException(
+        "Use change-plan to switch to the free plan",
+      );
     }
 
     const plan = await this.getPlanBySlug(planSlug);
@@ -260,12 +267,16 @@ export class SubscriptionService {
       throw new BadRequestException("Stripe publishable key is not configured");
     }
 
-    const { clientSecret } = await this.stripeService.createSubscriptionPayment({
-      customerId,
-      priceId,
-      organizationId,
-      planSlug,
-    });
+    const { clientSecret, subscriptionId } =
+      await this.stripeService.createSubscriptionPayment({
+        customerId,
+        priceId,
+        organizationId,
+        planSlug,
+      });
+
+    subscription.stripeSubscriptionId = subscriptionId;
+    await this.subscriptionRepository.save(subscription);
 
     return {
       message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CHECKOUT,
@@ -275,6 +286,72 @@ export class SubscriptionService {
         plan: this.toPlanResponse(plan),
       },
     };
+  }
+
+  async confirmCheckout(organizationId: string, planSlug: PlanSlug) {
+    const plan = await this.getPlanBySlug(planSlug);
+    const subscription = await this.getOrCreateSubscription(organizationId);
+
+    if (!this.stripeService.isConfigured()) {
+      throw new BadRequestException("Stripe is not configured");
+    }
+
+    const stripe = this.stripeService.getClient();
+    let stripeSub: Stripe.Subscription | null = null;
+
+    for (let attempt = 0; attempt < 8; attempt++) {
+      if (subscription.stripeSubscriptionId) {
+        const retrieved = await stripe.subscriptions.retrieve(
+          subscription.stripeSubscriptionId,
+        );
+        if (
+          (retrieved.status === "active" || retrieved.status === "trialing") &&
+          this.stripeSubscriptionMatchesPlan(
+            retrieved,
+            planSlug,
+            plan.stripePriceId,
+          )
+        ) {
+          stripeSub = retrieved;
+          break;
+        }
+      }
+
+      if (subscription.stripeCustomerId) {
+        const result = await stripe.subscriptions.list({
+          customer: subscription.stripeCustomerId,
+          limit: 20,
+        });
+        stripeSub =
+          result.data.find(
+            (item) =>
+              (item.status === "active" || item.status === "trialing") &&
+              this.stripeSubscriptionMatchesPlan(
+                item,
+                planSlug,
+                plan.stripePriceId,
+              ),
+          ) ?? null;
+        if (stripeSub) {
+          break;
+        }
+      }
+
+      if (attempt < 7) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    }
+
+    if (!stripeSub) {
+      throw new BadRequestException(
+        "Payment is still processing. Please try again in a moment.",
+      );
+    }
+
+    this.applyStripeSubscription(subscription, plan, stripeSub);
+    await this.subscriptionRepository.save(subscription);
+
+    return this.getOrganizationSubscription(organizationId);
   }
 
   async changePlan(organizationId: string, planSlug: PlanSlug) {
@@ -287,7 +364,10 @@ export class SubscriptionService {
     }
 
     if (planSlug === PlanSlug.FREE) {
-      if (subscription.stripeSubscriptionId && this.stripeService.isConfigured()) {
+      if (
+        subscription.stripeSubscriptionId &&
+        this.stripeService.isConfigured()
+      ) {
         const stripeSub = await this.stripeService.scheduleCancelAtPeriodEnd(
           subscription.stripeSubscriptionId,
           { organizationId, planSlug: subscription.plan.slug },
@@ -339,15 +419,14 @@ export class SubscriptionService {
           );
         }
 
-        const stripeSub = await this.stripeService.scheduleSubscriptionDowngrade(
-          {
+        const stripeSub =
+          await this.stripeService.scheduleSubscriptionDowngrade({
             stripeSubscriptionId: subscription.stripeSubscriptionId,
             newPriceId: priceId,
             organizationId,
             currentPlanSlug: subscription.plan.slug,
             pendingPlanSlug: planSlug,
-          },
-        );
+          });
 
         const periodItem = stripeSub.items.data[0];
         subscription.currentPeriodEnd =
@@ -368,18 +447,47 @@ export class SubscriptionService {
 
   async cancelSubscription(organizationId: string) {
     const subscription = await this.getOrCreateSubscription(organizationId);
+    const previousPlanName = subscription.plan.name;
 
     if (subscription.plan.slug === PlanSlug.FREE) {
       throw new BadRequestException("Free plan cannot be canceled");
     }
 
-    if (
-      subscription.stripeSubscriptionId &&
-      this.stripeService.isConfigured()
-    ) {
-      await this.stripeService.cancelSubscription(
-        subscription.stripeSubscriptionId,
+    if (this.stripeService.isConfigured()) {
+      const stripeSubscriptionId =
+        await this.resolveStripeSubscriptionId(subscription);
+
+      if (!stripeSubscriptionId) {
+        throw new BadRequestException(
+          "No active Stripe subscription found to cancel",
+        );
+      }
+
+      subscription.stripeSubscriptionId = stripeSubscriptionId;
+      const stripeSub = await this.stripeService.scheduleCancelAtPeriodEnd(
+        stripeSubscriptionId,
+        { organizationId, planSlug: subscription.plan.slug },
       );
+      const periodItem = stripeSub.items.data[0];
+      subscription.currentPeriodEnd =
+        periodItem?.current_period_end ?? subscription.currentPeriodEnd;
+      subscription.canceledAt = stripeSub.cancel_at;
+      await this.subscriptionRepository.save(subscription);
+
+      const freePlan = await this.getPlanBySlug(PlanSlug.FREE);
+      const endDate = this.formatScheduledChangeDate(
+        subscription.currentPeriodEnd,
+      );
+
+      this.notificationService.notifySubscriptionCanceled({
+        organizationId,
+        planName: previousPlanName,
+      });
+
+      return {
+        message: `Subscription canceled. You will keep ${previousPlanName} access until ${endDate}. No further payments will be charged.`,
+        data: this.toSubscriptionResponse(subscription, freePlan),
+      };
     }
 
     const freePlan = await this.getPlanBySlug(PlanSlug.FREE);
@@ -395,7 +503,7 @@ export class SubscriptionService {
 
     this.notificationService.notifySubscriptionCanceled({
       organizationId,
-      planName: subscription.plan.name,
+      planName: previousPlanName,
     });
 
     return {
@@ -407,26 +515,103 @@ export class SubscriptionService {
   async handleWebhookEvent(event: Stripe.Event): Promise<void> {
     switch (event.type) {
       case "checkout.session.completed":
-        await this.handleCheckoutCompleted(
-          event.data.object as Stripe.Checkout.Session,
-        );
+        await this.handleCheckoutCompleted(event.data.object);
         break;
       case "customer.subscription.updated":
-        await this.handleSubscriptionUpdated(
-          event.data.object as Stripe.Subscription,
-        );
+        await this.handleSubscriptionUpdated(event.data.object);
         break;
       case "customer.subscription.deleted":
-        await this.handleSubscriptionDeleted(
-          event.data.object as Stripe.Subscription,
-        );
+        await this.handleSubscriptionDeleted(event.data.object);
+        break;
+      case "invoice.paid":
+        await this.handleInvoicePaid(event.data.object);
         break;
       case "invoice.payment_failed":
-        await this.handlePaymentFailed(event.data.object as Stripe.Invoice);
+        await this.handlePaymentFailed(event.data.object);
         break;
       default:
         break;
     }
+  }
+
+  private async resolveStripeSubscriptionId(
+    subscription: SubscriptionEntity,
+  ): Promise<string | null> {
+    if (subscription.stripeSubscriptionId) {
+      return subscription.stripeSubscriptionId;
+    }
+
+    if (!subscription.stripeCustomerId || !this.stripeService.isConfigured()) {
+      return null;
+    }
+
+    const result = await this.stripeService.getClient().subscriptions.list({
+      customer: subscription.stripeCustomerId,
+      limit: 20,
+    });
+
+    const stripeSub =
+      result.data.find(
+        (item) =>
+          item.status === "active" ||
+          item.status === "trialing" ||
+          item.status === "past_due",
+      ) ?? null;
+
+    return stripeSub?.id ?? null;
+  }
+
+  private stripeSubscriptionMatchesPlan(
+    stripeSub: Stripe.Subscription,
+    planSlug: PlanSlug,
+    stripePriceId: string | null,
+  ): boolean {
+    if ((stripeSub.metadata?.planSlug as PlanSlug | undefined) === planSlug) {
+      return true;
+    }
+
+    const price = stripeSub.items.data[0]?.price;
+    const priceId = typeof price === "string" ? price : price?.id;
+    return !!stripePriceId && priceId === stripePriceId;
+  }
+
+  private async syncSubscriptionFromStripe(
+    subscription: SubscriptionEntity,
+  ): Promise<SubscriptionEntity> {
+    if (!this.stripeService.isConfigured()) {
+      return subscription;
+    }
+
+    let stripeSub: Stripe.Subscription | null = null;
+
+    if (subscription.stripeSubscriptionId) {
+      stripeSub = await this.stripeService
+        .getClient()
+        .subscriptions.retrieve(subscription.stripeSubscriptionId);
+    } else if (subscription.stripeCustomerId) {
+      const result = await this.stripeService.getClient().subscriptions.list({
+        customer: subscription.stripeCustomerId,
+        limit: 10,
+      });
+      stripeSub =
+        result.data.find(
+          (item) => item.status === "active" || item.status === "trialing",
+        ) ?? null;
+    }
+
+    if (
+      !stripeSub ||
+      (stripeSub.status !== "active" && stripeSub.status !== "trialing")
+    ) {
+      return subscription;
+    }
+
+    await this.handleSubscriptionUpdated(stripeSub);
+
+    return this.subscriptionRepository.findOneOrFail({
+      where: { id: subscription.id },
+      relations: { plan: true },
+    });
   }
 
   private async getOrCreateSubscription(
@@ -461,8 +646,7 @@ export class SubscriptionService {
     subscription.stripeSubscriptionId = stripeSub.id;
     subscription.subscriptionStatus = this.mapStripeStatus(stripeSub.status);
     subscription.billingAmount = plan.priceMonthly;
-    subscription.currentPeriodStart =
-      periodItem?.current_period_start ?? null;
+    subscription.currentPeriodStart = periodItem?.current_period_start ?? null;
     subscription.currentPeriodEnd = periodItem?.current_period_end ?? null;
     subscription.canceledAt = stripeSub.canceled_at;
   }
@@ -506,7 +690,10 @@ export class SubscriptionService {
       subscription.stripeSubscriptionId = session.subscription;
     }
 
-    if (this.stripeService.isConfigured() && subscription.stripeSubscriptionId) {
+    if (
+      this.stripeService.isConfigured() &&
+      subscription.stripeSubscriptionId
+    ) {
       const stripeSub = await this.stripeService
         .getClient()
         .subscriptions.retrieve(subscription.stripeSubscriptionId);
@@ -560,8 +747,7 @@ export class SubscriptionService {
     }
 
     const periodItem = stripeSub.items.data[0];
-    subscription.currentPeriodStart =
-      periodItem?.current_period_start ?? null;
+    subscription.currentPeriodStart = periodItem?.current_period_start ?? null;
     subscription.currentPeriodEnd = periodItem?.current_period_end ?? null;
     subscription.canceledAt = stripeSub.cancel_at;
 
@@ -617,6 +803,24 @@ export class SubscriptionService {
       organizationId,
       planName: subscription.plan.name,
     });
+  }
+
+  private async handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
+    const subscriptionRef =
+      invoice.parent?.subscription_details?.subscription ?? null;
+    const subscriptionId =
+      typeof subscriptionRef === "string"
+        ? subscriptionRef
+        : subscriptionRef?.id;
+
+    if (!subscriptionId) {
+      return;
+    }
+
+    const stripeSub = await this.stripeService
+      .getClient()
+      .subscriptions.retrieve(subscriptionId);
+    await this.handleSubscriptionUpdated(stripeSub);
   }
 
   private async handlePaymentFailed(invoice: Stripe.Invoice): Promise<void> {

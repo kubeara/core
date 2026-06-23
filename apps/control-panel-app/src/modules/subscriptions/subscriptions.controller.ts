@@ -1,11 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Post,
-  Req,
-  UseGuards,
-} from "@nestjs/common";
+import { Body, Controller, Get, Post, Req, UseGuards } from "@nestjs/common";
 import { AccessTokenGuard } from "@control-panel/modules/auth/guards/auth.guards";
 import { AuthenticatedRequest } from "@control-panel/common/interfaces/authenticated-request.interface";
 import { SubscriptionService } from "./services/subscription.service";
@@ -41,6 +34,14 @@ export class SubscriptionsController {
   @Post("change-plan")
   changePlan(@Req() req: AuthenticatedRequest, @Body() body: ChangePlanDto) {
     return this.subscriptionService.changePlan(
+      req.user.organizationId,
+      body.planSlug,
+    );
+  }
+
+  @Post("confirm")
+  confirm(@Req() req: AuthenticatedRequest, @Body() body: CheckoutDto) {
+    return this.subscriptionService.confirmCheckout(
       req.user.organizationId,
       body.planSlug,
     );

@@ -30,28 +30,11 @@ export function usePlansQuery() {
   });
 }
 
-export function useCurrentSubscriptionQuery(options?: {
-  pollUntilPlan?: PlanSlug | null;
-}) {
-  const expectedPlan = options?.pollUntilPlan ?? null;
-
+export function useCurrentSubscriptionQuery() {
   return useQuery({
     queryKey: QUERY_KEYS.subscriptions.current,
     queryFn: fetchCurrentSubscription,
-    staleTime: expectedPlan ? 0 : undefined,
-    refetchOnMount: expectedPlan ? "always" : true,
-    refetchInterval: expectedPlan
-      ? (query) => {
-          const subscription = query.state.data;
-          if (
-            subscription?.plan.slug === expectedPlan &&
-            subscription.subscriptionStatus === "active"
-          ) {
-            return false;
-          }
-          return 1500;
-        }
-      : false,
+    refetchOnMount: true,
   });
 }
 

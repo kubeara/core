@@ -18,7 +18,9 @@ export class StripeService implements OnModuleInit {
   constructor(private readonly configService: ConfigService) {}
 
   onModuleInit(): void {
-    const secretKey = this.configService.get<string>("STRIPE_SECRET_KEY")?.trim();
+    const secretKey = this.configService
+      .get<string>("STRIPE_SECRET_KEY")
+      ?.trim();
     if (secretKey) {
       this.stripe = new Stripe(secretKey);
     } else {
@@ -107,7 +109,8 @@ export class StripeService implements OnModuleInit {
     input: { organizationId: string; planSlug: PlanSlug },
   ): Promise<StripeSubscription> {
     const stripe = this.getClient();
-    const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const subscription =
+      await stripe.subscriptions.retrieve(stripeSubscriptionId);
 
     const metadata = {
       ...subscription.metadata,
@@ -163,7 +166,7 @@ export class StripeService implements OnModuleInit {
       phases: [
         {
           items: [{ price: currentPriceId, quantity: 1 }],
-          start_date: schedule.phases[0]!.start_date,
+          start_date: schedule.phases[0].start_date,
           end_date: item.current_period_end,
         },
         {
@@ -212,13 +215,11 @@ export class StripeService implements OnModuleInit {
     return stripe.subscriptions.cancel(stripeSubscriptionId);
   }
 
-  constructWebhookEvent(
-    payload: Buffer,
-    signature: string,
-  ): Stripe.Event {
+  constructWebhookEvent(payload: Buffer, signature: string): Stripe.Event {
     const stripe = this.getClient();
-    const webhookSecret =
-      this.configService.get<string>("STRIPE_WEBHOOK_SECRET")?.trim();
+    const webhookSecret = this.configService
+      .get<string>("STRIPE_WEBHOOK_SECRET")
+      ?.trim();
 
     if (!webhookSecret) {
       throw new BadRequestException("Stripe webhook secret is not configured");

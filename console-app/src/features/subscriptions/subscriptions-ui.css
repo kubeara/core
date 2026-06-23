@@ -88,6 +88,11 @@
   margin-top: auto;
 }
 
+.subscription-notice {
+  color: var(--muted-foreground, #6b7280);
+  line-height: 1.5;
+}
+
 .subscription-details-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

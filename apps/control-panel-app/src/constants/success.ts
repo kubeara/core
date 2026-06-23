@@ -51,5 +51,6 @@ export const SUCCESS_MESSAGES = {
     CHECKOUT: "Checkout session created successfully",
     PLAN_CHANGED: "Plan changed successfully",
     CANCELED: "Subscription canceled successfully",
+    CONFIRMED: "Subscription confirmed successfully",
   },
 };

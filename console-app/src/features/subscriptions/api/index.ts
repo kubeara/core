@@ -78,6 +78,19 @@ export async function createCheckoutPayment(
   return data;
 }
 
+export async function confirmCheckoutPayment(
+  input: CheckoutRequest,
+): Promise<Subscription> {
+  const response = await apiClient.post<
+    SubscriptionsApiResponse<RawSubscription>
+  >("/subscriptions/confirm", input);
+  const subscription = response.data.data;
+  if (!subscription) {
+    throw new Error("No subscription data in response");
+  }
+  return normalizeSubscription(subscription);
+}
+
 export async function changePlan(
   input: ChangePlanRequest,
 ): Promise<{ subscription: Subscription; message: string }> {
