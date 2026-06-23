@@ -47,6 +47,13 @@ export class SubscriptionsController {
     );
   }
 
+  @Post("cancel-pending-downgrade")
+  cancelPendingDowngrade(@Req() req: AuthenticatedRequest) {
+    return this.subscriptionService.cancelPendingDowngrade(
+      req.user.organizationId,
+    );
+  }
+
   @Post("cancel")
   cancel(@Req() req: AuthenticatedRequest) {
     return this.subscriptionService.cancelSubscription(req.user.organizationId);

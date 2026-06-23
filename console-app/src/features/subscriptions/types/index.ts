@@ -8,6 +8,8 @@ export type SubscriptionStatus =
   | "incomplete"
   | "unpaid";
 
+export type PendingDowngradeStatus = "scheduled";
+
 export type Plan = {
   id: string;
   slug: PlanSlug;
@@ -23,6 +25,7 @@ export type Subscription = {
   plan: Plan;
   pendingPlan: Plan | null;
   scheduledChangeAt: number | null;
+  pendingDowngradeStatus: PendingDowngradeStatus | null;
   subscriptionStatus: SubscriptionStatus;
   startedAt: number;
   currentPeriodStart: number | null;

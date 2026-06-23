@@ -3,6 +3,7 @@ import { BaseEntity } from "@control-panel/common/entity/base.entity";
 import { OrganizationEntity } from "@control-panel/modules/organizations/entities/organization.entity";
 import { PlanEntity } from "./plan.entity";
 import { SubscriptionStatus } from "../enums/subscription-status.enum";
+import { PendingDowngradeStatus } from "../enums/pending-downgrade-status.enum";
 
 @Entity({ name: "subscriptions" })
 export class SubscriptionEntity extends BaseEntity {
@@ -47,4 +48,17 @@ export class SubscriptionEntity extends BaseEntity {
 
   @Column({ type: "int", default: 0 })
   billingAmount!: number;
+
+  @Column({ type: "uuid", nullable: true })
+  pendingPlanId!: string | null;
+
+  @ManyToOne(() => PlanEntity, { eager: true, nullable: true })
+  @JoinColumn({ name: "pendingPlanId" })
+  pendingPlan!: PlanEntity | null;
+
+  @Column({ type: "bigint", nullable: true })
+  pendingEffectiveAt!: number | null;
+
+  @Column({ type: "varchar", length: 50, nullable: true })
+  pendingDowngradeStatus!: PendingDowngradeStatus | null;
 }

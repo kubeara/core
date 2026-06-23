@@ -6,6 +6,7 @@ import {
   formatPrice,
   formatStatus,
   formatUnixDate,
+  useCancelPendingDowngradeMutation,
   useCancelSubscriptionMutation,
   useCurrentSubscriptionQuery,
 } from "@/features/subscriptions/hooks";
@@ -15,6 +16,7 @@ export function SubscriptionPage() {
   const { data: subscription, isPending, isError, error } =
     useCurrentSubscriptionQuery();
   const cancelMutation = useCancelSubscriptionMutation();
+  const cancelPendingMutation = useCancelPendingDowngradeMutation();
 
   if (isPending) {
     return <ProfilePageSkeleton />;
@@ -34,9 +36,13 @@ export function SubscriptionPage() {
   }
 
   const isFree = subscription.plan.slug === "free";
+  const hasScheduledChange =
+    subscription.pendingDowngradeStatus === "scheduled" &&
+    !!subscription.pendingPlan;
   const isCancelScheduled = subscription.pendingPlan?.slug === "free";
   const canCancel =
-    !isFree && subscription.subscriptionStatus === "active" && !isCancelScheduled;
+    !isFree && subscription.subscriptionStatus === "active" && !hasScheduledChange;
+  const canCancelScheduledChange = hasScheduledChange;
 
   return (
     <div className="profile-page">
@@ -55,23 +61,6 @@ export function SubscriptionPage() {
           <p className="profile-section-desc">
             {subscription.plan.name} — {formatPrice(subscription.billingAmount)}/month
           </p>
-          {subscription.pendingPlan && (
-            <p className="profile-section-desc subscription-notice">
-              {subscription.pendingPlan.slug === "free" ? (
-                <>
-                  Your subscription is canceled. You will not be charged again.
-                  <br />
-                  Access continues until{" "}
-                  {formatUnixDate(subscription.scheduledChangeAt)}.
-                </>
-              ) : (
-                <>
-                  Downgrade to {subscription.pendingPlan.name} scheduled for{" "}
-                  {formatUnixDate(subscription.scheduledChangeAt)}
-                </>
-              )}
-            </p>
-          )}
 
           <div className="subscription-details-grid">
             <div className="subscription-detail-item">
@@ -99,11 +88,48 @@ export function SubscriptionPage() {
               </span>
             </div>
           </div>
+        </section>
 
+        {hasScheduledChange && subscription.pendingPlan && (
+          <section className="profile-section-card">
+            <h2>Scheduled change</h2>
+            <p className="profile-section-desc subscription-notice">
+              {isCancelScheduled ? (
+                <>
+                  Your subscription is canceled. You will not be charged again.
+                  <br />
+                  Access to {subscription.plan.name} continues until{" "}
+                  {formatUnixDate(subscription.scheduledChangeAt)}.
+                </>
+              ) : (
+                <>
+                  Downgrade to {subscription.pendingPlan.name} (
+                  {formatPrice(subscription.pendingPlan.priceMonthly)}/month)
+                  <br />
+                  Effective on {formatUnixDate(subscription.scheduledChangeAt)}.
+                </>
+              )}
+            </p>
+          </section>
+        )}
+
+        <section className="profile-section-card">
           <div className="subscription-actions">
             <Link to="/plans" className="btn-primary">
               View plans
             </Link>
+            {canCancelScheduledChange && (
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={cancelPendingMutation.isPending}
+                onClick={() => cancelPendingMutation.mutate()}
+              >
+                {cancelPendingMutation.isPending
+                  ? "Canceling…"
+                  : "Cancel scheduled change"}
+              </button>
+            )}
             {canCancel && (
               <button
                 type="button"

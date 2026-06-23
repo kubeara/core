@@ -12,6 +12,7 @@ import { PlanEntity } from "../entities/plan.entity";
 import { SubscriptionEntity } from "../entities/subscription.entity";
 import { PlanSlug } from "../enums/plan-slug.enum";
 import { SubscriptionStatus } from "../enums/subscription-status.enum";
+import { PendingDowngradeStatus } from "../enums/pending-downgrade-status.enum";
 import { StripeService } from "./stripe.service";
 import { SubscriptionNotificationService } from "./subscription-notification.service";
 import { EntityStatus } from "@control-panel/common/entity/base.entity";
@@ -32,6 +33,7 @@ export interface SubscriptionResponse {
   plan: PlanResponse;
   pendingPlan: PlanResponse | null;
   scheduledChangeAt: number | null;
+  pendingDowngradeStatus: PendingDowngradeStatus | null;
   subscriptionStatus: SubscriptionStatus;
   startedAt: number;
   currentPeriodStart: number | null;
@@ -67,13 +69,17 @@ export class SubscriptionService {
 
   private toSubscriptionResponse(
     subscription: SubscriptionEntity,
-    pendingPlan: PlanEntity | null = null,
   ): SubscriptionResponse {
+    const hasPending =
+      subscription.pendingDowngradeStatus ===
+        PendingDowngradeStatus.SCHEDULED && subscription.pendingPlan;
+
     return {
       id: subscription.id,
       plan: this.toPlanResponse(subscription.plan),
-      pendingPlan: pendingPlan ? this.toPlanResponse(pendingPlan) : null,
-      scheduledChangeAt: pendingPlan ? subscription.currentPeriodEnd : null,
+      pendingPlan: hasPending ? this.toPlanResponse(subscription.pendingPlan!) : null,
+      scheduledChangeAt: hasPending ? subscription.pendingEffectiveAt : null,
+      pendingDowngradeStatus: subscription.pendingDowngradeStatus,
       subscriptionStatus: subscription.subscriptionStatus,
       startedAt: subscription.startedAt,
       currentPeriodStart: subscription.currentPeriodStart,
@@ -89,28 +95,51 @@ export class SubscriptionService {
     return dayjs.unix(unix).format("MMMM D, YYYY");
   }
 
-  private async getPendingPlan(
+  private setPendingDowngrade(
     subscription: SubscriptionEntity,
-  ): Promise<PlanEntity | null> {
-    if (
-      !subscription.stripeSubscriptionId ||
-      !this.stripeService.isConfigured()
-    ) {
-      return null;
+    targetPlan: PlanEntity,
+    effectiveAt: number | null,
+  ): void {
+    subscription.pendingPlanId = targetPlan.id;
+    subscription.pendingPlan = targetPlan;
+    subscription.pendingEffectiveAt = effectiveAt;
+    subscription.pendingDowngradeStatus = PendingDowngradeStatus.SCHEDULED;
+  }
+
+  private clearPendingDowngrade(subscription: SubscriptionEntity): void {
+    subscription.pendingPlanId = null;
+    subscription.pendingPlan = null;
+    subscription.pendingEffectiveAt = null;
+    subscription.pendingDowngradeStatus = null;
+  }
+
+  private async clearPendingDowngradeOnStripe(
+    subscription: SubscriptionEntity,
+  ): Promise<void> {
+    if (!this.stripeService.isConfigured()) {
+      return;
     }
 
-    const stripeSub = await this.stripeService
-      .getClient()
-      .subscriptions.retrieve(subscription.stripeSubscriptionId);
-    const pendingPlanSlug = stripeSub.metadata?.pendingPlanSlug as
-      | PlanSlug
-      | undefined;
-
-    if (!pendingPlanSlug) {
-      return null;
+    const stripeSubscriptionId =
+      await this.resolveStripeSubscriptionId(subscription);
+    if (!stripeSubscriptionId) {
+      return;
     }
 
-    return this.getPlanBySlug(pendingPlanSlug);
+    await this.stripeService.cancelScheduledChanges(stripeSubscriptionId, {
+      organizationId: subscription.organizationId,
+      planSlug: subscription.plan.slug,
+    });
+  }
+
+  private getStripePendingPlanSlug(
+    stripeSub: Stripe.Subscription,
+  ): PlanSlug | null {
+    const slug = stripeSub.metadata?.pendingPlanSlug?.trim();
+    if (!slug) {
+      return null;
+    }
+    return slug as PlanSlug;
   }
 
   private async resolvePlanFromStripeSubscription(
@@ -163,7 +192,7 @@ export class SubscriptionService {
   async getOrganizationSubscription(organizationId: string) {
     let subscription = await this.subscriptionRepository.findOne({
       where: { organizationId, status: EntityStatus.ACTIVE },
-      relations: { plan: true },
+      relations: { plan: true, pendingPlan: true },
       order: { createdAt: "DESC" },
     });
 
@@ -173,11 +202,9 @@ export class SubscriptionService {
 
     subscription = await this.syncSubscriptionFromStripe(subscription);
 
-    const pendingPlan = await this.getPendingPlan(subscription);
-
     return {
       message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CURRENT,
-      data: this.toSubscriptionResponse(subscription, pendingPlan),
+      data: this.toSubscriptionResponse(subscription),
     };
   }
 
@@ -348,6 +375,11 @@ export class SubscriptionService {
       );
     }
 
+    if (subscription.pendingDowngradeStatus) {
+      await this.clearPendingDowngradeOnStripe(subscription);
+      this.clearPendingDowngrade(subscription);
+    }
+
     this.applyStripeSubscription(subscription, plan, stripeSub);
     await this.subscriptionRepository.save(subscription);
 
@@ -364,23 +396,35 @@ export class SubscriptionService {
     }
 
     if (planSlug === PlanSlug.FREE) {
-      if (
-        subscription.stripeSubscriptionId &&
-        this.stripeService.isConfigured()
-      ) {
+      if (this.stripeService.isConfigured()) {
+        const stripeSubscriptionId =
+          await this.resolveStripeSubscriptionId(subscription);
+
+        if (!stripeSubscriptionId) {
+          throw new BadRequestException(
+            "No active Stripe subscription found to downgrade",
+          );
+        }
+
+        subscription.stripeSubscriptionId = stripeSubscriptionId;
         const stripeSub = await this.stripeService.scheduleCancelAtPeriodEnd(
-          subscription.stripeSubscriptionId,
+          stripeSubscriptionId,
           { organizationId, planSlug: subscription.plan.slug },
         );
         const periodItem = stripeSub.items.data[0];
         subscription.currentPeriodEnd =
           periodItem?.current_period_end ?? subscription.currentPeriodEnd;
         subscription.canceledAt = stripeSub.cancel_at;
+        this.setPendingDowngrade(
+          subscription,
+          targetPlan,
+          subscription.currentPeriodEnd,
+        );
         await this.subscriptionRepository.save(subscription);
 
         return {
           message: `Downgrade to ${targetPlan.name} scheduled for ${this.formatScheduledChangeDate(subscription.currentPeriodEnd)}`,
-          data: this.toSubscriptionResponse(subscription, targetPlan),
+          data: this.toSubscriptionResponse(subscription),
         };
       }
 
@@ -391,6 +435,7 @@ export class SubscriptionService {
       subscription.canceledAt = null;
       subscription.billingAmount = targetPlan.priceMonthly;
       subscription.currentPeriodEnd = null;
+      this.clearPendingDowngrade(subscription);
 
       await this.subscriptionRepository.save(subscription);
 
@@ -407,10 +452,16 @@ export class SubscriptionService {
     }
 
     if (targetPlan.priceMonthly < subscription.plan.priceMonthly) {
-      if (
-        subscription.stripeSubscriptionId &&
-        this.stripeService.isConfigured()
-      ) {
+      if (this.stripeService.isConfigured()) {
+        const stripeSubscriptionId =
+          await this.resolveStripeSubscriptionId(subscription);
+
+        if (!stripeSubscriptionId) {
+          throw new BadRequestException(
+            "No active Stripe subscription found to downgrade",
+          );
+        }
+
         const priceId = targetPlan.stripePriceId;
 
         if (!priceId) {
@@ -419,9 +470,10 @@ export class SubscriptionService {
           );
         }
 
+        subscription.stripeSubscriptionId = stripeSubscriptionId;
         const stripeSub =
           await this.stripeService.scheduleSubscriptionDowngrade({
-            stripeSubscriptionId: subscription.stripeSubscriptionId,
+            stripeSubscriptionId,
             newPriceId: priceId,
             organizationId,
             currentPlanSlug: subscription.plan.slug,
@@ -431,11 +483,16 @@ export class SubscriptionService {
         const periodItem = stripeSub.items.data[0];
         subscription.currentPeriodEnd =
           periodItem?.current_period_end ?? subscription.currentPeriodEnd;
+        this.setPendingDowngrade(
+          subscription,
+          targetPlan,
+          subscription.currentPeriodEnd,
+        );
         await this.subscriptionRepository.save(subscription);
 
         return {
           message: `Downgrade to ${targetPlan.name} scheduled for ${this.formatScheduledChangeDate(subscription.currentPeriodEnd)}`,
-          data: this.toSubscriptionResponse(subscription, targetPlan),
+          data: this.toSubscriptionResponse(subscription),
         };
       }
     }
@@ -452,6 +509,8 @@ export class SubscriptionService {
     if (subscription.plan.slug === PlanSlug.FREE) {
       throw new BadRequestException("Free plan cannot be canceled");
     }
+
+    const freePlan = await this.getPlanBySlug(PlanSlug.FREE);
 
     if (this.stripeService.isConfigured()) {
       const stripeSubscriptionId =
@@ -472,9 +531,13 @@ export class SubscriptionService {
       subscription.currentPeriodEnd =
         periodItem?.current_period_end ?? subscription.currentPeriodEnd;
       subscription.canceledAt = stripeSub.cancel_at;
+      this.setPendingDowngrade(
+        subscription,
+        freePlan,
+        subscription.currentPeriodEnd,
+      );
       await this.subscriptionRepository.save(subscription);
 
-      const freePlan = await this.getPlanBySlug(PlanSlug.FREE);
       const endDate = this.formatScheduledChangeDate(
         subscription.currentPeriodEnd,
       );
@@ -486,11 +549,11 @@ export class SubscriptionService {
 
       return {
         message: `Subscription canceled. You will keep ${previousPlanName} access until ${endDate}. No further payments will be charged.`,
-        data: this.toSubscriptionResponse(subscription, freePlan),
+        data: this.toSubscriptionResponse(subscription),
       };
     }
 
-    const freePlan = await this.getPlanBySlug(PlanSlug.FREE);
+    this.clearPendingDowngrade(subscription);
     subscription.planId = freePlan.id;
     subscription.plan = freePlan;
     subscription.stripeSubscriptionId = null;
@@ -509,6 +572,31 @@ export class SubscriptionService {
     return {
       message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CANCELED,
       data: this.toSubscriptionResponse(subscription),
+    };
+  }
+
+  async cancelPendingDowngrade(organizationId: string) {
+    const subscription = await this.getOrCreateSubscription(organizationId);
+
+    if (
+      subscription.pendingDowngradeStatus !== PendingDowngradeStatus.SCHEDULED
+    ) {
+      throw new BadRequestException("No scheduled plan change to cancel");
+    }
+
+    await this.clearPendingDowngradeOnStripe(subscription);
+    this.clearPendingDowngrade(subscription);
+    subscription.canceledAt = null;
+    await this.subscriptionRepository.save(subscription);
+
+    const updated = await this.subscriptionRepository.findOneOrFail({
+      where: { id: subscription.id },
+      relations: { plan: true, pendingPlan: true },
+    });
+
+    return {
+      message: SUCCESS_MESSAGES.SUBSCRIPTIONS.PENDING_DOWNGRADE_CANCELED,
+      data: this.toSubscriptionResponse(updated),
     };
   }
 
@@ -610,7 +698,7 @@ export class SubscriptionService {
 
     return this.subscriptionRepository.findOneOrFail({
       where: { id: subscription.id },
-      relations: { plan: true },
+      relations: { plan: true, pendingPlan: true },
     });
   }
 
@@ -619,7 +707,7 @@ export class SubscriptionService {
   ): Promise<SubscriptionEntity> {
     let subscription = await this.subscriptionRepository.findOne({
       where: { organizationId, status: EntityStatus.ACTIVE },
-      relations: { plan: true },
+      relations: { plan: true, pendingPlan: true },
       order: { createdAt: "DESC" },
     });
 
@@ -649,6 +737,7 @@ export class SubscriptionService {
     subscription.currentPeriodStart = periodItem?.current_period_start ?? null;
     subscription.currentPeriodEnd = periodItem?.current_period_end ?? null;
     subscription.canceledAt = stripeSub.canceled_at;
+    this.clearPendingDowngrade(subscription);
   }
 
   private mapStripeStatus(status: string): SubscriptionStatus {
@@ -697,8 +786,10 @@ export class SubscriptionService {
       const stripeSub = await this.stripeService
         .getClient()
         .subscriptions.retrieve(subscription.stripeSubscriptionId);
+      this.clearPendingDowngrade(subscription);
       this.applyStripeSubscription(subscription, plan, stripeSub);
     } else {
+      this.clearPendingDowngrade(subscription);
       subscription.planId = plan.id;
       subscription.plan = plan;
       subscription.subscriptionStatus = SubscriptionStatus.ACTIVE;
@@ -725,7 +816,7 @@ export class SubscriptionService {
 
     const subscription = await this.subscriptionRepository.findOne({
       where: { organizationId, status: EntityStatus.ACTIVE },
-      relations: { plan: true },
+      relations: { plan: true, pendingPlan: true },
     });
 
     if (!subscription) {
@@ -749,7 +840,35 @@ export class SubscriptionService {
     const periodItem = stripeSub.items.data[0];
     subscription.currentPeriodStart = periodItem?.current_period_start ?? null;
     subscription.currentPeriodEnd = periodItem?.current_period_end ?? null;
-    subscription.canceledAt = stripeSub.cancel_at;
+    subscription.canceledAt = stripeSub.cancel_at_period_end
+      ? stripeSub.cancel_at
+      : null;
+
+    const pendingPlanSlug = this.getStripePendingPlanSlug(stripeSub);
+
+    if (pendingPlanSlug) {
+      const pendingPlan = await this.getPlanBySlug(pendingPlanSlug);
+      if (subscription.planId !== pendingPlan.id) {
+        this.setPendingDowngrade(
+          subscription,
+          pendingPlan,
+          subscription.currentPeriodEnd,
+        );
+      } else {
+        this.clearPendingDowngrade(subscription);
+      }
+    } else if (
+      subscription.pendingDowngradeStatus ===
+        PendingDowngradeStatus.SCHEDULED &&
+      subscription.pendingPlanId &&
+      subscription.planId === subscription.pendingPlanId
+    ) {
+      this.clearPendingDowngrade(subscription);
+    } else if (
+      subscription.pendingDowngradeStatus === PendingDowngradeStatus.SCHEDULED
+    ) {
+      this.clearPendingDowngrade(subscription);
+    }
 
     await this.subscriptionRepository.save(subscription);
 
@@ -781,7 +900,7 @@ export class SubscriptionService {
 
     const subscription = await this.subscriptionRepository.findOne({
       where: { organizationId, status: EntityStatus.ACTIVE },
-      relations: { plan: true },
+      relations: { plan: true, pendingPlan: true },
     });
 
     if (!subscription) {
@@ -789,6 +908,7 @@ export class SubscriptionService {
     }
 
     const freePlan = await this.getPlanBySlug(PlanSlug.FREE);
+    this.clearPendingDowngrade(subscription);
     subscription.planId = freePlan.id;
     subscription.plan = freePlan;
     subscription.stripeSubscriptionId = null;
@@ -796,6 +916,7 @@ export class SubscriptionService {
     subscription.canceledAt = dayjs().unix();
     subscription.billingAmount = freePlan.priceMonthly;
     subscription.currentPeriodEnd = null;
+    this.clearPendingDowngrade(subscription);
 
     await this.subscriptionRepository.save(subscription);
 

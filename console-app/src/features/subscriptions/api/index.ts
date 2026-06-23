@@ -40,6 +40,7 @@ function normalizeSubscription(subscription: RawSubscription): Subscription {
       ? normalizePlan(subscription.pendingPlan as RawPlan)
       : null,
     scheduledChangeAt: subscription.scheduledChangeAt ?? null,
+    pendingDowngradeStatus: subscription.pendingDowngradeStatus ?? null,
     billingAmount: Number.isFinite(billing)
       ? billing
       : Number.isFinite(legacyBilling)
@@ -89,6 +90,24 @@ export async function confirmCheckoutPayment(
     throw new Error("No subscription data in response");
   }
   return normalizeSubscription(subscription);
+}
+
+export async function cancelPendingDowngrade(): Promise<{
+  subscription: Subscription;
+  message: string;
+}> {
+  const response = await apiClient.post<
+    SubscriptionsApiResponse<RawSubscription>
+  >("/subscriptions/cancel-pending-downgrade");
+  const subscription = response.data.data;
+  if (!subscription) {
+    throw new Error("No subscription data in response");
+  }
+  return {
+    subscription: normalizeSubscription(subscription),
+    message:
+      response.data.message ?? "Scheduled plan change canceled successfully",
+  };
 }
 
 export async function changePlan(

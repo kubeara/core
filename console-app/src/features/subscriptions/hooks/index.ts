@@ -4,6 +4,7 @@ import { showErrorToast, showSuccessToast } from "@/lib/toast";
 import { QUERY_KEYS } from "@/constants/query-keys";
 import {
   cancelSubscription,
+  cancelPendingDowngrade,
   changePlan,
   createCheckoutPayment,
   fetchCurrentSubscription,
@@ -57,6 +58,31 @@ export function useChangePlanMutation() {
   >({
     mutationFn: withSubscriptionError(changePlan),
     onSuccess: ({ message }) => {
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.subscriptions.current,
+      });
+      showSuccessToast(message);
+    },
+    onError: (error) => {
+      showErrorToast(getErrorMessage(error));
+    },
+  });
+}
+
+export function useCancelPendingDowngradeMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation<
+    { subscription: unknown; message: string },
+    ApiError,
+    void
+  >({
+    mutationFn: withSubscriptionError(() => cancelPendingDowngrade()),
+    onSuccess: ({ subscription, message }) => {
+      queryClient.setQueryData(
+        QUERY_KEYS.subscriptions.current,
+        subscription,
+      );
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.subscriptions.current,
       });

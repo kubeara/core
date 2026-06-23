@@ -4,6 +4,7 @@ import { BackLink } from "@/components/shared/back-link";
 import { SkeletonGrid } from "@/components/shared/skeleton";
 import {
   formatPrice,
+  formatUnixDate,
   getPlanAction,
   useChangePlanMutation,
   useCurrentSubscriptionQuery,
@@ -91,6 +92,10 @@ export function PlansPage() {
     useCurrentSubscriptionQuery();
 
   const isLoading = plansPending || subPending;
+  const hasScheduledChange =
+    subscription?.pendingDowngradeStatus === "scheduled" &&
+    !!subscription?.pendingPlan;
+  const isCancelScheduled = subscription?.pendingPlan?.slug === "free";
 
   return (
     <div className="profile-page">
@@ -99,7 +104,6 @@ export function PlansPage() {
       <header className="dashboard-header">
         <div>
           <h1>Plans</h1>
-          <p>Choose the plan that fits your needs.</p>
         </div>
       </header>
 
@@ -108,6 +112,31 @@ export function PlansPage() {
       {plansError && (
         <div className="profile-section-card">
           <p className="form-field-error">{getErrorMessage(plansErr)}</p>
+        </div>
+      )}
+
+      {!isLoading && hasScheduledChange && subscription.pendingPlan && (
+        <div className="profile-page-body">
+          <section className="profile-section-card">
+            <h2>Scheduled change</h2>
+            <p className="profile-section-desc subscription-notice">
+              {isCancelScheduled ? (
+                <>
+                  Your subscription is canceled. You will not be charged again.
+                  <br />
+                  Access to {subscription.plan.name} continues until{" "}
+                  {formatUnixDate(subscription.scheduledChangeAt)}.
+                </>
+              ) : (
+                <>
+                  Downgrade to {subscription.pendingPlan.name} (
+                  {formatPrice(subscription.pendingPlan.priceMonthly)}/month)
+                  <br />
+                  Effective on {formatUnixDate(subscription.scheduledChangeAt)}.
+                </>
+              )}
+            </p>
+          </section>
         </div>
       )}
 

@@ -157,6 +157,42 @@ export class StripeService implements OnModuleInit {
       throw new BadRequestException("Subscription has no items");
     }
 
+    if (subscription.schedule) {
+      const scheduleId =
+        typeof subscription.schedule === "string"
+          ? subscription.schedule
+          : subscription.schedule.id;
+      const existingSchedule =
+        await stripe.subscriptionSchedules.retrieve(scheduleId);
+
+      await stripe.subscriptionSchedules.update(scheduleId, {
+        end_behavior: "release",
+        phases: [
+          {
+            items: [{ price: currentPriceId, quantity: 1 }],
+            start_date: existingSchedule.phases[0]!.start_date,
+            end_date: item.current_period_end,
+          },
+          {
+            items: [{ price: input.newPriceId, quantity: 1 }],
+            metadata: {
+              organizationId: input.organizationId,
+              planSlug: input.pendingPlanSlug,
+            },
+          },
+        ],
+      });
+
+      return stripe.subscriptions.update(input.stripeSubscriptionId, {
+        metadata: {
+          ...subscription.metadata,
+          organizationId: input.organizationId,
+          planSlug: input.currentPlanSlug,
+          pendingPlanSlug: input.pendingPlanSlug,
+        },
+      });
+    }
+
     const schedule = await stripe.subscriptionSchedules.create({
       from_subscription: input.stripeSubscriptionId,
     });
@@ -205,6 +241,37 @@ export class StripeService implements OnModuleInit {
     return stripe.subscriptions.update(stripeSubscriptionId, {
       items: [{ id: itemId, price: priceId }],
       proration_behavior: "create_prorations",
+    });
+  }
+
+  async cancelScheduledChanges(
+    stripeSubscriptionId: string,
+    input: { organizationId: string; planSlug: PlanSlug },
+  ): Promise<StripeSubscription> {
+    const stripe = this.getClient();
+    const subscription =
+      await stripe.subscriptions.retrieve(stripeSubscriptionId);
+
+    if (subscription.schedule) {
+      const scheduleId =
+        typeof subscription.schedule === "string"
+          ? subscription.schedule
+          : subscription.schedule.id;
+      await stripe.subscriptionSchedules.release(scheduleId);
+    }
+
+    const refreshed =
+      await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const metadata = { ...refreshed.metadata };
+
+    return stripe.subscriptions.update(stripeSubscriptionId, {
+      cancel_at_period_end: false,
+      metadata: {
+        ...metadata,
+        organizationId: input.organizationId,
+        planSlug: input.planSlug,
+        pendingPlanSlug: "",
+      },
     });
   }
 
