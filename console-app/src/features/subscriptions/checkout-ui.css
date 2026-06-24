@@ -41,6 +41,7 @@
 .checkout-summary-brand {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
   font-size: 0.875rem;
@@ -48,11 +49,27 @@
   color: var(--muted);
 }
 
-.checkout-summary h1 {
-  margin: 0 0 1.25rem;
+.checkout-summary-brand .kubeara-logo-image {
+  height: 120px;
+}
+
+.checkout-summary-headline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0;
+  padding-bottom: 0.875rem;
+  border-bottom: 1px solid var(--border);
   font-size: 1rem;
   font-weight: 500;
   color: var(--muted);
+}
+
+.checkout-summary-headline > span:last-child {
+  color: var(--foreground);
+  font-weight: 600;
+  text-align: right;
 }
 
 .checkout-line-item {
@@ -66,8 +83,7 @@
 }
 
 .checkout-pricing {
-  padding: 0.875rem 0;
-  border-top: 1px solid var(--border);
+  padding: 0.875rem 0 0;
 }
 
 .checkout-pricing-row {
@@ -91,9 +107,8 @@
 }
 
 .checkout-features-label {
-  margin: 0 0 0.5rem;
-  padding-top: 0.875rem;
-  border-top: 1px solid var(--border);
+  margin: 0.875rem 0 0.5rem;
+  padding-top: 0;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--muted);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getErrorMessage } from "@/api/api-error";
 import { BackLink } from "@/components/shared/back-link";
@@ -26,6 +26,25 @@ export function SubscriptionPage() {
   const cancelPendingMutation = useCancelPendingDowngradeMutation();
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelScheduledModalOpen, setCancelScheduledModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!cancelModalOpen && !cancelScheduledModalOpen) return;
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      if (cancelMutation.isPending || cancelPendingMutation.isPending) return;
+      if (cancelModalOpen) setCancelModalOpen(false);
+      if (cancelScheduledModalOpen) setCancelScheduledModalOpen(false);
+    }
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [
+    cancelModalOpen,
+    cancelScheduledModalOpen,
+    cancelMutation.isPending,
+    cancelPendingMutation.isPending,
+  ]);
 
   if (isPending) {
     return <ProfilePageSkeleton />;
@@ -184,18 +203,11 @@ export function SubscriptionPage() {
               </button>
             </div>
             <p className="modal-body-text">
-              Your {subscription.plan.name} subscription will end at the close of
-              the current billing period. You will not be charged again.
+              You will keep access to {subscription.plan.name} until{" "}
+              {formatUnixDate(subscription.currentPeriodEnd)}. After that, your
+              subscription will be canceled and you will not be charged again.
             </p>
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={cancelMutation.isPending}
-                onClick={() => setCancelModalOpen(false)}
-              >
-                Keep subscription
-              </button>
+            <div className="modal-actions modal-actions-single">
               <button
                 type="button"
                 className={`btn-danger-outline${cancelMutation.isPending ? " is-loading" : ""}`}
@@ -207,7 +219,7 @@ export function SubscriptionPage() {
                   })
                 }
               >
-                Cancel subscription
+                Continue
               </button>
             </div>
           </div>
@@ -243,25 +255,20 @@ export function SubscriptionPage() {
             <p className="modal-body-text">
               {isCancelScheduled ? (
                 <>
-                  Your {subscription.plan.name} subscription will stay active.
-                  Billing will continue as usual.
+                  You will keep access to {subscription.plan.name} and billing
+                  will continue as usual. Your subscription will no longer be
+                  scheduled to cancel.
                 </>
               ) : (
                 <>
-                  The scheduled change to {subscription.pendingPlan?.name} will be
-                  canceled. You will stay on {subscription.plan.name}.
+                  You will stay on {subscription.plan.name}. The scheduled change
+                  to {subscription.pendingPlan?.name} on{" "}
+                  {formatUnixDate(subscription.scheduledChangeAt)} will be
+                  removed.
                 </>
               )}
             </p>
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={cancelPendingMutation.isPending}
-                onClick={() => setCancelScheduledModalOpen(false)}
-              >
-                Keep schedule
-              </button>
+            <div className="modal-actions modal-actions-single">
               <button
                 type="button"
                 className={`btn-danger-outline${cancelPendingMutation.isPending ? " is-loading" : ""}`}
@@ -273,7 +280,7 @@ export function SubscriptionPage() {
                   })
                 }
               >
-                Cancel schedule
+                Continue
               </button>
             </div>
           </div>

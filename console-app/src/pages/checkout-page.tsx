@@ -383,26 +383,21 @@ export function CheckoutPage() {
             <KubearaLogo />
             {/* <span>Kubeara</span> */}
           </div>
-          <h1>
-            {data.proratedUpgrade
-              ? `Upgrade to ${plan.name}`
-              : `Subscribe to ${plan.name}`}
-          </h1>
-          <div className="checkout-pricing">
-            <div className="checkout-pricing-row">
-              <span>{plan.name}</span>
-              <span>
-                {formatPrice(plan.priceMonthly)}
-                <span className="checkout-line-item-interval">/month</span>
-              </span>
-            </div>
-            {data.proratedUpgrade && (
+          <div className="checkout-summary-headline">
+            <span>Continue to {plan.name}</span>
+            <span>
+              {formatPrice(plan.priceMonthly)}
+              <span className="checkout-line-item-interval">/month</span>
+            </span>
+          </div>
+          {data.proratedUpgrade && (
+            <div className="checkout-pricing">
               <div className="checkout-pricing-row checkout-pricing-total">
                 <span>Total due today</span>
                 <span>{formatPrice(dueToday)}</span>
               </div>
-            )}
-          </div>
+            </div>
+          )}
           <p className="checkout-features-label">Features</p>
           <ul className="checkout-features">
             {plan.featureRows.map((feature) => (

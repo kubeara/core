@@ -388,6 +388,16 @@
   box-sizing: border-box;
 }
 
+.subscription-confirm-modal .modal-actions-single {
+  display: flex;
+  justify-content: center;
+}
+
+.subscription-confirm-modal .modal-actions-single .btn-danger-outline {
+  flex: 0 0 calc((100% - 0.875rem) / 2);
+  width: calc((100% - 0.875rem) / 2);
+}
+
 .subscription-confirm-modal .modal-actions .btn-secondary,
 .subscription-confirm-modal .modal-actions .btn-danger-outline {
   width: 100%;
