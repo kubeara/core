@@ -172,6 +172,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Open WebUI",
     version: "main",
   },
+  "ollama-with-webui": {
+    name: "Ollama with Open WebUI",
+    version: "latest",
+  },
   qdrant: {
     name: "Qdrant",
     version: "1.13",
