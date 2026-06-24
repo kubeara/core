@@ -1,0 +1,59 @@
+// Ship Kubeara container logs to Grafana Cloud Loki.
+// Credentials: apps/control-panel-app/deploy/.env.monitoring
+
+loki.write "grafana_cloud" {
+  endpoint {
+    url = env("GRAFANA_CLOUD_LOKI_URL")
+
+    basic_auth {
+      username = env("GRAFANA_CLOUD_LOKI_USER")
+      password = env("GRAFANA_CLOUD_LOKI_API_KEY")
+    }
+  }
+}
+
+discovery.docker "kubeara_containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "kubeara" {
+  targets = discovery.docker.kubeara_containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(kubeara-control-panel|kubeara-agent|kubeara-postgres)"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    target_label = "job"
+    replacement  = "kubeara"
+  }
+
+  rule {
+    target_label = "environment"
+    replacement  = env("KUBEARA_ENV")
+  }
+
+  rule {
+    target_label = "host"
+    replacement  = env("KUBEARA_HOST_LABEL")
+  }
+}
+
+loki.source.docker "kubeara_logs" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.kubeara.output
+  forward_to = [loki.write.grafana_cloud.receiver]
+}

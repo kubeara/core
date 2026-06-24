@@ -46,8 +46,11 @@ curl -fsSL https://kubeara.dev/control-panel/uninstall.sh | bash
 | `../../../uninstall.sh` | Stop the control panel stack (repo root) |
 | `docker-compose.control-panel.yml` | Postgres + control panel + console (SPA) |
 | `docker-compose.agent.yml` | Agent only (connects to an existing control panel) |
+| `docker-compose.monitoring.yml` | Grafana Alloy log shipper → Grafana Cloud Loki |
 | `.env.control-panel.example` | Example env for the control panel stack |
 | `.env.agent.example` | Example env for the agent |
+| `.env.monitoring.example` | Grafana Cloud Loki credentials for Alloy |
+| `monitoring/config.alloy` | Alloy pipeline (Docker logs → Loki) |
 
 ## Typical flow
 
@@ -251,11 +254,88 @@ Mounted at `/app/apps/control-panel-app/.env` inside the container (same pattern
 | `AGENT_PUBLIC_IP` | Public IP for generated URLs |
 | `TRAEFIK_ENABLED` | Enable Traefik routing on agent host |
 
+## Grafana Cloud logs
+
+Ship NestJS stdout logs from `kubeara-control-panel`, `kubeara-agent`, and `kubeara-postgres` to [Grafana Cloud Loki](https://grafana.com/products/cloud/logs/) via [Grafana Alloy](https://grafana.com/docs/alloy/latest/). No application code changes are required.
+
+### 1. Create a Grafana Cloud stack
+
+1. Sign up at [grafana.com](https://grafana.com/auth/sign-up/create-user) and create a **Cloud Stack**.
+2. In the stack portal, open **Send logs** (or **Details**) and note:
+   - **Loki push URL** — `https://logs-prod-XXX.grafana.net/loki/api/v1/push`
+   - **User / instance ID** (numeric)
+3. Create an **Access Policy** token with `logs:write` scope.
+
+### 2. Configure Alloy
+
+```bash
+cd deploy
+cp .env.monitoring.example .env.monitoring
+# Edit .env.monitoring with your Grafana Cloud credentials
+```
+
+| Variable | Purpose |
+|----------|---------|
+| `GRAFANA_CLOUD_LOKI_URL` | Loki push endpoint from your stack |
+| `GRAFANA_CLOUD_LOKI_USER` | Numeric instance / user ID |
+| `GRAFANA_CLOUD_LOKI_API_KEY` | Access policy token (`glc_…`) |
+| `KUBEARA_ENV` | Environment label (`production`, `staging`, …) |
+| `KUBEARA_HOST_LABEL` | Host label (hostname, control panel name, or `AGENT_PUBLIC_IP` on agent VPS) |
+
+### 3. Start with monitoring
+
+**Control panel host** (collects control panel + Postgres logs on that machine):
+
+```bash
+docker compose \
+  -f docker-compose.control-panel.yml \
+  -f docker-compose.monitoring.yml \
+  --env-file .env.control-panel \
+  up -d
+```
+
+**Each agent host** (copy `deploy/monitoring/` and `docker-compose.monitoring.yml` to the agent install dir, or use the same files from a git clone):
+
+```bash
+cp .env.monitoring.example .env.monitoring
+# Set KUBEARA_HOST_LABEL to this server's AGENT_PUBLIC_IP or hostname
+
+docker compose \
+  -f docker-compose.agent.yml \
+  -f docker-compose.monitoring.yml \
+  --env-file .env.agent \
+  up -d
+```
+
+Alloy reads container logs from `/var/run/docker.sock` and pushes to Loki. Health check (on the host):
+
+```bash
+curl http://127.0.0.1:12345/-/healthy
+```
+
+### 4. Query logs in Grafana Cloud
+
+Open **Explore** → data source **Loki**:
+
+```logql
+{job="kubeara"}
+```
+
+Examples:
+
+```logql
+{container="kubeara-control-panel"} |= "ERROR"
+{container="kubeara-agent"} |= "SocketClientService"
+{host="control-panel-1"} |= "error"
+```
+
+Remote agent install (`POST /servers/onboard`) uploads only `docker-compose.agent.yml` and `.env.agent`. To log agent hosts in Grafana Cloud, add Alloy on each VPS manually after onboard (steps above).
+
 ## Stop
 
 ```bash
-docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel down
-docker compose -f docker-compose.agent.yml --env-file .env.agent down
+docker compose -f docker-compose.control-panel.yml -f docker-compose.monitoring.yml --env-file .env.control-panel down
+docker compose -f docker-compose.agent.yml -f docker-compose.monitoring.yml --env-file .env.agent down
 # Add -v to remove volumes (deletes DB data):
 #   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel down -v
 ```

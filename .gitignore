@@ -22,6 +22,7 @@ lerna-debug.log*
 !*.env.example
 !.env.agent.example
 !.env.control-panel.example
+!.env.monitoring.example
 
 # Runtime assets and deployments
 /deployments/

@@ -1,0 +1,38 @@
+# Grafana Alloy — ship Kubeara container logs to Grafana Cloud Loki.
+#
+# Setup:
+#   cp .env.monitoring.example .env.monitoring
+#   # Fill in Grafana Cloud Loki URL, user ID, and API key from your stack portal.
+#
+# Control panel host:
+#   docker compose -f docker-compose.control-panel.yml -f docker-compose.monitoring.yml \
+#     --env-file .env.control-panel up -d
+#
+# Agent host (repeat on each VPS running kubeara-agent):
+#   docker compose -f docker-compose.agent.yml -f docker-compose.monitoring.yml \
+#     --env-file .env.agent up -d
+
+services:
+  alloy:
+    image: grafana/alloy:v1.9.2
+    container_name: kubeara-alloy
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=127.0.0.1:12345
+    volumes:
+      - ./monitoring/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy/data
+    env_file:
+      - .env.monitoring
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  alloy_data:
