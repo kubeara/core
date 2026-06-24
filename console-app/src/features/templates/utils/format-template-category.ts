@@ -15,11 +15,58 @@ export function normalizeTemplateCategories(
   return values.filter(Boolean);
 }
 
+const CATEGORY_WORD_OVERRIDES: Record<string, string> = {
+  ai: "AI",
+  api: "API",
+  apm: "APM",
+  baas: "BaaS",
+  ci: "CI",
+  cms: "CMS",
+  crm: "CRM",
+  devops: "DevOps",
+  iam: "IAM",
+  ide: "IDE",
+  iot: "IoT",
+  llm: "LLM",
+  nosql: "NoSQL",
+  sql: "SQL",
+};
+
+function formatCategoryWord(word: string): string {
+  const normalized = word.toLowerCase();
+  const override = CATEGORY_WORD_OVERRIDES[normalized];
+  if (override) {
+    return override;
+  }
+
+  return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+}
+
 export function formatCategoryLabel(value: string): string {
   return value
     .trim()
     .replace(/[-_]/g, " ")
-    .replace(/\b\w/g, (character) => character.toUpperCase());
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(formatCategoryWord)
+    .join(" ");
+}
+
+export type TemplateCategoryFilterOption = {
+  value: string;
+  label: string;
+};
+
+export function buildTemplateCategoryFilterOptions(
+  categories: string[],
+): TemplateCategoryFilterOption[] {
+  return [
+    { value: "", label: "All" },
+    ...categories.map((entry) => ({
+      value: entry,
+      label: formatCategoryLabel(entry),
+    })),
+  ];
 }
 
 export type TemplateCategoryTagsDisplay = {

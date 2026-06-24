@@ -9,8 +9,8 @@ import {
   getContainerCardHeadline,
   getContainerDockerName,
   getContainerServiceName,
+  getManagedTypeLabel,
   getContainerStatusLabel,
-  managedTypeLabel,
   shouldShowDeployedBadge,
 } from "./utils/container-display";
 
@@ -73,7 +73,7 @@ export function ConnectedServiceCard({
         />
         <div className="marketplace-card-headline">
           <p className="marketplace-card-category">
-            {managedTypeLabel(container.managedType)}
+            {getManagedTypeLabel(container)}
           </p>
           <h3 className="marketplace-card-name" title={headline}>
             {headline}

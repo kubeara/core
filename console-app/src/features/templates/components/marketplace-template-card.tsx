@@ -63,7 +63,7 @@ export function MarketplaceTemplateCard({
               {categoryTags.visible.map((label, index) => (
                 <li
                   key={`${categoryValues[index] ?? label}-${index}`}
-                  className="marketplace-card-tag"
+                  className="marketplace-card-tag template-category-label"
                 >
                   {label}
                 </li>

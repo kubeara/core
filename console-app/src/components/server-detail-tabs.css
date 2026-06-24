@@ -720,6 +720,18 @@
     margin-bottom: 0.75rem;
   }
 
+  .connected-services-toolbar .server-templates-filter-row {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .connected-services-toolbar .server-templates-category-dropdown {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+
   .overview-container-card .marketplace-card-headline {
     padding-right: 2.5rem;
   }
