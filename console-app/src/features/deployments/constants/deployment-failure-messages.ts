@@ -5,10 +5,10 @@ function formatDeploymentPortInUseMessage(port?: number | null): string {
     port > 0 &&
     port <= 65535
   ) {
-    return `Deployment failed: Port ${port} is already in use. Please use another port.`;
+    return `Port ${port} is already in use. Please use another port.`;
   }
 
-  return "Deployment failed: Port is already in use. Please use another port.";
+  return "Port is already in use. Please use another port.";
 }
 
 function extractOccupiedPortFromError(text: string): number | null {
