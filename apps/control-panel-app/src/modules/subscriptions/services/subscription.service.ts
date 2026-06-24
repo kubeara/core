@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from "@nestjs/common";
@@ -17,6 +18,16 @@ import { StripeService } from "./stripe.service";
 import { SubscriptionNotificationService } from "./subscription-notification.service";
 import { EntityStatus } from "@control-panel/common/entity/base.entity";
 import { SUCCESS_MESSAGES } from "@control-panel/constants/success";
+import {
+  McpAccess,
+  PlanFeatures,
+} from "../interfaces/plan-features.interface";
+import {
+  getPlanFeatureRows,
+  getPlanServerBadge,
+  hasMcpAccess,
+  normalizePlanFeatures,
+} from "../utils/plan-features.util";
 
 export interface PlanResponse {
   id: string;
@@ -24,7 +35,9 @@ export interface PlanResponse {
   name: string;
   description: string | null;
   priceMonthly: number;
-  features: string[];
+  features: PlanFeatures;
+  featureRows: ReturnType<typeof getPlanFeatureRows>;
+  serverBadge: string;
   sortOrder: number;
 }
 
@@ -56,13 +69,17 @@ export class SubscriptionService {
   ) {}
 
   private toPlanResponse(plan: PlanEntity): PlanResponse {
+    const features = normalizePlanFeatures(plan.features, plan.slug);
+
     return {
       id: plan.id,
       slug: plan.slug,
       name: plan.name,
       description: plan.description,
       priceMonthly: Number(plan.priceMonthly) || 0,
-      features: plan.features ?? [],
+      features,
+      featureRows: getPlanFeatureRows(plan.slug, features),
+      serverBadge: getPlanServerBadge(features, plan.slug),
       sortOrder: plan.sortOrder,
     };
   }
@@ -77,7 +94,9 @@ export class SubscriptionService {
     return {
       id: subscription.id,
       plan: this.toPlanResponse(subscription.plan),
-      pendingPlan: hasPending ? this.toPlanResponse(subscription.pendingPlan!) : null,
+      pendingPlan: hasPending
+        ? this.toPlanResponse(subscription.pendingPlan!)
+        : null,
       scheduledChangeAt: hasPending ? subscription.pendingEffectiveAt : null,
       pendingDowngradeStatus: subscription.pendingDowngradeStatus,
       subscriptionStatus: subscription.subscriptionStatus,
@@ -208,6 +227,26 @@ export class SubscriptionService {
     };
   }
 
+  async getOrganizationPlanFeatures(
+    organizationId: string,
+  ): Promise<PlanFeatures> {
+    const subscription = await this.getOrCreateSubscription(organizationId);
+    return normalizePlanFeatures(subscription.plan.features, subscription.plan.slug);
+  }
+
+  async assertMcpAccess(
+    organizationId: string,
+    required: McpAccess = "read",
+  ): Promise<void> {
+    const features = await this.getOrganizationPlanFeatures(organizationId);
+
+    if (!hasMcpAccess(features, required)) {
+      throw new ForbiddenException(
+        "Your plan does not include MCP server access",
+      );
+    }
+  }
+
   async createFreeSubscription(input: {
     organizationId: string;
     email?: string;
@@ -305,9 +344,8 @@ export class SubscriptionService {
 
       if (stripeSubscriptionId) {
         const stripe = this.stripeService.getClient();
-        const currentStripeSub = await stripe.subscriptions.retrieve(
-          stripeSubscriptionId,
-        );
+        const currentStripeSub =
+          await stripe.subscriptions.retrieve(stripeSubscriptionId);
 
         if (
           (currentStripeSub.status === "active" ||
@@ -380,9 +418,8 @@ export class SubscriptionService {
           });
 
         if (invoicePaid || amountDue === 0) {
-          const stripeSub = await stripe.subscriptions.retrieve(
-            stripeSubscriptionId,
-          );
+          const stripeSub =
+            await stripe.subscriptions.retrieve(stripeSubscriptionId);
           this.applyStripeSubscription(subscription, plan, stripeSub);
           await this.subscriptionRepository.save(subscription);
 

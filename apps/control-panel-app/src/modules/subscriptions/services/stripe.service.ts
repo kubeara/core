@@ -233,7 +233,7 @@ export class StripeService implements OnModuleInit {
         phases: [
           {
             items: [{ price: currentPriceId, quantity: 1 }],
-            start_date: existingSchedule.phases[0]!.start_date,
+            start_date: existingSchedule.phases[0].start_date,
             end_date: item.current_period_end,
           },
           {
@@ -351,7 +351,9 @@ export class StripeService implements OnModuleInit {
 
     const invoice = updated.latest_invoice;
     if (!invoice || typeof invoice === "string") {
-      throw new BadRequestException("Failed to create prorated upgrade invoice");
+      throw new BadRequestException(
+        "Failed to create prorated upgrade invoice",
+      );
     }
 
     const amountDue = invoice.amount_due ?? 0;
@@ -405,8 +407,7 @@ export class StripeService implements OnModuleInit {
       await stripe.subscriptionSchedules.release(scheduleId);
     }
 
-    const refreshed =
-      await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    const refreshed = await stripe.subscriptions.retrieve(stripeSubscriptionId);
     const metadata = { ...refreshed.metadata };
 
     return stripe.subscriptions.update(stripeSubscriptionId, {

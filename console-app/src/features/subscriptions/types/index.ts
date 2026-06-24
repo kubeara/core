@@ -1,4 +1,7 @@
-export type PlanSlug = "free" | "starter" | "pro" | "business";
+export type PlanSlug = "free" | "starter" | "pro" | "max" | "enterprise";
+
+export type { PlanFeatures, PlanFeatureDisplayRow } from "./plan-features";
+import type { PlanFeatures, PlanFeatureDisplayRow } from "./plan-features";
 
 export type SubscriptionStatus =
   | "active"
@@ -16,7 +19,9 @@ export type Plan = {
   name: string;
   description: string | null;
   priceMonthly: number;
-  features: string[];
+  features: PlanFeatures;
+  featureRows: PlanFeatureDisplayRow[];
+  serverBadge: string;
   sortOrder: number;
 };
 

@@ -121,7 +121,7 @@ export function getPlanAction(
   targetSlug: PlanSlug,
 ): "current" | "upgrade" | "downgrade" {
   if (currentSlug === targetSlug) return "current";
-  const order: PlanSlug[] = ["free", "starter", "pro", "business"];
+  const order: PlanSlug[] = ["free", "starter", "pro", "max", "enterprise"];
   const currentIdx = order.indexOf(currentSlug ?? "free");
   const targetIdx = order.indexOf(targetSlug);
   return targetIdx > currentIdx ? "upgrade" : "downgrade";

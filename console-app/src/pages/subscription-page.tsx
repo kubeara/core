@@ -13,8 +13,14 @@ import {
 import "@/features/subscriptions/subscriptions-ui.css";
 
 export function SubscriptionPage() {
-  const { data: subscription, isPending, isError, error } =
-    useCurrentSubscriptionQuery();
+  const {
+    data: subscription,
+    isPending,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useCurrentSubscriptionQuery();
   const cancelMutation = useCancelSubscriptionMutation();
   const cancelPendingMutation = useCancelPendingDowngradeMutation();
 
@@ -48,11 +54,19 @@ export function SubscriptionPage() {
     <div className="profile-page">
       <BackLink to="/servers" label="Back" />
 
-      <header className="dashboard-header">
+      <header className="dashboard-header subscription-page-header">
         <div>
           <h1>Subscription</h1>
           <p>Manage your billing and plan.</p>
         </div>
+        <button
+          type="button"
+          className="btn-secondary"
+          disabled={isFetching}
+          onClick={() => void refetch()}
+        >
+          {isFetching ? "Refreshing…" : "Refresh"}
+        </button>
       </header>
 
       <div className="profile-page-body">

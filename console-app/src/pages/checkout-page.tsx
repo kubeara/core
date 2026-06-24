@@ -21,7 +21,7 @@ import type {
 } from "@/features/subscriptions/types";
 import "@/features/subscriptions/checkout-ui.css";
 
-const VALID_SLUGS: PlanSlug[] = ["starter", "pro", "business"];
+const VALID_SLUGS: PlanSlug[] = ["starter", "pro", "max"];
 
 function formatCardBrand(brand: string): string {
   if (brand === "amex") return "American Express";

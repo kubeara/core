@@ -27,7 +27,13 @@ function resolveMonthlyPrice(plan: RawPlan): number {
 }
 
 function normalizePlan(plan: RawPlan): Plan {
-  return { ...plan, priceMonthly: resolveMonthlyPrice(plan) };
+  return {
+    ...plan,
+    priceMonthly: resolveMonthlyPrice(plan),
+    features: plan.features ?? ({} as Plan["features"]),
+    featureRows: plan.featureRows ?? [],
+    serverBadge: plan.serverBadge ?? "",
+  };
 }
 
 function normalizeSubscription(subscription: RawSubscription): Subscription {

@@ -8,6 +8,8 @@ import dayjs from "dayjs";
 
 import { PlanEntity } from "../src/modules/subscriptions/entities/plan.entity";
 import { PlanSlug } from "../src/modules/subscriptions/enums/plan-slug.enum";
+import { PlanFeatures } from "../src/modules/subscriptions/interfaces/plan-features.interface";
+import { DEFAULT_PLAN_FEATURES } from "../src/modules/subscriptions/utils/plan-features.util";
 import { EntityStatus } from "../src/common/entity/base.entity";
 
 const ROOT_DIR = process.cwd();
@@ -27,65 +29,52 @@ const PLAN_DEFINITIONS: Array<{
   priceMonthly: number;
   stripePriceId: string | null;
   sortOrder: number;
-  features: string[];
+  features: PlanFeatures;
 }> = [
   {
     slug: PlanSlug.FREE,
     name: "Free",
-    description: "Get started with essential features",
+    description: "For individuals exploring Kubeara",
     priceMonthly: 0,
     stripePriceId: "price_1TjvBKDwyDm0QIBwMvOA1RnY",
     sortOrder: 0,
-    features: [
-      "1 server connection",
-      "Basic templates",
-      "Community support",
-    ],
+    features: DEFAULT_PLAN_FEATURES[PlanSlug.FREE],
   },
   {
     slug: PlanSlug.STARTER,
     name: "Starter",
-    description: "For individuals getting serious",
+    description: "For small teams getting production-ready",
     priceMonthly: 5,
     stripePriceId: "price_1TjvCMDwyDm0QIBwaaphIOtV",
     sortOrder: 1,
-    features: [
-      "3 server connections",
-      "All templates",
-      "Email support",
-      "Deployment logs",
-    ],
+    features: DEFAULT_PLAN_FEATURES[PlanSlug.STARTER],
   },
   {
     slug: PlanSlug.PRO,
     name: "Pro",
-    description: "For power users and small teams",
-    priceMonthly: 10,
-    stripePriceId: "price_1TjvClDwyDm0QIBwCf8O0xY1",
+    description: "For growing teams with collaboration needs",
+    priceMonthly: 29,
+    stripePriceId: "price_1TlkRnDwyDm0QIBwx5DVaQCF",
     sortOrder: 2,
-    features: [
-      "10 server connections",
-      "All templates",
-      "Priority support",
-      "MCP server access",
-      "Advanced deployment options",
-    ],
+    features: DEFAULT_PLAN_FEATURES[PlanSlug.PRO],
   },
   {
-    slug: PlanSlug.BUSINESS,
-    name: "Business",
-    description: "For teams with advanced needs",
-    priceMonthly: 15,
-    stripePriceId: "price_1TjvCyDwyDm0QIBwmt0S9AAg",
+    slug: PlanSlug.MAX,
+    name: "Max",
+    description: "For advanced teams running at scale",
+    priceMonthly: 99,
+    stripePriceId: "price_1TlkT9DwyDm0QIBwfMRRNakN",
     sortOrder: 3,
-    features: [
-      "Unlimited server connections",
-      "All templates",
-      "Dedicated support",
-      "MCP server access",
-      "Team management",
-      "Custom integrations",
-    ],
+    features: DEFAULT_PLAN_FEATURES[PlanSlug.MAX],
+  },
+  {
+    slug: PlanSlug.ENTERPRISE,
+    name: "Enterprise",
+    description: "For compliance-heavy organizations",
+    priceMonthly: 0,
+    stripePriceId: null,
+    sortOrder: 4,
+    features: DEFAULT_PLAN_FEATURES[PlanSlug.ENTERPRISE],
   },
 ];
 
@@ -139,6 +128,15 @@ export async function seedPlans(): Promise<void> {
       });
       await planRepository.save(plan);
     }
+  }
+
+  const legacyBusiness = await planRepository.findOne({
+    where: { slug: "business" as PlanSlug },
+  });
+  if (legacyBusiness) {
+    legacyBusiness.status = EntityStatus.INACTIVE;
+    legacyBusiness.updatedAt = now;
+    await planRepository.save(legacyBusiness);
   }
 
   console.log(`Seeded ${PLAN_DEFINITIONS.length} subscription plans`);

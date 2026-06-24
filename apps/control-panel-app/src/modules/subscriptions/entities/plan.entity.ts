@@ -1,6 +1,7 @@
 import { Column, Entity } from "typeorm";
 import { BaseEntity } from "@control-panel/common/entity/base.entity";
 import { PlanSlug } from "../enums/plan-slug.enum";
+import { PlanFeatures } from "../interfaces/plan-features.interface";
 
 @Entity({ name: "plans" })
 export class PlanEntity extends BaseEntity {
@@ -19,8 +20,8 @@ export class PlanEntity extends BaseEntity {
   @Column({ type: "varchar", length: 255, nullable: true })
   stripePriceId!: string | null;
 
-  @Column({ type: "jsonb", default: [] })
-  features!: string[];
+  @Column({ type: "jsonb", default: {} })
+  features!: PlanFeatures;
 
   @Column({ type: "int", default: 0 })
   sortOrder!: number;

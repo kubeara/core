@@ -22,7 +22,6 @@ export class SubscriptionsWebhookController {
     @Req() req: RawBodyRequest<Request>,
     @Headers("stripe-signature") signature: string,
   ) {
-
     console.log("signature -> ", signature);
     if (!signature) {
       throw new BadRequestException("Missing stripe-signature header");

@@ -13,12 +13,16 @@ import {
 import type { Plan, PlanSlug } from "@/features/subscriptions/types";
 import "@/features/subscriptions/subscriptions-ui.css";
 
+const PLAN_ORDER: PlanSlug[] = ["free", "starter", "pro", "max", "enterprise"];
+
 function PlanCard({
   plan,
   currentSlug,
+  scheduledPlanSlug,
 }: {
   plan: Plan;
   currentSlug: PlanSlug | undefined;
+  scheduledPlanSlug?: PlanSlug | null;
 }) {
   const navigate = useNavigate();
   const changePlanMutation = useChangePlanMutation();
@@ -26,6 +30,11 @@ function PlanCard({
   const isPending = changePlanMutation.isPending;
 
   function handleAction() {
+    if (plan.slug === "enterprise") {
+      window.location.href =
+        "mailto:support@kubeara.com?subject=Enterprise%20plan";
+      return;
+    }
     if (action === "upgrade") {
       navigate(`/checkout/${plan.slug}`);
       return;
@@ -35,45 +44,101 @@ function PlanCard({
     }
   }
 
+  const isEnterprise = plan.slug === "enterprise";
+  const currentIdx = PLAN_ORDER.indexOf(currentSlug ?? "free");
+  const proIdx = PLAN_ORDER.indexOf("pro");
+  const isPopular =
+    plan.slug === "pro" && currentIdx < proIdx && action !== "current";
+  const isScheduledTarget = scheduledPlanSlug === plan.slug;
+  const ctaLabel = isEnterprise
+    ? "Contact support team"
+    : isScheduledTarget
+      ? "Scheduled"
+      : action === "upgrade"
+        ? "Upgrade"
+        : action === "downgrade"
+          ? "Downgrade"
+          : "Upgrade";
+
+  function getCtaClassName(): string {
+    if (isScheduledTarget) {
+      return "plan-card-cta plan-card-cta-outline";
+    }
+    if (action === "upgrade") {
+      return `plan-card-cta plan-card-cta-upgrade${isPopular ? "" : " plan-card-cta-upgrade-outline"}`;
+    }
+    if (action === "downgrade") {
+      return "plan-card-cta plan-card-cta-downgrade";
+    }
+    if (isEnterprise) {
+      return "plan-card-cta plan-card-cta-outline";
+    }
+    return "plan-card-cta plan-card-cta-upgrade plan-card-cta-upgrade-outline";
+  }
+
   return (
     <article
-      className={`plan-card${action === "current" ? " is-current" : ""}`}
+      className={`plan-card${action === "current" ? " is-current" : ""}${isPopular ? " is-popular" : ""}`}
     >
-      {action === "current" && (
-        <span className="plan-card-badge">Current plan</span>
+      {isPopular && (
+        <span className="plan-card-popular-badge">Most popular</span>
       )}
       <div className="plan-card-header">
         <h3>{plan.name}</h3>
-        <p className="plan-card-price">
-          {formatPrice(plan.priceMonthly)}
-          <span>/month</span>
+        {plan.description && (
+          <p className="plan-card-desc">{plan.description}</p>
+        )}
+        <p
+          className={`plan-card-price${isEnterprise ? " plan-card-price-contact" : ""}`}
+        >
+          {isEnterprise ? (
+            "Contact support team"
+          ) : (
+            <>
+              {formatPrice(plan.priceMonthly)}
+              <span>/month</span>
+            </>
+          )}
         </p>
+        {plan.serverBadge && (
+          <span className="plan-card-chip">{plan.serverBadge}</span>
+        )}
       </div>
-      {plan.description && (
-        <p className="plan-card-desc">{plan.description}</p>
-      )}
       <ul className="plan-card-features">
-        {plan.features.map((feature) => (
-          <li key={feature}>{feature}</li>
+        {plan.featureRows.map((feature) => (
+          <li
+            key={feature.key}
+            className={`plan-feature-row${feature.includes ? " plan-feature-includes" : ""}`}
+          >
+            <span className="plan-feature-check" aria-hidden="true" />
+            <span className="plan-feature-label">{feature.label}</span>
+            {!feature.includes && feature.value && (
+              <span
+                className={`plan-feature-value${feature.accent ? " is-accent" : ""}`}
+              >
+                {feature.value}
+              </span>
+            )}
+          </li>
         ))}
       </ul>
       <div className="plan-card-actions">
         {action === "current" ? (
-          <button type="button" className="btn-secondary" disabled>
+          <button
+            type="button"
+            className="plan-card-cta plan-card-cta-outline"
+            disabled
+          >
             Current plan
           </button>
         ) : (
           <button
             type="button"
-            className="btn-primary"
-            disabled={isPending}
+            className={getCtaClassName()}
+            disabled={isPending || isScheduledTarget}
             onClick={handleAction}
           >
-            {isPending
-              ? "Processing…"
-              : action === "upgrade"
-                ? "Upgrade"
-                : "Downgrade"}
+            {isPending ? "Processing…" : ctaLabel}
           </button>
         )}
       </div>
@@ -107,7 +172,7 @@ export function PlansPage() {
         </div>
       </header>
 
-      {isLoading && <SkeletonGrid count={4} label="Loading plans…" />}
+      {isLoading && <SkeletonGrid count={5} label="Loading plans…" />}
 
       {plansError && (
         <div className="profile-section-card">
@@ -147,6 +212,9 @@ export function PlansPage() {
               key={plan.id}
               plan={plan}
               currentSlug={subscription?.plan.slug}
+              scheduledPlanSlug={
+                hasScheduledChange ? subscription?.pendingPlan?.slug : null
+              }
             />
           ))}
         </div>
