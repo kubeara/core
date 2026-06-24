@@ -9,11 +9,13 @@ import {
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import dayjs from "dayjs";
+import { randomUUID } from "node:crypto";
 import { In, IsNull, Not, Repository } from "typeorm";
 
 import {
   ComposeParserService,
   EncryptionService,
+  formatDeploymentPortInUseMessage,
   ServerUrlContext,
   SUCCESS_MESSAGES,
   TemplateConfigService,
@@ -494,6 +496,94 @@ export class DeploymentsService {
     };
   }
 
+  /**
+   * Verifies host port availability on the target agent before starting deployment.
+   * Resolves template variables locally, then delegates the bind check to the agent.
+   */
+  async checkPortsBeforeDeploy(input: {
+    userId: string;
+    serverId?: string;
+    deployOnLocal?: boolean;
+    templateSlug: string;
+    requestEnv?: Record<string, unknown>;
+    requestPorts?: Record<string, unknown>;
+    useTraefikRequest?: boolean;
+  }): Promise<void> {
+    const { serverId, userId } = await this.resolveDeploymentTarget({
+      userId: input.userId,
+      serverId: input.serverId,
+      deployOnLocal: input.deployOnLocal,
+    });
+
+    if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+      const agentInstalled =
+        await this.serverConnectionsService.isAgentInstalledOnServer(serverId);
+
+      if (!agentInstalled) {
+        this.logger.log(
+          `Skipping pre-deploy port check for server '${serverId}': agent is not installed`,
+        );
+        return;
+      }
+
+      this.logger.log(
+        `Agent installed on server '${serverId}' but socket disconnected — waiting for connection before port check`,
+      );
+      await this.waitForAgentConnection(serverId);
+
+      if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+        throw new ConflictException(
+          `Agent is installed on server '${serverId}' but is not connected. Cannot verify port availability.`,
+        );
+      }
+    }
+
+    const serverUrlContext = await this.buildServerUrlContext({
+      userId,
+      serverId,
+      useTraefikRequest: input.useTraefikRequest,
+      requestEnv: input.requestEnv,
+      requestPorts: input.requestPorts,
+    });
+
+    const prepared = await this.prepareDeployment({
+      templateSlug: input.templateSlug,
+      serverId,
+      userId,
+      requestEnv: input.requestEnv,
+      requestPorts: input.requestPorts,
+      serverUrlContext,
+      persist: false,
+    });
+
+    const encryptedCompose = this.encryptionService.encrypt(
+      prepared.encodedCompose,
+    );
+    const encryptedEnv = this.encryptionService.encrypt(
+      JSON.stringify(prepared.mergedEnv),
+    );
+    const encryptedPorts = this.encryptionService.encrypt(
+      JSON.stringify(prepared.mergedPorts),
+    );
+
+    const result = await this.deploymentGateway.requestPortsCheck(serverId, {
+      requestId: randomUUID(),
+      templateSlug: prepared.templateSlug,
+      compose: encryptedCompose,
+      env: encryptedEnv,
+      ports: encryptedPorts,
+      schema: prepared.schema,
+      composeOnly: prepared.composeOnly,
+      useTraefik: prepared.useTraefik,
+    });
+
+    if (!result.available) {
+      throw new ConflictException(
+        result.error?.trim() || formatDeploymentPortInUseMessage(),
+      );
+    }
+  }
+
   async prepareDeployment(
     input: PrepareDeploymentInput,
   ): Promise<PreparedDeployment> {
@@ -555,31 +645,33 @@ export class DeploymentsService {
 
     const deploymentId = existingDeploymentId ?? this.generateDeploymentId();
 
-    try {
-      await this.upsertDeploymentRecord({
-        deploymentId,
-        templateSlug,
-        serverId,
-        userId,
-        deploymentStatus: "pending",
-      });
+    if (input.persist !== false) {
+      try {
+        await this.upsertDeploymentRecord({
+          deploymentId,
+          templateSlug,
+          serverId,
+          userId,
+          deploymentStatus: "pending",
+        });
 
-      await this.persistEnvironmentVariables({
-        deploymentId,
-        env: mergedEnv,
-        ports: mergedPorts,
-        generatedKeys: parsedFromCompose.generatedKeys,
-        schema,
-      });
-    } catch (error) {
-      await this.markDeploymentFailed(deploymentId, error);
-      throw error;
-    }
+        await this.persistEnvironmentVariables({
+          deploymentId,
+          env: mergedEnv,
+          ports: mergedPorts,
+          generatedKeys: parsedFromCompose.generatedKeys,
+          schema,
+        });
+      } catch (error) {
+        await this.markDeploymentFailed(deploymentId, error);
+        throw error;
+      }
 
-    if (parsedFromCompose.generatedKeys.length > 0) {
-      this.logger.log(
-        `Stored auto-generated variables for '${deploymentId}': ${parsedFromCompose.generatedKeys.join(", ")}`,
-      );
+      if (parsedFromCompose.generatedKeys.length > 0) {
+        this.logger.log(
+          `Stored auto-generated variables for '${deploymentId}': ${parsedFromCompose.generatedKeys.join(", ")}`,
+        );
+      }
     }
 
     const useTraefik = this.resolveUseTraefikForCompose(
@@ -714,27 +806,31 @@ export class DeploymentsService {
     );
 
     try {
-      await this.upsertDeploymentRecord({
-        deploymentId,
-        templateSlug,
-        serverId,
-        userId,
-        deploymentStatus: "pending",
-      });
+      if (input.persist !== false) {
+        await this.upsertDeploymentRecord({
+          deploymentId,
+          templateSlug,
+          serverId,
+          userId,
+          deploymentStatus: "pending",
+        });
 
-      await this.persistEnvironmentVariables({
-        deploymentId,
-        env: mergedEnv,
-        ports: mergedPorts,
-        generatedKeys: parsedFromCompose.generatedKeys,
-        requiredKeys,
-      });
+        await this.persistEnvironmentVariables({
+          deploymentId,
+          env: mergedEnv,
+          ports: mergedPorts,
+          generatedKeys: parsedFromCompose.generatedKeys,
+          requiredKeys,
+        });
+      }
     } catch (error) {
-      await this.markDeploymentFailed(deploymentId, error);
+      if (input.persist !== false) {
+        await this.markDeploymentFailed(deploymentId, error);
+      }
       throw error;
     }
 
-    if (parsedFromCompose.generatedKeys.length > 0) {
+    if (input.persist !== false && parsedFromCompose.generatedKeys.length > 0) {
       this.logger.log(
         `Stored auto-generated variables for '${deploymentId}': ${parsedFromCompose.generatedKeys.join(", ")}`,
       );

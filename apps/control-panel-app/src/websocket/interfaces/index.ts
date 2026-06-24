@@ -1,8 +1,16 @@
 import {
   ContainerActionResponsePayload,
   DiscoveredContainerPayload,
+  PortsCheckResponsePayload,
   ServerResourcesMetricsPayload,
 } from "@shared/socket-events/deployment.events";
+
+export interface PendingPortsCheck {
+  serverId: string;
+  resolve: (result: PortsCheckResponsePayload) => void;
+  reject: (error: Error) => void;
+  timer: NodeJS.Timeout;
+}
 
 export interface PendingContainerDiscovery {
   serverId: string;

@@ -6,6 +6,28 @@
   padding: 1rem 1.25rem 1.25rem;
 }
 
+.mcp-revoke-btn {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid #f5c2c2;
+  border-radius: 6px;
+  background: var(--surface);
+  color: #cb1212;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mcp-revoke-btn:hover:not(:disabled) {
+  border-color: #cb1212;
+  background: #fff5f5;
+}
+
+.mcp-revoke-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .mcp-token-notice {
   margin: 0 0 0.75rem;
   padding: 0.75rem 0.875rem;

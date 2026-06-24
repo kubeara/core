@@ -59,6 +59,10 @@ export enum DeploymentEvents {
   AGENT_REMOVE = "agent:remove",
   /** Agent → control panel: agent uninstall response. */
   AGENT_REMOVE_RESULT = "agent:remove:result",
+  /** Control panel → agent: verify host ports before deployment. */
+  PORTS_CHECK = "ports:check",
+  /** Agent → control panel: host port availability response. */
+  PORTS_CHECK_RESULT = "ports:check:result",
   /** Control panel → console: server add/delete background operation update. */
   SERVER_OPERATION_UPDATED = "server:operation-updated",
 }
@@ -416,6 +420,28 @@ export interface AgentRemoveResponsePayload {
   error?: string;
   /** Image refs/IDs still on the host after compose down (for SSH cleanup if needed). */
   imageRefs?: string[];
+}
+
+/** Control panel → agent: pre-deploy host port availability check. */
+export interface PortsCheckRequestPayload {
+  requestId: string;
+  templateSlug: string;
+  /** Encrypted base64-encoded compose JSON (same as deploy). */
+  compose: string;
+  /** Encrypted JSON env object. */
+  env?: string;
+  /** Encrypted JSON ports object. */
+  ports?: string;
+  schema?: TemplateSchema;
+  composeOnly?: boolean;
+  useTraefik?: boolean;
+}
+
+/** Agent → control panel: pre-deploy host port availability response. */
+export interface PortsCheckResponsePayload {
+  requestId: string;
+  available: boolean;
+  error?: string;
 }
 
 export type ServerOperationStatusValue =

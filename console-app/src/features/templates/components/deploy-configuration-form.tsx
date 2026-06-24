@@ -14,6 +14,9 @@ import {
 } from "../utils/deploy-form-schema";
 import { groupTemplateVariables } from "../utils/field-utils";
 import { getDeploymentSocket } from "@/lib/socket/deployment-socket-client";
+import { showErrorToast } from "@/lib/toast";
+import { checkDeploymentPorts } from "@/features/deployments/api";
+import { mapDeploymentFailureMessage } from "@/features/deployments/constants/deployment-failure-messages";
 import { DynamicDeployFields } from "./dynamic-deploy-fields";
 import { DeployServiceSummaryCard } from "./deploy-service-summary-card";
 
@@ -85,20 +88,34 @@ export function DeployConfigurationForm({
     form.handleSubmit(handleSubmit)();
   }
 
-  function handleSubmit(values: Record<string, unknown>) {
+  async function handleSubmit(values: Record<string, unknown>) {
     setIsSubmitting(true);
     const { env, ports: portValues } = splitDeployFormValues(variables, values);
 
-    navigate(`/servers/${serverId}/deploy/${template.slug}/logs`, {
-      state: {
-        deployRequest: {
-          serverId,
-          templateSlug: template.slug,
-          env,
-          ports: portValues,
+    try {
+      await checkDeploymentPorts({
+        templateSlug: template.slug,
+        serverId,
+        env,
+        ports: portValues,
+      });
+
+      navigate(`/servers/${serverId}/deploy/${template.slug}/logs`, {
+        state: {
+          deployRequest: {
+            serverId,
+            templateSlug: template.slug,
+            env,
+            ports: portValues,
+          },
         },
-      },
-    });
+      });
+    } catch (error) {
+      showErrorToast(
+        mapDeploymentFailureMessage(getErrorMessage(error)),
+      );
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -186,7 +203,7 @@ export function DeployConfigurationForm({
                   }
                   aria-busy={isSubmitting}
                 >
-                  {isSubmitting ? "Deploying…" : "Deploy"}
+                  {isSubmitting ? "Checking ports…" : "Deploy"}
                 </button>
               )}
             </footer>

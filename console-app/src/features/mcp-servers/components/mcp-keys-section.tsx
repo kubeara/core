@@ -3,6 +3,7 @@ import { getErrorMessage, GENERIC_ERROR_MESSAGE } from "@/api/api-error";
 import { FilterClearButton } from "@/components/shared/filter-clear-button";
 import { McpKeysTableSkeleton } from "@/components/shared/skeleton";
 import "@/components/servers-table.css";
+import "../mcp-servers.css";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { formatApiTimestamp } from "@/lib/unix-timestamp";
 import {
@@ -17,28 +18,14 @@ const PAGE_SIZE = 10 as const;
 const SEARCH_DEBOUNCE_MS = 300;
 
 type SortDir = "asc" | "desc";
-type McpKeySortField = "name" | "lastUsedAt" | "createdAt" | "deletedAt";
+type McpKeySortField = "name" | "lastUsedAt" | "createdAt" | "revokedAt";
 
 const TABLE_COLUMNS: { key: McpKeySortField; label: string }[] = [
   { key: "name", label: "Name" },
   { key: "lastUsedAt", label: "Last Used" },
   { key: "createdAt", label: "Created At" },
-  { key: "deletedAt", label: "Revoked At" },
+  { key: "revokedAt", label: "Revoked At" },
 ];
-
-function DeleteIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 function SortHeader({
   label,
@@ -82,8 +69,8 @@ function sortKeys(
         return (left.lastUsedAt ?? 0) - (right.lastUsedAt ?? 0);
       case "createdAt":
         return left.createdAt - right.createdAt;
-      case "deletedAt":
-        return (left.deletedAt ?? 0) - (right.deletedAt ?? 0);
+      case "revokedAt":
+        return (left.revokedAt ?? 0) - (right.revokedAt ?? 0);
       default:
         return 0;
     }
@@ -276,23 +263,20 @@ export function McpKeysSection() {
                     </td>
                     <td>
                       <span className="server-tag">
-                        {formatApiTimestamp(key.deletedAt, "—")}
+                        {formatApiTimestamp(key.revokedAt, "—")}
                       </span>
                     </td>
                     <td>
                       <div className="server-row-actions">
-                        {key.status === "ACTIVE" ? (
-                          <button
-                            type="button"
-                            className="server-action-btn danger"
-                            onClick={() => setRevokeTarget(key)}
-                            aria-label={`Revoke ${key.name}`}
-                            title="Revoke"
-                            disabled={revoking}
-                          >
-                            <DeleteIcon />
-                          </button>
-                        ) : null}
+                        <button
+                          type="button"
+                          className="mcp-revoke-btn"
+                          onClick={() => setRevokeTarget(key)}
+                          aria-label={`Revoke ${key.name}`}
+                          disabled={revoking || key.status !== "ACTIVE"}
+                        >
+                          Revoke
+                        </button>
                       </div>
                     </td>
                   </tr>

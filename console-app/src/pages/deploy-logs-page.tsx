@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Navigate,
   useLocation,
@@ -19,6 +19,7 @@ import { formatTemplateCategory } from "@/features/templates/utils/format-templa
 import type { DeployTemplateRequest } from "@/features/templates/types";
 import { DeployLogsPageSkeleton } from "@/components/shared/skeleton";
 import { buildServerDetailHref } from "@/features/servers/components/server-detail/utils/server-detail-tab-url";
+import { showErrorToast } from "@/lib/toast";
 import { NotFoundPage } from "./not-found-page";
 
 type PendingDeployLocationState = {
@@ -49,6 +50,17 @@ export function DeployLogsPage() {
   const [isStarting, setIsStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const templateQuery = useTemplateDetailsQuery(templateSlug);
+  const backHref = serverId
+    ? buildServerDetailHref(serverId, "templates")
+    : "/servers";
+
+  const handleDeploymentFailed = useCallback(
+    (message: string) => {
+      showErrorToast(message);
+      navigate(backHref, { replace: true });
+    },
+    [backHref, navigate],
+  );
 
   const pendingDeploy = (location.state as PendingDeployLocationState | null)
     ?.deployRequest;
@@ -152,9 +164,10 @@ export function DeployLogsPage() {
       }}
       deploymentId={deploymentId}
       serverId={serverId}
-      backHref={buildServerDetailHref(serverId, "templates")}
+      backHref={backHref}
       isStarting={isStarting || Boolean(pendingDeploy && !deploymentId)}
       startError={startError}
+      onDeploymentFailed={handleDeploymentFailed}
     />
   );
 }
