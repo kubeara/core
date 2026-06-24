@@ -48,10 +48,22 @@ export type ChangePlanRequest = {
 
 export type CheckoutRequest = {
   planSlug: PlanSlug;
+  startPayment?: boolean;
+};
+
+export type CheckoutPaymentMethod = {
+  brand: string;
+  last4: string;
+  expMonth: number;
+  expYear: number;
 };
 
 export type CheckoutResponse = {
-  clientSecret: string;
+  clientSecret: string | null;
   publishableKey: string;
   plan: Plan;
+  proratedUpgrade?: boolean;
+  amountDue?: number;
+  immediate?: boolean;
+  paymentMethod?: CheckoutPaymentMethod | null;
 };

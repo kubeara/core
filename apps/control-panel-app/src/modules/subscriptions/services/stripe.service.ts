@@ -71,6 +71,69 @@ export class StripeService implements OnModuleInit {
     });
   }
 
+  async getCustomerPaymentMethodSummary(
+    customerId: string,
+    stripeSubscriptionId?: string | null,
+  ): Promise<{
+    brand: string;
+    last4: string;
+    expMonth: number;
+    expYear: number;
+  } | null> {
+    const stripe = this.getClient();
+
+    const resolveCard = (
+      paymentMethod: Stripe.PaymentMethod | string | null | undefined,
+    ) => {
+      if (!paymentMethod || typeof paymentMethod === "string") {
+        return null;
+      }
+      if (paymentMethod.type !== "card" || !paymentMethod.card) {
+        return null;
+      }
+      return {
+        brand: paymentMethod.card.brand,
+        last4: paymentMethod.card.last4,
+        expMonth: paymentMethod.card.exp_month,
+        expYear: paymentMethod.card.exp_year,
+      };
+    };
+
+    if (stripeSubscriptionId) {
+      const subscription = await stripe.subscriptions.retrieve(
+        stripeSubscriptionId,
+        { expand: ["default_payment_method"] },
+      );
+      const fromSubscription = resolveCard(subscription.default_payment_method);
+      if (fromSubscription) {
+        return fromSubscription;
+      }
+    }
+
+    const customer = await stripe.customers.retrieve(customerId, {
+      expand: ["invoice_settings.default_payment_method"],
+    });
+
+    if (customer.deleted) {
+      return null;
+    }
+
+    const fromCustomer = resolveCard(
+      customer.invoice_settings?.default_payment_method,
+    );
+    if (fromCustomer) {
+      return fromCustomer;
+    }
+
+    const methods = await stripe.paymentMethods.list({
+      customer: customerId,
+      type: "card",
+      limit: 1,
+    });
+
+    return resolveCard(methods.data[0] ?? null);
+  }
+
   async createSubscriptionPayment(input: {
     customerId: string;
     priceId: string;
@@ -223,6 +286,88 @@ export class StripeService implements OnModuleInit {
         pendingPlanSlug: input.pendingPlanSlug,
       },
     });
+  }
+
+  async previewProratedUpgrade(input: {
+    stripeSubscriptionId: string;
+    priceId: string;
+  }): Promise<{ amountDue: number }> {
+    const stripe = this.getClient();
+    const subscription = await stripe.subscriptions.retrieve(
+      input.stripeSubscriptionId,
+    );
+    const itemId = subscription.items.data[0]?.id;
+
+    if (!itemId) {
+      throw new BadRequestException("Subscription has no items");
+    }
+
+    const preview = await stripe.invoices.createPreview({
+      subscription: input.stripeSubscriptionId,
+      subscription_details: {
+        items: [{ id: itemId, price: input.priceId }],
+        proration_behavior: "always_invoice",
+      },
+    });
+
+    return { amountDue: preview.amount_due ?? 0 };
+  }
+
+  async createProratedUpgradePayment(input: {
+    stripeSubscriptionId: string;
+    priceId: string;
+    organizationId: string;
+    planSlug: PlanSlug;
+  }): Promise<{
+    clientSecret: string | null;
+    amountDue: number;
+    invoicePaid: boolean;
+  }> {
+    const stripe = this.getClient();
+    const subscription = await stripe.subscriptions.retrieve(
+      input.stripeSubscriptionId,
+    );
+    const itemId = subscription.items.data[0]?.id;
+
+    if (!itemId) {
+      throw new BadRequestException("Subscription has no items");
+    }
+
+    const updated = await stripe.subscriptions.update(
+      input.stripeSubscriptionId,
+      {
+        items: [{ id: itemId, price: input.priceId }],
+        proration_behavior: "always_invoice",
+        payment_behavior: "pending_if_incomplete",
+        metadata: {
+          ...subscription.metadata,
+          organizationId: input.organizationId,
+          planSlug: input.planSlug,
+          pendingPlanSlug: "",
+        },
+        expand: ["latest_invoice.confirmation_secret"],
+      },
+    );
+
+    const invoice = updated.latest_invoice;
+    if (!invoice || typeof invoice === "string") {
+      throw new BadRequestException("Failed to create prorated upgrade invoice");
+    }
+
+    const amountDue = invoice.amount_due ?? 0;
+    const invoicePaid = invoice.status === "paid" || amountDue === 0;
+
+    if (invoicePaid) {
+      return { clientSecret: null, amountDue: 0, invoicePaid: true };
+    }
+
+    const clientSecret = invoice.confirmation_secret?.client_secret ?? null;
+
+    if (!clientSecret) {
+      throw new BadRequestException("Failed to create payment client secret");
+    }
+
+    return { clientSecret, amountDue, invoicePaid: false };
   }
 
   async updateSubscriptionPrice(

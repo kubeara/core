@@ -245,6 +245,7 @@ export class SubscriptionService {
     planSlug: PlanSlug,
     userEmail: string,
     userName: string,
+    startPayment = false,
   ) {
     if (planSlug === PlanSlug.FREE) {
       throw new BadRequestException(
@@ -292,6 +293,124 @@ export class SubscriptionService {
 
     if (!publishableKey) {
       throw new BadRequestException("Stripe publishable key is not configured");
+    }
+
+    const isPaidUpgrade =
+      subscription.plan.slug !== PlanSlug.FREE &&
+      plan.priceMonthly > subscription.plan.priceMonthly;
+
+    if (isPaidUpgrade && this.stripeService.isConfigured()) {
+      const stripeSubscriptionId =
+        await this.resolveStripeSubscriptionId(subscription);
+
+      if (stripeSubscriptionId) {
+        const stripe = this.stripeService.getClient();
+        const currentStripeSub = await stripe.subscriptions.retrieve(
+          stripeSubscriptionId,
+        );
+
+        if (
+          (currentStripeSub.status === "active" ||
+            currentStripeSub.status === "trialing") &&
+          this.stripeSubscriptionMatchesPlan(
+            currentStripeSub,
+            planSlug,
+            priceId,
+          )
+        ) {
+          if (subscription.pendingDowngradeStatus) {
+            await this.clearPendingDowngradeOnStripe(subscription);
+            this.clearPendingDowngrade(subscription);
+          }
+
+          this.applyStripeSubscription(subscription, plan, currentStripeSub);
+          await this.subscriptionRepository.save(subscription);
+
+          return {
+            message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CHECKOUT,
+            data: {
+              clientSecret: null,
+              publishableKey,
+              plan: this.toPlanResponse(plan),
+              proratedUpgrade: true,
+              amountDue: 0,
+              immediate: true,
+            },
+          };
+        }
+
+        if (!startPayment) {
+          const { amountDue } = await this.stripeService.previewProratedUpgrade(
+            {
+              stripeSubscriptionId,
+              priceId,
+            },
+          );
+          const paymentMethod =
+            await this.stripeService.getCustomerPaymentMethodSummary(
+              customerId,
+              stripeSubscriptionId,
+            );
+
+          return {
+            message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CHECKOUT,
+            data: {
+              clientSecret: null,
+              publishableKey,
+              plan: this.toPlanResponse(plan),
+              proratedUpgrade: true,
+              amountDue: amountDue / 100,
+              immediate: false,
+              paymentMethod,
+            },
+          };
+        }
+
+        if (subscription.pendingDowngradeStatus) {
+          await this.clearPendingDowngradeOnStripe(subscription);
+          this.clearPendingDowngrade(subscription);
+        }
+
+        const { clientSecret, amountDue, invoicePaid } =
+          await this.stripeService.createProratedUpgradePayment({
+            stripeSubscriptionId,
+            priceId,
+            organizationId,
+            planSlug,
+          });
+
+        if (invoicePaid || amountDue === 0) {
+          const stripeSub = await stripe.subscriptions.retrieve(
+            stripeSubscriptionId,
+          );
+          this.applyStripeSubscription(subscription, plan, stripeSub);
+          await this.subscriptionRepository.save(subscription);
+
+          return {
+            message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CHECKOUT,
+            data: {
+              clientSecret: null,
+              publishableKey,
+              plan: this.toPlanResponse(plan),
+              proratedUpgrade: true,
+              amountDue: 0,
+              immediate: true,
+            },
+          };
+        }
+
+        return {
+          message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CHECKOUT,
+          data: {
+            clientSecret: clientSecret!,
+            publishableKey,
+            plan: this.toPlanResponse(plan),
+            proratedUpgrade: true,
+            amountDue: amountDue / 100,
+            immediate: false,
+          },
+        };
+      }
     }
 
     const { clientSecret, subscriptionId } =

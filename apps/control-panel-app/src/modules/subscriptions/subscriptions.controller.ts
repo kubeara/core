@@ -28,6 +28,7 @@ export class SubscriptionsController {
       body.planSlug,
       req.user.email,
       req.user.name,
+      body.startPayment === true,
     );
   }
 

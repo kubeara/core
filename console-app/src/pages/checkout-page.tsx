@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
@@ -6,15 +6,96 @@ import { getErrorMessage } from "@/api/api-error";
 import { KubearaLogo } from "@/components/shared/kubeara-logo";
 import { ProfilePageSkeleton } from "@/components/shared/skeleton";
 import { useAuth } from "@/features/auth/context/use-auth";
-import { confirmCheckoutPayment } from "@/features/subscriptions/api";
+import {
+  confirmCheckoutPayment,
+  createCheckoutPayment,
+} from "@/features/subscriptions/api";
 import {
   formatPrice,
   useCheckoutSetupQuery,
 } from "@/features/subscriptions/hooks";
-import type { PlanSlug } from "@/features/subscriptions/types";
+import type {
+  CheckoutPaymentMethod,
+  CheckoutResponse,
+  PlanSlug,
+} from "@/features/subscriptions/types";
 import "@/features/subscriptions/checkout-ui.css";
 
 const VALID_SLUGS: PlanSlug[] = ["starter", "pro", "business"];
+
+function formatCardBrand(brand: string): string {
+  if (brand === "amex") return "American Express";
+  return brand.charAt(0).toUpperCase() + brand.slice(1);
+}
+
+function SavedPaymentMethodPreview({
+  paymentMethod,
+  dueToday,
+}: {
+  paymentMethod?: CheckoutPaymentMethod | null;
+  dueToday: number;
+}) {
+  if (!paymentMethod) {
+    return (
+      <div className="checkout-saved-payment">
+        <p className="checkout-saved-payment-label">Payment method</p>
+        <div className="checkout-saved-payment-card" aria-disabled="true">
+          <div className="checkout-saved-payment-row">
+            <span className="checkout-saved-payment-field-label">Card number</span>
+            <span className="checkout-saved-payment-field-value">
+              •••• •••• •••• ••••
+            </span>
+          </div>
+          <div className="checkout-saved-payment-row checkout-saved-payment-row-split">
+            <div>
+              <span className="checkout-saved-payment-field-label">Expiry</span>
+              <span className="checkout-saved-payment-field-value">••/••</span>
+            </div>
+            <div>
+              <span className="checkout-saved-payment-field-label">CVC</span>
+              <span className="checkout-saved-payment-field-value">•••</span>
+            </div>
+          </div>
+        </div>
+        <p className="checkout-saved-payment-note">
+          Your saved card on file will be charged{" "}
+          {formatPrice(dueToday)} today.
+        </p>
+      </div>
+    );
+  }
+
+  const brand = formatCardBrand(paymentMethod.brand);
+  const exp = `${String(paymentMethod.expMonth).padStart(2, "0")}/${String(paymentMethod.expYear).slice(-2)}`;
+
+  return (
+    <div className="checkout-saved-payment">
+      <p className="checkout-saved-payment-label">Payment method</p>
+      <div className="checkout-saved-payment-card" aria-disabled="true">
+        <div className="checkout-saved-payment-row">
+          <span className="checkout-saved-payment-field-label">Card number</span>
+          <span className="checkout-saved-payment-field-value">
+            •••• •••• •••• {paymentMethod.last4}
+          </span>
+        </div>
+        <div className="checkout-saved-payment-row checkout-saved-payment-row-split">
+          <div>
+            <span className="checkout-saved-payment-field-label">Expiry</span>
+            <span className="checkout-saved-payment-field-value">{exp}</span>
+          </div>
+          <div>
+            <span className="checkout-saved-payment-field-label">Brand</span>
+            <span className="checkout-saved-payment-field-value">{brand}</span>
+          </div>
+        </div>
+      </div>
+      <p className="checkout-saved-payment-note">
+        {brand} ending in {paymentMethod.last4} will be charged{" "}
+        {formatPrice(dueToday)} today.
+      </p>
+    </div>
+  );
+}
 
 function CheckoutPaymentForm({
   email,
@@ -100,13 +181,54 @@ function CheckoutPaymentForm({
 
 export function CheckoutPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const { planSlug } = useParams<{ planSlug: PlanSlug }>();
+  const [paymentSetup, setPaymentSetup] = useState<CheckoutResponse | null>(
+    null,
+  );
+  const [isStartingPayment, setIsStartingPayment] = useState(false);
+  const [startPaymentError, setStartPaymentError] = useState<string | null>(
+    null,
+  );
 
   if (!planSlug || !VALID_SLUGS.includes(planSlug)) {
     return <Navigate to="/plans" replace />;
   }
 
-  const { data, isPending, isError, error } = useCheckoutSetupQuery(planSlug);
+  const { data: preview, isPending, isFetching, isError, error, refetch } =
+    useCheckoutSetupQuery(planSlug);
+
+  const data = paymentSetup ?? preview;
+
+  const needsProceed =
+    Boolean(data?.proratedUpgrade) &&
+    !data?.clientSecret &&
+    !data?.immediate;
+
+  const [isConfirmingImmediate, setIsConfirmingImmediate] = useState(false);
+
+  useEffect(() => {
+    if (!data?.immediate || !planSlug || paymentSetup || isConfirmingImmediate) {
+      return;
+    }
+
+    setIsConfirmingImmediate(true);
+
+    confirmCheckoutPayment({ planSlug })
+      .then(() => navigate("/subscription", { replace: true }))
+      .catch((err) => {
+        setStartPaymentError(getErrorMessage(err));
+      })
+      .finally(() => {
+        setIsConfirmingImmediate(false);
+      });
+  }, [
+    data?.immediate,
+    isConfirmingImmediate,
+    navigate,
+    paymentSetup,
+    planSlug,
+  ]);
 
   const stripePromise = useMemo(
     () => (data?.publishableKey ? loadStripe(data.publishableKey) : null),
@@ -130,7 +252,33 @@ export function CheckoutPage() {
     };
   }, [data?.clientSecret]);
 
-  if (isPending) {
+  async function handleProceed() {
+    if (!planSlug) return;
+
+    setStartPaymentError(null);
+    setIsStartingPayment(true);
+
+    try {
+      const result = await createCheckoutPayment({
+        planSlug,
+        startPayment: true,
+      });
+
+      if (result.immediate) {
+        await confirmCheckoutPayment({ planSlug });
+        navigate("/subscription", { replace: true });
+        return;
+      }
+
+      setPaymentSetup(result);
+    } catch (err) {
+      setStartPaymentError(getErrorMessage(err));
+    } finally {
+      setIsStartingPayment(false);
+    }
+  }
+
+  if ((isPending || isFetching || isConfirmingImmediate) && !paymentSetup) {
     return (
       <div className="checkout-page">
         <ProfilePageSkeleton />
@@ -138,13 +286,34 @@ export function CheckoutPage() {
     );
   }
 
-  if (isError || !data || !stripePromise || !elementsOptions || !user) {
+  const canCollectPayment =
+    needsProceed ||
+    Boolean(data?.immediate) ||
+    Boolean(elementsOptions && stripePromise);
+
+  if (
+    isError ||
+    !data ||
+    !user ||
+    !canCollectPayment
+  ) {
     return (
       <div className="checkout-page">
         <div className="profile-section-card">
           <p className="form-field-error">
-            {isError ? getErrorMessage(error) : "Unable to start checkout"}
+            {startPaymentError ??
+              (isError ? getErrorMessage(error) : "Unable to start checkout")}
           </p>
+          {!isError && !data && (
+            <button
+              type="button"
+              className="btn-secondary"
+              style={{ marginTop: "1rem" }}
+              onClick={() => void refetch()}
+            >
+              Try again
+            </button>
+          )}
           <Link to="/plans" className="btn-secondary" style={{ marginTop: "1rem" }}>
             Back to plans
           </Link>
@@ -153,7 +322,18 @@ export function CheckoutPage() {
     );
   }
 
+  if (data.immediate) {
+    return (
+      <div className="checkout-page">
+        <ProfilePageSkeleton />
+      </div>
+    );
+  }
+
   const { plan } = data;
+  const dueToday = data.proratedUpgrade
+    ? data.amountDue ?? 0
+    : plan.priceMonthly;
 
   return (
     <div className="checkout-page">
@@ -163,7 +343,11 @@ export function CheckoutPage() {
             <KubearaLogo />
             <span>Kubeara</span>
           </div>
-          <h1>Subscribe to {plan.name}</h1>
+          <h1>
+            {data.proratedUpgrade
+              ? `Upgrade to ${plan.name}`
+              : `Subscribe to ${plan.name}`}
+          </h1>
           <div className="checkout-line-item">
             <span>{plan.name}</span>
             <span>
@@ -172,19 +356,56 @@ export function CheckoutPage() {
             </span>
           </div>
           <div className="checkout-total">
-            <span>Total due today</span>
-            <span>{formatPrice(plan.priceMonthly)}</span>
+            <span>
+              {data.proratedUpgrade ? "Prorated due today" : "Total due today"}
+            </span>
+            <span>{formatPrice(dueToday)}</span>
           </div>
         </aside>
 
         <section className="checkout-form-panel">
-          <Elements stripe={stripePromise} options={elementsOptions}>
-            <CheckoutPaymentForm
-              email={user.email}
-              name={user.name}
-              planSlug={planSlug}
-            />
-          </Elements>
+          {needsProceed ? (
+            <div className="checkout-form">
+              <SavedPaymentMethodPreview
+                paymentMethod={data.paymentMethod}
+                dueToday={dueToday}
+              />
+              {startPaymentError && (
+                <p className="checkout-error" role="alert">
+                  {startPaymentError}
+                </p>
+              )}
+              <div className="checkout-form-actions">
+                <button
+                  type="button"
+                  className="checkout-submit"
+                  disabled={isStartingPayment}
+                  onClick={() => void handleProceed()}
+                >
+                  {isStartingPayment
+                    ? "Processing…"
+                    : `Pay ${formatPrice(dueToday)}`}
+                </button>
+                <Link
+                  to="/plans?checkout=canceled"
+                  className="checkout-cancel-link"
+                >
+                  Cancel and return to plans
+                </Link>
+              </div>
+            </div>
+          ) : (
+            stripePromise &&
+            elementsOptions && (
+              <Elements stripe={stripePromise} options={elementsOptions}>
+                <CheckoutPaymentForm
+                  email={user.email}
+                  name={user.name}
+                  planSlug={planSlug}
+                />
+              </Elements>
+            )
+          )}
         </section>
       </div>
     </div>

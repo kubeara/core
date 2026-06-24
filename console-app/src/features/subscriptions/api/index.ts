@@ -73,7 +73,10 @@ export async function createCheckoutPayment(
     SubscriptionsApiResponse<CheckoutResponse>
   >("/subscriptions/checkout", input);
   const data = response.data.data;
-  if (!data?.clientSecret || !data.publishableKey) {
+  if (!data?.publishableKey) {
+    throw new Error("No checkout payment data in response");
+  }
+  if (!data.proratedUpgrade && !data.clientSecret) {
     throw new Error("No checkout payment data in response");
   }
   return data;

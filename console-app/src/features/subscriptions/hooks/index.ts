@@ -44,7 +44,8 @@ export function useCheckoutSetupQuery(planSlug: PlanSlug) {
     queryKey: QUERY_KEYS.subscriptions.checkout(planSlug),
     queryFn: () => createCheckoutPayment({ planSlug }),
     staleTime: 0,
-    retry: false,
+    refetchOnWindowFocus: false,
+    retry: 1,
   });
 }
 
