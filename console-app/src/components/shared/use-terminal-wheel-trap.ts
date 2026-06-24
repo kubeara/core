@@ -1,20 +1,28 @@
 import { useEffect, type RefObject } from "react";
 
-function getViewport(host: HTMLElement): HTMLElement | null {
-  return host.querySelector(".xterm-viewport");
+function getViewport(container: HTMLElement): HTMLElement | null {
+  const viewport = container.querySelector(".xterm-viewport");
+  return viewport instanceof HTMLElement ? viewport : null;
+}
+
+function getHorizontalScrollContainer(
+  container: HTMLElement,
+): HTMLElement | null {
+  const scrollContainer = container.querySelector(".terminal-xterm-hscroll");
+  return scrollContainer instanceof HTMLElement ? scrollContainer : null;
 }
 
 function attachWheelTrap(container: HTMLElement): () => void {
   const viewport = getViewport(container);
-  if (!viewport) {
-    return () => undefined;
-  }
+  const hscroll = getHorizontalScrollContainer(container);
 
   const stopPageScroll = (event: WheelEvent) => {
     event.stopPropagation();
   };
 
-  const trapBoundaryScroll = (event: WheelEvent) => {
+  const trapVerticalBoundaryScroll = (event: WheelEvent) => {
+    if (!viewport) return;
+
     const { scrollTop, scrollHeight, clientHeight } = viewport;
     const maxScrollTop = Math.max(0, scrollHeight - clientHeight);
 
@@ -31,18 +39,56 @@ function attachWheelTrap(container: HTMLElement): () => void {
     }
   };
 
+  const trapHorizontalBoundaryScroll = (event: WheelEvent) => {
+    if (!hscroll) return;
+
+    const horizontalDelta =
+      Math.abs(event.deltaX) > Math.abs(event.deltaY)
+        ? event.deltaX
+        : event.shiftKey
+          ? event.deltaY
+          : 0;
+
+    if (horizontalDelta === 0) return;
+
+    const { scrollLeft, scrollWidth, clientWidth } = hscroll;
+    const maxScrollLeft = Math.max(0, scrollWidth - clientWidth);
+
+    if (maxScrollLeft <= 0) {
+      event.preventDefault();
+      return;
+    }
+
+    const atLeft = scrollLeft <= 0;
+    const atRight = scrollLeft >= maxScrollLeft - 1;
+
+    if (
+      (horizontalDelta < 0 && atLeft) ||
+      (horizontalDelta > 0 && atRight)
+    ) {
+      event.preventDefault();
+    }
+  };
+
   container.addEventListener("wheel", stopPageScroll, { passive: true });
-  viewport.addEventListener("wheel", trapBoundaryScroll, { passive: false });
+  viewport?.addEventListener("wheel", trapVerticalBoundaryScroll, {
+    passive: false,
+  });
+  hscroll?.addEventListener("wheel", trapHorizontalBoundaryScroll, {
+    passive: false,
+  });
 
   return () => {
     container.removeEventListener("wheel", stopPageScroll);
-    viewport.removeEventListener("wheel", trapBoundaryScroll);
+    viewport?.removeEventListener("wheel", trapVerticalBoundaryScroll);
+    hscroll?.removeEventListener("wheel", trapHorizontalBoundaryScroll);
   };
 }
 
 /**
  * Keeps mouse wheel scrolling inside an xterm terminal so the page does not scroll
- * when the terminal buffer reaches the top or bottom.
+ * when the terminal buffer reaches the top or bottom, or when horizontal overflow
+ * reaches the left or right edge.
  */
 export function useTerminalWheelTrap(
   containerRef: RefObject<HTMLElement | null>,

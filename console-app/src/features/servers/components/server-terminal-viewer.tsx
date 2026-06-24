@@ -4,6 +4,10 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebLinksAddon } from "@xterm/addon-web-links";
 import "@xterm/xterm/css/xterm.css";
 import {
+  fitAndSyncTerminal,
+  updateMaxContentCols,
+} from "@/components/shared/fit-terminal-for-content";
+import {
   KUBEARA_TERMINAL_FONT,
   KUBEARA_TERMINAL_THEME,
 } from "@/components/shared/kubeara-terminal-theme";
@@ -38,9 +42,12 @@ export function ServerTerminalViewer({
   onReady,
 }: ServerTerminalViewerProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const hscrollRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
+  const contentColsRef = useRef(0);
+  const fitFrameRef = useRef(0);
   const onDataRef = useRef(onData);
   const onResizeRef = useRef(onResize);
   const onReadyRef = useRef(onReady);
@@ -79,39 +86,77 @@ export function ServerTerminalViewer({
     const fitTerminal = (notifyRemote = true) => {
       if (!hostRef.current || !fitRef.current || !termRef.current) return;
       try {
-        fitRef.current.fit();
+        fitAndSyncTerminal(
+          hostRef.current,
+          termRef.current,
+          fitRef.current,
+          contentColsRef.current,
+        );
         if (notifyRemote) {
-          onResizeRef.current(term.cols, term.rows);
+          onResizeRef.current(termRef.current.cols, termRef.current.rows);
         }
       } catch {
         // hidden containers cannot be measured yet
       }
     };
 
+    const syncCursorLineCols = () => {
+      const buffer = term.buffer.active;
+      const line = buffer.getLine(buffer.baseY + buffer.cursorY);
+      if (!line) return false;
+
+      const prev = contentColsRef.current;
+      contentColsRef.current = updateMaxContentCols(
+        prev,
+        line.translateToString(false),
+      );
+      return contentColsRef.current !== prev;
+    };
+
+    const scheduleFit = (notifyRemote = true) => {
+      cancelAnimationFrame(fitFrameRef.current);
+      fitFrameRef.current = requestAnimationFrame(() => {
+        fitTerminal(notifyRemote);
+      });
+    };
+
     const dataDisposable = readOnly
       ? { dispose: () => undefined }
       : term.onData((data) => {
           onDataRef.current(data);
+          if (syncCursorLineCols()) {
+            scheduleFit(true);
+          }
         });
 
     const resizeDisposable = term.onResize(({ cols, rows }) => {
       onResizeRef.current(cols, rows);
     });
 
+    const resizeTarget = hscrollRef.current ?? host;
     const observer = new ResizeObserver(() => {
-      fitTerminal(true);
+      scheduleFit(true);
     });
-    observer.observe(host);
+    observer.observe(resizeTarget);
 
     onReadyRef.current?.({
       write: (data: string) => {
+        for (const segment of data.split(/\r?\n/)) {
+          contentColsRef.current = updateMaxContentCols(
+            contentColsRef.current,
+            segment,
+          );
+        }
         term.write(data);
+        scheduleFit(true);
       },
       reset: () => {
+        contentColsRef.current = 0;
         term.reset();
+        scheduleFit(false);
       },
       fit: () => {
-        fitTerminal(true);
+        scheduleFit(true);
       },
       getDimensions: () => ({
         cols: term.cols,
@@ -125,12 +170,14 @@ export function ServerTerminalViewer({
     fitTerminal(false);
 
     return () => {
+      cancelAnimationFrame(fitFrameRef.current);
       dataDisposable.dispose();
       resizeDisposable.dispose();
       observer.disconnect();
       term.dispose();
       termRef.current = null;
       fitRef.current = null;
+      contentColsRef.current = 0;
     };
   }, [readOnly]);
 
@@ -138,12 +185,16 @@ export function ServerTerminalViewer({
     if (!isVisible) return;
 
     const fit = () => {
+      if (!hostRef.current || !fitRef.current || !termRef.current) return;
       try {
-        fitRef.current?.fit();
-        if (termRef.current) {
-          onResizeRef.current(termRef.current.cols, termRef.current.rows);
-        }
-        termRef.current?.focus();
+        fitAndSyncTerminal(
+          hostRef.current,
+          termRef.current,
+          fitRef.current,
+          contentColsRef.current,
+        );
+        onResizeRef.current(termRef.current.cols, termRef.current.rows);
+        termRef.current.focus();
       } catch {
         // ignore
       }
@@ -164,7 +215,9 @@ export function ServerTerminalViewer({
 
   return (
     <div ref={frameRef} className="terminal-viewer-frame">
-      <div ref={hostRef} className="server-terminal-xterm-host" />
+      <div ref={hscrollRef} className="terminal-xterm-hscroll">
+        <div ref={hostRef} className="server-terminal-xterm-host" />
+      </div>
       <TerminalScrollDownButton
         visible={showScrollDown}
         onClick={handleScrollDown}
