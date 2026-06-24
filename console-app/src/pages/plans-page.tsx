@@ -242,56 +242,58 @@ export function PlansPage() {
       {!isLoading && subscription && (
         <div className="profile-page-body">
           <section className="profile-section-card">
-            <div className="subscription-section-header">
-              <div>
+            <div className="subscription-block">
+              <div className="subscription-section-header">
                 <h2>Current subscription</h2>
                 <p className="profile-section-desc">
                   {subscription.plan.name} — {formatPrice(subscription.billingAmount)}/month
                 </p>
               </div>
+              <div className="subscription-details-grid">
+                <div className="subscription-detail-item">
+                  <span className="subscription-detail-label">Status</span>
+                  <span className="subscription-detail-value">
+                    {formatStatus(subscription.subscriptionStatus)}
+                  </span>
+                </div>
+                <div className="subscription-detail-item">
+                  <span className="subscription-detail-label">Start date</span>
+                  <span className="subscription-detail-value">
+                    {formatUnixDate(subscription.startedAt)}
+                  </span>
+                </div>
+                <div className="subscription-detail-item">
+                  <span className="subscription-detail-label">Renewal date</span>
+                  <span className="subscription-detail-value">
+                    {formatUnixDate(subscription.currentPeriodEnd)}
+                  </span>
+                </div>
+                <div className="subscription-detail-item">
+                  <span className="subscription-detail-label">Billing amount</span>
+                  <span className="subscription-detail-value">
+                    {formatPrice(subscription.billingAmount)}/month
+                  </span>
+                </div>
+              </div>
               {canCancel && (
-                <button
-                  type="button"
-                  className="btn-secondary btn-danger-outline"
-                  disabled={cancelMutation.isPending}
-                  onClick={() => setCancelModalOpen(true)}
-                >
-                  Cancel Subscription
-                </button>
+                <div className="subscription-section-action">
+                  <button
+                    type="button"
+                    className="btn-secondary btn-danger-outline"
+                    disabled={cancelMutation.isPending}
+                    onClick={() => setCancelModalOpen(true)}
+                  >
+                    Cancel Subscription
+                  </button>
+                </div>
               )}
-            </div>
-            <div className="subscription-details-grid">
-              <div className="subscription-detail-item">
-                <span className="subscription-detail-label">Status</span>
-                <span className="subscription-detail-value">
-                  {formatStatus(subscription.subscriptionStatus)}
-                </span>
-              </div>
-              <div className="subscription-detail-item">
-                <span className="subscription-detail-label">Start date</span>
-                <span className="subscription-detail-value">
-                  {formatUnixDate(subscription.startedAt)}
-                </span>
-              </div>
-              <div className="subscription-detail-item">
-                <span className="subscription-detail-label">Renewal date</span>
-                <span className="subscription-detail-value">
-                  {formatUnixDate(subscription.currentPeriodEnd)}
-                </span>
-              </div>
-              <div className="subscription-detail-item">
-                <span className="subscription-detail-label">Billing amount</span>
-                <span className="subscription-detail-value">
-                  {formatPrice(subscription.billingAmount)}/month
-                </span>
-              </div>
             </div>
 
             {hasScheduledChange && subscription.pendingPlan && (
               <>
                 <hr className="subscription-section-divider" />
-                <div className="subscription-section-header">
-                  <div>
+                <div className="subscription-block">
+                  <div className="subscription-section-header">
                     <h2>Scheduled change</h2>
                     {isCancelScheduled ? (
                       <p className="profile-section-desc subscription-notice">
@@ -305,42 +307,44 @@ export function PlansPage() {
                       </p>
                     )}
                   </div>
+                  <div className="subscription-details-grid">
+                    <div className="subscription-detail-item">
+                      <span className="subscription-detail-label">Status</span>
+                      <span className="subscription-detail-value">
+                        {isCancelScheduled ? "Canceling" : "Scheduled"}
+                      </span>
+                    </div>
+                    <div className="subscription-detail-item">
+                      <span className="subscription-detail-label">Start date</span>
+                      <span className="subscription-detail-value">
+                        {formatUnixDate(subscription.startedAt)}
+                      </span>
+                    </div>
+                    <div className="subscription-detail-item">
+                      <span className="subscription-detail-label">Scheduled date</span>
+                      <span className="subscription-detail-value">
+                        {formatUnixDate(subscription.scheduledChangeAt)}
+                      </span>
+                    </div>
+                    <div className="subscription-detail-item">
+                      <span className="subscription-detail-label">Billing amount</span>
+                      <span className="subscription-detail-value">
+                        {formatPrice(subscription.pendingPlan.priceMonthly)}/month
+                      </span>
+                    </div>
+                  </div>
                   {canCancelScheduledChange && (
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      disabled={cancelPendingMutation.isPending}
-                      onClick={() => setCancelScheduledModalOpen(true)}
-                    >
-                      Cancel Scheduled Change
-                    </button>
+                    <div className="subscription-section-action">
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        disabled={cancelPendingMutation.isPending}
+                        onClick={() => setCancelScheduledModalOpen(true)}
+                      >
+                        Cancel Scheduled Change
+                      </button>
+                    </div>
                   )}
-                </div>
-                <div className="subscription-details-grid">
-                  <div className="subscription-detail-item">
-                    <span className="subscription-detail-label">Status</span>
-                    <span className="subscription-detail-value">
-                      {isCancelScheduled ? "Canceling" : "Scheduled"}
-                    </span>
-                  </div>
-                  <div className="subscription-detail-item">
-                    <span className="subscription-detail-label">Start date</span>
-                    <span className="subscription-detail-value">
-                      {formatUnixDate(subscription.startedAt)}
-                    </span>
-                  </div>
-                  <div className="subscription-detail-item">
-                    <span className="subscription-detail-label">Scheduled date</span>
-                    <span className="subscription-detail-value">
-                      {formatUnixDate(subscription.scheduledChangeAt)}
-                    </span>
-                  </div>
-                  <div className="subscription-detail-item">
-                    <span className="subscription-detail-label">Billing amount</span>
-                    <span className="subscription-detail-value">
-                      {formatPrice(subscription.pendingPlan.priceMonthly)}/month
-                    </span>
-                  </div>
                 </div>
               </>
             )}
