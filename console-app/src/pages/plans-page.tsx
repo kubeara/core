@@ -1,17 +1,27 @@
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getErrorMessage } from "@/api/api-error";
 import { BackLink } from "@/components/shared/back-link";
 import { SkeletonGrid } from "@/components/shared/skeleton";
 import {
   formatPrice,
+  formatStatus,
   formatUnixDate,
   getPlanAction,
+  setCurrentSubscriptionCache,
+  useCancelPendingDowngradeMutation,
+  useCancelSubscriptionMutation,
   useChangePlanMutation,
   useCurrentSubscriptionQuery,
   usePlansQuery,
 } from "@/features/subscriptions/hooks";
+import { confirmCheckoutPayment } from "@/features/subscriptions/api";
 import type { Plan, PlanSlug } from "@/features/subscriptions/types";
+import { useQueryClient } from "@tanstack/react-query";
+import { QUERY_KEYS } from "@/constants/query-keys";
 import "@/features/subscriptions/subscriptions-ui.css";
+
+const CHECKOUT_PLAN_SLUGS: PlanSlug[] = ["starter", "pro", "max"];
 
 const PLAN_ORDER: PlanSlug[] = ["free", "starter", "pro", "max", "enterprise"];
 
@@ -147,6 +157,9 @@ function PlanCard({
 }
 
 export function PlansPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
   const {
     data: plans,
     isPending: plansPending,
@@ -155,16 +168,62 @@ export function PlansPage() {
   } = usePlansQuery();
   const { data: subscription, isPending: subPending } =
     useCurrentSubscriptionQuery();
+  const cancelMutation = useCancelSubscriptionMutation();
+  const cancelPendingMutation = useCancelPendingDowngradeMutation();
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelScheduledModalOpen, setCancelScheduledModalOpen] = useState(false);
+  const [isCompletingCheckout, setIsCompletingCheckout] = useState(
+    () => searchParams.get("checkout") === "success",
+  );
 
-  const isLoading = plansPending || subPending;
+  const isLoading = plansPending || subPending || isCompletingCheckout;
   const hasScheduledChange =
     subscription?.pendingDowngradeStatus === "scheduled" &&
     !!subscription?.pendingPlan;
   const isCancelScheduled = subscription?.pendingPlan?.slug === "free";
+  const isFree = subscription?.plan.slug === "free";
+  const canCancel =
+    !isFree &&
+    subscription?.subscriptionStatus === "active" &&
+    !hasScheduledChange;
+  const canCancelScheduledChange = hasScheduledChange;
+
+  useEffect(() => {
+    const checkout = searchParams.get("checkout");
+    const plan = searchParams.get("plan");
+    if (
+      checkout !== "success" ||
+      !plan ||
+      !CHECKOUT_PLAN_SLUGS.includes(plan as PlanSlug)
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    setIsCompletingCheckout(true);
+
+    void confirmCheckoutPayment({ planSlug: plan as PlanSlug })
+      .then(async (subscription) => {
+        if (cancelled) return;
+        setCurrentSubscriptionCache(queryClient, subscription);
+        await queryClient.refetchQueries({
+          queryKey: QUERY_KEYS.subscriptions.current,
+        });
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setIsCompletingCheckout(false);
+        navigate("/plans", { replace: true });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate, queryClient, searchParams]);
 
   return (
     <div className="profile-page">
-      <BackLink to="/subscription" label="Back to subscription" />
+      <BackLink to="/servers" label="Back" />
 
       <header className="dashboard-header">
         <div>
@@ -180,28 +239,233 @@ export function PlansPage() {
         </div>
       )}
 
-      {!isLoading && hasScheduledChange && subscription.pendingPlan && (
+      {!isLoading && subscription && (
         <div className="profile-page-body">
           <section className="profile-section-card">
-            <h2>Scheduled change</h2>
-            <p className="profile-section-desc subscription-notice">
+            <div className="subscription-section-header">
+              <div>
+                <h2>Current subscription</h2>
+                <p className="profile-section-desc">
+                  {subscription.plan.name} — {formatPrice(subscription.billingAmount)}/month
+                </p>
+              </div>
+              {canCancel && (
+                <button
+                  type="button"
+                  className="btn-secondary btn-danger-outline"
+                  disabled={cancelMutation.isPending}
+                  onClick={() => setCancelModalOpen(true)}
+                >
+                  Cancel Subscription
+                </button>
+              )}
+            </div>
+            <div className="subscription-details-grid">
+              <div className="subscription-detail-item">
+                <span className="subscription-detail-label">Status</span>
+                <span className="subscription-detail-value">
+                  {formatStatus(subscription.subscriptionStatus)}
+                </span>
+              </div>
+              <div className="subscription-detail-item">
+                <span className="subscription-detail-label">Start date</span>
+                <span className="subscription-detail-value">
+                  {formatUnixDate(subscription.startedAt)}
+                </span>
+              </div>
+              <div className="subscription-detail-item">
+                <span className="subscription-detail-label">Renewal date</span>
+                <span className="subscription-detail-value">
+                  {formatUnixDate(subscription.currentPeriodEnd)}
+                </span>
+              </div>
+              <div className="subscription-detail-item">
+                <span className="subscription-detail-label">Billing amount</span>
+                <span className="subscription-detail-value">
+                  {formatPrice(subscription.billingAmount)}/month
+                </span>
+              </div>
+            </div>
+
+            {hasScheduledChange && subscription.pendingPlan && (
+              <>
+                <hr className="subscription-section-divider" />
+                <div className="subscription-section-header">
+                  <div>
+                    <h2>Scheduled change</h2>
+                    {isCancelScheduled ? (
+                      <p className="profile-section-desc subscription-notice">
+                        Your subscription is canceled on{" "}
+                        {formatUnixDate(subscription.scheduledChangeAt)}.
+                      </p>
+                    ) : (
+                      <p className="profile-section-desc">
+                        {subscription.pendingPlan.name} —{" "}
+                        {formatPrice(subscription.pendingPlan.priceMonthly)}/month
+                      </p>
+                    )}
+                  </div>
+                  {canCancelScheduledChange && (
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={cancelPendingMutation.isPending}
+                      onClick={() => setCancelScheduledModalOpen(true)}
+                    >
+                      Cancel Scheduled Change
+                    </button>
+                  )}
+                </div>
+                <div className="subscription-details-grid">
+                  <div className="subscription-detail-item">
+                    <span className="subscription-detail-label">Status</span>
+                    <span className="subscription-detail-value">
+                      {isCancelScheduled ? "Canceling" : "Scheduled"}
+                    </span>
+                  </div>
+                  <div className="subscription-detail-item">
+                    <span className="subscription-detail-label">Start date</span>
+                    <span className="subscription-detail-value">
+                      {formatUnixDate(subscription.startedAt)}
+                    </span>
+                  </div>
+                  <div className="subscription-detail-item">
+                    <span className="subscription-detail-label">Scheduled date</span>
+                    <span className="subscription-detail-value">
+                      {formatUnixDate(subscription.scheduledChangeAt)}
+                    </span>
+                  </div>
+                  <div className="subscription-detail-item">
+                    <span className="subscription-detail-label">Billing amount</span>
+                    <span className="subscription-detail-value">
+                      {formatPrice(subscription.pendingPlan.priceMonthly)}/month
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
+          </section>
+        </div>
+      )}
+
+      {cancelModalOpen && subscription && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-subscription-title"
+          onClick={() => !cancelMutation.isPending && setCancelModalOpen(false)}
+        >
+          <div
+            className="modal-dialog modal-dialog-sm subscription-confirm-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="cancel-subscription-title">Cancel subscription?</h2>
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="Close"
+                disabled={cancelMutation.isPending}
+                onClick={() => setCancelModalOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="modal-body-text">
+              Your {subscription.plan.name} subscription will end at the close of
+              the current billing period. You will not be charged again.
+            </p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={cancelMutation.isPending}
+                onClick={() => setCancelModalOpen(false)}
+              >
+                Keep subscription
+              </button>
+              <button
+                type="button"
+                className={`btn-danger-outline${cancelMutation.isPending ? " is-loading" : ""}`}
+                disabled={cancelMutation.isPending}
+                aria-busy={cancelMutation.isPending}
+                onClick={() =>
+                  cancelMutation.mutate(undefined, {
+                    onSuccess: () => setCancelModalOpen(false),
+                  })
+                }
+              >
+                Cancel subscription
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cancelScheduledModalOpen && subscription && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-scheduled-title"
+          onClick={() =>
+            !cancelPendingMutation.isPending && setCancelScheduledModalOpen(false)
+          }
+        >
+          <div
+            className="modal-dialog modal-dialog-sm subscription-confirm-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="cancel-scheduled-title">Cancel scheduled change?</h2>
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="Close"
+                disabled={cancelPendingMutation.isPending}
+                onClick={() => setCancelScheduledModalOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="modal-body-text">
               {isCancelScheduled ? (
                 <>
-                  Your subscription is canceled. You will not be charged again.
-                  <br />
-                  Access to {subscription.plan.name} continues until{" "}
-                  {formatUnixDate(subscription.scheduledChangeAt)}.
+                  Your {subscription.plan.name} subscription will stay active.
+                  Billing will continue as usual.
                 </>
               ) : (
                 <>
-                  Downgrade to {subscription.pendingPlan.name} (
-                  {formatPrice(subscription.pendingPlan.priceMonthly)}/month)
-                  <br />
-                  Effective on {formatUnixDate(subscription.scheduledChangeAt)}.
+                  The scheduled change to {subscription.pendingPlan?.name} will be
+                  canceled. You will stay on {subscription.plan.name}.
                 </>
               )}
             </p>
-          </section>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={cancelPendingMutation.isPending}
+                onClick={() => setCancelScheduledModalOpen(false)}
+              >
+                Keep schedule
+              </button>
+              <button
+                type="button"
+                className={`btn-danger-outline${cancelPendingMutation.isPending ? " is-loading" : ""}`}
+                disabled={cancelPendingMutation.isPending}
+                aria-busy={cancelPendingMutation.isPending}
+                onClick={() =>
+                  cancelPendingMutation.mutate(undefined, {
+                    onSuccess: () => setCancelScheduledModalOpen(false),
+                  })
+                }
+              >
+                Cancel schedule
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

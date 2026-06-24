@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { getErrorMessage } from "@/api/api-error";
 import { BackLink } from "@/components/shared/back-link";
@@ -23,6 +24,8 @@ export function SubscriptionPage() {
   } = useCurrentSubscriptionQuery();
   const cancelMutation = useCancelSubscriptionMutation();
   const cancelPendingMutation = useCancelPendingDowngradeMutation();
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelScheduledModalOpen, setCancelScheduledModalOpen] = useState(false);
 
   if (isPending) {
     return <ProfilePageSkeleton />;
@@ -137,11 +140,9 @@ export function SubscriptionPage() {
                 type="button"
                 className="btn-secondary"
                 disabled={cancelPendingMutation.isPending}
-                onClick={() => cancelPendingMutation.mutate()}
+                onClick={() => setCancelScheduledModalOpen(true)}
               >
-                {cancelPendingMutation.isPending
-                  ? "Canceling…"
-                  : "Cancel scheduled change"}
+                Keep
               </button>
             )}
             {canCancel && (
@@ -149,14 +150,135 @@ export function SubscriptionPage() {
                 type="button"
                 className="btn-secondary btn-danger-outline"
                 disabled={cancelMutation.isPending}
-                onClick={() => cancelMutation.mutate()}
+                onClick={() => setCancelModalOpen(true)}
               >
-                {cancelMutation.isPending ? "Canceling…" : "Cancel subscription"}
+                Cancel
               </button>
             )}
           </div>
         </section>
       </div>
+
+      {cancelModalOpen && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-subscription-title"
+          onClick={() => !cancelMutation.isPending && setCancelModalOpen(false)}
+        >
+          <div
+            className="modal-dialog modal-dialog-sm subscription-confirm-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="cancel-subscription-title">Cancel subscription?</h2>
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="Close"
+                disabled={cancelMutation.isPending}
+                onClick={() => setCancelModalOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="modal-body-text">
+              Your {subscription.plan.name} subscription will end at the close of
+              the current billing period. You will not be charged again.
+            </p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={cancelMutation.isPending}
+                onClick={() => setCancelModalOpen(false)}
+              >
+                Keep subscription
+              </button>
+              <button
+                type="button"
+                className={`btn-danger-outline${cancelMutation.isPending ? " is-loading" : ""}`}
+                disabled={cancelMutation.isPending}
+                aria-busy={cancelMutation.isPending}
+                onClick={() =>
+                  cancelMutation.mutate(undefined, {
+                    onSuccess: () => setCancelModalOpen(false),
+                  })
+                }
+              >
+                Cancel subscription
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cancelScheduledModalOpen && (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-scheduled-title"
+          onClick={() =>
+            !cancelPendingMutation.isPending && setCancelScheduledModalOpen(false)
+          }
+        >
+          <div
+            className="modal-dialog modal-dialog-sm subscription-confirm-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="modal-header">
+              <h2 id="cancel-scheduled-title">Cancel scheduled change?</h2>
+              <button
+                type="button"
+                className="modal-close"
+                aria-label="Close"
+                disabled={cancelPendingMutation.isPending}
+                onClick={() => setCancelScheduledModalOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+            <p className="modal-body-text">
+              {isCancelScheduled ? (
+                <>
+                  Your {subscription.plan.name} subscription will stay active.
+                  Billing will continue as usual.
+                </>
+              ) : (
+                <>
+                  The scheduled change to {subscription.pendingPlan?.name} will be
+                  canceled. You will stay on {subscription.plan.name}.
+                </>
+              )}
+            </p>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn-secondary"
+                disabled={cancelPendingMutation.isPending}
+                onClick={() => setCancelScheduledModalOpen(false)}
+              >
+                Keep schedule
+              </button>
+              <button
+                type="button"
+                className={`btn-danger-outline${cancelPendingMutation.isPending ? " is-loading" : ""}`}
+                disabled={cancelPendingMutation.isPending}
+                aria-busy={cancelPendingMutation.isPending}
+                onClick={() =>
+                  cancelPendingMutation.mutate(undefined, {
+                    onSuccess: () => setCancelScheduledModalOpen(false),
+                  })
+                }
+              >
+                Cancel schedule
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

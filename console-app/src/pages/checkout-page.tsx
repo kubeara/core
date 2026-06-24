@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
+import { useQueryClient } from "@tanstack/react-query";
 import { getErrorMessage } from "@/api/api-error";
+import { QUERY_KEYS } from "@/constants/query-keys";
 import { KubearaLogo } from "@/components/shared/kubeara-logo";
 import { ProfilePageSkeleton } from "@/components/shared/skeleton";
 import { useAuth } from "@/features/auth/context/use-auth";
@@ -12,6 +14,7 @@ import {
 } from "@/features/subscriptions/api";
 import {
   formatPrice,
+  setCurrentSubscriptionCache,
   useCheckoutSetupQuery,
 } from "@/features/subscriptions/hooks";
 import type {
@@ -20,6 +23,7 @@ import type {
   PlanSlug,
 } from "@/features/subscriptions/types";
 import "@/features/subscriptions/checkout-ui.css";
+import "@/features/subscriptions/subscriptions-ui.css";
 
 const VALID_SLUGS: PlanSlug[] = ["starter", "pro", "max"];
 
@@ -97,6 +101,17 @@ function SavedPaymentMethodPreview({
   );
 }
 
+function checkoutBillingDefaults(user: {
+  email: string;
+  name: string;
+}): { email: string; name?: string } {
+  const name = user.name.trim();
+  return {
+    email: user.email,
+    ...(name ? { name } : {}),
+  };
+}
+
 function CheckoutPaymentForm({
   email,
   name,
@@ -109,6 +124,7 @@ function CheckoutPaymentForm({
   const stripe = useStripe();
   const elements = useElements();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -126,7 +142,7 @@ function CheckoutPaymentForm({
       return;
     }
 
-    const returnUrl = `${window.location.origin}/subscription?checkout=success&plan=${planSlug}`;
+    const returnUrl = `${window.location.origin}/plans?checkout=success&plan=${planSlug}`;
 
     const { error: confirmError } = await stripe.confirmPayment({
       elements,
@@ -147,8 +163,12 @@ function CheckoutPaymentForm({
     }
 
     try {
-      await confirmCheckoutPayment({ planSlug });
-      navigate("/subscription", { replace: true });
+      const subscription = await confirmCheckoutPayment({ planSlug });
+      setCurrentSubscriptionCache(queryClient, subscription);
+      await queryClient.refetchQueries({
+        queryKey: QUERY_KEYS.subscriptions.current,
+      });
+      navigate("/plans", { replace: true });
     } catch (err) {
       setError(getErrorMessage(err));
       setIsSubmitting(false);
@@ -157,7 +177,14 @@ function CheckoutPaymentForm({
 
   return (
     <form onSubmit={handleSubmit} className="checkout-form">
-      <PaymentElement options={{ layout: "tabs" }} />
+      <PaymentElement
+        options={{
+          layout: "tabs",
+          defaultValues: {
+            billingDetails: checkoutBillingDefaults({ email, name }),
+          },
+        }}
+      />
       {error && (
         <p className="checkout-error" role="alert">
           {error}
@@ -182,6 +209,7 @@ function CheckoutPaymentForm({
 export function CheckoutPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { planSlug } = useParams<{ planSlug: PlanSlug }>();
   const [paymentSetup, setPaymentSetup] = useState<CheckoutResponse | null>(
     null,
@@ -215,7 +243,13 @@ export function CheckoutPage() {
     setIsConfirmingImmediate(true);
 
     confirmCheckoutPayment({ planSlug })
-      .then(() => navigate("/subscription", { replace: true }))
+      .then(async (subscription) => {
+        setCurrentSubscriptionCache(queryClient, subscription);
+        await queryClient.refetchQueries({
+          queryKey: QUERY_KEYS.subscriptions.current,
+        });
+        navigate("/plans", { replace: true });
+      })
       .catch((err) => {
         setStartPaymentError(getErrorMessage(err));
       })
@@ -236,7 +270,7 @@ export function CheckoutPage() {
   );
 
   const elementsOptions = useMemo<StripeElementsOptions | undefined>(() => {
-    if (!data?.clientSecret) return undefined;
+    if (!data?.clientSecret || !user) return undefined;
     const isDark =
       document.documentElement.getAttribute("data-theme") === "dark";
     return {
@@ -249,8 +283,14 @@ export function CheckoutPage() {
           fontFamily: "Geist Sans, system-ui, sans-serif",
         },
       },
+      defaultValues: {
+        billingDetails: checkoutBillingDefaults({
+          email: user.email,
+          name: user.name,
+        }),
+      },
     };
-  }, [data?.clientSecret]);
+  }, [data?.clientSecret, user]);
 
   async function handleProceed() {
     if (!planSlug) return;
@@ -266,7 +306,7 @@ export function CheckoutPage() {
 
       if (result.immediate) {
         await confirmCheckoutPayment({ planSlug });
-        navigate("/subscription", { replace: true });
+        navigate("/plans", { replace: true });
         return;
       }
 
@@ -341,26 +381,47 @@ export function CheckoutPage() {
         <aside className="checkout-summary">
           <div className="checkout-summary-brand">
             <KubearaLogo />
-            <span>Kubeara</span>
+            {/* <span>Kubeara</span> */}
           </div>
           <h1>
             {data.proratedUpgrade
               ? `Upgrade to ${plan.name}`
               : `Subscribe to ${plan.name}`}
           </h1>
-          <div className="checkout-line-item">
-            <span>{plan.name}</span>
-            <span>
-              {formatPrice(plan.priceMonthly)}
-              <span className="checkout-line-item-interval">/month</span>
-            </span>
+          <div className="checkout-pricing">
+            <div className="checkout-pricing-row">
+              <span>{plan.name}</span>
+              <span>
+                {formatPrice(plan.priceMonthly)}
+                <span className="checkout-line-item-interval">/month</span>
+              </span>
+            </div>
+            {data.proratedUpgrade && (
+              <div className="checkout-pricing-row checkout-pricing-total">
+                <span>Total due today</span>
+                <span>{formatPrice(dueToday)}</span>
+              </div>
+            )}
           </div>
-          <div className="checkout-total">
-            <span>
-              {data.proratedUpgrade ? "Prorated due today" : "Total due today"}
-            </span>
-            <span>{formatPrice(dueToday)}</span>
-          </div>
+          <p className="checkout-features-label">Features</p>
+          <ul className="checkout-features">
+            {plan.featureRows.map((feature) => (
+              <li
+                key={feature.key}
+                className={`plan-feature-row${feature.includes ? " plan-feature-includes" : ""}`}
+              >
+                <span className="plan-feature-check" aria-hidden="true" />
+                <span className="plan-feature-label">{feature.label}</span>
+                {!feature.includes && feature.value && (
+                  <span
+                    className={`plan-feature-value${feature.accent ? " is-accent" : ""}`}
+                  >
+                    {feature.value}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
         </aside>
 
         <section className="checkout-form-panel">

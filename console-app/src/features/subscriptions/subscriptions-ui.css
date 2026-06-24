@@ -3,6 +3,7 @@
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 1rem;
   margin-top: 1.5rem;
+  padding-top: 0.75rem;
 }
 
 .plan-card {
@@ -21,7 +22,6 @@
 
 .plan-card.is-popular {
   border-color: var(--primary);
-  margin-top: 0.75rem;
 }
 
 .plan-card-popular-badge {
@@ -161,14 +161,14 @@
 .plan-card-cta {
   width: 100%;
   padding: 0.6875rem 1rem;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 999px;
   background: var(--primary);
   color: #fff;
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.1s;
 }
 
 .plan-card-cta:hover:not(:disabled) {
@@ -176,8 +176,36 @@
 }
 
 .plan-card-cta:disabled {
-  opacity: 0.55;
+  opacity: 1;
   cursor: not-allowed;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--foreground) 5%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--foreground) 30%, var(--border));
+  box-shadow: none;
+  transform: none;
+}
+
+.plan-card-cta-outline:disabled {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--surface));
+  color: color-mix(in srgb, var(--foreground) 55%, var(--muted));
+  border-color: color-mix(in srgb, var(--foreground) 38%, var(--border));
+}
+
+.plan-card-cta-upgrade:disabled,
+.plan-card-cta-upgrade-outline:disabled {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  color: color-mix(in srgb, var(--primary) 50%, var(--muted));
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+}
+
+.plan-card-cta-downgrade:disabled {
+  background: color-mix(in srgb, var(--foreground) 5%, var(--surface-elevated));
+  color: color-mix(in srgb, var(--foreground) 50%, var(--muted));
+  border-color: color-mix(in srgb, var(--foreground) 38%, var(--border));
+}
+
+.plan-card.is-current .plan-card-cta:disabled {
+  opacity: 0.7;
 }
 
 .plan-card-cta-outline {
@@ -212,15 +240,22 @@
 }
 
 .plan-card-cta-downgrade {
-  background: color-mix(in srgb, var(--foreground) 6%, var(--surface));
-  color: var(--muted);
-  border: 1px solid var(--border);
+  background: var(--surface-elevated);
+  color: var(--foreground);
+  border: 1px solid color-mix(in srgb, var(--foreground) 24%, var(--border));
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
 }
 
 .plan-card-cta-downgrade:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--foreground) 10%, var(--surface));
+  background: color-mix(in srgb, var(--foreground) 7%, var(--surface-elevated));
   color: var(--foreground);
-  border-color: color-mix(in srgb, var(--foreground) 20%, var(--border));
+  border-color: color-mix(in srgb, var(--foreground) 45%, var(--border));
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--foreground) 12%, transparent);
+}
+
+.plan-card-cta-downgrade:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
 }
 
 .subscription-notice {
@@ -233,6 +268,12 @@
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1rem;
   margin-top: 1rem;
+}
+
+.subscription-section-divider {
+  margin: 1.5rem 0;
+  border: none;
+  border-top: 1px solid var(--border);
 }
 
 .subscription-detail-item {
@@ -254,6 +295,23 @@
   font-weight: 500;
 }
 
+.subscription-section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.subscription-section-header h2 {
+  margin: 0 0 0.25rem;
+}
+
+.subscription-section-header .profile-section-desc {
+  margin: 0;
+}
+
 .subscription-actions {
   display: flex;
   flex-wrap: wrap;
@@ -267,6 +325,35 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.subscription-confirm-modal .modal-header {
+  padding: 1.25rem 1.5rem 0.5rem;
+}
+
+.subscription-confirm-modal .modal-body-text {
+  padding: 0.75rem 1.5rem 0;
+  line-height: 1.6;
+}
+
+.subscription-confirm-modal .modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.875rem;
+  padding: 1.25rem 1.5rem 1.5rem;
+  justify-content: stretch;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.subscription-confirm-modal .modal-actions .btn-secondary,
+.subscription-confirm-modal .modal-actions .btn-danger-outline {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.375rem;
+  box-sizing: border-box;
+  white-space: nowrap;
+  padding: 0.5rem 0.75rem;
 }
 
 .btn-secondary {

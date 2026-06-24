@@ -164,7 +164,9 @@ export function normalizePlanFeatures(
 
   if (Array.isArray(raw) && raw.every((item) => typeof item === "string")) {
     const merged: PlanFeatures = {
-      ...(slug ? DEFAULT_PLAN_FEATURES[slug] : DEFAULT_PLAN_FEATURES[PlanSlug.FREE]),
+      ...(slug
+        ? DEFAULT_PLAN_FEATURES[slug]
+        : DEFAULT_PLAN_FEATURES[PlanSlug.FREE]),
     };
 
     for (const line of raw) {
@@ -259,7 +261,11 @@ export function getPlanFeatureRows(
       ];
     case PlanSlug.ENTERPRISE:
       return [
-        row("auditLogs", "Audit logs", formatBoolean(features.auditLogs ?? false)),
+        row(
+          "auditLogs",
+          "Audit logs",
+          formatBoolean(features.auditLogs ?? false),
+        ),
         row("sso", "SSO", formatBoolean(features.sso ?? false)),
         row("ldap", "LDAP", formatBoolean(features.ldap ?? false)),
         row("support", "Support", formatSupport(features.support)),

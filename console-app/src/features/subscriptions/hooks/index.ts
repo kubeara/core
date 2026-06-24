@@ -10,7 +10,7 @@ import {
   fetchCurrentSubscription,
   fetchPlans,
 } from "../api";
-import type { ChangePlanRequest, PlanSlug } from "../types";
+import type { ChangePlanRequest, PlanSlug, Subscription } from "../types";
 
 function withSubscriptionError<TData, TVariables>(
   mutationFn: (variables: TVariables) => Promise<TData>,
@@ -35,8 +35,16 @@ export function useCurrentSubscriptionQuery() {
   return useQuery({
     queryKey: QUERY_KEYS.subscriptions.current,
     queryFn: fetchCurrentSubscription,
-    refetchOnMount: true,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
+}
+
+export function setCurrentSubscriptionCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  subscription: Subscription,
+) {
+  queryClient.setQueryData(QUERY_KEYS.subscriptions.current, subscription);
 }
 
 export function useCheckoutSetupQuery(planSlug: PlanSlug) {

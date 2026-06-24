@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 import { AppLayout } from "../layouts/app-layout";
 import { AuthLayout } from "../layouts/auth-layout";
@@ -18,7 +18,11 @@ import { ServersPage } from "@/pages/servers-page";
 import { TemplatesPage } from "@/pages/templates-page";
 import { PlansPage } from "@/pages/plans-page";
 import { CheckoutPage } from "@/pages/checkout-page";
-import { SubscriptionPage } from "@/pages/subscription-page";
+
+function RedirectSubscriptionToPlans() {
+  const { search } = useLocation();
+  return <Navigate to={`/plans${search}`} replace />;
+}
 
 const SentryRoutes = Sentry.withSentryReactRouterV7Routing(Routes);
 
@@ -61,7 +65,7 @@ export function AppRoutes() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/plans" element={<PlansPage />} />
           <Route path="/checkout/:planSlug" element={<CheckoutPage />} />
-          <Route path="/subscription" element={<SubscriptionPage />} />
+          <Route path="/subscription" element={<RedirectSubscriptionToPlans />} />
 
           <Route
             path="/deploy/:templateSlug"

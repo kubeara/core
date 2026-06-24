@@ -5,9 +5,7 @@ import {
   TableForeignKey,
 } from "typeorm";
 
-export class SubscriptionPendingDowngrade1780300000000
-  implements MigrationInterface
-{
+export class SubscriptionPendingDowngrade1780300000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.addColumns("subscriptions", [
       new TableColumn({

@@ -62,22 +62,49 @@
   gap: 1rem;
   padding: 0.875rem 0;
   border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
   font-size: 0.875rem;
+}
+
+.checkout-pricing {
+  padding: 0.875rem 0;
+  border-top: 1px solid var(--border);
+}
+
+.checkout-pricing-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.875rem;
+}
+
+.checkout-pricing-row + .checkout-pricing-row {
+  margin-top: 0.875rem;
+}
+
+.checkout-pricing-total {
+  font-weight: 600;
 }
 
 .checkout-line-item-interval {
   color: var(--muted);
 }
 
-.checkout-total {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-top: 1rem;
-  font-size: 0.9375rem;
+.checkout-features-label {
+  margin: 0 0 0.5rem;
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.8125rem;
   font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.checkout-features {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 .checkout-form-panel {

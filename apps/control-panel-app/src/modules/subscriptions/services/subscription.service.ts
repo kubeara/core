@@ -18,10 +18,7 @@ import { StripeService } from "./stripe.service";
 import { SubscriptionNotificationService } from "./subscription-notification.service";
 import { EntityStatus } from "@control-panel/common/entity/base.entity";
 import { SUCCESS_MESSAGES } from "@control-panel/constants/success";
-import {
-  McpAccess,
-  PlanFeatures,
-} from "../interfaces/plan-features.interface";
+import { McpAccess, PlanFeatures } from "../interfaces/plan-features.interface";
 import {
   getPlanFeatureRows,
   getPlanServerBadge,
@@ -231,7 +228,10 @@ export class SubscriptionService {
     organizationId: string,
   ): Promise<PlanFeatures> {
     const subscription = await this.getOrCreateSubscription(organizationId);
-    return normalizePlanFeatures(subscription.plan.features, subscription.plan.slug);
+    return normalizePlanFeatures(
+      subscription.plan.features,
+      subscription.plan.slug,
+    );
   }
 
   async assertMcpAccess(

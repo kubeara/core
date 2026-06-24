@@ -37,7 +37,11 @@ export class McpApiKeysController {
     @Req() req: AuthenticatedRequest,
     @Body() body: CreateMcpApiKeyDto,
   ): Promise<ServiceResponse<CreateMcpApiKeyResult>> {
-    return this.mcpApiKeysService.createKey(req.user.id, req.user.organizationId, body);
+    return this.mcpApiKeysService.createKey(
+      req.user.id,
+      req.user.organizationId,
+      body,
+    );
   }
 
   /**

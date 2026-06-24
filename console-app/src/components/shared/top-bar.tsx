@@ -10,7 +10,6 @@ type TopBarProps = {
 const NAV_ITEMS = [
     { href: "/servers", label: "Servers" },
     { href: "/mcp-servers", label: "MCP" },
-    { href: "/plans", label: "Plans" },
 ] as const;
 
 /**
@@ -36,9 +35,7 @@ export function TopBar({ user }: TopBarProps) {
           <nav className="top-bar-nav">
             {NAV_ITEMS.map(({ href, label }) => {
               const isActive =
-                pathname === href ||
-                pathname.startsWith(`${href}/`) ||
-                (href === "/plans" && pathname === "/subscription");
+                pathname === href || pathname.startsWith(`${href}/`);
 
               return (
               <Link
