@@ -1,11 +1,13 @@
 import { APP_CONFIG } from "@shared/common";
 import type { DiscoveredContainerPayload } from "@shared/socket-events";
 
+import { AGENT_INSTALL } from "@control-panel/modules/server-connections/constants/agent-install.constants";
 import { ManagedType } from "../enums/managed-type.enum";
 import type { ServerContainerDto } from "../dto/server-container.dto";
 import type { DeploymentMatchRecord } from "../interfaces/container-discovery.interfaces";
 
-const EXCLUDED_CONTAINER_NAMES = new Set(["kubeara-agent", "traefik"]);
+const EXCLUDED_CONTAINER_NAMES = new Set(["traefik"]);
+const KUBEARA_AGENT_CONTAINER_NAME = AGENT_INSTALL.CONTAINER_NAME.toLowerCase();
 
 export function sanitizeDeploymentProjectName(deploymentId: string): string {
   return deploymentId.replace(APP_CONFIG.REGEX.SANITIZATION, "").toLowerCase();
@@ -22,6 +24,10 @@ function isInfrastructureContainer(containerName: string): boolean {
     return true;
   }
   return lower.startsWith("kubeara-traefik");
+}
+
+function isKubearaAgentContainer(containerName: string): boolean {
+  return containerName.toLowerCase() === KUBEARA_AGENT_CONTAINER_NAME;
 }
 
 /**
@@ -91,6 +97,16 @@ function sortContainers(
     if (byRank !== 0) {
       return byRank;
     }
+
+    const leftIsAgent = isKubearaAgentContainer(left.containerName);
+    const rightIsAgent = isKubearaAgentContainer(right.containerName);
+    if (leftIsAgent && !rightIsAgent) {
+      return -1;
+    }
+    if (!leftIsAgent && rightIsAgent) {
+      return 1;
+    }
+
     return left.containerName.localeCompare(right.containerName);
   });
 }
@@ -117,6 +133,8 @@ export function mergeDiscoveredContainersWithDeployments(
       matchedDeploymentIds.add(deployment.id);
     }
 
+    const isAgent = isKubearaAgentContainer(containerName);
+
     rows.push({
       containerId: container.containerId,
       containerName,
@@ -124,12 +142,14 @@ export function mergeDiscoveredContainersWithDeployments(
       status: container.status,
       ports: container.ports,
       runningSince: container.runningSince,
-      managedType: deployment
-        ? ManagedType.KUBEARA_MANAGED
-        : ManagedType.SELF_MANAGED,
+      managedType:
+        deployment || isAgent
+          ? ManagedType.KUBEARA_MANAGED
+          : ManagedType.SELF_MANAGED,
       deploymentId: deployment?.id ?? null,
       templateId: deployment?.templateSlug ?? null,
-      serviceName: deployment?.serviceName ?? null,
+      serviceName:
+        deployment?.serviceName ?? (isAgent ? "Kubeara Agent" : null),
       serverId,
       isOnline: true,
     });

@@ -16,6 +16,8 @@ import {
   CONTAINER_STATUS_FILTER_OPTIONS,
   getContainerDisplayName,
   getContainerServiceName,
+  isKubearaAgentContainer,
+  isKubearaManagedContainer,
   matchesContainerStatusFilter,
   type ContainerStatusFilter,
 } from "../utils/container-display";
@@ -71,12 +73,24 @@ export function ServerOverviewTab({
     [containers, statusFilter],
   );
 
-  const kubearaManagedContainers = filteredContainers.filter(
-    (container) => container.managedType === "KUBEARA_MANAGED",
-  );
+  const kubearaManagedContainers = filteredContainers
+    .filter((container) => isKubearaManagedContainer(container))
+    .sort((left, right) => {
+      const leftIsAgent = isKubearaAgentContainer(left);
+      const rightIsAgent = isKubearaAgentContainer(right);
+      if (leftIsAgent && !rightIsAgent) {
+        return -1;
+      }
+      if (!leftIsAgent && rightIsAgent) {
+        return 1;
+      }
+      return getContainerDisplayName(left).localeCompare(
+        getContainerDisplayName(right),
+      );
+    });
 
   const selfManagedContainers = filteredContainers.filter(
-    (container) => container.managedType !== "KUBEARA_MANAGED",
+    (container) => !isKubearaManagedContainer(container),
   );
 
   const hasActiveFilter = statusFilter !== "";
@@ -178,6 +192,9 @@ export function ServerOverviewTab({
                 options={CONTAINER_STATUS_FILTER_OPTIONS}
                 onChange={setStatusFilter}
                 ariaLabel="Filter by status"
+                searchable
+                searchPlaceholder="Search statuses…"
+                noResultsLabel="No statuses found"
                 pinnedOptionValue=""
               />
               {hasActiveFilter ? (

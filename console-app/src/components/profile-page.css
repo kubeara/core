@@ -256,9 +256,10 @@
   .profile-section-header--appearance {
     flex-direction: column;
     align-items: flex-start;
+    gap: 0.875rem;
   }
 
   .profile-section-header--appearance .theme-preference-selector--compact {
-    align-self: flex-end;
+    align-self: flex-start;
   }
 }

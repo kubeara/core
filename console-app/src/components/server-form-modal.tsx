@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useCreateServerMutation,
   useUpdateServerMutation,
@@ -164,7 +164,8 @@ function ServerFormContent({
         </button>
       </header>
       <form onSubmit={handleSubmit} className="modal-form" noValidate>
-        <FormErrorsSummary formError={formError} />
+        <div className="modal-form-scroll">
+          <FormErrorsSummary formError={formError} />
         <div className="form-field">
           <FormFieldLabel htmlFor="server-name" required>
             Name
@@ -405,6 +406,8 @@ function ServerFormContent({
           )
         )}
 
+        </div>
+
         <div className="modal-actions">
           <button
             type="button"
@@ -435,6 +438,19 @@ export function ServerFormModal({
   onClose,
   onSaved,
 }: ServerFormModalProps) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
   if (!open) return null;
 
   const formKey = mode === "edit" && server ? server.id : "new";
