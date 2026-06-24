@@ -29,6 +29,17 @@ export async function deployTemplate(
   );
 }
 
+export async function checkDeploymentPorts(
+  input: DeployTemplateInput,
+): Promise<void> {
+  await apiClient.post("/deployments/ports/check", {
+    templateSlug: input.templateSlug,
+    serverId: input.serverId,
+    env: input.env ?? {},
+    ports: input.ports ?? {},
+  });
+}
+
 export async function executeContainerAction(
   serverId: string,
   containerId: string,

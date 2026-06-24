@@ -117,6 +117,32 @@ export class DeploymentsController {
   }
 
   /**
+   * Verifies configured host ports are available on the target agent before deploy.
+   */
+  @Post("ports/check")
+  @HttpCode(200)
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  async checkPortsBeforeDeploy(
+    @Req() req: { user: UserEntity },
+    @Body() body: DeployTemplateDto,
+  ): Promise<{ available: true }> {
+    const { env: requestEnv, ports: requestPorts } =
+      normalizeDeployRequestVariables(body.env ?? {}, body.ports ?? {});
+
+    await this.deploymentsService.checkPortsBeforeDeploy({
+      userId: req.user.id,
+      serverId: body.serverId,
+      deployOnLocal: body.deployOnLocal,
+      templateSlug: body.templateSlug,
+      requestEnv,
+      requestPorts,
+      useTraefikRequest: body.useTraefik,
+    });
+
+    return { available: true };
+  }
+
+  /**
    * Deploy a template
    */
   @Post()

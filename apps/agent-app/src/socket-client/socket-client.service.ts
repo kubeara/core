@@ -12,6 +12,8 @@ import {
   ContainerActionResponsePayload,
   ContainerDiscoverRequestPayload,
   ContainerDiscoverResponsePayload,
+  PortsCheckRequestPayload,
+  PortsCheckResponsePayload,
   ServerGetResourcesRequestPayload,
   ServerGetResourcesResponsePayload,
   TerminalConnectRequestPayload,
@@ -45,6 +47,7 @@ import {
   detectOutboundPublicIp,
   localLoopbackHost,
 } from "./agent-public-ip.util";
+import { PortUnavailableError } from "../port-availability/port-availability.service";
 
 @Injectable()
 export class SocketClientService {
@@ -196,6 +199,7 @@ export class SocketClientService {
     this.socket.off(DeploymentEvents.CONTAINER_ACTION);
     this.socket.off(DeploymentEvents.CONTAINER_DISCOVER);
     this.socket.off(DeploymentEvents.SERVER_GET_RESOURCES);
+    this.socket.off(DeploymentEvents.PORTS_CHECK);
     this.socket.off(DeploymentEvents.TERMINAL_CONNECT);
     this.socket.off(DeploymentEvents.TERMINAL_INPUT);
     this.socket.off(DeploymentEvents.TERMINAL_RESIZE);
@@ -239,6 +243,16 @@ export class SocketClientService {
           `[SERVER_RESOURCES] socket event received payload=${JSON.stringify(payload)}`,
         );
         void this.handleServerGetResources(payload);
+      },
+    );
+
+    this.socket.on(
+      DeploymentEvents.PORTS_CHECK,
+      (payload: PortsCheckRequestPayload) => {
+        this.logger.log(
+          `[PORTS_CHECK] socket event received requestId=${payload?.requestId ?? "unknown"} template=${payload?.templateSlug ?? "unknown"}`,
+        );
+        void this.handlePortsCheck(payload);
       },
     );
 
@@ -314,6 +328,7 @@ export class SocketClientService {
         DeploymentEvents.CONTAINER_DISCOVER,
         DeploymentEvents.CONTAINER_ACTION,
         DeploymentEvents.SERVER_GET_RESOURCES,
+        DeploymentEvents.PORTS_CHECK,
         DeploymentEvents.TERMINAL_CONNECT,
         DeploymentEvents.CONTAINER_LOGS_START,
         DeploymentEvents.AGENT_REMOVE,
@@ -469,6 +484,90 @@ export class SocketClientService {
     this.socket.emit(DeploymentEvents.SERVER_GET_RESOURCES_RESULT, response);
     this.logger.log(
       `Server get-resources result sent requestId=${requestId}${response.error ? ` error=${response.error}` : ""}`,
+    );
+  }
+
+  /**
+   * Handles pre-deploy host port availability checks from the control panel.
+   */
+  private async handlePortsCheck(
+    payload: PortsCheckRequestPayload,
+  ): Promise<void> {
+    const requestId = payload?.requestId?.trim() ?? "";
+    const templateSlug = payload?.templateSlug?.trim() ?? "";
+
+    let response: PortsCheckResponsePayload = {
+      requestId,
+      available: false,
+      error: "Missing requestId",
+    };
+
+    try {
+      if (!requestId || !templateSlug || !payload.compose) {
+        response = {
+          requestId,
+          available: false,
+          error: "Missing requestId, templateSlug, or compose payload",
+        };
+      } else {
+        const decryptedEncodedCompose = this.encryptionService.decrypt(
+          payload.compose,
+        );
+        const composeObj = this.templatePayloadService.decodeBase64ToObject(
+          decryptedEncodedCompose,
+        );
+        const composeYaml = yaml.dump(composeObj, {
+          lineWidth: -1,
+          noRefs: true,
+        });
+
+        const envValues: EnvFileInput = payload.env
+          ? (this.decryptAndParse(payload.env) as EnvFileInput)
+          : {};
+        const portValues: PortFileInput = payload.ports
+          ? (this.decryptAndParse(payload.ports) as PortFileInput)
+          : {};
+
+        if (!payload.composeOnly && !payload.schema) {
+          throw new Error(
+            `Missing deployment schema for template ${templateSlug}`,
+          );
+        }
+
+        await this.executor.checkPortsBeforeDeploy({
+          name: templateSlug,
+          compose: composeYaml,
+          env: { env: envValues, ports: portValues },
+          schema: payload.schema,
+          composeOnly: payload.composeOnly,
+          useTraefik: payload.useTraefik,
+        });
+
+        response = { requestId, available: true };
+      }
+    } catch (error) {
+      const message =
+        error instanceof PortUnavailableError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : String(error);
+      this.logger.warn(`Ports check failed requestId=${requestId}: ${message}`);
+      response = {
+        requestId,
+        available: false,
+        error: message,
+      };
+    }
+
+    if (!this.socket?.connected) {
+      this.logger.warn("Cannot send ports check result: socket disconnected");
+      return;
+    }
+
+    this.socket.emit(DeploymentEvents.PORTS_CHECK_RESULT, response);
+    this.logger.log(
+      `Ports check result sent requestId=${requestId} available=${response.available}`,
     );
   }
 

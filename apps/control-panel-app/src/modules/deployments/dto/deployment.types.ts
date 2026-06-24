@@ -9,6 +9,8 @@ export interface PrepareDeploymentInput {
   requestPorts?: Record<string, unknown>;
   /** When set, load stored variables and merge request overrides (redeploy). */
   existingDeploymentId?: string;
+  /** When false, resolve variables without creating a deployment record. */
+  persist?: boolean;
   /** Agent/server context for SERVICE_URL_* / SERVICE_FQDN_* generation (deploymentId added internally). */
   serverUrlContext?: Omit<ServerUrlContext, "deploymentId">;
 }

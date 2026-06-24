@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { spawn, type ChildProcess } from "child_process";
+import { randomUUID } from "node:crypto";
 import * as fs from "fs/promises";
-import * as net from "net";
 import * as path from "path";
 import { FilesystemService } from "../filesystem/filesystem.service";
 import {
@@ -17,6 +17,8 @@ import {
   APP_CONFIG,
   discoverTraefikRoutes,
   applyTraefikRoutingToCompose,
+  extractOccupiedPortFromError,
+  formatDeploymentPortInUseMessage,
 } from "@shared/common";
 import {
   EnvFileInput,
@@ -24,6 +26,10 @@ import {
   PortFileInput,
 } from "./env-file.util";
 import { TraefikProxyService } from "../proxy/traefik-proxy.service";
+import {
+  PortAvailabilityService,
+  PortUnavailableError,
+} from "../port-availability/port-availability.service";
 import * as yaml from "js-yaml";
 
 export interface ExecutionNotifier {
@@ -60,6 +66,7 @@ export class DeployTemplateExecutor {
     private readonly templateConfigService: TemplateConfigService,
     private readonly composeParserService: ComposeParserService,
     private readonly traefikProxy: TraefikProxyService,
+    private readonly portAvailabilityService: PortAvailabilityService,
   ) {}
 
   async execute(opts: {
@@ -130,6 +137,129 @@ export class DeployTemplateExecutor {
     } finally {
       this.activeDeployments.delete(deploymentId);
       this.clearDeploymentStreamLineBuffers(deploymentId);
+    }
+  }
+
+  /**
+   * Validates host port availability using the same resolution path as deployment,
+   * without starting containers or creating a deployment record.
+   */
+  async checkPortsBeforeDeploy(opts: {
+    name: string;
+    compose: string;
+    env?:
+      | {
+          env?: EnvFileInput;
+          ports?: PortFileInput;
+        }
+      | EnvFileInput;
+    schema?: TemplateSchema;
+    composeOnly?: boolean;
+    useTraefik?: boolean;
+  }): Promise<void> {
+    const deploymentId = `port-check-${randomUUID()}`;
+    const projectName = this.fsService.sanitizeName(deploymentId);
+    const noopNotifier: ExecutionNotifier = {
+      sendStatus: () => undefined,
+      sendLog: () => undefined,
+    };
+    const useTraefik = Boolean(
+      opts.useTraefik ?? this.traefikProxy.isEnabled(),
+    );
+
+    try {
+      const dir = await this.fsService.ensureDeploymentDir(deploymentId);
+      const { envValues: rawEnv, portValues: rawPorts } =
+        this.normalizeEnvPayload(opts.env);
+
+      const resolved = this.resolveEnv(
+        opts.compose,
+        opts.schema,
+        { envValues: rawEnv, portValues: rawPorts },
+        noopNotifier,
+        opts.name,
+        deploymentId,
+        opts.composeOnly,
+      );
+
+      if (useTraefik && this.traefikProxy.isHttpsEnabled()) {
+        resolved.envValues.N8N_PROTOCOL = "https";
+        resolved.envValues.N8N_SECURE_COOKIE = "true";
+      }
+
+      const composeYaml = this.normalizeComposeForDeployment(opts.compose);
+
+      const traefikRoutes = useTraefik
+        ? discoverTraefikRoutes(
+            opts.compose,
+            this.stringifyEnvValues(resolved.envValues),
+            deploymentId,
+          )
+        : [];
+      const applyTraefikRouting = useTraefik && traefikRoutes.length > 0;
+
+      if (applyTraefikRouting) {
+        this.logger.log(
+          `Port availability check skipped for ${opts.name}: Traefik routing enabled`,
+        );
+        return;
+      }
+
+      if (Object.keys(resolved.portValues).length > 0) {
+        await this.portAvailabilityService.assertPortsAvailable(
+          resolved.portValues,
+        );
+      }
+
+      await this.fsService.writeFile(dir, "docker-compose.yml", composeYaml);
+
+      const generatedEnv = generateEnvFileDetails(
+        resolved.envValues,
+        resolved.portValues,
+      );
+      await this.fsService.writeFile(
+        dir,
+        ".env",
+        `${generatedEnv.content || ""}\n`,
+      );
+
+      const validation = await this.execCapture(
+        "docker",
+        [
+          "compose",
+          "--env-file",
+          ".env",
+          "-f",
+          "docker-compose.yml",
+          "-p",
+          projectName,
+          "config",
+        ],
+        dir,
+      );
+
+      if (validation.exitCode !== 0) {
+        const errorText =
+          validation.stderr ||
+          validation.stdout ||
+          `Exit code ${validation.exitCode}`;
+        throw new Error(errorText);
+      }
+
+      const hostPorts = this.extractHostPortsFromComposeConfig(
+        validation.stdout,
+      );
+      if (hostPorts.length > 0) {
+        await this.portAvailabilityService.assertHostPortsAvailable(hostPorts);
+      }
+    } finally {
+      await this.fsService.removeDeploymentDir(deploymentId).catch((error) => {
+        this.logger.warn(
+          `Failed to remove temporary port-check directory for ${deploymentId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      });
     }
   }
 
@@ -237,6 +367,23 @@ export class DeployTemplateExecutor {
           timestamp: new Date().toISOString(),
           source: "deployment",
         });
+      } else if (Object.keys(resolved.portValues).length > 0) {
+        try {
+          await this.portAvailabilityService.assertPortsAvailable(
+            resolved.portValues,
+          );
+        } catch (err) {
+          if (err instanceof PortUnavailableError) {
+            this.handlePortUnavailableFailure(
+              deploymentId,
+              name,
+              notifier,
+              err,
+            );
+            return;
+          }
+          throw err;
+        }
       }
 
       await this.fsService.writeFile(dir, "docker-compose.yml", composeYaml);
@@ -266,10 +413,6 @@ export class DeployTemplateExecutor {
         timestamp: new Date().toISOString(),
         source: "deployment",
       });
-
-      if (!applyTraefikRouting && Object.keys(generatedEnv.ports).length > 0) {
-        await this.assertPortsAvailable(generatedEnv.ports);
-      }
 
       notifier.sendStatus({
         deploymentId,
@@ -307,7 +450,30 @@ export class DeployTemplateExecutor {
         return;
       }
 
+      // Check if any host ports are in use by other deployments
       if (!applyTraefikRouting) {
+        const hostPorts = this.extractHostPortsFromComposeConfig(
+          validation.stdout,
+        );
+        if (hostPorts.length > 0) {
+          try {
+            await this.portAvailabilityService.assertHostPortsAvailable(
+              hostPorts,
+            );
+          } catch (err) {
+            if (err instanceof PortUnavailableError) {
+              this.handlePortUnavailableFailure(
+                deploymentId,
+                name,
+                notifier,
+                err,
+              );
+              return;
+            }
+            throw err;
+          }
+        }
+
         this.validateResolvedConfig(validation.stdout, generatedEnv.ports);
       }
 
@@ -354,6 +520,11 @@ export class DeployTemplateExecutor {
         completedAt: new Date().toISOString(),
       });
     } catch (err) {
+      if (err instanceof PortUnavailableError) {
+        this.handlePortUnavailableFailure(deploymentId, name, notifier, err);
+        return;
+      }
+
       const msg = err instanceof Error ? err.message : String(err);
       await this.handleDeploymentFailure(
         deploymentId,
@@ -457,6 +628,35 @@ export class DeployTemplateExecutor {
     }
   }
 
+  /**
+   * Handles a port unavailable failure.
+   */
+  private handlePortUnavailableFailure(
+    deploymentId: string,
+    name: string,
+    notifier: ExecutionNotifier,
+    err: PortUnavailableError,
+  ): void {
+    const message = err.message;
+    this.logger.error(message);
+    notifier.sendLog({
+      deployment: name,
+      deploymentId,
+      type: "stderr",
+      message,
+      timestamp: new Date().toISOString(),
+      source: "deployment",
+    });
+    notifier.sendStatus({
+      deploymentId,
+      templateSlug: name,
+      status: "failed",
+      message,
+      error: message,
+      completedAt: new Date().toISOString(),
+    });
+  }
+
   private async handleDeploymentFailure(
     deploymentId: string,
     name: string,
@@ -467,7 +667,8 @@ export class DeployTemplateExecutor {
     notifier: ExecutionNotifier,
   ): Promise<void> {
     this.stopContainerLogStreaming(deploymentId);
-    this.logger.error(`${message}: ${error}`);
+    const resolved = this.resolvePortConflictFailure(message, error);
+    this.logger.error(`${resolved.message}: ${resolved.error}`);
     if (dir && projectName) {
       await this.cleanupDeployment(projectName, dir, name, notifier);
     }
@@ -476,19 +677,43 @@ export class DeployTemplateExecutor {
       deploymentId,
       templateSlug: name,
       status: "failed",
-      message,
-      error,
+      message: resolved.message,
+      error: resolved.error,
       completedAt: new Date().toISOString(),
     });
   }
 
-  private validateResolvedConfig(
-    resolvedConfig: string,
-    expectedPorts: Record<string, number>,
-  ): void {
+  /**
+   * Resolves a port conflict failure by extracting the occupied port and formatting the message.
+   */
+  private resolvePortConflictFailure(
+    message: string,
+    error: string,
+  ): { message: string; error: string } {
+    if (!this.isPortAllocationError(`${message}\n${error}`)) {
+      return { message, error };
+    }
+
+    const port = extractOccupiedPortFromError(`${message}\n${error}`);
+    const portMessage = formatDeploymentPortInUseMessage(port);
+    return { message: portMessage, error: portMessage };
+  }
+
+  private isPortAllocationError(text: string): boolean {
+    const normalized = text.toLowerCase();
+
+    return (
+      normalized.includes("port is already allocated") ||
+      normalized.includes("port is already in use") ||
+      normalized.includes("already running on this port") ||
+      normalized.includes("address already in use") ||
+      (normalized.includes("bind for") && normalized.includes("failed"))
+    );
+  }
+
+  private extractHostPortsFromComposeConfig(resolvedConfig: string): number[] {
     try {
       const parsed = yaml.load(resolvedConfig) as ComposeFile | undefined;
-
       const hostPortsFound = new Set<number>();
 
       if (parsed?.services) {
@@ -528,6 +753,24 @@ export class DeployTemplateExecutor {
           }
         }
       }
+
+      return [...hostPortsFound];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Validates a resolved config by checking if the expected ports are exposed.
+   */
+  private validateResolvedConfig(
+    resolvedConfig: string,
+    expectedPorts: Record<string, number>,
+  ): void {
+    try {
+      const hostPortsFound = new Set(
+        this.extractHostPortsFromComposeConfig(resolvedConfig),
+      );
 
       for (const expectedPort of Object.values(expectedPorts)) {
         if (!hostPortsFound.has(expectedPort)) {
@@ -699,26 +942,6 @@ export class DeployTemplateExecutor {
     }
 
     return { envValues: mergedEnv, portValues: mergedPorts };
-  }
-
-  private async assertPortsAvailable(
-    ports: Record<string, number>,
-  ): Promise<void> {
-    for (const port of Object.values(ports)) {
-      const available = await this.isPortAvailable(port);
-      if (!available) {
-        throw new Error(ERROR_MESSAGES.PORT_OCCUPIED(port));
-      }
-    }
-  }
-
-  private isPortAvailable(port: number): Promise<boolean> {
-    return new Promise((resolve) => {
-      const server = net.createServer();
-      server.once("error", () => resolve(false));
-      server.once("listening", () => server.close(() => resolve(true)));
-      server.listen(port, "0.0.0.0");
-    });
   }
 
   private async cleanupDeployment(
@@ -1588,8 +1811,13 @@ export class DeployTemplateExecutor {
 
       let settled = false;
       const debugLabel = "compose-up";
+      let composeStderr = "";
 
       const handleChunk = (chunk: Buffer, streamType: "stdout" | "stderr") => {
+        if (streamType === "stderr") {
+          composeStderr += chunk.toString("utf8");
+        }
+
         this.emitRawChunk(
           chunk,
           streamType,
@@ -1676,7 +1904,9 @@ export class DeployTemplateExecutor {
           notifier,
         );
 
-        const error = new Error(`docker compose exited with code ${code}`);
+        const error = new Error(
+          composeStderr.trim() || `docker compose exited with code ${code}`,
+        );
         notifier.sendLog({
           deployment: templateSlug,
           deploymentId,
