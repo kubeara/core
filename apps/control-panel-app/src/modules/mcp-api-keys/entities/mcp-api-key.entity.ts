@@ -37,4 +37,9 @@ export class McpApiKeyEntity extends BaseEntity {
   @IsOptional()
   @Column({ type: "bigint", nullable: true })
   lastUsedAt!: number | null;
+
+  @IsNumber()
+  @IsOptional()
+  @Column({ type: "bigint", nullable: true })
+  revokedAt!: number | null;
 }

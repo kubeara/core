@@ -26,6 +26,8 @@ type UseDeploymentLogStreamResult = {
   lineCount: number;
   status: StreamStatus;
   deploymentStatus: DeploymentStatus | null;
+  deploymentStatusMessage: string | null;
+  deploymentError: string | null;
   hasReceivedStatus: boolean;
   isSocketConnected: boolean;
 };
@@ -67,6 +69,10 @@ export function useDeploymentLogStream(
   const [logs, setLogs] = useState<DeploymentLogLine[]>([]);
   const [deploymentStatus, setDeploymentStatus] =
     useState<DeploymentStatus | null>(null);
+  const [deploymentStatusMessage, setDeploymentStatusMessage] = useState<
+    string | null
+  >(null);
+  const [deploymentError, setDeploymentError] = useState<string | null>(null);
   const [hasReceivedStatus, setHasReceivedStatus] = useState(false);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [hasReceivedLog, setHasReceivedLog] = useState(false);
@@ -121,6 +127,8 @@ export function useDeploymentLogStream(
 
       setHasReceivedStatus(true);
       setDeploymentStatus(payload.status);
+      setDeploymentStatusMessage(payload.message?.trim() || null);
+      setDeploymentError(payload.error?.trim() || null);
     }
 
     setIsSocketConnected(socket.connected);
@@ -174,6 +182,8 @@ export function useDeploymentLogStream(
       setHasReceivedLog(false);
       setHasReceivedStatus(false);
       setDeploymentStatus(null);
+      setDeploymentStatusMessage(null);
+      setDeploymentError(null);
       setStreamError(false);
     }
   }, [deploymentId]);
@@ -198,6 +208,8 @@ export function useDeploymentLogStream(
     lineCount: logs.length,
     status,
     deploymentStatus,
+    deploymentStatusMessage,
+    deploymentError,
     hasReceivedStatus,
     isSocketConnected,
   };

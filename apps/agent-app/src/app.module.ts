@@ -7,6 +7,7 @@ import { HealthController } from "./health/health.controller";
 import { FilesystemService } from "./filesystem/filesystem.service";
 import { DeployTemplateExecutor } from "./executors/deploy-template.executor";
 import { TraefikProxyService } from "./proxy/traefik-proxy.service";
+import { PortAvailabilityService } from "./port-availability/port-availability.service";
 import { TerminalService } from "./terminal/terminal.service";
 import {
   ComposeParserModule,
@@ -33,6 +34,7 @@ import {
     FilesystemService,
     DeployTemplateExecutor,
     TraefikProxyService,
+    PortAvailabilityService,
     TerminalService,
   ],
 })

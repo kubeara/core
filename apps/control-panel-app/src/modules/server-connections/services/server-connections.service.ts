@@ -328,6 +328,31 @@ export class ServerConnectionsService {
   }
 
   /**
+   * Returns true when the Kubeara agent container exists on the server host.
+   */
+  async isAgentInstalledOnServer(serverId: string): Promise<boolean> {
+    if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+      return true;
+    }
+
+    try {
+      const containers = await this.discoverContainersOnHost(serverId);
+      return containers.some(
+        (container) =>
+          container.containerName.toLowerCase() ===
+          AGENT_INSTALL.CONTAINER_NAME.toLowerCase(),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Could not determine whether agent is installed on server '${serverId}': ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return false;
+    }
+  }
+
+  /**
    * Executes a container lifecycle action directly on the server host via local shell or SSH.
    * Used only when the connected agent is unavailable or socket communication fails.
    */

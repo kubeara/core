@@ -1,5 +1,6 @@
 export const SERVER_ID_HEADER = "x-kubeara-server-id";
 export const CONTAINER_DISCOVER_TIMEOUT_MS = 15_000;
+export const PORTS_CHECK_TIMEOUT_MS = 30_000;
 export const SERVER_GET_RESOURCES_TIMEOUT_MS = 15_000;
 export const CONTAINER_ACTION_TIMEOUT_MS = 60_000;
 export const DEPLOYMENT_REMOVE_TIMEOUT_MS = 120_000;

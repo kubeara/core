@@ -26,6 +26,8 @@ import {
   ContainerDiscoverRequestPayload,
   ContainerDiscoverResponsePayload,
   DiscoveredContainerPayload,
+  PortsCheckRequestPayload,
+  PortsCheckResponsePayload,
   ServerGetResourcesRequestPayload,
   ServerGetResourcesResponsePayload,
   AgentRemoveRequestPayload,
@@ -58,6 +60,7 @@ import type {
   PendingContainerLogsStart,
   PendingDeploymentRemove,
   PendingAgentRemove,
+  PendingPortsCheck,
   PendingServerResources,
   PendingTerminalConnect,
   TerminalSessionRecord,
@@ -67,6 +70,7 @@ import {
   SERVER_ID_HEADER,
   CONTAINER_ACTION_TIMEOUT_MS,
   CONTAINER_DISCOVER_TIMEOUT_MS,
+  PORTS_CHECK_TIMEOUT_MS,
   CONTAINER_LOGS_START_TIMEOUT_MS,
   DEPLOYMENT_REMOVE_TIMEOUT_MS,
   AGENT_REMOVE_TIMEOUT_MS,
@@ -123,6 +127,7 @@ export class DeploymentGateway
     string,
     PendingServerResources
   >();
+  private readonly pendingPortsChecks = new Map<string, PendingPortsCheck>();
   private readonly pendingContainerActions = new Map<
     string,
     PendingContainerAction
@@ -258,6 +263,10 @@ export class DeploymentGateway
             serverId,
             "Agent disconnected during server resource collection",
           );
+          this.rejectPendingPortsChecksForServer(
+            serverId,
+            "Agent disconnected during port availability check",
+          );
           this.rejectPendingContainerActionsForServer(
             serverId,
             "Agent disconnected during container action",
@@ -371,6 +380,44 @@ export class DeploymentGateway
     } catch (error) {
       this.logger.error(
         `Failed to process server get-resources result: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  @SubscribeMessage(DeploymentEvents.PORTS_CHECK_RESULT)
+  handlePortsCheckResult(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: PortsCheckResponsePayload,
+  ): void {
+    try {
+      const requestId = payload?.requestId?.trim();
+      if (!requestId) {
+        this.logger.warn(
+          `Ignoring ports check result without requestId from ${client.id}`,
+        );
+        return;
+      }
+
+      const pending = this.pendingPortsChecks.get(requestId);
+      if (!pending) {
+        this.logger.warn(`No pending ports check for requestId=${requestId}`);
+        return;
+      }
+
+      const serverId = this.serverIdBySocketId.get(client.id);
+      if (serverId && serverId !== pending.serverId) {
+        this.logger.warn(
+          `Ports check result server mismatch requestId=${requestId} expected=${pending.serverId} got=${serverId}`,
+        );
+        return;
+      }
+
+      clearTimeout(pending.timer);
+      this.pendingPortsChecks.delete(requestId);
+      pending.resolve(payload);
+    } catch (error) {
+      this.logger.error(
+        `Failed to process ports check result: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -1162,6 +1209,55 @@ export class DeploymentGateway
         );
 
         client.emit(DeploymentEvents.SERVER_GET_RESOURCES, payload);
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  }
+
+  /**
+   * Requests a pre-deploy host port availability check from the connected agent.
+   */
+  requestPortsCheck(
+    serverId: string,
+    payload: PortsCheckRequestPayload,
+    timeoutMs: number = PORTS_CHECK_TIMEOUT_MS,
+  ): Promise<PortsCheckResponsePayload> {
+    return new Promise((resolve, reject) => {
+      try {
+        const client = this.agentsByServerId.get(serverId);
+        if (!client?.connected) {
+          reject(new Error(`No connected agent for server '${serverId}'`));
+          return;
+        }
+
+        const requestId = payload.requestId?.trim();
+        if (!requestId) {
+          reject(new Error("Missing requestId for ports check"));
+          return;
+        }
+
+        const timer = setTimeout(() => {
+          this.pendingPortsChecks.delete(requestId);
+          reject(
+            new Error(
+              `Port availability check timed out after ${timeoutMs / 1000}s for server '${serverId}'`,
+            ),
+          );
+        }, timeoutMs);
+
+        this.pendingPortsChecks.set(requestId, {
+          serverId,
+          resolve,
+          reject,
+          timer,
+        });
+
+        this.logger.log(
+          `[PORTS_CHECK] emitting event=${DeploymentEvents.PORTS_CHECK} to agentSocket=${client.id} serverId=${serverId} requestId=${requestId} template=${payload.templateSlug}`,
+        );
+
+        client.emit(DeploymentEvents.PORTS_CHECK, payload);
       } catch (error) {
         reject(error instanceof Error ? error : new Error(String(error)));
       }
@@ -1997,6 +2093,23 @@ export class DeploymentGateway
       }
       clearTimeout(pending.timer);
       this.pendingContainerDiscovery.delete(requestId);
+      pending.reject(new Error(reason));
+    }
+  }
+
+  /**
+   * Rejects pending ports checks for a server.
+   */
+  private rejectPendingPortsChecksForServer(
+    serverId: string,
+    reason: string,
+  ): void {
+    for (const [requestId, pending] of this.pendingPortsChecks) {
+      if (pending.serverId !== serverId) {
+        continue;
+      }
+      clearTimeout(pending.timer);
+      this.pendingPortsChecks.delete(requestId);
       pending.reject(new Error(reason));
     }
   }

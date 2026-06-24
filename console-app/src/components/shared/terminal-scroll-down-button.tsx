@@ -70,7 +70,11 @@ export function TerminalScrollDownButton({
       >
         <IconChevronDown />
       </button>
-      <span id={tooltipId} className="terminal-scroll-down-tooltip" role="tooltip">
+      <span
+        id={tooltipId}
+        className="terminal-scroll-down-tooltip"
+        role="tooltip"
+      >
         {tooltip}
       </span>
     </div>

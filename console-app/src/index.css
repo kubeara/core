@@ -830,16 +830,6 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 0.875rem;
-  scrollbar-gutter: stable;
-}
-
-.modal-dialog-server .modal-form-scroll::-webkit-scrollbar {
-  width: 8px;
-}
-
-.modal-dialog-server .modal-form-scroll::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--foreground) 18%, transparent);
-  border-radius: 999px;
 }
 
 .modal-dialog-server .modal-actions {
@@ -848,6 +838,37 @@ a:hover {
   padding: 0.875rem 1.25rem 1.25rem;
   border-top: 1px solid var(--border);
   background: var(--surface);
+}
+
+@media (min-width: 641px) {
+  .modal-dialog-server {
+    height: auto;
+    max-height: none;
+  }
+
+  .modal-dialog-server .modal-header {
+    padding: 1.25rem 2rem 0;
+  }
+
+  .modal-dialog-server .modal-form {
+    flex: 0 1 auto;
+    overflow: visible;
+  }
+
+  .modal-dialog-server .modal-form-scroll {
+    flex: 0 1 auto;
+    min-height: auto;
+    overflow: visible;
+    padding: 1rem 2rem;
+  }
+
+  .modal-dialog-server .modal-actions .btn-primary,
+  .modal-dialog-server .modal-actions .btn-secondary {
+    min-width: 0;
+    min-height: 0;
+    padding: 0.5rem 0.875rem;
+    font-size: 0.875rem;
+  }
 }
 
 .modal-advanced-section {
@@ -967,6 +988,19 @@ a:hover {
   padding: 0;
 }
 
+.modal-dialog-server .modal-form .modal-actions {
+  padding: 0.875rem 1.25rem 1.25rem;
+}
+
+@media (min-width: 641px) {
+  .modal-dialog-server .modal-form .modal-actions {
+    gap: 0.75rem;
+    padding: 1.5rem 2rem 1.75rem;
+    min-height: 4.5rem;
+    align-items: center;
+  }
+}
+
 .modal-form .form-field select {
   padding: 0.625rem 0.75rem;
   border: 1px solid var(--border);
@@ -1015,6 +1049,16 @@ a:hover {
 
   .modal-dialog-server .modal-form-scroll {
     padding: 0.875rem 1rem;
+    scrollbar-gutter: stable;
+  }
+
+  .modal-dialog-server .modal-form-scroll::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .modal-dialog-server .modal-form-scroll::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--foreground) 18%, transparent);
+    border-radius: 999px;
   }
 
   .modal-dialog-server .modal-actions {

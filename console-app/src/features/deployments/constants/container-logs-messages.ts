@@ -5,7 +5,7 @@ export const CONTAINER_LOGS_STOP_CONFIRM_TITLE = "Stop log stream?";
 export const CONTAINER_LOGS_STOP_CONFIRM_MESSAGE =
   "Live log streaming will end. You can restart it at any time.";
 
-export const CONTAINER_LOGS_STOP_CONFIRM_BUTTON = "Stop stream";
+export const CONTAINER_LOGS_STOP_CONFIRM_BUTTON = "Stop";
 
 export const CONTAINER_LOGS_LOADING_MESSAGE = "Connecting to container logs…";
 

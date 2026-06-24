@@ -1,7 +1,45 @@
+/**
+ * Formats a deployment port in use message.
+ */
+export function formatDeploymentPortInUseMessage(port?: number | null): string {
+  if (
+    typeof port === "number" &&
+    Number.isInteger(port) &&
+    port > 0 &&
+    port <= 65535
+  ) {
+    return `Port ${port} is already in use. Please use another port.`;
+  }
+
+  return "Port is already in use. Please use another port.";
+}
+
+export function extractOccupiedPortFromError(text: string): number | null {
+  const bindMatch = text.match(/bind for(?:\s+[\d.]+)?:\s*(\d{1,5})\b/i);
+  if (bindMatch) {
+    const port = Number(bindMatch[1]);
+    if (port > 0 && port <= 65535) {
+      return port;
+    }
+  }
+
+  const portMatch = text.match(/\bport\s+(\d{1,5})\s+is already\b/i);
+  if (portMatch) {
+    const port = Number(portMatch[1]);
+    if (port > 0 && port <= 65535) {
+      return port;
+    }
+  }
+
+  return null;
+}
+
 export const ERROR_MESSAGES = {
   INVALID_COMPOSE_NAME: "Invalid docker compose project name",
   ENV_GENERATION_FAILED: ".env file was not generated",
   PORT_OCCUPIED: (port: number) => `Port ${port} is already occupied`,
+  DEPLOYMENT_PORT_IN_USE: (port: number) =>
+    formatDeploymentPortInUseMessage(port),
   COMPOSE_VALIDATION_FAILED: "Docker compose validation failed",
   DEPLOYMENT_FAILED: "Deployment failed",
   CLEANUP_FAILED: "Deployment cleanup failed",
