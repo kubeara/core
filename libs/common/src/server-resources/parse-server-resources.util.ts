@@ -189,7 +189,8 @@ export function computeAvailableCpuCores(input: {
   cores: number;
   usagePercent: number;
 }): number {
-  const cores = Number.isFinite(input.cores) && input.cores > 0 ? input.cores : 0;
+  const cores =
+    Number.isFinite(input.cores) && input.cores > 0 ? input.cores : 0;
   const usagePercent = Number.isFinite(input.usagePercent)
     ? Math.min(Math.max(input.usagePercent, 0), 100)
     : 0;
