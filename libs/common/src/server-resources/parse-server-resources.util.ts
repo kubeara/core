@@ -185,9 +185,18 @@ export function parseNetDev(content: string): ServerNetworkMetrics {
   return { rxBytes, txBytes };
 }
 
-/**
- * Builds a full resource snapshot from raw Linux command/file output.
- */
+export function computeAvailableCpuCores(input: {
+  cores: number;
+  usagePercent: number;
+}): number {
+  const cores = Number.isFinite(input.cores) && input.cores > 0 ? input.cores : 0;
+  const usagePercent = Number.isFinite(input.usagePercent)
+    ? Math.min(Math.max(input.usagePercent, 0), 100)
+    : 0;
+
+  return Math.round(cores * (1 - usagePercent / 100) * 1000) / 1000;
+}
+
 export function buildServerResourcesMetrics(input: {
   cpuStatFirstLine: string;
   cpuStatSecondLine: string;

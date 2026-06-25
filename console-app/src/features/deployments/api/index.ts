@@ -29,10 +29,10 @@ export async function deployTemplate(
   );
 }
 
-export async function checkDeploymentPorts(
+export async function validateDeploymentResources(
   input: DeployTemplateInput,
 ): Promise<void> {
-  await apiClient.post("/deployments/ports/check", {
+  await apiClient.post("/deployments/resources/check", {
     templateSlug: input.templateSlug,
     serverId: input.serverId,
     env: input.env ?? {},

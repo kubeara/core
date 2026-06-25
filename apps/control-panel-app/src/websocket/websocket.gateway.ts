@@ -26,8 +26,8 @@ import {
   ContainerDiscoverRequestPayload,
   ContainerDiscoverResponsePayload,
   DiscoveredContainerPayload,
-  PortsCheckRequestPayload,
-  PortsCheckResponsePayload,
+  DeploymentValidateRequestPayload,
+  DeploymentValidateResponsePayload,
   ServerGetResourcesRequestPayload,
   ServerGetResourcesResponsePayload,
   AgentRemoveRequestPayload,
@@ -60,7 +60,7 @@ import type {
   PendingContainerLogsStart,
   PendingDeploymentRemove,
   PendingAgentRemove,
-  PendingPortsCheck,
+  PendingDeploymentValidate,
   PendingServerResources,
   PendingTerminalConnect,
   TerminalSessionRecord,
@@ -70,7 +70,7 @@ import {
   SERVER_ID_HEADER,
   CONTAINER_ACTION_TIMEOUT_MS,
   CONTAINER_DISCOVER_TIMEOUT_MS,
-  PORTS_CHECK_TIMEOUT_MS,
+  DEPLOYMENT_VALIDATE_TIMEOUT_MS,
   CONTAINER_LOGS_START_TIMEOUT_MS,
   DEPLOYMENT_REMOVE_TIMEOUT_MS,
   AGENT_REMOVE_TIMEOUT_MS,
@@ -127,7 +127,10 @@ export class DeploymentGateway
     string,
     PendingServerResources
   >();
-  private readonly pendingPortsChecks = new Map<string, PendingPortsCheck>();
+  private readonly pendingDeploymentValidations = new Map<
+    string,
+    PendingDeploymentValidate
+  >();
   private readonly pendingContainerActions = new Map<
     string,
     PendingContainerAction
@@ -263,9 +266,9 @@ export class DeploymentGateway
             serverId,
             "Agent disconnected during server resource collection",
           );
-          this.rejectPendingPortsChecksForServer(
+          this.rejectPendingDeploymentValidatesForServer(
             serverId,
-            "Agent disconnected during port availability check",
+            "Agent disconnected during deployment validation",
           );
           this.rejectPendingContainerActionsForServer(
             serverId,
@@ -384,40 +387,42 @@ export class DeploymentGateway
     }
   }
 
-  @SubscribeMessage(DeploymentEvents.PORTS_CHECK_RESULT)
-  handlePortsCheckResult(
+  @SubscribeMessage(DeploymentEvents.DEPLOYMENT_VALIDATE_RESULT)
+  handleDeploymentValidateResult(
     @ConnectedSocket() client: Socket,
-    @MessageBody() payload: PortsCheckResponsePayload,
+    @MessageBody() payload: DeploymentValidateResponsePayload,
   ): void {
     try {
       const requestId = payload?.requestId?.trim();
       if (!requestId) {
         this.logger.warn(
-          `Ignoring ports check result without requestId from ${client.id}`,
+          `Ignoring deployment validate result without requestId from ${client.id}`,
         );
         return;
       }
 
-      const pending = this.pendingPortsChecks.get(requestId);
+      const pending = this.pendingDeploymentValidations.get(requestId);
       if (!pending) {
-        this.logger.warn(`No pending ports check for requestId=${requestId}`);
+        this.logger.warn(
+          `No pending deployment validation for requestId=${requestId}`,
+        );
         return;
       }
 
       const serverId = this.serverIdBySocketId.get(client.id);
       if (serverId && serverId !== pending.serverId) {
         this.logger.warn(
-          `Ports check result server mismatch requestId=${requestId} expected=${pending.serverId} got=${serverId}`,
+          `Deployment validate result server mismatch requestId=${requestId} expected=${pending.serverId} got=${serverId}`,
         );
         return;
       }
 
       clearTimeout(pending.timer);
-      this.pendingPortsChecks.delete(requestId);
+      this.pendingDeploymentValidations.delete(requestId);
       pending.resolve(payload);
     } catch (error) {
       this.logger.error(
-        `Failed to process ports check result: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to process deployment validate result: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -1216,13 +1221,13 @@ export class DeploymentGateway
   }
 
   /**
-   * Requests a pre-deploy host port availability check from the connected agent.
+   * Requests pre-deploy validation (RAM, ports, CPU) from the connected agent.
    */
-  requestPortsCheck(
+  requestDeploymentValidate(
     serverId: string,
-    payload: PortsCheckRequestPayload,
-    timeoutMs: number = PORTS_CHECK_TIMEOUT_MS,
-  ): Promise<PortsCheckResponsePayload> {
+    payload: DeploymentValidateRequestPayload,
+    timeoutMs: number = DEPLOYMENT_VALIDATE_TIMEOUT_MS,
+  ): Promise<DeploymentValidateResponsePayload> {
     return new Promise((resolve, reject) => {
       try {
         const client = this.agentsByServerId.get(serverId);
@@ -1233,20 +1238,20 @@ export class DeploymentGateway
 
         const requestId = payload.requestId?.trim();
         if (!requestId) {
-          reject(new Error("Missing requestId for ports check"));
+          reject(new Error("Missing requestId for deployment validation"));
           return;
         }
 
         const timer = setTimeout(() => {
-          this.pendingPortsChecks.delete(requestId);
+          this.pendingDeploymentValidations.delete(requestId);
           reject(
             new Error(
-              `Port availability check timed out after ${timeoutMs / 1000}s for server '${serverId}'`,
+              `Deployment validation timed out after ${timeoutMs / 1000}s for server '${serverId}'`,
             ),
           );
         }, timeoutMs);
 
-        this.pendingPortsChecks.set(requestId, {
+        this.pendingDeploymentValidations.set(requestId, {
           serverId,
           resolve,
           reject,
@@ -1254,10 +1259,10 @@ export class DeploymentGateway
         });
 
         this.logger.log(
-          `[PORTS_CHECK] emitting event=${DeploymentEvents.PORTS_CHECK} to agentSocket=${client.id} serverId=${serverId} requestId=${requestId} template=${payload.templateSlug}`,
+          `[DEPLOYMENT_VALIDATE] emitting event=${DeploymentEvents.DEPLOYMENT_VALIDATE} to agentSocket=${client.id} serverId=${serverId} requestId=${requestId} template=${payload.templateSlug}`,
         );
 
-        client.emit(DeploymentEvents.PORTS_CHECK, payload);
+        client.emit(DeploymentEvents.DEPLOYMENT_VALIDATE, payload);
       } catch (error) {
         reject(error instanceof Error ? error : new Error(String(error)));
       }
@@ -2098,18 +2103,18 @@ export class DeploymentGateway
   }
 
   /**
-   * Rejects pending ports checks for a server.
+   * Rejects pending deployment validations for a server.
    */
-  private rejectPendingPortsChecksForServer(
+  private rejectPendingDeploymentValidatesForServer(
     serverId: string,
     reason: string,
   ): void {
-    for (const [requestId, pending] of this.pendingPortsChecks) {
+    for (const [requestId, pending] of this.pendingDeploymentValidations) {
       if (pending.serverId !== serverId) {
         continue;
       }
       clearTimeout(pending.timer);
-      this.pendingPortsChecks.delete(requestId);
+      this.pendingDeploymentValidations.delete(requestId);
       pending.reject(new Error(reason));
     }
   }

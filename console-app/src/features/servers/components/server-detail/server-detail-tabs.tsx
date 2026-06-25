@@ -91,6 +91,7 @@ export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
         {activeTab === "overview" && (
           <ServerOverviewTab
             serverId={server.id}
+            serverHost={server.host}
             containers={overviewContainers}
             isLoading={containersLoading}
             isError={containersError}

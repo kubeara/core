@@ -41,6 +41,8 @@ export const ERROR_MESSAGES = {
   DEPLOYMENT_PORT_IN_USE: (port: number) =>
     formatDeploymentPortInUseMessage(port),
   COMPOSE_VALIDATION_FAILED: "Docker compose validation failed",
+  INSUFFICIENT_RAM: "Not enough RAM available to run this service container",
+  INSUFFICIENT_CPU: "Not enough CPU available to run this service container",
   DEPLOYMENT_FAILED: "Deployment failed",
   CLEANUP_FAILED: "Deployment cleanup failed",
   REMOVAL_FAILED: "Deployment removal failed",

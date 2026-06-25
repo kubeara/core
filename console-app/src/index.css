@@ -1222,6 +1222,13 @@ a:hover {
   font-size: 0.8125rem;
 }
 
+.server-detail-host-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  vertical-align: middle;
+}
+
 @media (max-width: 640px) {
   .app-main:has(.server-detail) {
     padding-left: 1rem;

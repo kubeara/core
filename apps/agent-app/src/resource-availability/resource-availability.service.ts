@@ -1,7 +1,13 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { spawn } from "node:child_process";
-import { ERROR_MESSAGES } from "@shared/common";
+import {
+  computeAvailableCpuCores,
+  ERROR_MESSAGES,
+  type ComposeResourceRequirements,
+} from "@shared/common";
+
 import type { PortFileInput } from "../executors/env-file.util";
+import { ServerResourcesService } from "../server-resources/server-resources.service";
 
 export class PortUnavailableError extends Error {
   readonly port: number;
@@ -13,13 +19,30 @@ export class PortUnavailableError extends Error {
   }
 }
 
+export class InsufficientRamError extends Error {
+  constructor() {
+    super(ERROR_MESSAGES.INSUFFICIENT_RAM);
+    this.name = "InsufficientRamError";
+  }
+}
+
+export class InsufficientCpuError extends Error {
+  constructor() {
+    super(ERROR_MESSAGES.INSUFFICIENT_CPU);
+    this.name = "InsufficientCpuError";
+  }
+}
+
 @Injectable()
-export class PortAvailabilityService {
-  private readonly logger = new Logger(PortAvailabilityService.name);
+export class ResourceAvailabilityService {
+  private readonly logger = new Logger(ResourceAvailabilityService.name);
+
+  constructor(
+    private readonly serverResourcesService: ServerResourcesService,
+  ) {}
 
   /**
    * Verifies that each configured host port can be bound before deployment starts.
-   * ports - Resolved SERVICE_PORT_* values from deployment environment variables.
    */
   async assertPortsAvailable(ports: PortFileInput): Promise<void> {
     const entries = Object.entries(ports).filter(
@@ -55,6 +78,68 @@ export class PortAvailabilityService {
     }
   }
 
+  /**
+   * Verifies the host has enough available RAM for compose memory limits.
+   */
+  async assertRamAvailable(requiredMemoryBytes: number): Promise<void> {
+    if (requiredMemoryBytes <= 0) {
+      this.logger.log(
+        "RAM availability check skipped: no compose memory limits defined",
+      );
+      return;
+    }
+
+    const metrics = await this.serverResourcesService.getCurrentMetrics();
+    const availableRam = metrics.memory.available;
+
+    if (availableRam < requiredMemoryBytes) {
+      this.logger.warn(
+        `RAM availability check failed: required memory=${requiredMemoryBytes} bytes, available=${availableRam} bytes`,
+      );
+      throw new InsufficientRamError();
+    }
+
+    this.logger.log(
+      `RAM availability check passed: required=${requiredMemoryBytes} bytes, available=${availableRam} bytes`,
+    );
+  }
+
+  /**
+   * Verifies the host has enough available CPU for compose CPU limits.
+   */
+  async assertCpuAvailable(requiredCpuCores: number): Promise<void> {
+    if (requiredCpuCores <= 0) {
+      this.logger.log(
+        "CPU availability check skipped: no compose CPU limits defined",
+      );
+      return;
+    }
+
+    const metrics = await this.serverResourcesService.getCurrentMetrics();
+    const availableCpu = computeAvailableCpuCores(metrics.cpu);
+
+    if (availableCpu + Number.EPSILON < requiredCpuCores) {
+      this.logger.warn(
+        `CPU availability check failed: required cpu=${requiredCpuCores}, available=${availableCpu}`,
+      );
+      throw new InsufficientCpuError();
+    }
+
+    this.logger.log(
+      `CPU availability check passed: required=${requiredCpuCores}, available=${availableCpu}`,
+    );
+  }
+
+  /**
+   * Verifies the host has enough available RAM and CPU for compose resource limits.
+   */
+  async assertResourcesAvailable(
+    required: ComposeResourceRequirements,
+  ): Promise<void> {
+    await this.assertRamAvailable(required.memoryBytes);
+    await this.assertCpuAvailable(required.cpuCores);
+  }
+
   private async assertHostPortAvailable(
     port: number,
     label?: string,
@@ -85,9 +170,6 @@ export class PortAvailabilityService {
     );
   }
 
-  /**
-   * Checks whether a TCP port is free on the Docker host (not inside the agent container).
-   */
   private async isHostPortAvailable(port: number): Promise<boolean> {
     if (await this.isPortPublishedOnDockerHost(port)) {
       return false;
@@ -159,9 +241,6 @@ export class PortAvailabilityService {
     );
   }
 
-  /**
-   * Executes a command and captures the output.
-   */
   private execCapture(
     cmd: string,
     args: string[],

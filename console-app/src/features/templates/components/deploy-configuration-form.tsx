@@ -15,10 +15,12 @@ import {
 import { groupTemplateVariables } from "../utils/field-utils";
 import { getDeploymentSocket } from "@/lib/socket/deployment-socket-client";
 import { showErrorToast } from "@/lib/toast";
-import { checkDeploymentPorts } from "@/features/deployments/api";
+import { validateDeploymentResources } from "@/features/deployments/api";
+import { DEPLOYMENT_VALIDATION_IN_PROGRESS_MESSAGE } from "@/features/deployments/constants/deployment-validation-messages";
 import { mapDeploymentFailureMessage } from "@/features/deployments/constants/deployment-failure-messages";
 import { DynamicDeployFields } from "./dynamic-deploy-fields";
 import { DeployServiceSummaryCard } from "./deploy-service-summary-card";
+import type { DeployServiceSummaryStatus } from "./deploy-service-summary-card";
 
 type DeployConfigurationFormProps = {
   template: ApiTemplate;
@@ -33,6 +35,8 @@ export function DeployConfigurationForm({
 }: DeployConfigurationFormProps) {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [summaryStatus, setSummaryStatus] =
+    useState<DeployServiceSummaryStatus | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const editSnapshotRef = useRef<Record<string, unknown>>({});
   const detailsQuery = useTemplateDetailsQuery(template.slug);
@@ -66,6 +70,7 @@ export function DeployConfigurationForm({
 
   function handleEdit() {
     editSnapshotRef.current = form.getValues();
+    setSummaryStatus(null);
     setIsEditing(true);
   }
 
@@ -90,10 +95,14 @@ export function DeployConfigurationForm({
 
   async function handleSubmit(values: Record<string, unknown>) {
     setIsSubmitting(true);
+    setSummaryStatus({
+      type: "validating",
+      message: DEPLOYMENT_VALIDATION_IN_PROGRESS_MESSAGE,
+    });
     const { env, ports: portValues } = splitDeployFormValues(variables, values);
 
     try {
-      await checkDeploymentPorts({
+      await validateDeploymentResources({
         templateSlug: template.slug,
         serverId,
         env,
@@ -111,9 +120,8 @@ export function DeployConfigurationForm({
         },
       });
     } catch (error) {
-      showErrorToast(
-        mapDeploymentFailureMessage(getErrorMessage(error)),
-      );
+      setSummaryStatus(null);
+      showErrorToast(mapDeploymentFailureMessage(getErrorMessage(error)));
       setIsSubmitting(false);
     }
   }
@@ -125,6 +133,7 @@ export function DeployConfigurationForm({
         serverName={serverName}
         serverId={serverId}
         variableCount={isLoadingFields ? "loading" : fieldCount}
+        status={summaryStatus}
       />
 
       <div className="deploy-configure-main">
@@ -203,7 +212,7 @@ export function DeployConfigurationForm({
                   }
                   aria-busy={isSubmitting}
                 >
-                  {isSubmitting ? "Checking ports…" : "Deploy"}
+                  Deploy
                 </button>
               )}
             </footer>

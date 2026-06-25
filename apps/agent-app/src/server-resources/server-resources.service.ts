@@ -33,11 +33,7 @@ export class ServerResourcesService {
     requestId: string,
   ): Promise<ServerGetResourcesResponsePayload> {
     try {
-      const resources = await this.withTimeout(
-        this.gatherMetrics(),
-        SERVER_RESOURCES_TIMEOUT_MS,
-        "Server resource collection timed out",
-      );
+      const resources = await this.getCurrentMetrics();
       this.logger.log(`Collected server resources for requestId=${requestId}`);
       return { requestId, resources };
     } catch (error) {
@@ -45,6 +41,17 @@ export class ServerResourcesService {
       this.logger.error(`Server resource collection failed: ${message}`);
       return { requestId, error: message };
     }
+  }
+
+  /**
+   * Gathers current server resource metrics without socket correlation metadata.
+   */
+  async getCurrentMetrics() {
+    return this.withTimeout(
+      this.gatherMetrics(),
+      SERVER_RESOURCES_TIMEOUT_MS,
+      "Server resource collection timed out",
+    );
   }
 
   /**

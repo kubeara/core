@@ -15,7 +15,6 @@ import { In, IsNull, Not, Repository } from "typeorm";
 import {
   ComposeParserService,
   EncryptionService,
-  formatDeploymentPortInUseMessage,
   ServerUrlContext,
   SUCCESS_MESSAGES,
   TemplateConfigService,
@@ -497,10 +496,9 @@ export class DeploymentsService {
   }
 
   /**
-   * Verifies host port availability on the target agent before starting deployment.
-   * Resolves template variables locally, then delegates the bind check to the agent.
+   * Verifies RAM, ports, and CPU on the target agent before starting deployment.
    */
-  async checkPortsBeforeDeploy(input: {
+  async validateBeforeDeploy(input: {
     userId: string;
     serverId?: string;
     deployOnLocal?: boolean;
@@ -521,19 +519,19 @@ export class DeploymentsService {
 
       if (!agentInstalled) {
         this.logger.log(
-          `Skipping pre-deploy port check for server '${serverId}': agent is not installed`,
+          `Skipping pre-deploy validation for server '${serverId}': agent is not installed`,
         );
         return;
       }
 
       this.logger.log(
-        `Agent installed on server '${serverId}' but socket disconnected — waiting for connection before port check`,
+        `Agent installed on server '${serverId}' but socket disconnected — waiting for connection before validation`,
       );
       await this.waitForAgentConnection(serverId);
 
       if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
         throw new ConflictException(
-          `Agent is installed on server '${serverId}' but is not connected. Cannot verify port availability.`,
+          `Agent is installed on server '${serverId}' but is not connected. Cannot validate deployment resources.`,
         );
       }
     }
@@ -566,20 +564,23 @@ export class DeploymentsService {
       JSON.stringify(prepared.mergedPorts),
     );
 
-    const result = await this.deploymentGateway.requestPortsCheck(serverId, {
-      requestId: randomUUID(),
-      templateSlug: prepared.templateSlug,
-      compose: encryptedCompose,
-      env: encryptedEnv,
-      ports: encryptedPorts,
-      schema: prepared.schema,
-      composeOnly: prepared.composeOnly,
-      useTraefik: prepared.useTraefik,
-    });
+    const result = await this.deploymentGateway.requestDeploymentValidate(
+      serverId,
+      {
+        requestId: randomUUID(),
+        templateSlug: prepared.templateSlug,
+        compose: encryptedCompose,
+        env: encryptedEnv,
+        ports: encryptedPorts,
+        schema: prepared.schema,
+        composeOnly: prepared.composeOnly,
+        useTraefik: prepared.useTraefik,
+      },
+    );
 
     if (!result.available) {
       throw new ConflictException(
-        result.error?.trim() || formatDeploymentPortInUseMessage(),
+        result.error?.trim() || "Deployment validation failed",
       );
     }
   }

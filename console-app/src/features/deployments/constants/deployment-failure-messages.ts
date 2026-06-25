@@ -43,6 +43,15 @@ export function isDeploymentPortConflict(text: string): boolean {
   );
 }
 
+export function isDeploymentResourceConflict(text: string): boolean {
+  const normalized = text.toLowerCase();
+
+  return (
+    normalized.includes("not enough ram available") ||
+    normalized.includes("not enough cpu available")
+  );
+}
+
 export function mapDeploymentFailureMessage(
   error?: string | null,
   statusMessage?: string | null,
@@ -56,6 +65,13 @@ export function mapDeploymentFailureMessage(
     return formatDeploymentPortInUseMessage(
       extractOccupiedPortFromError(combined),
     );
+  }
+
+  if (isDeploymentResourceConflict(combined)) {
+    const detail = error?.trim() || statusMessage?.trim();
+    if (detail) {
+      return detail;
+    }
   }
 
   const detail = error?.trim() || statusMessage?.trim();

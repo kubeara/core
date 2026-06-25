@@ -12,8 +12,8 @@ import {
   ContainerActionResponsePayload,
   ContainerDiscoverRequestPayload,
   ContainerDiscoverResponsePayload,
-  PortsCheckRequestPayload,
-  PortsCheckResponsePayload,
+  DeploymentValidateRequestPayload,
+  DeploymentValidateResponsePayload,
   ServerGetResourcesRequestPayload,
   ServerGetResourcesResponsePayload,
   TerminalConnectRequestPayload,
@@ -47,7 +47,11 @@ import {
   detectOutboundPublicIp,
   localLoopbackHost,
 } from "./agent-public-ip.util";
-import { PortUnavailableError } from "../port-availability/port-availability.service";
+import {
+  InsufficientCpuError,
+  InsufficientRamError,
+  PortUnavailableError,
+} from "../resource-availability/resource-availability.service";
 
 @Injectable()
 export class SocketClientService {
@@ -199,7 +203,7 @@ export class SocketClientService {
     this.socket.off(DeploymentEvents.CONTAINER_ACTION);
     this.socket.off(DeploymentEvents.CONTAINER_DISCOVER);
     this.socket.off(DeploymentEvents.SERVER_GET_RESOURCES);
-    this.socket.off(DeploymentEvents.PORTS_CHECK);
+    this.socket.off(DeploymentEvents.DEPLOYMENT_VALIDATE);
     this.socket.off(DeploymentEvents.TERMINAL_CONNECT);
     this.socket.off(DeploymentEvents.TERMINAL_INPUT);
     this.socket.off(DeploymentEvents.TERMINAL_RESIZE);
@@ -247,12 +251,12 @@ export class SocketClientService {
     );
 
     this.socket.on(
-      DeploymentEvents.PORTS_CHECK,
-      (payload: PortsCheckRequestPayload) => {
+      DeploymentEvents.DEPLOYMENT_VALIDATE,
+      (payload: DeploymentValidateRequestPayload) => {
         this.logger.log(
-          `[PORTS_CHECK] socket event received requestId=${payload?.requestId ?? "unknown"} template=${payload?.templateSlug ?? "unknown"}`,
+          `[DEPLOYMENT_VALIDATE] socket event received requestId=${payload?.requestId ?? "unknown"} template=${payload?.templateSlug ?? "unknown"}`,
         );
-        void this.handlePortsCheck(payload);
+        void this.handleDeploymentValidate(payload);
       },
     );
 
@@ -328,7 +332,7 @@ export class SocketClientService {
         DeploymentEvents.CONTAINER_DISCOVER,
         DeploymentEvents.CONTAINER_ACTION,
         DeploymentEvents.SERVER_GET_RESOURCES,
-        DeploymentEvents.PORTS_CHECK,
+        DeploymentEvents.DEPLOYMENT_VALIDATE,
         DeploymentEvents.TERMINAL_CONNECT,
         DeploymentEvents.CONTAINER_LOGS_START,
         DeploymentEvents.AGENT_REMOVE,
@@ -488,15 +492,15 @@ export class SocketClientService {
   }
 
   /**
-   * Handles pre-deploy host port availability checks from the control panel.
+   * Handles pre-deploy validation (RAM, ports, CPU) from the control panel.
    */
-  private async handlePortsCheck(
-    payload: PortsCheckRequestPayload,
+  private async handleDeploymentValidate(
+    payload: DeploymentValidateRequestPayload,
   ): Promise<void> {
     const requestId = payload?.requestId?.trim() ?? "";
     const templateSlug = payload?.templateSlug?.trim() ?? "";
 
-    let response: PortsCheckResponsePayload = {
+    let response: DeploymentValidateResponsePayload = {
       requestId,
       available: false,
       error: "Missing requestId",
@@ -534,7 +538,7 @@ export class SocketClientService {
           );
         }
 
-        await this.executor.checkPortsBeforeDeploy({
+        await this.executor.validateBeforeDeploy({
           name: templateSlug,
           compose: composeYaml,
           env: { env: envValues, ports: portValues },
@@ -547,12 +551,16 @@ export class SocketClientService {
       }
     } catch (error) {
       const message =
-        error instanceof PortUnavailableError
+        error instanceof PortUnavailableError ||
+        error instanceof InsufficientRamError ||
+        error instanceof InsufficientCpuError
           ? error.message
           : error instanceof Error
             ? error.message
             : String(error);
-      this.logger.warn(`Ports check failed requestId=${requestId}: ${message}`);
+      this.logger.warn(
+        `Deployment validation failed requestId=${requestId}: ${message}`,
+      );
       response = {
         requestId,
         available: false,
@@ -561,13 +569,15 @@ export class SocketClientService {
     }
 
     if (!this.socket?.connected) {
-      this.logger.warn("Cannot send ports check result: socket disconnected");
+      this.logger.warn(
+        "Cannot send deployment validation result: socket disconnected",
+      );
       return;
     }
 
-    this.socket.emit(DeploymentEvents.PORTS_CHECK_RESULT, response);
+    this.socket.emit(DeploymentEvents.DEPLOYMENT_VALIDATE_RESULT, response);
     this.logger.log(
-      `Ports check result sent requestId=${requestId} available=${response.available}`,
+      `Deployment validation result sent requestId=${requestId} available=${response.available}`,
     );
   }
 
