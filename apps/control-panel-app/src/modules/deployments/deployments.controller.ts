@@ -270,11 +270,69 @@ export class DeploymentsController {
     @Req() req: { user: UserEntity },
     @Param("serverId") serverId: string,
   ) {
-    const containers = await this.deploymentsService.listServerContainers(
-      serverId,
-      req.user.id,
-    );
-    return { containers };
+    try {
+      const containers = await this.deploymentsService.listServerContainers(
+        serverId,
+        req.user.id,
+      );
+      return { containers };
+    } catch (error) {
+      this.logger.error(
+        `List server containers failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Stop an active container log stream.
+   * Must be registered before :containerId/stop so "logs" is not captured as a container id.
+   */
+  @Post(":serverId/containers/logs/stop")
+  @HttpCode(200)
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  async stopContainerLogs(
+    @Req() req: { user: UserEntity },
+    @Param("serverId") serverId: string,
+    @Body() body: ContainerLogsStopDto,
+  ) {
+    try {
+      return this.deploymentsService.stopContainerLogs(
+        serverId,
+        req.user.id,
+        body.sessionId,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Stop container logs failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Start streaming logs for a container via the connected agent.
+   */
+  @Post(":serverId/containers/:containerId/logs/start")
+  @HttpCode(200)
+  async startContainerLogs(
+    @Req() req: { user: UserEntity },
+    @Param("serverId") serverId: string,
+    @Param("containerId") containerId: string,
+  ) {
+    try {
+      const data = await this.deploymentsService.startContainerLogs(
+        serverId,
+        req.user.id,
+        containerId,
+      );
+      return { message: "Container log stream started", data };
+    } catch (error) {
+      this.logger.error(
+        `Start container logs failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -372,56 +430,6 @@ export class DeploymentsController {
     } catch (error) {
       this.logger.error(
         `Delete container failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * Start streaming logs for a container via the connected agent.
-   */
-  @Post(":serverId/containers/:containerId/logs/start")
-  @HttpCode(200)
-  async startContainerLogs(
-    @Req() req: { user: UserEntity },
-    @Param("serverId") serverId: string,
-    @Param("containerId") containerId: string,
-  ) {
-    try {
-      const data = await this.deploymentsService.startContainerLogs(
-        serverId,
-        req.user.id,
-        containerId,
-      );
-      return { message: "Container log stream started", data };
-    } catch (error) {
-      this.logger.error(
-        `Start container logs failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      throw error;
-    }
-  }
-
-  /**
-   * Stop an active container log stream.
-   */
-  @Post(":serverId/containers/logs/stop")
-  @HttpCode(200)
-  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-  async stopContainerLogs(
-    @Req() req: { user: UserEntity },
-    @Param("serverId") serverId: string,
-    @Body() body: ContainerLogsStopDto,
-  ) {
-    try {
-      return this.deploymentsService.stopContainerLogs(
-        serverId,
-        req.user.id,
-        body.sessionId,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Stop container logs failed: ${error instanceof Error ? error.message : String(error)}`,
       );
       throw error;
     }

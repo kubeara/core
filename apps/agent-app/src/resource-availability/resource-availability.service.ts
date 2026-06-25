@@ -45,36 +45,50 @@ export class ResourceAvailabilityService {
    * Verifies that each configured host port can be bound before deployment starts.
    */
   async assertPortsAvailable(ports: PortFileInput): Promise<void> {
-    const entries = Object.entries(ports).filter(
-      (entry): entry is [string, number] => this.isValidHostPort(entry[1]),
-    );
-
-    if (entries.length === 0) {
-      this.logger.log(
-        "Port availability check skipped: no host ports configured",
+    try {
+      const entries = Object.entries(ports).filter(
+        (entry): entry is [string, number] => this.isValidHostPort(entry[1]),
       );
-      return;
-    }
 
-    for (const [key, port] of entries) {
-      await this.assertHostPortAvailable(port, key);
+      if (entries.length === 0) {
+        this.logger.log(
+          "Port availability check skipped: no host ports configured",
+        );
+        return;
+      }
+
+      for (const [key, port] of entries) {
+        await this.assertHostPortAvailable(port, key);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Port availability check failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
     }
   }
 
   async assertHostPortsAvailable(ports: number[]): Promise<void> {
-    const uniquePorts = [
-      ...new Set(ports.filter((port) => this.isValidHostPort(port))),
-    ];
+    try {
+      const uniquePorts = [
+        ...new Set(ports.filter((port) => this.isValidHostPort(port))),
+      ];
 
-    if (uniquePorts.length === 0) {
-      this.logger.log(
-        "Port availability check skipped: no resolved host ports to validate",
+      if (uniquePorts.length === 0) {
+        this.logger.log(
+          "Port availability check skipped: no resolved host ports to validate",
+        );
+        return;
+      }
+
+      for (const port of uniquePorts) {
+        await this.assertHostPortAvailable(port);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Host ports availability check failed: ${error instanceof Error ? error.message : String(error)}`,
       );
-      return;
-    }
-
-    for (const port of uniquePorts) {
-      await this.assertHostPortAvailable(port);
+      throw error;
     }
   }
 
@@ -82,52 +96,66 @@ export class ResourceAvailabilityService {
    * Verifies the host has enough available RAM for compose memory limits.
    */
   async assertRamAvailable(requiredMemoryBytes: number): Promise<void> {
-    if (requiredMemoryBytes <= 0) {
+    try {
+      if (requiredMemoryBytes <= 0) {
+        this.logger.log(
+          "RAM availability check skipped: no compose memory limits defined",
+        );
+        return;
+      }
+
+      const metrics = await this.serverResourcesService.getCurrentMetrics();
+      const availableRam = metrics.memory.available;
+
+      if (availableRam < requiredMemoryBytes) {
+        this.logger.warn(
+          `RAM availability check failed: required memory=${requiredMemoryBytes} bytes, available=${availableRam} bytes`,
+        );
+        throw new InsufficientRamError();
+      }
+
       this.logger.log(
-        "RAM availability check skipped: no compose memory limits defined",
+        `RAM availability check passed: required=${requiredMemoryBytes} bytes, available=${availableRam} bytes`,
       );
-      return;
-    }
-
-    const metrics = await this.serverResourcesService.getCurrentMetrics();
-    const availableRam = metrics.memory.available;
-
-    if (availableRam < requiredMemoryBytes) {
-      this.logger.warn(
-        `RAM availability check failed: required memory=${requiredMemoryBytes} bytes, available=${availableRam} bytes`,
+    } catch (error) {
+      this.logger.error(
+        `RAM availability check failed: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw new InsufficientRamError();
+      throw error;
     }
-
-    this.logger.log(
-      `RAM availability check passed: required=${requiredMemoryBytes} bytes, available=${availableRam} bytes`,
-    );
   }
 
   /**
    * Verifies the host has enough available CPU for compose CPU limits.
    */
   async assertCpuAvailable(requiredCpuCores: number): Promise<void> {
-    if (requiredCpuCores <= 0) {
+    try {
+      if (requiredCpuCores <= 0) {
+        this.logger.log(
+          "CPU availability check skipped: no compose CPU limits defined",
+        );
+        return;
+      }
+
+      const metrics = await this.serverResourcesService.getCurrentMetrics();
+      const availableCpu = computeAvailableCpuCores(metrics.cpu);
+
+      if (availableCpu + Number.EPSILON < requiredCpuCores) {
+        this.logger.warn(
+          `CPU availability check failed: required cpu=${requiredCpuCores}, available=${availableCpu}`,
+        );
+        throw new InsufficientCpuError();
+      }
+
       this.logger.log(
-        "CPU availability check skipped: no compose CPU limits defined",
+        `CPU availability check passed: required=${requiredCpuCores}, available=${availableCpu}`,
       );
-      return;
-    }
-
-    const metrics = await this.serverResourcesService.getCurrentMetrics();
-    const availableCpu = computeAvailableCpuCores(metrics.cpu);
-
-    if (availableCpu + Number.EPSILON < requiredCpuCores) {
-      this.logger.warn(
-        `CPU availability check failed: required cpu=${requiredCpuCores}, available=${availableCpu}`,
+    } catch (error) {
+      this.logger.error(
+        `CPU availability check failed: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw new InsufficientCpuError();
+      throw error;
     }
-
-    this.logger.log(
-      `CPU availability check passed: required=${requiredCpuCores}, available=${availableCpu}`,
-    );
   }
 
   /**
@@ -136,8 +164,15 @@ export class ResourceAvailabilityService {
   async assertResourcesAvailable(
     required: ComposeResourceRequirements,
   ): Promise<void> {
-    await this.assertRamAvailable(required.memoryBytes);
-    await this.assertCpuAvailable(required.cpuCores);
+    try {
+      await this.assertRamAvailable(required.memoryBytes);
+      await this.assertCpuAvailable(required.cpuCores);
+    } catch (error) {
+      this.logger.error(
+        `Resource availability check failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   private async assertHostPortAvailable(
@@ -190,7 +225,7 @@ export class ResourceAvailabilityService {
       this.logger.warn(
         `Docker publish filter check failed for port ${port}: ${result.stderr || result.stdout}`,
       );
-      return false;
+      throw new Error(`Docker publish check failed for port ${port}`);
     }
 
     return result.stdout.trim().length > 0;

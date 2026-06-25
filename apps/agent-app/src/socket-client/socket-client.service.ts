@@ -39,6 +39,9 @@ import {
   EncryptionService,
   TemplatePayloadService,
   SUCCESS_MESSAGES,
+  DEFAULT_TERMINAL_COLS,
+  DEFAULT_TERMINAL_ROWS,
+  SOCKET_ERROR_MESSAGES,
 } from "@shared/common";
 import * as yaml from "js-yaml";
 import * as os from "os";
@@ -412,7 +415,7 @@ export class SocketClientService {
 
       // 3. Schema required for legacy deploy path only
       if (!composeOnly && !schema) {
-        throw new Error(`Missing deployment schema for template ${name}`);
+        throw new Error(SOCKET_ERROR_MESSAGES.MISSING_DEPLOYMENT_SCHEMA(name));
       }
 
       this.logger.log(
@@ -470,7 +473,7 @@ export class SocketClientService {
         ? await this.serverResourcesService.collectResources(requestId)
         : {
             requestId: "",
-            error: "Missing requestId",
+            error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID,
           };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -503,7 +506,7 @@ export class SocketClientService {
     let response: DeploymentValidateResponsePayload = {
       requestId,
       available: false,
-      error: "Missing requestId",
+      error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID,
     };
 
     try {
@@ -511,7 +514,7 @@ export class SocketClientService {
         response = {
           requestId,
           available: false,
-          error: "Missing requestId, templateSlug, or compose payload",
+          error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID_TEMPLATE_COMPOSE,
         };
       } else {
         const decryptedEncodedCompose = this.encryptionService.decrypt(
@@ -534,7 +537,7 @@ export class SocketClientService {
 
         if (!payload.composeOnly && !payload.schema) {
           throw new Error(
-            `Missing deployment schema for template ${templateSlug}`,
+            SOCKET_ERROR_MESSAGES.MISSING_DEPLOYMENT_SCHEMA(templateSlug),
           );
         }
 
@@ -606,7 +609,7 @@ export class SocketClientService {
           stdout: "",
           stderr: "",
           exitCode: 1,
-          error: "Missing requestId, containerId, or action",
+          error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID_CONTAINER_ACTION,
         };
       } else {
         response = await this.containerService.executeAction(
@@ -648,14 +651,17 @@ export class SocketClientService {
    */
   private handleTerminalConnect(payload: TerminalConnectRequestPayload): void {
     const requestId = payload?.requestId?.trim() ?? "";
-    const cols = payload?.cols ?? 80;
-    const rows = payload?.rows ?? 24;
+    const cols = payload?.cols ?? DEFAULT_TERMINAL_COLS;
+    const rows = payload?.rows ?? DEFAULT_TERMINAL_ROWS;
 
     let response: TerminalConnectResponsePayload;
 
     try {
       if (!requestId) {
-        response = { requestId: "", error: "Missing requestId" };
+        response = {
+          requestId: "",
+          error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID,
+        };
       } else {
         const sessionId = this.terminalService.createSession(cols, rows);
         response = { requestId, sessionId };
@@ -668,7 +674,7 @@ export class SocketClientService {
 
     if (!this.socket?.connected) {
       this.logger.warn(
-        "Cannot send terminal connect result: socket disconnected",
+        SOCKET_ERROR_MESSAGES.CANNOT_SEND_TERMINAL_CONNECT_RESULT,
       );
       return;
     }
@@ -723,7 +729,7 @@ export class SocketClientService {
         response = {
           requestId,
           sessionId,
-          error: "Missing requestId, sessionId, or containerId",
+          error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID_CONTAINER_LOGS_START,
         };
       } else {
         const startError = await this.containerService.startLogStream(
@@ -846,7 +852,7 @@ export class SocketClientService {
         : {
             requestId: "",
             containers: [],
-            error: "Missing requestId",
+            error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID,
           };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -913,7 +919,7 @@ export class SocketClientService {
         response = {
           requestId: "",
           success: false,
-          error: "Missing requestId",
+          error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID,
         };
       } else {
         const imageRefs = await this.executor.collectAgentRemovalTargets({
@@ -933,10 +939,16 @@ export class SocketClientService {
           `Agent remove result sent requestId=${requestId} success=true imageRefs=${imageRefs.join(", ") || "none"}`,
         );
 
-        void this.executor.runAgentRemovalAfterAck({
-          installDir,
-          imageRefs,
-        });
+        void this.executor
+          .runAgentRemovalAfterAck({
+            installDir,
+            imageRefs,
+          })
+          .catch((err) => {
+            this.logger.error(
+              `Post-ack agent removal failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
         return;
       }
     } catch (error) {

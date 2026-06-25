@@ -64,8 +64,8 @@ export function ServerDetailPage() {
           <h1>{server.name}</h1>
           <p>
             <span className="server-detail-host-row">
-              <code>{server.host}</code>
               <CopyButton text={server.host} label="Copy host" />
+              <code>{server.host}</code>
             </span>{" "}
             · {server.username}
           </p>

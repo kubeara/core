@@ -22,6 +22,20 @@ function CopyIcon() {
   );
 }
 
+function CheckIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M20 6L9 17l-5-5"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 type CopyButtonProps = {
   text: string;
   label?: string;
@@ -42,19 +56,27 @@ export function CopyButton({ text, label = "Copy" }: CopyButtonProps) {
 
   return (
     <div className="copy-btn-wrap">
-      {copied ? (
-        <span className="copy-btn-popover" role="status">
-          Copied
-        </span>
-      ) : null}
       <button
         type="button"
         className={`copy-btn ${copied ? "copied" : ""}`}
         onClick={() => void handleCopy()}
         aria-label={copied ? "Copied" : label}
-        title={label}
       >
         <CopyIcon />
+        <span
+          className={`copy-btn-tooltip ${copied ? "copy-btn-tooltip--success is-visible" : ""}`}
+          role="status"
+          aria-live="polite"
+        >
+          {copied ? (
+            <>
+              <CheckIcon />
+              Copied
+            </>
+          ) : (
+            label
+          )}
+        </span>
       </button>
     </div>
   );

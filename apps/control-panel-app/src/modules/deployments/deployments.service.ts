@@ -59,6 +59,7 @@ import {
 } from "./utils/container-discovery.util";
 import { ERROR_MESSAGES } from "@control-panel/constants/error";
 import { SUCCESS_MESSAGES as CP_SUCCESS_MESSAGES } from "@control-panel/constants/success";
+import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import { assertValidContainerId } from "./utils/container-action.util";
 import type { EnvironmentVariableView } from "./interfaces/deployments.interface";
 
@@ -397,7 +398,7 @@ export class DeploymentsService {
   }> {
     try {
       this.logger.debug(
-        `[emitPreparedDeployment] deploymentId=${prepared.deploymentId} serverId=${prepared.serverId} mergedPorts=${JSON.stringify(prepared.mergedPorts)}`,
+        `[emitPreparedDeployment] deploymentId=${prepared.deploymentId} serverId=${prepared.serverId} portCount=${Object.keys(prepared.mergedPorts).length}`,
       );
 
       const encryptedCompose = this.encryptionService.encrypt(
@@ -733,7 +734,7 @@ export class DeploymentsService {
       baseEnv = { ...stored.env, ...requestEnv };
       basePorts = { ...stored.ports, ...requestPorts };
       this.logger.debug(
-        `[prepareComposeDeployment] merged redeploy ports deploymentId=${deploymentId} basePorts=${JSON.stringify(basePorts)}`,
+        `[prepareComposeDeployment] merged redeploy ports deploymentId=${deploymentId} portCount=${Object.keys(basePorts).length}`,
       );
     }
 
@@ -877,35 +878,42 @@ export class DeploymentsService {
     serverId: string,
     userId: string,
   ): Promise<ServerContainerDto[]> {
-    await this.assertActiveServerForUser(serverId, userId);
+    try {
+      await this.assertActiveServerForUser(serverId, userId);
 
-    const discovered =
-      await this.serverConnectionsService.discoverContainers(serverId);
+      const discovered =
+        await this.serverConnectionsService.discoverContainers(serverId);
 
-    const deploymentRows = await this.deploymentRepository.find({
-      where: {
+      const deploymentRows = await this.deploymentRepository.find({
+        where: {
+          serverId,
+          deletedAt: IsNull(),
+          deploymentStatus: Not(
+            In(DeploymentsService.OVERVIEW_EXCLUDED_STATUSES),
+          ),
+        },
+        relations: { template: true },
+        order: { updatedAt: "DESC" },
+      });
+
+      const deployments = deploymentRows.map((deployment) => ({
+        id: deployment.id,
+        templateSlug: deployment.templateSlug,
+        serviceName: deployment.template?.name?.trim() || null,
+        composeProject: sanitizeDeploymentProjectName(deployment.id),
+      }));
+
+      return mergeDiscoveredContainersWithDeployments(
+        discovered,
+        deployments,
         serverId,
-        deletedAt: IsNull(),
-        deploymentStatus: Not(
-          In(DeploymentsService.OVERVIEW_EXCLUDED_STATUSES),
-        ),
-      },
-      relations: { template: true },
-      order: { updatedAt: "DESC" },
-    });
-
-    const deployments = deploymentRows.map((deployment) => ({
-      id: deployment.id,
-      templateSlug: deployment.templateSlug,
-      serviceName: deployment.template?.name?.trim() || null,
-      composeProject: sanitizeDeploymentProjectName(deployment.id),
-    }));
-
-    return mergeDiscoveredContainersWithDeployments(
-      discovered,
-      deployments,
-      serverId,
-    );
+      );
+    } catch (error) {
+      this.logger.error(
+        `List server containers failed for server '${serverId}': ${toErrorMessage(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -917,109 +925,117 @@ export class DeploymentsService {
     containerId: string,
     action: ContainerActionType,
   ): Promise<ContainerActionResponseDto> {
-    await this.assertActiveServerForUser(serverId, userId);
-    const safeContainerId = assertValidContainerId(containerId);
+    try {
+      await this.assertActiveServerForUser(serverId, userId);
+      const safeContainerId = assertValidContainerId(containerId);
 
-    let result: ContainerActionResponsePayload | null = null;
-    let socketError: string | null = null;
-    let executedVia: ContainerActionResponseDto["executedVia"] = "agent";
+      let result: ContainerActionResponsePayload | null = null;
+      let socketError: string | null = null;
+      let executedVia: ContainerActionResponseDto["executedVia"] = "agent";
 
-    if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
-      const agentVersion =
-        this.deploymentGateway.getAgentVersion(serverId) ?? "unknown";
-      const supportsContainerAction = this.deploymentGateway.agentSupports(
-        serverId,
-        DeploymentEvents.CONTAINER_ACTION,
-      );
-
-      this.logger.log(
-        `[CONTAINER_ACTION] serverId=${serverId} agentVersion=${agentVersion} supportsContainerAction=${supportsContainerAction}`,
-      );
-
-      if (!supportsContainerAction) {
-        socketError = `Connected agent (version ${agentVersion}) does not support container actions — rebuild or update the agent image to include the container:action handler`;
-        this.logger.warn(
-          `[CONTAINER_ACTION] skipping socket for server '${serverId}': ${socketError}`,
+      if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+        const agentVersion =
+          this.deploymentGateway.getAgentVersion(serverId) ?? "unknown";
+        const supportsContainerAction = this.deploymentGateway.agentSupports(
+          serverId,
+          DeploymentEvents.CONTAINER_ACTION,
         );
-      } else {
-        try {
-          result = await this.deploymentGateway.requestContainerAction(
-            serverId,
-            safeContainerId,
-            action,
-          );
-          this.logger.log(
-            `[CONTAINER_ACTION] agent completed action=${action} containerId=${safeContainerId} serverId=${serverId} success=${result.success}`,
-          );
-        } catch (error) {
-          socketError = error instanceof Error ? error.message : String(error);
+
+        this.logger.log(
+          `[CONTAINER_ACTION] serverId=${serverId} agentVersion=${agentVersion} supportsContainerAction=${supportsContainerAction}`,
+        );
+
+        if (!supportsContainerAction) {
+          socketError = `Connected agent (version ${agentVersion}) does not support container actions — rebuild or update the agent image to include the container:action handler`;
           this.logger.warn(
-            `[CONTAINER_ACTION] agent socket failed for server '${serverId}': ${socketError}`,
+            `[CONTAINER_ACTION] skipping socket for server '${serverId}': ${socketError}`,
+          );
+        } else {
+          try {
+            result = await this.deploymentGateway.requestContainerAction(
+              serverId,
+              safeContainerId,
+              action,
+            );
+            this.logger.log(
+              `[CONTAINER_ACTION] agent completed action=${action} containerId=${safeContainerId} serverId=${serverId} success=${result.success}`,
+            );
+          } catch (error) {
+            socketError =
+              error instanceof Error ? error.message : String(error);
+            this.logger.warn(
+              `[CONTAINER_ACTION] agent socket failed for server '${serverId}': ${socketError}`,
+            );
+          }
+        }
+      } else {
+        socketError = `No connected agent for server '${serverId}'`;
+        this.logger.warn(
+          `[CONTAINER_ACTION] no connected agent for server '${serverId}'`,
+        );
+      }
+
+      if (!result) {
+        this.logger.warn(
+          `[CONTAINER_ACTION] using host fallback for ${action} on server '${serverId}'` +
+            (socketError ? `: ${socketError}` : ""),
+        );
+        executedVia = "host";
+        try {
+          result =
+            await this.serverConnectionsService.executeContainerActionOnHost(
+              serverId,
+              safeContainerId,
+              action,
+            );
+        } catch (error) {
+          const hostMessage =
+            error instanceof Error ? error.message : String(error);
+          const detail = socketError
+            ? `Agent: ${socketError}. Host: ${hostMessage}`
+            : hostMessage;
+          throw new BadRequestException(
+            `Failed to ${action} container: ${detail}`,
           );
         }
       }
-    } else {
-      socketError = `No connected agent for server '${serverId}'`;
-      this.logger.warn(
-        `[CONTAINER_ACTION] no connected agent for server '${serverId}'`,
-      );
-    }
 
-    if (!result) {
-      this.logger.warn(
-        `[CONTAINER_ACTION] using host fallback for ${action} on server '${serverId}'` +
-          (socketError ? `: ${socketError}` : ""),
-      );
-      executedVia = "host";
-      try {
-        result =
-          await this.serverConnectionsService.executeContainerActionOnHost(
-            serverId,
-            safeContainerId,
-            action,
-          );
-      } catch (error) {
-        const hostMessage =
-          error instanceof Error ? error.message : String(error);
-        const detail = socketError
-          ? `Agent: ${socketError}. Host: ${hostMessage}`
-          : hostMessage;
+      if (!result.success) {
         throw new BadRequestException(
-          `Failed to ${action} container: ${detail}`,
+          result.error?.trim() ||
+            result.stderr?.trim() ||
+            `Failed to ${action} container '${safeContainerId}'`,
         );
       }
-    }
 
-    if (!result.success) {
-      throw new BadRequestException(
-        result.error?.trim() ||
-          result.stderr?.trim() ||
-          `Failed to ${action} container '${safeContainerId}'`,
+      const actionPastTense: Record<ContainerActionType, string> = {
+        stop: "stopped",
+        start: "started",
+        restart: "restarted",
+        delete: "deleted",
+      };
+      const viaLabel =
+        executedVia === "agent"
+          ? "via agent"
+          : "via server host (agent unavailable or outdated)";
+      const message = `Container ${actionPastTense[action]} ${viaLabel}.`;
+
+      return {
+        action: result.action,
+        containerId: result.containerId,
+        success: true,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        exitCode: result.exitCode,
+        executedVia,
+        message,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Container action '${action}' failed for server '${serverId}': ${toErrorMessage(error)}`,
       );
+      throw error;
     }
-
-    const actionPastTense: Record<ContainerActionType, string> = {
-      stop: "stopped",
-      start: "started",
-      restart: "restarted",
-      delete: "deleted",
-    };
-    const viaLabel =
-      executedVia === "agent"
-        ? "via agent"
-        : "via server host (agent unavailable or outdated)";
-    const message = `Container ${actionPastTense[action]} ${viaLabel}.`;
-
-    return {
-      action: result.action,
-      containerId: result.containerId,
-      success: true,
-      stdout: result.stdout,
-      stderr: result.stderr,
-      exitCode: result.exitCode,
-      executedVia,
-      message,
-    };
   }
 
   /**
@@ -1030,43 +1046,51 @@ export class DeploymentsService {
     userId: string,
     containerId: string,
   ): Promise<ContainerLogsStartResponseDto> {
-    await this.assertActiveServerForUser(serverId, userId);
-    const safeContainerId = assertValidContainerId(containerId);
-
-    if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
-      throw new BadRequestException(
-        ERROR_MESSAGES.CONTAINER_LOGS.AGENT_UNAVAILABLE,
-      );
-    }
-
-    const supportsLogs = this.deploymentGateway.agentSupports(
-      serverId,
-      DeploymentEvents.CONTAINER_LOGS_START,
-    );
-
-    if (!supportsLogs) {
-      throw new BadRequestException(
-        ERROR_MESSAGES.CONTAINER_LOGS.AGENT_UNSUPPORTED,
-      );
-    }
-
     try {
-      const sessionId = await this.deploymentGateway.requestContainerLogsStart(
+      await this.assertActiveServerForUser(serverId, userId);
+      const safeContainerId = assertValidContainerId(containerId);
+
+      if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+        throw new BadRequestException(
+          ERROR_MESSAGES.CONTAINER_LOGS.AGENT_UNAVAILABLE,
+        );
+      }
+
+      const supportsLogs = this.deploymentGateway.agentSupports(
         serverId,
-        userId,
-        safeContainerId,
+        DeploymentEvents.CONTAINER_LOGS_START,
       );
 
-      return {
-        sessionId,
-        serverId,
-        containerId: safeContainerId,
-      };
+      if (!supportsLogs) {
+        throw new BadRequestException(
+          ERROR_MESSAGES.CONTAINER_LOGS.AGENT_UNSUPPORTED,
+        );
+      }
+
+      try {
+        const sessionId =
+          await this.deploymentGateway.requestContainerLogsStart(
+            serverId,
+            userId,
+            safeContainerId,
+          );
+
+        return {
+          sessionId,
+          serverId,
+          containerId: safeContainerId,
+        };
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new BadRequestException(
+          `${ERROR_MESSAGES.CONTAINER_LOGS.START_FAILED}: ${detail}`,
+        );
+      }
     } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      throw new BadRequestException(
-        `${ERROR_MESSAGES.CONTAINER_LOGS.START_FAILED}: ${detail}`,
+      this.logger.error(
+        `Failed to start container logs for server '${serverId}': ${error instanceof Error ? error.message : String(error)}`,
       );
+      throw error;
     }
   }
 
@@ -1078,151 +1102,192 @@ export class DeploymentsService {
     userId: string,
     sessionId: string,
   ): Promise<{ stopped: true; message: string }> {
-    await this.assertActiveServerForUser(serverId, userId);
-
-    const trimmedSessionId = sessionId.trim();
-    const session =
-      this.deploymentGateway.getContainerLogsSession(trimmedSessionId);
-
-    if (
-      !session ||
-      session.serverId !== serverId ||
-      session.userId !== userId
-    ) {
-      throw new NotFoundException(
-        ERROR_MESSAGES.CONTAINER_LOGS.SESSION_NOT_FOUND,
-      );
-    }
-
     try {
-      this.deploymentGateway.closeContainerLogsSession(trimmedSessionId, {
-        notifyAgent: true,
-      });
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      throw new BadRequestException(
-        `${ERROR_MESSAGES.CONTAINER_LOGS.STOP_FAILED}: ${detail}`,
-      );
-    }
+      await this.assertActiveServerForUser(serverId, userId);
 
-    return {
-      stopped: true,
-      message: CP_SUCCESS_MESSAGES.CONTAINER_LOGS.STOPPED,
-    };
+      const trimmedSessionId = sessionId.trim();
+      const session =
+        this.deploymentGateway.getContainerLogsSession(trimmedSessionId);
+
+      if (
+        session &&
+        (session.serverId !== serverId || session.userId !== userId)
+      ) {
+        throw new NotFoundException(
+          ERROR_MESSAGES.CONTAINER_LOGS.SESSION_NOT_FOUND,
+        );
+      }
+
+      if (!session) {
+        this.deploymentGateway.notifyAgentContainerLogsStop(
+          serverId,
+          trimmedSessionId,
+        );
+        return {
+          stopped: true,
+          message: CP_SUCCESS_MESSAGES.CONTAINER_LOGS.STOPPED,
+        };
+      }
+
+      try {
+        this.deploymentGateway.closeContainerLogsSession(trimmedSessionId, {
+          notifyAgent: true,
+        });
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new BadRequestException(
+          `${ERROR_MESSAGES.CONTAINER_LOGS.STOP_FAILED}: ${detail}`,
+        );
+      }
+
+      return {
+        stopped: true,
+        message: CP_SUCCESS_MESSAGES.CONTAINER_LOGS.STOPPED,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to stop container logs for server '${serverId}': ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   async getDeployment(deploymentId: string): Promise<ServiceDeploymentEntity> {
-    const deployment = await this.deploymentRepository.findOne({
-      where: { id: deploymentId, deletedAt: IsNull() },
-    });
+    try {
+      const deployment = await this.deploymentRepository.findOne({
+        where: { id: deploymentId, deletedAt: IsNull() },
+      });
 
-    if (!deployment) {
-      throw new NotFoundException(`Deployment '${deploymentId}' not found`);
+      if (!deployment) {
+        throw new NotFoundException(`Deployment '${deploymentId}' not found`);
+      }
+
+      return deployment;
+    } catch (error) {
+      this.logger.error(
+        `Get deployment '${deploymentId}' failed: ${toErrorMessage(error)}`,
+      );
+      throw error;
     }
-
-    return deployment;
   }
 
   async listEnvironmentVariables(
     deploymentId: string,
     options: { maskSecrets?: boolean } = {},
   ): Promise<EnvironmentVariableView[]> {
-    await this.getDeployment(deploymentId);
+    try {
+      await this.getDeployment(deploymentId);
 
-    const rows = await this.environmentVariableRepository.find({
-      where: { deploymentId: deploymentId },
-      order: { key: "ASC" },
-    });
+      const rows = await this.environmentVariableRepository.find({
+        where: { deploymentId: deploymentId },
+        order: { key: "ASC" },
+      });
 
-    const { maskSecrets = true } = options;
-    const decrypted: Record<string, string> = {};
-    for (const row of rows) {
-      decrypted[row.key] = this.decryptValue(row.value);
-    }
-
-    const display = maskSecrets ? maskEnvMap(decrypted) : decrypted;
-
-    return rows.map((row) => {
-      const raw = display[row.key];
-
-      let value: string | null;
-
-      if (raw == null) {
-        value = null;
-      } else if (typeof raw === "string") {
-        value = raw;
-      } else if (
-        typeof raw === "number" ||
-        typeof raw === "boolean" ||
-        typeof raw === "bigint"
-      ) {
-        value = `${raw}`;
-      } else {
-        value = JSON.stringify(raw);
+      const { maskSecrets = true } = options;
+      const decrypted: Record<string, string> = {};
+      for (const row of rows) {
+        decrypted[row.key] = this.decryptValue(row.value);
       }
 
-      return {
-        key: row.key,
-        value,
-        isRequired: row.isRequired,
-        isGenerated: row.isGenerated,
-        comment: row.comment,
-        updatedAt: row.updatedAt,
-      };
-    });
+      const display = maskSecrets ? maskEnvMap(decrypted) : decrypted;
+
+      return rows.map((row) => {
+        const raw = display[row.key];
+
+        let value: string | null;
+
+        if (raw == null) {
+          value = null;
+        } else if (typeof raw === "string") {
+          value = raw;
+        } else if (
+          typeof raw === "number" ||
+          typeof raw === "boolean" ||
+          typeof raw === "bigint"
+        ) {
+          value = `${raw}`;
+        } else {
+          value = JSON.stringify(raw);
+        }
+
+        return {
+          key: row.key,
+          value,
+          isRequired: row.isRequired,
+          isGenerated: row.isGenerated,
+          comment: row.comment,
+          updatedAt: row.updatedAt,
+        };
+      });
+    } catch (error) {
+      this.logger.error(
+        `List environment variables failed for deployment '${deploymentId}': ${toErrorMessage(error)}`,
+      );
+      throw error;
+    }
   }
 
   async updateEnvironmentVariables(
     deploymentId: string,
     updates: { env?: Record<string, unknown>; ports?: Record<string, unknown> },
   ): Promise<EnvironmentVariableView[]> {
-    const deployment = await this.getDeployment(deploymentId);
-    const template = await this.templateRepository.findOne({
-      where: { slug: deployment.templateSlug },
-    });
+    try {
+      const deployment = await this.getDeployment(deploymentId);
+      const template = await this.templateRepository.findOne({
+        where: { slug: deployment.templateSlug },
+      });
 
-    if (!template) {
-      throw new NotFoundException(
-        `Template '${deployment.templateSlug}' not found`,
+      if (!template) {
+        throw new NotFoundException(
+          `Template '${deployment.templateSlug}' not found`,
+        );
+      }
+
+      const schema: TemplateSchema = {
+        env_schema: template.envSchema as Record<string, SchemaFieldDetails>,
+        port_schema: template.portSchema as Record<string, SchemaFieldDetails>,
+      };
+      const portSchemaKeys = Object.keys(schema.port_schema ?? {});
+
+      const stored = await this.loadStoredVariables(
+        deploymentId,
+        portSchemaKeys,
       );
+      const mergedEnv = { ...stored.env, ...(updates.env ?? {}) };
+      const mergedPorts = { ...stored.ports, ...(updates.ports ?? {}) };
+
+      const composeYaml = this.templatePayloadService.decodeBase64ToYaml(
+        template.compose,
+      );
+      const parsedFromCompose = this.composeParserService.resolveFromCompose({
+        compose: composeYaml,
+        userEnv: mergedEnv,
+        userPorts: mergedPorts,
+        portSchemaKeys,
+      });
+
+      const normalized = this.templateConfigService.normalizeSchema(schema);
+      const { env: validatedEnv, ports: validatedPorts } =
+        this.templateConfigService.mergeAndValidate(
+          { ...schema, normalized },
+          { env: parsedFromCompose.env, ports: parsedFromCompose.ports },
+        );
+
+      await this.persistEnvironmentVariables({
+        deploymentId,
+        env: validatedEnv,
+        ports: validatedPorts,
+        generatedKeys: [],
+        schema,
+      });
+
+      return this.listEnvironmentVariables(deploymentId);
+    } catch (error) {
+      this.logger.error(
+        `Update environment variables failed for deployment '${deploymentId}': ${toErrorMessage(error)}`,
+      );
+      throw error;
     }
-
-    const schema: TemplateSchema = {
-      env_schema: template.envSchema as Record<string, SchemaFieldDetails>,
-      port_schema: template.portSchema as Record<string, SchemaFieldDetails>,
-    };
-    const portSchemaKeys = Object.keys(schema.port_schema ?? {});
-
-    const stored = await this.loadStoredVariables(deploymentId, portSchemaKeys);
-    const mergedEnv = { ...stored.env, ...(updates.env ?? {}) };
-    const mergedPorts = { ...stored.ports, ...(updates.ports ?? {}) };
-
-    const composeYaml = this.templatePayloadService.decodeBase64ToYaml(
-      template.compose,
-    );
-    const parsedFromCompose = this.composeParserService.resolveFromCompose({
-      compose: composeYaml,
-      userEnv: mergedEnv,
-      userPorts: mergedPorts,
-      portSchemaKeys,
-    });
-
-    const normalized = this.templateConfigService.normalizeSchema(schema);
-    const { env: validatedEnv, ports: validatedPorts } =
-      this.templateConfigService.mergeAndValidate(
-        { ...schema, normalized },
-        { env: parsedFromCompose.env, ports: parsedFromCompose.ports },
-      );
-
-    await this.persistEnvironmentVariables({
-      deploymentId,
-      env: validatedEnv,
-      ports: validatedPorts,
-      generatedKeys: [],
-      schema,
-    });
-
-    return this.listEnvironmentVariables(deploymentId);
   }
 
   /**
@@ -1273,22 +1338,36 @@ export class DeploymentsService {
     status: DeploymentStatus,
     options: { message?: string; error?: string } = {},
   ): Promise<void> {
-    const deployment = await this.getDeployment(deploymentId);
+    try {
+      const deployment = await this.getDeployment(deploymentId);
 
-    deployment.deploymentStatus = status;
-    deployment.statusMessage = options.message ?? deployment.statusMessage;
-    if (options.error) {
-      deployment.lastError = options.error;
+      deployment.deploymentStatus = status;
+      deployment.statusMessage = options.message ?? deployment.statusMessage;
+      if (options.error) {
+        deployment.lastError = options.error;
+      }
+
+      await this.deploymentRepository.save(deployment);
+    } catch (error) {
+      this.logger.error(
+        `Update deployment status failed for '${deploymentId}': ${toErrorMessage(error)}`,
+      );
+      throw error;
     }
-
-    await this.deploymentRepository.save(deployment);
   }
 
   async loadResolvedForAgent(
     deploymentId: string,
     portSchemaKeys: string[],
   ): Promise<{ env: Record<string, string>; ports: Record<string, number> }> {
-    return this.loadStoredVariables(deploymentId, portSchemaKeys);
+    try {
+      return this.loadStoredVariables(deploymentId, portSchemaKeys);
+    } catch (error) {
+      this.logger.error(
+        `Load resolved variables failed for deployment '${deploymentId}': ${toErrorMessage(error)}`,
+      );
+      throw error;
+    }
   }
 
   private async upsertDeploymentRecord(opts: {
@@ -1429,68 +1508,75 @@ export class DeploymentsService {
     userId: string,
     options: { removeManagedServices: boolean },
   ): Promise<void> {
-    const terminalStatuses: DeploymentStatus[] = ["removed", "removing"];
+    try {
+      const terminalStatuses: DeploymentStatus[] = ["removed", "removing"];
 
-    const deployments = await this.deploymentRepository.find({
-      where: {
-        serverId,
-        userId,
-        deletedAt: IsNull(),
-        status: EntityStatus.ACTIVE,
-        deploymentStatus: Not(In(terminalStatuses)),
-      },
-    });
+      const deployments = await this.deploymentRepository.find({
+        where: {
+          serverId,
+          userId,
+          deletedAt: IsNull(),
+          status: EntityStatus.ACTIVE,
+          deploymentStatus: Not(In(terminalStatuses)),
+        },
+      });
 
-    if (deployments.length === 0) {
-      return;
-    }
+      if (deployments.length === 0) {
+        return;
+      }
 
-    if (options.removeManagedServices) {
-      await this.ensureAgentConnectedForServer(serverId);
+      if (options.removeManagedServices) {
+        await this.ensureAgentConnectedForServer(serverId);
 
-      for (const deployment of deployments) {
-        if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
-          this.logger.warn(
-            `Server delete: no connected agent for deployment '${deployment.id}' on server '${serverId}'`,
-          );
-          continue;
-        }
+        for (const deployment of deployments) {
+          if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+            this.logger.warn(
+              `Server delete: no connected agent for deployment '${deployment.id}' on server '${serverId}'`,
+            );
+            continue;
+          }
 
-        try {
-          await this.deploymentGateway.requestDeploymentRemove(
-            serverId,
-            deployment.id,
-            deployment.templateSlug,
-          );
-          this.logger.log(
-            `Server delete: agent removed deployment '${deployment.id}' on server '${serverId}'`,
-          );
-        } catch (error) {
-          this.logger.warn(
-            `Server delete: agent removal failed for deployment '${deployment.id}' on server '${serverId}': ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-          );
+          try {
+            await this.deploymentGateway.requestDeploymentRemove(
+              serverId,
+              deployment.id,
+              deployment.templateSlug,
+            );
+            this.logger.log(
+              `Server delete: agent removed deployment '${deployment.id}' on server '${serverId}'`,
+            );
+          } catch (error) {
+            this.logger.warn(
+              `Server delete: agent removal failed for deployment '${deployment.id}' on server '${serverId}': ${
+                error instanceof Error ? error.message : String(error)
+              }`,
+            );
+          }
         }
       }
+
+      const now = dayjs().unix();
+      await this.deploymentRepository.update(
+        { id: In(deployments.map((deployment) => deployment.id)) },
+        {
+          status: EntityStatus.INACTIVE,
+          deploymentStatus: "removed",
+          statusMessage: DEPLOYMENT_MESSAGES.SERVER_DELETE_DEACTIVATED,
+          lastError: null,
+          deletedAt: now,
+          updatedAt: now,
+        },
+      );
+
+      this.logger.log(
+        `Marked ${deployments.length} deployment(s) inactive for deleted server '${serverId}'`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Deactivate deployments for server deletion failed for '${serverId}': ${toErrorMessage(error)}`,
+      );
+      throw error;
     }
-
-    const now = dayjs().unix();
-    await this.deploymentRepository.update(
-      { id: In(deployments.map((deployment) => deployment.id)) },
-      {
-        status: EntityStatus.INACTIVE,
-        deploymentStatus: "removed",
-        statusMessage: DEPLOYMENT_MESSAGES.SERVER_DELETE_DEACTIVATED,
-        lastError: null,
-        deletedAt: now,
-        updatedAt: now,
-      },
-    );
-
-    this.logger.log(
-      `Marked ${deployments.length} deployment(s) inactive for deleted server '${serverId}'`,
-    );
   }
 
   /**
@@ -1502,58 +1588,78 @@ export class DeploymentsService {
     status: DeploymentStatus;
     message: string;
   }> {
-    const deployment = await this.getDeployment(deploymentId);
-    const blockingStatuses: DeploymentStatus[] = [
-      "pending",
-      "validating",
-      "pulling",
-      "building",
-      "deploying",
-      "removing",
-      "removed",
-    ];
+    try {
+      const deployment = await this.getDeployment(deploymentId);
+      const blockingStatuses: DeploymentStatus[] = [
+        "pending",
+        "validating",
+        "pulling",
+        "building",
+        "deploying",
+        "removing",
+        "removed",
+      ];
 
-    if (blockingStatuses.includes(deployment.deploymentStatus)) {
-      throw new ConflictException(
-        `Deployment '${deploymentId}' cannot be removed while status is '${deployment.deploymentStatus}'`,
-      );
-    }
-
-    let serverId = deployment.serverId;
-    if (!serverId) {
-      if (!deployment.userId) {
-        throw new BadRequestException(
-          `Deployment '${deploymentId}' has no server_id; cannot remove.`,
+      if (blockingStatuses.includes(deployment.deploymentStatus)) {
+        throw new ConflictException(
+          `Deployment '${deploymentId}' cannot be removed while status is '${deployment.deploymentStatus}'`,
         );
       }
-      serverId = (
-        await this.localServerService.ensureLocalServer(deployment.userId)
-      ).id;
-    }
 
-    await this.ensureAgentConnectedForServer(serverId);
+      let serverId = deployment.serverId;
+      if (!serverId) {
+        if (!deployment.userId) {
+          throw new BadRequestException(
+            `Deployment '${deploymentId}' has no server_id; cannot remove.`,
+          );
+        }
+        serverId = (
+          await this.localServerService.ensureLocalServer(deployment.userId)
+        ).id;
+      }
 
-    await this.updateStatus(deploymentId, "removing", {
-      message: SUCCESS_MESSAGES.REMOVING,
-    });
+      await this.ensureAgentConnectedForServer(serverId);
 
-    const message: SocketRemoveMessage = {
-      type: "REMOVE",
-      payload: {
+      await this.updateStatus(deploymentId, "removing", {
+        message: SUCCESS_MESSAGES.REMOVING,
+      });
+
+      const message: SocketRemoveMessage = {
+        type: "REMOVE",
+        payload: {
+          deploymentId,
+          templateSlug: deployment.templateSlug,
+        },
+      };
+
+      try {
+        this.deploymentGateway.emitRemove(message, serverId);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        this.logger.error(
+          `Failed to emit removal for deployment '${deploymentId}': ${errorMessage}`,
+        );
+        await this.updateStatus(deploymentId, "failed", {
+          message: "Failed to remove deployment",
+          error: errorMessage,
+        });
+        throw error;
+      }
+
+      this.logger.log(`Removal requested for deployment '${deploymentId}'`);
+
+      return {
         deploymentId,
-        templateSlug: deployment.templateSlug,
-      },
-    };
-
-    this.deploymentGateway.emitRemove(message, serverId);
-
-    this.logger.log(`Removal requested for deployment '${deploymentId}'`);
-
-    return {
-      deploymentId,
-      status: "removing",
-      message: SUCCESS_MESSAGES.REMOVING,
-    };
+        status: "removing",
+        message: SUCCESS_MESSAGES.REMOVING,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Remove deployment '${deploymentId}' failed: ${toErrorMessage(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -1563,23 +1669,30 @@ export class DeploymentsService {
     deploymentId: string,
     options: { message?: string } = {},
   ): Promise<void> {
-    const deployment = await this.deploymentRepository.findOne({
-      where: { id: deploymentId },
-      withDeleted: true,
-    });
+    try {
+      const deployment = await this.deploymentRepository.findOne({
+        where: { id: deploymentId },
+        withDeleted: true,
+      });
 
-    if (!deployment || deployment.deletedAt) {
-      return;
+      if (!deployment || deployment.deletedAt) {
+        return;
+      }
+
+      deployment.deploymentStatus = "removed";
+      deployment.statusMessage =
+        options.message ?? SUCCESS_MESSAGES.REMOVAL_COMPLETED;
+      deployment.lastError = null;
+
+      await this.deploymentRepository.softRemove(deployment);
+
+      this.logger.log(`Soft-deleted deployment record '${deploymentId}'`);
+    } catch (error) {
+      this.logger.error(
+        `Soft delete deployment '${deploymentId}' failed: ${toErrorMessage(error)}`,
+      );
+      throw error;
     }
-
-    deployment.deploymentStatus = "removed";
-    deployment.statusMessage =
-      options.message ?? SUCCESS_MESSAGES.REMOVAL_COMPLETED;
-    deployment.lastError = null;
-
-    await this.deploymentRepository.softRemove(deployment);
-
-    this.logger.log(`Soft-deleted deployment record '${deploymentId}'`);
   }
 
   /**

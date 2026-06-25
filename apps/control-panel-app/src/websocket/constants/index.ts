@@ -1,3 +1,11 @@
+export const DEPLOYMENTS_SOCKET_NAMESPACE = "deployments";
+
+export const SOCKET_ROOM_PREFIX = {
+  DEPLOYMENT: "deployment",
+  TERMINAL: "terminal",
+  CONTAINER_LOGS: "container-logs",
+} as const;
+
 export const SERVER_ID_HEADER = "x-kubeara-server-id";
 export const CONTAINER_DISCOVER_TIMEOUT_MS = 15_000;
 export const DEPLOYMENT_VALIDATE_TIMEOUT_MS = 30_000;

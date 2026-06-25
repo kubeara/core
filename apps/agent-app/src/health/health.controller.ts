@@ -1,4 +1,4 @@
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, Logger } from "@nestjs/common";
 import { SocketClientService } from "../socket-client/socket-client.service";
 import { ContainerService } from "../container/container.service";
 import { ServerResourcesService } from "../server-resources/server-resources.service";
@@ -6,10 +6,8 @@ import type { ServerResourcesMetricsPayload } from "@shared/socket-events";
 
 @Controller("health")
 export class HealthController {
-  /**
-   * Creates health controller with socket client dependency.
-   * @param socketClientService Connected agent socket state provider.
-   */
+  private readonly logger = new Logger(HealthController.name);
+
   constructor(
     private readonly socketClientService: SocketClientService,
     private readonly containerService: ContainerService,
@@ -18,7 +16,6 @@ export class HealthController {
 
   /**
    * Returns current health and socket metadata for the running agent.
-   * @returns Health payload used by probes and diagnostics.
    */
   @Get()
   health(): {
@@ -35,9 +32,8 @@ export class HealthController {
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      throw new Error(
-        `Failed to build health response: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logger.error(`Health check failed`);
+      throw error;
     }
   }
 
@@ -50,13 +46,18 @@ export class HealthController {
     containers: unknown[];
     error?: string;
   }> {
-    const result =
-      await this.containerService.discoverContainers("health-check");
-    return {
-      count: result.containers.length,
-      containers: result.containers,
-      error: result.error,
-    };
+    try {
+      const result =
+        await this.containerService.discoverContainers("health-check");
+      return {
+        count: result.containers.length,
+        containers: result.containers,
+        error: result.error,
+      };
+    } catch (error) {
+      this.logger.error(`Health container discovery failed`);
+      throw error;
+    }
   }
 
   /**
@@ -67,11 +68,16 @@ export class HealthController {
     resources?: ServerResourcesMetricsPayload;
     error?: string;
   }> {
-    const result =
-      await this.serverResourcesService.collectResources("health-check");
-    return {
-      resources: result.resources,
-      error: result.error,
-    };
+    try {
+      const result =
+        await this.serverResourcesService.collectResources("health-check");
+      return {
+        resources: result.resources,
+        error: result.error,
+      };
+    } catch (error) {
+      this.logger.error(`Health resource collection failed`);
+      throw error;
+    }
   }
 }

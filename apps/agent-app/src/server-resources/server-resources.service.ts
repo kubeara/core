@@ -47,11 +47,17 @@ export class ServerResourcesService {
    * Gathers current server resource metrics without socket correlation metadata.
    */
   async getCurrentMetrics() {
-    return this.withTimeout(
-      this.gatherMetrics(),
-      SERVER_RESOURCES_TIMEOUT_MS,
-      "Server resource collection timed out",
-    );
+    try {
+      return await this.withTimeout(
+        this.gatherMetrics(),
+        SERVER_RESOURCES_TIMEOUT_MS,
+        "Server resource collection timed out",
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Get current metrics failed: ${message}`);
+      throw error;
+    }
   }
 
   /**
@@ -59,51 +65,57 @@ export class ServerResourcesService {
    * @returns Server resources metrics
    */
   private async gatherMetrics() {
-    const procPrefix = await this.procPrefixPromise;
-    const hostRoot = await this.resolveHostRootPath(procPrefix);
+    try {
+      const procPrefix = await this.procPrefixPromise;
+      const hostRoot = await this.resolveHostRootPath(procPrefix);
 
-    const cpuStatFirstLine = this.extractCpuLine(
-      await this.readProcFile(procPrefix, "stat"),
-    );
-    await this.sleep(CPU_SAMPLE_INTERVAL_MS);
-    const cpuStatSecondLine = this.extractCpuLine(
-      await this.readProcFile(procPrefix, "stat"),
-    );
+      const cpuStatFirstLine = this.extractCpuLine(
+        await this.readProcFile(procPrefix, "stat"),
+      );
+      await this.sleep(CPU_SAMPLE_INTERVAL_MS);
+      const cpuStatSecondLine = this.extractCpuLine(
+        await this.readProcFile(procPrefix, "stat"),
+      );
 
-    const [
-      meminfo,
-      dfStdout,
-      netDev,
-      uptimeContent,
-      loadAverageContent,
-      cpuinfo,
-      hostnameContent,
-    ] = await Promise.all([
-      this.readProcFile(procPrefix, "meminfo"),
-      this.collectDfStdout(hostRoot),
-      this.readProcFile(procPrefix, "net/dev"),
-      this.readProcFile(procPrefix, "uptime"),
-      this.readProcFile(procPrefix, "loadavg"),
-      this.readProcFile(procPrefix, "cpuinfo"),
-      this.readProcFile(procPrefix, "sys/kernel/hostname"),
-    ]);
+      const [
+        meminfo,
+        dfStdout,
+        netDev,
+        uptimeContent,
+        loadAverageContent,
+        cpuinfo,
+        hostnameContent,
+      ] = await Promise.all([
+        this.readProcFile(procPrefix, "meminfo"),
+        this.collectDfStdout(hostRoot),
+        this.readProcFile(procPrefix, "net/dev"),
+        this.readProcFile(procPrefix, "uptime"),
+        this.readProcFile(procPrefix, "loadavg"),
+        this.readProcFile(procPrefix, "cpuinfo"),
+        this.readProcFile(procPrefix, "sys/kernel/hostname"),
+      ]);
 
-    const cpuCores = parseCpuCoresFromCpuinfo(cpuinfo) || os.cpus().length;
-    const hostname = parseHostnameFromProc(hostnameContent) || os.hostname();
+      const cpuCores = parseCpuCoresFromCpuinfo(cpuinfo) || os.cpus().length;
+      const hostname = parseHostnameFromProc(hostnameContent) || os.hostname();
 
-    return buildServerResourcesMetrics({
-      cpuStatFirstLine,
-      cpuStatSecondLine,
-      loadAverageContent,
-      cpuCores,
-      meminfo,
-      dfStdout,
-      netDev,
-      uptimeContent,
-      hostname,
-      platform: os.platform(),
-      architecture: os.arch(),
-    });
+      return buildServerResourcesMetrics({
+        cpuStatFirstLine,
+        cpuStatSecondLine,
+        loadAverageContent,
+        cpuCores,
+        meminfo,
+        dfStdout,
+        netDev,
+        uptimeContent,
+        hostname,
+        platform: os.platform(),
+        architecture: os.arch(),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Get current metrics failed: ${message}`);
+      throw error;
+    }
   }
 
   /**
@@ -157,18 +169,32 @@ export class ServerResourcesService {
     prefix: string,
     relativePath: string,
   ): Promise<string> {
-    return readFile(path.join(prefix, relativePath), "utf8");
+    try {
+      return await readFile(path.join(prefix, relativePath), "utf8");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to read proc file ${relativePath}: ${message}`);
+      throw error;
+    }
   }
 
   /**
    * Extracts the CPU line from the content.
    */
   private extractCpuLine(content: string): string {
-    const cpuLine = content.split("\n").find((line) => line.startsWith("cpu "));
-    if (!cpuLine) {
-      throw new Error("Failed to read CPU stats from /proc/stat");
+    try {
+      const cpuLine = content
+        .split("\n")
+        .find((line) => line.startsWith("cpu "));
+      if (!cpuLine) {
+        throw new Error("Failed to read CPU stats from /proc/stat");
+      }
+      return cpuLine;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to extract CPU line: ${message}`);
+      throw error;
     }
-    return cpuLine;
   }
 
   /**

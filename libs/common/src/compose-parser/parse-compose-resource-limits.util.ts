@@ -7,8 +7,8 @@ export interface ComposeResourceRequirements {
 
 interface ComposeDeployResources {
   limits?: {
-    cpus?: string | number;
-    memory?: string | number;
+    cpus: string;
+    memory: string;
   };
 }
 
@@ -137,6 +137,12 @@ export function sumComposeResourceLimits(
 export function sumComposeResourceLimitsFromYaml(
   composeYaml: string,
 ): ComposeResourceRequirements {
-  const parsed = yaml.load(composeYaml);
-  return sumComposeResourceLimits(parsed);
+  try {
+    const parsed = yaml.load(composeYaml);
+    return sumComposeResourceLimits(parsed);
+  } catch (error) {
+    throw new Error(
+      `Failed to parse compose YAML for resource limits: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 }

@@ -33,6 +33,10 @@ export const ERROR_MESSAGES = {
     SESSION_NOT_FOUND: "Terminal session not found",
     CONNECT_FAILED: "Failed to create terminal session",
     DISCONNECT_FAILED: "Failed to disconnect terminal session",
+    SSH_LOCAL_UNAVAILABLE:
+      "SSH terminal fallback is not available for local servers without an agent",
+    SSH_SHELL_FAILED: "SSH shell failed",
+    UNKNOWN_ERROR: "unknown error",
   },
 
   CONTAINER_LOGS: {

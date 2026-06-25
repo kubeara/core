@@ -19,6 +19,7 @@ import {
   applyTraefikRoutingToCompose,
   extractOccupiedPortFromError,
   formatDeploymentPortInUseMessage,
+  maskEnvContents,
   sumComposeResourceLimitsFromYaml,
 } from "@shared/common";
 import {
@@ -136,6 +137,19 @@ export class DeployTemplateExecutor {
         notifier,
         startedAt,
         projectName,
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `Unexpected deployment error deploymentId=${deploymentId}: ${msg}`,
+      );
+      notifier.sendStatus({
+        deploymentId,
+        templateSlug: name,
+        status: "failed",
+        message: ERROR_MESSAGES.DEPLOYMENT_FAILED,
+        error: msg,
+        completedAt: new Date().toISOString(),
       });
     } finally {
       this.activeDeployments.delete(deploymentId);
@@ -737,9 +751,21 @@ export class DeployTemplateExecutor {
   ): Promise<void> {
     this.stopContainerLogStreaming(deploymentId);
     const resolved = this.resolvePortConflictFailure(message, error);
-    this.logger.error(`${resolved.message}: ${resolved.error}`);
+    this.logger.error(
+      `${resolved.message}: ${this.sanitizeDockerOutput(resolved.error)}`,
+    );
     if (dir && projectName) {
-      await this.cleanupDeployment(projectName, dir, name, notifier);
+      try {
+        await this.cleanupDeployment(projectName, dir, name, notifier);
+      } catch (cleanupErr) {
+        this.logger.warn(
+          `Cleanup after failure failed deploymentId=${deploymentId}: ${
+            cleanupErr instanceof Error
+              ? cleanupErr.message
+              : String(cleanupErr)
+          }`,
+        );
+      }
     }
 
     notifier.sendStatus({
@@ -1449,17 +1475,28 @@ export class DeployTemplateExecutor {
       const child = spawn(cmd, args.filter(Boolean), { cwd });
       let stdout = "";
       let stderr = "";
+      let settled = false;
+
+      const finish = (exitCode: number) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        resolve({ exitCode, stdout, stderr });
+      };
 
       child.stdout.on("data", (chunk) => (stdout += String(chunk)));
       child.stderr.on("data", (chunk) => (stderr += String(chunk)));
-      child.on(
-        "error",
-        (err) => (stderr += `Failed to start process: ${err.message}`),
-      );
-      child.on("close", (code) =>
-        resolve({ exitCode: code ?? 1, stdout, stderr }),
-      );
+      child.on("error", (err) => {
+        stderr += `Failed to start process: ${err.message}`;
+        finish(1);
+      });
+      child.on("close", (code) => finish(code ?? 1));
     });
+  }
+
+  private sanitizeDockerOutput(text: string, maxLen = 500): string {
+    return maskEnvContents(text).slice(0, maxLen);
   }
 
   private clearDeploymentStreamLineBuffers(deploymentId: string): void {
@@ -2143,9 +2180,8 @@ export class DeployTemplateExecutor {
       });
     } catch (error) {
       this.logger.error(
-        `Failed to run agent removal after ack: ${String(error)}`,
+        `Failed to run agent removal after ack: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
     }
   }
 
