@@ -362,6 +362,7 @@ export class SocketClientService {
       schema,
       composeOnly,
       useTraefik,
+      skipResourceValidation,
     } = message.payload;
     const deploymentId = providedId || this.generateDeploymentId();
 
@@ -429,6 +430,7 @@ export class SocketClientService {
         schema,
         composeOnly,
         useTraefik,
+        skipResourceValidation,
         notifier: this,
       });
     } catch (err) {
@@ -553,22 +555,46 @@ export class SocketClientService {
         response = { requestId, available: true };
       }
     } catch (error) {
-      const message =
-        error instanceof PortUnavailableError ||
-        error instanceof InsufficientRamError ||
-        error instanceof InsufficientCpuError
-          ? error.message
-          : error instanceof Error
+      if (error instanceof InsufficientRamError) {
+        this.logger.warn(
+          `Deployment validation resource warning requestId=${requestId}: ${error.message}`,
+        );
+        response = {
+          requestId,
+          available: false,
+          warning: {
+            code: "insufficient_ram",
+            message: error.message,
+          },
+        };
+      } else if (error instanceof InsufficientCpuError) {
+        this.logger.warn(
+          `Deployment validation resource warning requestId=${requestId}: ${error.message}`,
+        );
+        response = {
+          requestId,
+          available: false,
+          warning: {
+            code: "insufficient_cpu",
+            message: error.message,
+          },
+        };
+      } else {
+        const message =
+          error instanceof PortUnavailableError
             ? error.message
-            : String(error);
-      this.logger.warn(
-        `Deployment validation failed requestId=${requestId}: ${message}`,
-      );
-      response = {
-        requestId,
-        available: false,
-        error: message,
-      };
+            : error instanceof Error
+              ? error.message
+              : String(error);
+        this.logger.warn(
+          `Deployment validation failed requestId=${requestId}: ${message}`,
+        );
+        response = {
+          requestId,
+          available: false,
+          error: message,
+        };
+      }
     }
 
     if (!this.socket?.connected) {

@@ -100,6 +100,7 @@ export class DeploymentsController {
       const result = this.deploymentsService.schedulePreparedDeployment(
         prepared,
         Boolean(deploymentId),
+        { skipResourceValidation: body.skipResourceValidation },
       );
 
       const publicUrl = resolvePrimaryServicePublicUrl(
@@ -125,12 +126,15 @@ export class DeploymentsController {
   async validateBeforeDeploy(
     @Req() req: { user: UserEntity },
     @Body() body: DeployTemplateDto,
-  ): Promise<{ available: true }> {
+  ): Promise<
+    | { available: true }
+    | { available: false; warning: { code: string; message: string } }
+  > {
     try {
       const { env: requestEnv, ports: requestPorts } =
         normalizeDeployRequestVariables(body.env ?? {}, body.ports ?? {});
 
-      await this.deploymentsService.validateBeforeDeploy({
+      return await this.deploymentsService.validateBeforeDeploy({
         userId: req.user.id,
         serverId: body.serverId,
         deployOnLocal: body.deployOnLocal,
@@ -139,8 +143,6 @@ export class DeploymentsController {
         requestPorts,
         useTraefikRequest: body.useTraefik,
       });
-
-      return { available: true };
     } catch (error) {
       this.logger.error(
         `Validation before deploy failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -211,6 +213,7 @@ export class DeploymentsController {
       return this.deploymentsService.schedulePreparedDeployment(
         prepared,
         Boolean(deploymentId),
+        { skipResourceValidation: body.skipResourceValidation },
       );
     } catch (error) {
       this.logger.error(
