@@ -5,6 +5,13 @@ import type { IPty } from "node-pty";
 import {
   DEFAULT_TERMINAL_COLS,
   DEFAULT_TERMINAL_ROWS,
+  MAX_TERMINAL_COLS,
+  MAX_TERMINAL_ROWS,
+  MIN_TERMINAL_COLS,
+  MIN_TERMINAL_ROWS,
+  TERMINAL_TERM_TYPE,
+} from "@shared/common";
+import {
   TERMINAL_ENV,
   TERMINAL_SHELL,
 } from "../common/constants/terminal.constant";
@@ -29,14 +36,26 @@ export class TerminalService {
    * Sets the output handler for the terminal service.
    */
   setOutputHandler(handler: TerminalOutputHandler): void {
-    this.outputHandler = handler;
+    try {
+      this.outputHandler = handler;
+    } catch (error) {
+      this.logger.error(
+        `Failed to set terminal output handler: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
    * Sets the close handler for the terminal service.
    */
   setCloseHandler(handler: TerminalCloseHandler): void {
-    this.closeHandler = handler;
+    try {
+      this.closeHandler = handler;
+    } catch (error) {
+      this.logger.error(
+        `Failed to set terminal close handler: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
@@ -46,33 +65,40 @@ export class TerminalService {
     cols: number = DEFAULT_TERMINAL_COLS,
     rows: number = DEFAULT_TERMINAL_ROWS,
   ): string {
-    const sessionId = randomUUID();
-    const shell = TERMINAL_SHELL;
+    try {
+      const sessionId = randomUUID();
+      const shell = TERMINAL_SHELL;
 
-    const ptyProcess = pty.spawn(shell, [], {
-      name: "xterm-256color",
-      cols: this.normalizeCols(cols),
-      rows: this.normalizeRows(rows),
-      cwd: process.env.HOME ?? process.cwd(),
-      env: TERMINAL_ENV,
-    });
+      const ptyProcess = pty.spawn(shell, [], {
+        name: TERMINAL_TERM_TYPE,
+        cols: this.normalizeCols(cols),
+        rows: this.normalizeRows(rows),
+        cwd: process.env.HOME ?? process.cwd(),
+        env: TERMINAL_ENV,
+      });
 
-    ptyProcess.onData((data: string) => {
-      this.outputHandler?.(sessionId, data);
-    });
+      ptyProcess.onData((data: string) => {
+        this.outputHandler?.(sessionId, data);
+      });
 
-    ptyProcess.onExit(() => {
-      this.logger.log(`Terminal session exited sessionId=${sessionId}`);
-      this.sessions.delete(sessionId);
-      this.closeHandler?.(sessionId);
-    });
+      ptyProcess.onExit(() => {
+        this.logger.log(`Terminal session exited sessionId=${sessionId}`);
+        this.sessions.delete(sessionId);
+        this.closeHandler?.(sessionId);
+      });
 
-    this.sessions.set(sessionId, { sessionId, pty: ptyProcess });
-    this.logger.log(
-      `Terminal session created sessionId=${sessionId} shell=${shell} cols=${cols} rows=${rows}`,
-    );
+      this.sessions.set(sessionId, { sessionId, pty: ptyProcess });
+      this.logger.log(
+        `Terminal session created sessionId=${sessionId} shell=${shell} cols=${cols} rows=${rows}`,
+      );
 
-    return sessionId;
+      return sessionId;
+    } catch (error) {
+      this.logger.error(
+        `Failed to create terminal session: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -87,7 +113,13 @@ export class TerminalService {
       return;
     }
 
-    session.pty.write(data);
+    try {
+      session.pty.write(data);
+    } catch (error) {
+      this.logger.warn(
+        `Write failed sessionId=${sessionId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
@@ -133,20 +165,27 @@ export class TerminalService {
    * Checks if a terminal session exists.
    */
   hasSession(sessionId: string): boolean {
-    return this.sessions.has(sessionId);
+    try {
+      return this.sessions.has(sessionId);
+    } catch (error) {
+      this.logger.error(
+        `Failed to check terminal session sessionId=${sessionId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
   }
 
   private normalizeCols(cols: number): number {
     return Math.min(
-      500,
-      Math.max(10, Math.floor(cols) || DEFAULT_TERMINAL_COLS),
+      MAX_TERMINAL_COLS,
+      Math.max(MIN_TERMINAL_COLS, Math.floor(cols) || DEFAULT_TERMINAL_COLS),
     );
   }
 
   private normalizeRows(rows: number): number {
     return Math.min(
-      200,
-      Math.max(5, Math.floor(rows) || DEFAULT_TERMINAL_ROWS),
+      MAX_TERMINAL_ROWS,
+      Math.max(MIN_TERMINAL_ROWS, Math.floor(rows) || DEFAULT_TERMINAL_ROWS),
     );
   }
 }

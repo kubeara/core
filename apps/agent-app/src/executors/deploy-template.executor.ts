@@ -19,6 +19,8 @@ import {
   applyTraefikRoutingToCompose,
   extractOccupiedPortFromError,
   formatDeploymentPortInUseMessage,
+  maskEnvContents,
+  sumComposeResourceLimitsFromYaml,
 } from "@shared/common";
 import {
   EnvFileInput,
@@ -27,9 +29,11 @@ import {
 } from "./env-file.util";
 import { TraefikProxyService } from "../proxy/traefik-proxy.service";
 import {
-  PortAvailabilityService,
+  InsufficientCpuError,
+  InsufficientRamError,
   PortUnavailableError,
-} from "../port-availability/port-availability.service";
+  ResourceAvailabilityService,
+} from "../resource-availability/resource-availability.service";
 import * as yaml from "js-yaml";
 
 export interface ExecutionNotifier {
@@ -66,7 +70,7 @@ export class DeployTemplateExecutor {
     private readonly templateConfigService: TemplateConfigService,
     private readonly composeParserService: ComposeParserService,
     private readonly traefikProxy: TraefikProxyService,
-    private readonly portAvailabilityService: PortAvailabilityService,
+    private readonly resourceAvailabilityService: ResourceAvailabilityService,
   ) {}
 
   async execute(opts: {
@@ -134,6 +138,19 @@ export class DeployTemplateExecutor {
         startedAt,
         projectName,
       });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `Unexpected deployment error deploymentId=${deploymentId}: ${msg}`,
+      );
+      notifier.sendStatus({
+        deploymentId,
+        templateSlug: name,
+        status: "failed",
+        message: ERROR_MESSAGES.DEPLOYMENT_FAILED,
+        error: msg,
+        completedAt: new Date().toISOString(),
+      });
     } finally {
       this.activeDeployments.delete(deploymentId);
       this.clearDeploymentStreamLineBuffers(deploymentId);
@@ -141,10 +158,10 @@ export class DeployTemplateExecutor {
   }
 
   /**
-   * Validates host port availability using the same resolution path as deployment,
-   * without starting containers or creating a deployment record.
+   * Validates RAM, ports, and CPU using the same resolution path as deployment,
+   * without starting containers.
    */
-  async checkPortsBeforeDeploy(opts: {
+  async validateBeforeDeploy(opts: {
     name: string;
     compose: string;
     env?:
@@ -157,7 +174,7 @@ export class DeployTemplateExecutor {
     composeOnly?: boolean;
     useTraefik?: boolean;
   }): Promise<void> {
-    const deploymentId = `port-check-${randomUUID()}`;
+    const deploymentId = `validate-${randomUUID()}`;
     const projectName = this.fsService.sanitizeName(deploymentId);
     const noopNotifier: ExecutionNotifier = {
       sendStatus: () => undefined,
@@ -198,19 +215,6 @@ export class DeployTemplateExecutor {
         : [];
       const applyTraefikRouting = useTraefik && traefikRoutes.length > 0;
 
-      if (applyTraefikRouting) {
-        this.logger.log(
-          `Port availability check skipped for ${opts.name}: Traefik routing enabled`,
-        );
-        return;
-      }
-
-      if (Object.keys(resolved.portValues).length > 0) {
-        await this.portAvailabilityService.assertPortsAvailable(
-          resolved.portValues,
-        );
-      }
-
       await this.fsService.writeFile(dir, "docker-compose.yml", composeYaml);
 
       const generatedEnv = generateEnvFileDetails(
@@ -246,16 +250,15 @@ export class DeployTemplateExecutor {
         throw new Error(errorText);
       }
 
-      const hostPorts = this.extractHostPortsFromComposeConfig(
-        validation.stdout,
-      );
-      if (hostPorts.length > 0) {
-        await this.portAvailabilityService.assertHostPortsAvailable(hostPorts);
-      }
+      await this.validateResolvedComposeBeforeDeploy({
+        resolvedConfig: validation.stdout,
+        applyTraefikRouting,
+        portValues: resolved.portValues,
+      });
     } finally {
       await this.fsService.removeDeploymentDir(deploymentId).catch((error) => {
         this.logger.warn(
-          `Failed to remove temporary port-check directory for ${deploymentId}: ${
+          `Failed to remove temporary validation directory for ${deploymentId}: ${
             error instanceof Error ? error.message : String(error)
           }`,
         );
@@ -367,23 +370,6 @@ export class DeployTemplateExecutor {
           timestamp: new Date().toISOString(),
           source: "deployment",
         });
-      } else if (Object.keys(resolved.portValues).length > 0) {
-        try {
-          await this.portAvailabilityService.assertPortsAvailable(
-            resolved.portValues,
-          );
-        } catch (err) {
-          if (err instanceof PortUnavailableError) {
-            this.handlePortUnavailableFailure(
-              deploymentId,
-              name,
-              notifier,
-              err,
-            );
-            return;
-          }
-          throw err;
-        }
       }
 
       await this.fsService.writeFile(dir, "docker-compose.yml", composeYaml);
@@ -450,31 +436,32 @@ export class DeployTemplateExecutor {
         return;
       }
 
-      // Check if any host ports are in use by other deployments
-      if (!applyTraefikRouting) {
-        const hostPorts = this.extractHostPortsFromComposeConfig(
-          validation.stdout,
-        );
-        if (hostPorts.length > 0) {
-          try {
-            await this.portAvailabilityService.assertHostPortsAvailable(
-              hostPorts,
-            );
-          } catch (err) {
-            if (err instanceof PortUnavailableError) {
-              this.handlePortUnavailableFailure(
-                deploymentId,
-                name,
-                notifier,
-                err,
-              );
-              return;
-            }
-            throw err;
-          }
+      // Validate RAM, ports, and CPU before starting containers.
+      try {
+        await this.validateResolvedComposeBeforeDeploy({
+          resolvedConfig: validation.stdout,
+          applyTraefikRouting,
+          portValues: resolved.portValues,
+          expectedPorts: generatedEnv.ports,
+        });
+      } catch (err) {
+        if (err instanceof PortUnavailableError) {
+          this.handlePortUnavailableFailure(deploymentId, name, notifier, err);
+          return;
         }
-
-        this.validateResolvedConfig(validation.stdout, generatedEnv.ports);
+        if (
+          err instanceof InsufficientRamError ||
+          err instanceof InsufficientCpuError
+        ) {
+          this.handleResourceUnavailableFailure(
+            deploymentId,
+            name,
+            notifier,
+            err,
+          );
+          return;
+        }
+        throw err;
       }
 
       notifier.sendStatus({
@@ -522,6 +509,19 @@ export class DeployTemplateExecutor {
     } catch (err) {
       if (err instanceof PortUnavailableError) {
         this.handlePortUnavailableFailure(deploymentId, name, notifier, err);
+        return;
+      }
+
+      if (
+        err instanceof InsufficientRamError ||
+        err instanceof InsufficientCpuError
+      ) {
+        this.handleResourceUnavailableFailure(
+          deploymentId,
+          name,
+          notifier,
+          err,
+        );
         return;
       }
 
@@ -657,6 +657,89 @@ export class DeployTemplateExecutor {
     });
   }
 
+  /**
+   * Validates the resolved compose before deploying.
+   */
+  private async validateResolvedComposeBeforeDeploy(opts: {
+    resolvedConfig: string;
+    applyTraefikRouting: boolean;
+    portValues: PortFileInput;
+    expectedPorts?: Record<string, number>;
+  }): Promise<void> {
+    try {
+      const requirements = sumComposeResourceLimitsFromYaml(
+        opts.resolvedConfig,
+      );
+
+      await this.resourceAvailabilityService.assertRamAvailable(
+        requirements.memoryBytes,
+      );
+
+      if (!opts.applyTraefikRouting) {
+        if (Object.keys(opts.portValues).length > 0) {
+          await this.resourceAvailabilityService.assertPortsAvailable(
+            opts.portValues,
+          );
+        }
+
+        const hostPorts = this.extractHostPortsFromComposeConfig(
+          opts.resolvedConfig,
+        );
+        if (hostPorts.length > 0) {
+          await this.resourceAvailabilityService.assertHostPortsAvailable(
+            hostPorts,
+          );
+        }
+
+        if (opts.expectedPorts) {
+          this.validateResolvedConfig(opts.resolvedConfig, opts.expectedPorts);
+        }
+      } else {
+        this.logger.log(
+          "Port availability check skipped: Traefik routing enabled",
+        );
+      }
+
+      await this.resourceAvailabilityService.assertCpuAvailable(
+        requirements.cpuCores,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Validation before deploy failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Handles a RAM or CPU resource unavailable failure.
+   */
+  private handleResourceUnavailableFailure(
+    deploymentId: string,
+    name: string,
+    notifier: ExecutionNotifier,
+    err: InsufficientRamError | InsufficientCpuError,
+  ): void {
+    const message = err.message;
+    this.logger.error(message);
+    notifier.sendLog({
+      deployment: name,
+      deploymentId,
+      type: "stderr",
+      message,
+      timestamp: new Date().toISOString(),
+      source: "deployment",
+    });
+    notifier.sendStatus({
+      deploymentId,
+      templateSlug: name,
+      status: "failed",
+      message,
+      error: message,
+      completedAt: new Date().toISOString(),
+    });
+  }
+
   private async handleDeploymentFailure(
     deploymentId: string,
     name: string,
@@ -668,9 +751,21 @@ export class DeployTemplateExecutor {
   ): Promise<void> {
     this.stopContainerLogStreaming(deploymentId);
     const resolved = this.resolvePortConflictFailure(message, error);
-    this.logger.error(`${resolved.message}: ${resolved.error}`);
+    this.logger.error(
+      `${resolved.message}: ${this.sanitizeDockerOutput(resolved.error)}`,
+    );
     if (dir && projectName) {
-      await this.cleanupDeployment(projectName, dir, name, notifier);
+      try {
+        await this.cleanupDeployment(projectName, dir, name, notifier);
+      } catch (cleanupErr) {
+        this.logger.warn(
+          `Cleanup after failure failed deploymentId=${deploymentId}: ${
+            cleanupErr instanceof Error
+              ? cleanupErr.message
+              : String(cleanupErr)
+          }`,
+        );
+      }
     }
 
     notifier.sendStatus({
@@ -1380,17 +1475,28 @@ export class DeployTemplateExecutor {
       const child = spawn(cmd, args.filter(Boolean), { cwd });
       let stdout = "";
       let stderr = "";
+      let settled = false;
+
+      const finish = (exitCode: number) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        resolve({ exitCode, stdout, stderr });
+      };
 
       child.stdout.on("data", (chunk) => (stdout += String(chunk)));
       child.stderr.on("data", (chunk) => (stderr += String(chunk)));
-      child.on(
-        "error",
-        (err) => (stderr += `Failed to start process: ${err.message}`),
-      );
-      child.on("close", (code) =>
-        resolve({ exitCode: code ?? 1, stdout, stderr }),
-      );
+      child.on("error", (err) => {
+        stderr += `Failed to start process: ${err.message}`;
+        finish(1);
+      });
+      child.on("close", (code) => finish(code ?? 1));
     });
+  }
+
+  private sanitizeDockerOutput(text: string, maxLen = 500): string {
+    return maskEnvContents(text).slice(0, maxLen);
   }
 
   private clearDeploymentStreamLineBuffers(deploymentId: string): void {
@@ -2074,9 +2180,8 @@ export class DeployTemplateExecutor {
       });
     } catch (error) {
       this.logger.error(
-        `Failed to run agent removal after ack: ${String(error)}`,
+        `Failed to run agent removal after ack: ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw error;
     }
   }
 

@@ -99,6 +99,18 @@
   padding-right: 2.25rem;
 }
 
+.container-port-link {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--primary) 82%, #2563eb);
+  text-decoration: none;
+}
+
+.container-port-link:hover {
+  text-decoration: underline;
+}
+
 .container-actions-menu {
   position: absolute;
   top: 0.75rem;

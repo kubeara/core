@@ -1,6 +1,7 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod";
+import { toErrorMessage } from "@control-panel/common/utils/error.util";
 
 import {
   MCP_SERVER_NAME,
@@ -11,6 +12,8 @@ import { McpToolsService } from "../tools/tools.service";
 
 @Injectable()
 export class McpServerService {
+  private readonly logger = new Logger(McpServerService.name);
+
   constructor(private readonly mcpToolsService: McpToolsService) {}
 
   /**
@@ -19,71 +22,78 @@ export class McpServerService {
    * @returns A MCP server.
    */
   createServer(userId: string): McpServer {
-    const server = new McpServer(
-      { name: MCP_SERVER_NAME, version: MCP_SERVER_VERSION },
-      { capabilities: { tools: {} } },
-    );
+    try {
+      const server = new McpServer(
+        { name: MCP_SERVER_NAME, version: MCP_SERVER_VERSION },
+        { capabilities: { tools: {} } },
+      );
 
-    server.registerTool(
-      MCP_TOOL_NAMES.LIST_SERVERS,
-      {
-        description: "List all servers for user",
-        inputSchema: {},
-      },
-      () =>
-        this.mcpToolsService.executeTool(
-          MCP_TOOL_NAMES.LIST_SERVERS,
-          {},
-          userId,
-        ),
-    );
-
-    server.registerTool(
-      MCP_TOOL_NAMES.GET_SERVER_STATUS,
-      {
-        description: "Server status/metrics",
-        inputSchema: {
-          serverName: z.string().describe("Name of the server"),
+      server.registerTool(
+        MCP_TOOL_NAMES.LIST_SERVERS,
+        {
+          description: "List all servers for user",
+          inputSchema: {},
         },
-      },
-      ({ serverName }) =>
-        this.mcpToolsService.executeTool(
-          MCP_TOOL_NAMES.GET_SERVER_STATUS,
-          { serverName },
-          userId,
-        ),
-    );
+        () =>
+          this.mcpToolsService.executeTool(
+            MCP_TOOL_NAMES.LIST_SERVERS,
+            {},
+            userId,
+          ),
+      );
 
-    server.registerTool(
-      MCP_TOOL_NAMES.GET_GPU_METRICS,
-      {
-        description: "GPU utilization/VRAM",
-        inputSchema: {
-          serverName: z.string().describe("Name of the server"),
+      server.registerTool(
+        MCP_TOOL_NAMES.GET_SERVER_STATUS,
+        {
+          description: "Server status/metrics",
+          inputSchema: {
+            serverName: z.string().describe("Name of the server"),
+          },
         },
-      },
-      ({ serverName }) =>
-        this.mcpToolsService.executeTool(
-          MCP_TOOL_NAMES.GET_GPU_METRICS,
-          { serverName },
-          userId,
-        ),
-    );
+        ({ serverName }) =>
+          this.mcpToolsService.executeTool(
+            MCP_TOOL_NAMES.GET_SERVER_STATUS,
+            { serverName },
+            userId,
+          ),
+      );
 
-    server.registerTool(
-      MCP_TOOL_NAMES.GET_CURRENT_USER,
-      {
-        description: "Get the authenticated user's profile",
-        inputSchema: {},
-      },
-      () =>
-        this.mcpToolsService.executeTool(
-          MCP_TOOL_NAMES.GET_CURRENT_USER,
-          {},
-          userId,
-        ),
-    );
+      server.registerTool(
+        MCP_TOOL_NAMES.GET_GPU_METRICS,
+        {
+          description: "GPU utilization/VRAM",
+          inputSchema: {
+            serverName: z.string().describe("Name of the server"),
+          },
+        },
+        ({ serverName }) =>
+          this.mcpToolsService.executeTool(
+            MCP_TOOL_NAMES.GET_GPU_METRICS,
+            { serverName },
+            userId,
+          ),
+      );
 
-    return server;
+      server.registerTool(
+        MCP_TOOL_NAMES.GET_CURRENT_USER,
+        {
+          description: "Get the authenticated user's profile",
+          inputSchema: {},
+        },
+        () =>
+          this.mcpToolsService.executeTool(
+            MCP_TOOL_NAMES.GET_CURRENT_USER,
+            {},
+            userId,
+          ),
+      );
+
+      return server;
+    } catch (error) {
+      this.logger.error(
+        `Create MCP server failed for user '${userId}': ${toErrorMessage(error)}`,
+      );
+      throw error;
+    }
   }
 }

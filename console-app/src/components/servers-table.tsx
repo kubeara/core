@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CopyButton } from "@/components/shared/copy-button";
 import {
   useDeleteServerMutation,
   useServersQuery,
@@ -34,27 +35,6 @@ const TABLE_COLUMNS: {
   { key: "host", label: "Host" },
   { key: "createdAt", label: "Created At" },
 ];
-
-function CopyIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect
-        x="9"
-        y="9"
-        width="13"
-        height="13"
-        rx="2"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-      <path
-        d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-    </svg>
-  );
-}
 
 function EditIcon() {
   return (
@@ -165,37 +145,10 @@ function ServerNameCell({ server }: { server: Server }) {
 }
 
 function HostCell({ host }: { host: string }) {
-  const [copied, setCopied] = useState(false);
-
-  async function copyHost() {
-    try {
-      await navigator.clipboard.writeText(host);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* clipboard unavailable */
-    }
-  }
-
   return (
     <div className="server-host-cell">
       <span className="server-host-text">{host}</span>
-      <div className="server-copy-wrap">
-        {copied && (
-          <span className="server-copy-popover" role="status">
-            Copied
-          </span>
-        )}
-        <button
-          type="button"
-          className={`server-copy-btn ${copied ? "copied" : ""}`}
-          onClick={copyHost}
-          aria-label={copied ? "Copied" : "Copy host"}
-          title="Copy host"
-        >
-          <CopyIcon />
-        </button>
-      </div>
+      <CopyButton text={host} label="Copy host" />
     </div>
   );
 }

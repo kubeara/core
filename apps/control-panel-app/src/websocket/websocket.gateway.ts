@@ -26,8 +26,8 @@ import {
   ContainerDiscoverRequestPayload,
   ContainerDiscoverResponsePayload,
   DiscoveredContainerPayload,
-  PortsCheckRequestPayload,
-  PortsCheckResponsePayload,
+  DeploymentValidateRequestPayload,
+  DeploymentValidateResponsePayload,
   ServerGetResourcesRequestPayload,
   ServerGetResourcesResponsePayload,
   AgentRemoveRequestPayload,
@@ -60,17 +60,19 @@ import type {
   PendingContainerLogsStart,
   PendingDeploymentRemove,
   PendingAgentRemove,
-  PendingPortsCheck,
+  PendingDeploymentValidate,
   PendingServerResources,
   PendingTerminalConnect,
   TerminalSessionRecord,
   ContainerLogsSessionRecord,
 } from "./interfaces";
 import {
+  DEPLOYMENTS_SOCKET_NAMESPACE,
+  SOCKET_ROOM_PREFIX,
   SERVER_ID_HEADER,
   CONTAINER_ACTION_TIMEOUT_MS,
   CONTAINER_DISCOVER_TIMEOUT_MS,
-  PORTS_CHECK_TIMEOUT_MS,
+  DEPLOYMENT_VALIDATE_TIMEOUT_MS,
   CONTAINER_LOGS_START_TIMEOUT_MS,
   DEPLOYMENT_REMOVE_TIMEOUT_MS,
   AGENT_REMOVE_TIMEOUT_MS,
@@ -78,22 +80,32 @@ import {
   TERMINAL_CONNECT_TIMEOUT_MS,
   STREAM_DEBUG,
 } from "./constants";
+import { WEBSOCKET_ERROR_MESSAGES } from "./constants/error-messages.constants";
 
+/**
+ * Builds the Socket.io room name for a deployment log stream.
+ */
 function deploymentRoom(deploymentId: string): string {
-  return `deployment:${deploymentId}`;
+  return `${SOCKET_ROOM_PREFIX.DEPLOYMENT}:${deploymentId}`;
 }
 
+/**
+ * Builds the Socket.io room name for a terminal session.
+ */
 function terminalRoom(sessionId: string): string {
-  return `terminal:${sessionId}`;
+  return `${SOCKET_ROOM_PREFIX.TERMINAL}:${sessionId}`;
 }
 
+/**
+ * Builds the Socket.io room name for a container logs session.
+ */
 function containerLogsRoom(sessionId: string): string {
-  return `container-logs:${sessionId}`;
+  return `${SOCKET_ROOM_PREFIX.CONTAINER_LOGS}:${sessionId}`;
 }
 
 @Injectable()
 @WebSocketGateway({
-  namespace: "deployments",
+  namespace: DEPLOYMENTS_SOCKET_NAMESPACE,
   cors: { origin: "*" },
 })
 export class DeploymentGateway
@@ -127,7 +139,10 @@ export class DeploymentGateway
     string,
     PendingServerResources
   >();
-  private readonly pendingPortsChecks = new Map<string, PendingPortsCheck>();
+  private readonly pendingDeploymentValidations = new Map<
+    string,
+    PendingDeploymentValidate
+  >();
   private readonly pendingContainerActions = new Map<
     string,
     PendingContainerAction
@@ -157,11 +172,32 @@ export class DeploymentGateway
   private readonly agentCapabilitiesByServerId = new Map<string, Set<string>>();
   private readonly agentVersionsByServerId = new Map<string, string>();
 
+  /**
+   * Initializes the WebSocket gateway after the namespace server is ready.
+   */
   afterInit(): void {
-    this.logStreamDiagnostics("afterInit");
-    this.logger.log("[stream] WebSocket Gateway initialized");
+    try {
+      this.logStreamDiagnostics("afterInit");
+    } catch (error) {
+      this.logger.error(
+        `Failed to initialize WebSocket gateway: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
+  /**
+   * Logs outbound socket event emissions for observability.
+   */
+  private logEmitEvent(event: string, details: string): void {
+    this.logger.log(`[emit] event=${event} ${details}`);
+  }
+
+  /**
+   * Handles the connection of a client to the deployment gateway.
+   * @param client - The socket client.
+   * @returns A promise that resolves when the connection is handled.
+   * @throws An error if the connection cannot be handled.
+   */
   async handleConnection(client: Socket): Promise<void> {
     try {
       const socketId = client.id;
@@ -184,9 +220,6 @@ export class DeploymentGateway
         if (serverId) {
           const previous = this.agentsByServerId.get(serverId);
           if (previous && previous.id !== socketId) {
-            this.logger.warn(
-              `Replacing prior agent socket for serverId=${serverId} (old=${previous.id}, new=${socketId})`,
-            );
             this.unregisterServerBinding(previous.id);
             previous.disconnect(true);
           }
@@ -197,12 +230,6 @@ export class DeploymentGateway
         }
 
         this.attachAgentInboundHandlers(client);
-
-        this.logger.log(
-          `Agent connected: ${socketId} (agents=${this.connectedAgents.size})` +
-            (serverId ? ` serverId=${serverId}` : " (unbound)") +
-            (publicIp ? ` publicIp=${publicIp}` : ""),
-        );
 
         client.on(
           DeploymentEvents.DEPLOYMENT_LOG,
@@ -216,28 +243,35 @@ export class DeploymentGateway
             void this.processDeploymentStatus(client, payload);
           },
         );
-      } else {
-        this.logger.log(
-          `Console client connected: ${socketId} (agents=${this.connectedAgents.size})`,
-        );
       }
 
       const ns = this.getNamespaceServer();
       if (isAgent) {
-        ns?.emit(DeploymentEvents.AGENT_CONNECTED, {
+        const payload = {
           agentId: socketId,
           serverId: serverId ?? undefined,
           timestamp: new Date().toISOString(),
           totalAgents: this.connectedAgents.size,
-        });
+        };
+        this.logEmitEvent(
+          DeploymentEvents.AGENT_CONNECTED,
+          `agentSocket=${socketId}${serverId ? ` serverId=${serverId}` : ""} totalAgents=${this.connectedAgents.size}`,
+        );
+        ns?.emit(DeploymentEvents.AGENT_CONNECTED, payload);
       }
     } catch (error) {
       this.logger.error(
         `Failed to handle connection: ${error instanceof Error ? error.message : String(error)}`,
       );
+      client.disconnect(true);
     }
   }
 
+  /**
+   * Handles the disconnection of a client from the deployment gateway.
+   * @param client - The socket client.
+   * @returns A promise that resolves when the disconnection is handled.
+   */
   handleDisconnect(client: Socket): void {
     try {
       const socketId = client.id;
@@ -248,59 +282,57 @@ export class DeploymentGateway
       this.agentPublicIps.delete(socketId);
       this.unregisterServerBinding(socketId);
 
-      this.logger.log(
-        `${wasAgent ? "Agent" : "Client"} disconnected: ${socketId} (agents=${this.connectedAgents.size})`,
-      );
-
       if (wasAgent) {
         if (serverId) {
           this.clearAgentMetadataForServer(serverId);
           this.rejectPendingDiscoveryForServer(
             serverId,
-            "Agent disconnected during container discovery",
+            WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.CONTAINER_DISCOVERY,
           );
           this.rejectPendingResourcesForServer(
             serverId,
-            "Agent disconnected during server resource collection",
+            WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.SERVER_RESOURCES,
           );
-          this.rejectPendingPortsChecksForServer(
+          this.rejectPendingDeploymentValidatesForServer(
             serverId,
-            "Agent disconnected during port availability check",
+            WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.DEPLOYMENT_VALIDATION,
           );
           this.rejectPendingContainerActionsForServer(
             serverId,
-            "Agent disconnected during container action",
+            WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.CONTAINER_ACTION,
           );
           this.rejectPendingDeploymentRemovesForServer(
             serverId,
-            "Agent disconnected during deployment removal",
+            WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.DEPLOYMENT_REMOVAL,
           );
           this.rejectPendingAgentRemovesForServer(
             serverId,
-            "Agent disconnected during agent removal",
+            WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.AGENT_REMOVAL,
           );
           this.rejectPendingTerminalConnectsForServer(
             serverId,
-            "Agent disconnected during terminal connect",
+            WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.TERMINAL_CONNECT,
           );
           this.rejectPendingContainerLogsStartsForServer(
             serverId,
-            "Agent disconnected during container logs start",
+            WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.CONTAINER_LOGS_START,
           );
-          this.closeTerminalSessionsForServer(serverId, "Agent disconnected");
-          this.closeContainerLogsSessionsForServer(
-            serverId,
-            "Agent disconnected",
-          );
+          this.closeTerminalSessionsForServer(serverId);
+          this.closeContainerLogsSessionsForServer(serverId);
         }
 
         const ns = this.getNamespaceServer();
-        ns?.emit(DeploymentEvents.AGENT_DISCONNECTED, {
+        const payload = {
           agentId: socketId,
           serverId: serverId ?? undefined,
           timestamp: new Date().toISOString(),
           totalAgents: this.connectedAgents.size,
-        });
+        };
+        this.logEmitEvent(
+          DeploymentEvents.AGENT_DISCONNECTED,
+          `agentSocket=${socketId}${serverId ? ` serverId=${serverId}` : ""} totalAgents=${this.connectedAgents.size}`,
+        );
+        ns?.emit(DeploymentEvents.AGENT_DISCONNECTED, payload);
       }
     } catch (error) {
       this.logger.error(
@@ -309,30 +341,72 @@ export class DeploymentGateway
     }
   }
 
+  /**
+   * Handles the deployment log event from an agent.
+   * @param client - The socket client.
+   * @param payload - The deployment log payload.
+   * @returns A promise that resolves when the deployment log is handled.
+   */
   @SubscribeMessage(DeploymentEvents.DEPLOYMENT_LOG)
   handleDeploymentLog(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: DeploymentLogPayload,
   ): void {
-    this.processAgentLog(client, payload);
+    try {
+      this.processAgentLog(client, payload);
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle deployment log: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
+  /**
+   * Handles the deployment status event from an agent.
+   * @param client - The socket client.
+   * @param payload - The deployment status payload.
+   * @returns A promise that resolves when the deployment status is handled.
+   */
   @SubscribeMessage(DeploymentEvents.DEPLOYMENT_STATUS)
-  handleDeploymentStatus(
+  async handleDeploymentStatus(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: DeploymentStatusPayload,
   ): Promise<void> {
-    return this.processDeploymentStatus(client, payload);
+    try {
+      await this.processDeploymentStatus(client, payload);
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle deployment status: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
+  /**
+   * Handles the agent hello event from an agent.
+   * @param client - The socket client.
+   * @param payload - The agent hello payload.
+   * @returns A promise that resolves when the agent hello is handled.
+   */
   @SubscribeMessage(DeploymentEvents.AGENT_HELLO)
   handleAgentHello(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: AgentHelloPayload,
   ): void {
-    this.processAgentHello(client, payload);
+    try {
+      this.processAgentHello(client, payload);
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle agent hello: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
+  /**
+   * Handles the server get resources result event from an agent.
+   * @param client - The socket client.
+   * @param payload - The server get resources result payload.
+   * @returns A promise that resolves when the server get resources result is handled.
+   */
   @SubscribeMessage(DeploymentEvents.SERVER_GET_RESOURCES_RESULT)
   handleServerGetResourcesResult(
     @ConnectedSocket() client: Socket,
@@ -341,25 +415,16 @@ export class DeploymentGateway
     try {
       const requestId = payload?.requestId?.trim();
       if (!requestId) {
-        this.logger.warn(
-          `Ignoring server get-resources result without requestId from ${client.id}`,
-        );
         return;
       }
 
       const pending = this.pendingServerResources.get(requestId);
       if (!pending) {
-        this.logger.warn(
-          `No pending server get-resources for requestId=${requestId}`,
-        );
         return;
       }
 
       const serverId = this.serverIdBySocketId.get(client.id);
       if (serverId && serverId !== pending.serverId) {
-        this.logger.warn(
-          `Server get-resources result server mismatch requestId=${requestId} expected=${pending.serverId} got=${serverId}`,
-        );
         return;
       }
 
@@ -372,7 +437,11 @@ export class DeploymentGateway
       }
 
       if (!payload.resources) {
-        pending.reject(new Error("Agent returned no server resource metrics"));
+        pending.reject(
+          new Error(
+            WEBSOCKET_ERROR_MESSAGES.AGENT_RETURNED_NO_SERVER_RESOURCES,
+          ),
+        );
         return;
       }
 
@@ -384,44 +453,49 @@ export class DeploymentGateway
     }
   }
 
-  @SubscribeMessage(DeploymentEvents.PORTS_CHECK_RESULT)
-  handlePortsCheckResult(
+  /**
+   * Handles the deployment validate result event from an agent.
+   * @param client - The socket client.
+   * @param payload - The deployment validate result payload.
+   * @returns A promise that resolves when the deployment validate result is handled.
+   */
+  @SubscribeMessage(DeploymentEvents.DEPLOYMENT_VALIDATE_RESULT)
+  handleDeploymentValidateResult(
     @ConnectedSocket() client: Socket,
-    @MessageBody() payload: PortsCheckResponsePayload,
+    @MessageBody() payload: DeploymentValidateResponsePayload,
   ): void {
     try {
       const requestId = payload?.requestId?.trim();
       if (!requestId) {
-        this.logger.warn(
-          `Ignoring ports check result without requestId from ${client.id}`,
-        );
         return;
       }
 
-      const pending = this.pendingPortsChecks.get(requestId);
+      const pending = this.pendingDeploymentValidations.get(requestId);
       if (!pending) {
-        this.logger.warn(`No pending ports check for requestId=${requestId}`);
         return;
       }
 
       const serverId = this.serverIdBySocketId.get(client.id);
       if (serverId && serverId !== pending.serverId) {
-        this.logger.warn(
-          `Ports check result server mismatch requestId=${requestId} expected=${pending.serverId} got=${serverId}`,
-        );
         return;
       }
 
       clearTimeout(pending.timer);
-      this.pendingPortsChecks.delete(requestId);
+      this.pendingDeploymentValidations.delete(requestId);
       pending.resolve(payload);
     } catch (error) {
       this.logger.error(
-        `Failed to process ports check result: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to process deployment validate result: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
 
+  /**
+   * Handles the agent remove result event from an agent.
+   * @param client - The socket client.
+   * @param payload - The agent remove result payload.
+   * @returns A promise that resolves when the agent remove result is handled.
+   */
   @SubscribeMessage(DeploymentEvents.AGENT_REMOVE_RESULT)
   handleAgentRemoveResult(
     @ConnectedSocket() client: Socket,
@@ -430,23 +504,16 @@ export class DeploymentGateway
     try {
       const requestId = payload?.requestId?.trim();
       if (!requestId) {
-        this.logger.warn(
-          `Ignoring agent remove result without requestId from ${client.id}`,
-        );
         return;
       }
 
       const pending = this.pendingAgentRemoves.get(requestId);
       if (!pending) {
-        this.logger.warn(`No pending agent remove for requestId=${requestId}`);
         return;
       }
 
       const serverId = this.serverIdBySocketId.get(client.id);
       if (serverId && serverId !== pending.serverId) {
-        this.logger.warn(
-          `Agent remove result server mismatch requestId=${requestId} expected=${pending.serverId} got=${serverId}`,
-        );
         return;
       }
 
@@ -455,7 +522,10 @@ export class DeploymentGateway
 
       if (!payload.success) {
         pending.reject(
-          new Error(payload.error?.trim() || "Agent removal failed"),
+          new Error(
+            payload.error?.trim() ||
+              WEBSOCKET_ERROR_MESSAGES.AGENT_REMOVAL_FAILED,
+          ),
         );
         return;
       }
@@ -468,6 +538,12 @@ export class DeploymentGateway
     }
   }
 
+  /**
+   * Handles the container action result event from an agent.
+   * @param client - The socket client.
+   * @param payload - The container action result payload.
+   * @returns A promise that resolves when the container action result is handled.
+   */
   @SubscribeMessage(DeploymentEvents.CONTAINER_ACTION_RESULT)
   handleContainerActionResult(
     @ConnectedSocket() client: Socket,
@@ -476,29 +552,16 @@ export class DeploymentGateway
     try {
       const requestId = payload?.requestId?.trim();
       if (!requestId) {
-        this.logger.warn(
-          `Ignoring container action result without requestId from ${client.id}`,
-        );
         return;
       }
 
-      this.logger.log(
-        `[CONTAINER_ACTION] result received from agentSocket=${client.id} requestId=${requestId} action=${payload?.action ?? "unknown"} success=${payload?.success ?? false}`,
-      );
-
       const pending = this.pendingContainerActions.get(requestId);
       if (!pending) {
-        this.logger.warn(
-          `No pending container action for requestId=${requestId}`,
-        );
         return;
       }
 
       const serverId = this.serverIdBySocketId.get(client.id);
       if (serverId && serverId !== pending.serverId) {
-        this.logger.warn(
-          `Container action result server mismatch requestId=${requestId} expected=${pending.serverId} got=${serverId}`,
-        );
         return;
       }
 
@@ -512,6 +575,12 @@ export class DeploymentGateway
     }
   }
 
+  /**
+   * Handles the container discover result event from an agent.
+   * @param client - The socket client.
+   * @param payload - The container discover result payload.
+   * @returns A promise that resolves when the container discover result is handled.
+   */
   @SubscribeMessage(DeploymentEvents.CONTAINER_DISCOVER_RESULT)
   handleContainerDiscoverResult(
     @ConnectedSocket() client: Socket,
@@ -520,29 +589,16 @@ export class DeploymentGateway
     try {
       const requestId = payload?.requestId?.trim();
       if (!requestId) {
-        this.logger.warn(
-          `Ignoring container discover result without requestId from ${client.id}`,
-        );
         return;
       }
 
-      this.logger.log(
-        `[CONTAINER_DISCOVER] result received from agentSocket=${client.id} requestId=${requestId} count=${payload?.containers?.length ?? 0}${payload?.error ? ` error=${payload.error}` : ""}`,
-      );
-
       const pending = this.pendingContainerDiscovery.get(requestId);
       if (!pending) {
-        this.logger.warn(
-          `No pending container discovery for requestId=${requestId}`,
-        );
         return;
       }
 
       const serverId = this.serverIdBySocketId.get(client.id);
       if (serverId && serverId !== pending.serverId) {
-        this.logger.warn(
-          `Container discover result server mismatch requestId=${requestId} expected=${pending.serverId} got=${serverId}`,
-        );
         return;
       }
 
@@ -562,174 +618,280 @@ export class DeploymentGateway
     }
   }
 
+  /**
+   * Handles the logs subscribe event from a client.
+   * @param client - The socket client.
+   * @param body - The logs subscribe payload.
+   * @returns A promise that resolves when the logs subscribe is handled.
+   */
   @SubscribeMessage(DeploymentEvents.LOGS_SUBSCRIBE)
   async handleLogsSubscribe(
     @ConnectedSocket() client: Socket,
     @MessageBody() body: LogsSubscribePayload,
   ): Promise<void> {
-    const deploymentId = body?.deploymentId?.trim();
-    if (!deploymentId) {
-      this.logger.warn(
-        `[stream] logs:subscribe rejected for ${client.id}: missing deploymentId`,
-      );
-      return;
-    }
-
-    const room = deploymentRoom(deploymentId);
-
     try {
-      await client.join(room);
+      const deploymentId = body?.deploymentId?.trim();
+      if (!deploymentId) {
+        return;
+      }
+
+      const room = deploymentRoom(deploymentId);
+
+      try {
+        await client.join(room);
+      } catch (error) {
+        this.logger.error(
+          `Failed to join logs room client=${client.id} room=${room}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return;
+      }
+
+      this.logStreamDiagnostics("logs:subscribe", {
+        socketId: client.id,
+        deploymentId,
+        room,
+      });
+
+      this.replayBufferedLogsToClient(client, deploymentId);
     } catch (error) {
       this.logger.error(
-        `[stream] logs:subscribe join failed client=${client.id} room=${room}: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to handle logs subscribe: ${error instanceof Error ? error.message : String(error)}`,
       );
-      return;
     }
-
-    this.logger.log(
-      `[stream] client joined room client=${client.id} deploymentId=${deploymentId} room=${room}`,
-    );
-
-    this.logStreamDiagnostics("logs:subscribe", {
-      socketId: client.id,
-      deploymentId,
-      room,
-    });
-
-    this.replayBufferedLogsToClient(client, deploymentId);
   }
 
+  /**
+   * Handles the terminal subscribe event from a client.
+   * @param client - The socket client.
+   * @param body - The terminal subscribe payload.
+   * @returns A promise that resolves when the terminal subscribe is handled.
+   */
   @SubscribeMessage(DeploymentEvents.TERMINAL_SUBSCRIBE)
   async handleTerminalSubscribe(
     @ConnectedSocket() client: Socket,
     @MessageBody() body: TerminalSubscribePayload,
   ): Promise<void> {
-    const sessionId = body?.sessionId?.trim();
-    if (!sessionId || !this.terminalSessionsById.has(sessionId)) {
-      this.logger.warn(
-        `[TERMINAL] subscribe rejected for ${client.id}: unknown sessionId=${sessionId ?? "missing"}`,
-      );
-      return;
-    }
-
-    const room = terminalRoom(sessionId);
     try {
-      await client.join(room);
-      this.logger.log(
-        `[TERMINAL] client joined room client=${client.id} sessionId=${sessionId}`,
-      );
+      const sessionId = body?.sessionId?.trim();
+      if (!sessionId || !this.terminalSessionsById.has(sessionId)) {
+        return;
+      }
+
+      const room = terminalRoom(sessionId);
+      try {
+        await client.join(room);
+      } catch (error) {
+        this.logger.error(
+          `Failed to join terminal room client=${client.id} room=${room}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     } catch (error) {
       this.logger.error(
-        `[TERMINAL] subscribe join failed client=${client.id} room=${room}: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to handle terminal subscribe: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
 
+  /**
+   * Handles the container logs subscribe event from a client.
+   * @param client - The socket client.
+   * @param body - The container logs subscribe payload.
+   * @returns A promise that resolves when the container logs subscribe is handled.
+   */
   @SubscribeMessage(DeploymentEvents.CONTAINER_LOGS_SUBSCRIBE)
   async handleContainerLogsSubscribe(
     @ConnectedSocket() client: Socket,
     @MessageBody() body: ContainerLogsSubscribePayload,
   ): Promise<void> {
-    const sessionId = body?.sessionId?.trim();
-    if (!sessionId || !this.containerLogsSessionsById.has(sessionId)) {
-      this.logger.warn(
-        `[CONTAINER_LOGS] subscribe rejected for ${client.id}: unknown sessionId=${sessionId ?? "missing"}`,
-      );
-      return;
-    }
-
-    const room = containerLogsRoom(sessionId);
     try {
-      await client.join(room);
-      this.logger.log(
-        `[CONTAINER_LOGS] client joined room client=${client.id} sessionId=${sessionId}`,
-      );
+      const sessionId = body?.sessionId?.trim();
+      if (!sessionId || !this.containerLogsSessionsById.has(sessionId)) {
+        return;
+      }
+
+      const room = containerLogsRoom(sessionId);
+      try {
+        await client.join(room);
+      } catch (error) {
+        this.logger.error(
+          `Failed to join container logs room client=${client.id} room=${room}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     } catch (error) {
       this.logger.error(
-        `[CONTAINER_LOGS] subscribe join failed client=${client.id} room=${room}: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to handle container logs subscribe: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
 
+  /**
+   * Handles the container logs stop event from a client.
+   * @param payload - The container logs stop payload.
+   * @returns A promise that resolves when the container logs stop is handled.
+   */
   @SubscribeMessage(DeploymentEvents.CONTAINER_LOGS_STOP)
   handleContainerLogsStopFromConsole(
     @MessageBody() payload: ContainerLogsStopPayload,
   ): void {
-    const sessionId = payload?.sessionId?.trim();
-    if (!sessionId) {
-      return;
-    }
+    try {
+      const sessionId = payload?.sessionId?.trim();
+      if (!sessionId) {
+        return;
+      }
 
-    this.closeContainerLogsSession(sessionId, { notifyAgent: true });
+      this.closeContainerLogsSession(sessionId, { notifyAgent: true });
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle container logs stop: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
+  /**
+   * Handles the terminal input event from a client.
+   * @param client - The socket client.
+   * @param payload - The terminal input payload.
+   * @returns A promise that resolves when the terminal input is handled.
+   */
   @SubscribeMessage(DeploymentEvents.TERMINAL_INPUT)
   handleTerminalInput(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: TerminalInputPayload,
   ): void {
-    this.forwardTerminalEventToAgent(
-      client,
-      DeploymentEvents.TERMINAL_INPUT,
-      payload,
-    );
+    try {
+      this.forwardTerminalEventToAgent(
+        client,
+        DeploymentEvents.TERMINAL_INPUT,
+        payload,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle terminal input: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
+  /**
+   * Handles the terminal resize event from a client.
+   * @param client - The socket client.
+   * @param payload - The terminal resize payload.
+   * @returns A promise that resolves when the terminal resize is handled.
+   */
   @SubscribeMessage(DeploymentEvents.TERMINAL_RESIZE)
   handleTerminalResize(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: TerminalResizePayload,
   ): void {
-    this.forwardTerminalEventToAgent(
-      client,
-      DeploymentEvents.TERMINAL_RESIZE,
-      payload,
-    );
+    try {
+      this.forwardTerminalEventToAgent(
+        client,
+        DeploymentEvents.TERMINAL_RESIZE,
+        payload,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle terminal resize: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
+  /**
+   * Handles the terminal disconnect event from a client.
+   * @param client - The socket client.
+   * @param payload - The terminal disconnect payload.
+   * @returns A promise that resolves when the terminal disconnect is handled.
+   */
   @SubscribeMessage(DeploymentEvents.TERMINAL_DISCONNECT)
   handleTerminalDisconnect(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: TerminalDisconnectPayload,
   ): void {
-    const sessionId = payload?.sessionId?.trim();
-    if (!sessionId) {
-      return;
-    }
+    try {
+      const sessionId = payload?.sessionId?.trim();
+      if (!sessionId) {
+        return;
+      }
 
-    this.closeTerminalSession(sessionId, { notifyAgent: true });
+      this.closeTerminalSession(sessionId, { notifyAgent: true });
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle terminal disconnect: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
+  /**
+   * Handles the terminal connect result event from a client.
+   * @param client - The socket client.
+   * @param payload - The terminal connect result payload.
+   * @returns A promise that resolves when the terminal connect result is handled.
+   */
   @SubscribeMessage(DeploymentEvents.TERMINAL_CONNECT_RESULT)
   handleTerminalConnectResult(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: TerminalConnectResponsePayload,
   ): void {
-    this.processTerminalConnectResult(client, payload);
+    try {
+      this.processTerminalConnectResult(client, payload);
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle terminal connect result: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
+  /**
+   * Handles the terminal output event from a client.
+   * @param client - The socket client.
+   * @param payload - The terminal output payload.
+   * @returns A promise that resolves when the terminal output is handled.
+   */
   @SubscribeMessage(DeploymentEvents.TERMINAL_OUTPUT)
   handleTerminalOutput(
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: TerminalOutputPayload,
   ): void {
-    this.relayTerminalOutput(client, payload);
+    try {
+      this.relayTerminalOutput(client, payload);
+    } catch (error) {
+      this.logger.error(
+        `Failed to handle terminal output: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
+  /**
+   * Checks if the client is likely an agent client.
+   * @param client - The socket client.
+   * @returns A boolean indicating if the client is likely an agent client.
+   */
   private isLikelyAgentClient(client: Socket): boolean {
-    const headerIp = client.handshake.headers["x-agent-public-ip"];
-    const queryIp = client.handshake.query.publicIp;
-    const hasPublicIp = Boolean(
-      (Array.isArray(headerIp) ? headerIp[0] : headerIp) ??
-      (Array.isArray(queryIp) ? queryIp[0] : queryIp),
-    );
-    const hasServerHeader = Boolean(
-      client.handshake.headers[SERVER_ID_HEADER] ??
-      client.handshake.query.serverId,
-    );
-    return hasPublicIp || hasServerHeader;
+    try {
+      const headerIp = client.handshake.headers["x-agent-public-ip"];
+      const queryIp = client.handshake.query.publicIp;
+      const hasPublicIp = Boolean(
+        (Array.isArray(headerIp) ? headerIp[0] : headerIp) ??
+        (Array.isArray(queryIp) ? queryIp[0] : queryIp),
+      );
+      const hasServerHeader = Boolean(
+        client.handshake.headers[SERVER_ID_HEADER] ??
+        client.handshake.query.serverId,
+      );
+      return hasPublicIp || hasServerHeader;
+    } catch (error) {
+      this.logger.error(
+        `Failed to detect agent client: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
   }
 
+  /**
+   * Processes an agent log.
+   * @param client - The socket client.
+   * @param payload - The agent log payload.
+   * @returns A promise that resolves when the agent log is handled.
+   */
   private processAgentLog(client: Socket, payload: DeploymentLogPayload): void {
     try {
       if (!payload?.message) {
@@ -737,15 +899,8 @@ export class DeploymentGateway
       }
 
       if (!payload.deploymentId) {
-        this.logger.warn(
-          `[stream] agent log missing deploymentId from agent=${client.id}`,
-        );
         return;
       }
-
-      this.logger.log(
-        `[stream] agent log deploymentId=${payload.deploymentId} source=${payload.source ?? "deployment"} bytes=${payload.message.length}`,
-      );
 
       const serverId = this.serverIdBySocketId.get(client.id);
       const isContainer = payload.source === "container";
@@ -772,15 +927,18 @@ export class DeploymentGateway
     }
   }
 
+  /**
+   * Processes a deployment status event.
+   * @param client - The socket client.
+   * @param payload - The deployment status payload.
+   * @returns A promise that resolves when the deployment status is handled.
+   */
   private async processDeploymentStatus(
     client: Socket,
     payload: DeploymentStatusPayload,
   ): Promise<void> {
     try {
       if (!payload?.deploymentId) {
-        this.logger.warn(
-          `Ignoring deployment status without deploymentId from ${client.id}`,
-        );
         return;
       }
 
@@ -814,7 +972,7 @@ export class DeploymentGateway
               new Error(
                 payload.error?.trim() ||
                   payload.message?.trim() ||
-                  "Deployment removal failed",
+                  WEBSOCKET_ERROR_MESSAGES.DEPLOYMENT_REMOVAL_FAILED,
               ),
             );
           }
@@ -836,7 +994,7 @@ export class DeploymentGateway
           );
         }
       } catch (error) {
-        this.logger.warn(
+        this.logger.error(
           `Could not persist deployment status for ${payload.deploymentId}: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
@@ -861,6 +1019,10 @@ export class DeploymentGateway
         event: DeploymentEvents.DEPLOYMENT_STATUS,
       });
 
+      this.logEmitEvent(
+        DeploymentEvents.DEPLOYMENT_STATUS,
+        `deploymentId=${payload.deploymentId} serverId=${serverId ?? "n/a"} status=${payload.status} room=${room}`,
+      );
       ns.emit(DeploymentEvents.DEPLOYMENT_STATUS, enriched);
       ns.to(room).emit(DeploymentEvents.DEPLOYMENT_STATUS, enriched);
     } catch (error) {
@@ -870,28 +1032,37 @@ export class DeploymentGateway
     }
   }
   /**
-   * Broadcasts the server operation updated event to the websocket.
+   * Broadcasts a server operation update to all connected clients.
    */
   broadcastServerOperationUpdated(
     payload: ServerOperationUpdatedPayload,
   ): void {
-    const ns = this.getNamespaceServer();
-    if (!ns) {
-      return;
+    try {
+      const ns = this.getNamespaceServer();
+      if (!ns) {
+        return;
+      }
+
+      const enriched: ServerOperationUpdatedPayload = {
+        ...payload,
+        timestamp: payload.timestamp ?? new Date().toISOString(),
+      };
+
+      this.logEmitEvent(
+        DeploymentEvents.SERVER_OPERATION_UPDATED,
+        `serverId=${enriched.serverId} status=${String(enriched.operationStatus)} deleted=${Boolean(enriched.deleted)}`,
+      );
+      ns.emit(DeploymentEvents.SERVER_OPERATION_UPDATED, enriched);
+    } catch (error) {
+      this.logger.error(
+        `Failed to broadcast server operation update: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
-
-    const enriched: ServerOperationUpdatedPayload = {
-      ...payload,
-      timestamp: payload.timestamp ?? new Date().toISOString(),
-    };
-
-    this.logger.log(
-      `[SERVER_OPERATION] broadcast serverId=${enriched.serverId} status=${String(enriched.operationStatus)} deleted=${Boolean(enriched.deleted)}`,
-    );
-
-    ns.emit(DeploymentEvents.SERVER_OPERATION_UPDATED, enriched);
   }
 
+  /**
+   * Broadcasts a deployment log line to subscribed console clients.
+   */
   broadcastDeploymentLog(
     payload: DeploymentLogPayload & {
       serverId: string;
@@ -899,28 +1070,33 @@ export class DeploymentGateway
       phase?: DeploymentLogStreamPayload["phase"];
     },
   ): void {
-    const message = payload.message?.trim();
-    if (!message) {
-      return;
+    try {
+      const message = payload.message?.trim();
+      if (!message) {
+        return;
+      }
+
+      const phase = payload.phase ?? "install";
+
+      this.emitStreamPayload({
+        deploymentId: payload.deploymentId,
+        serverId: payload.serverId,
+        phase,
+        source: phase === "install" ? "install" : "deployment",
+        stream: payload.type,
+        timestamp: payload.timestamp ?? new Date().toISOString(),
+        message,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to broadcast deployment log: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
-
-    const phase = payload.phase ?? "install";
-
-    this.logger.log(
-      `[stream] broadcast ${phase} log deploymentId=${payload.deploymentId} serverId=${payload.serverId} bytes=${message.length}`,
-    );
-
-    this.emitStreamPayload({
-      deploymentId: payload.deploymentId,
-      serverId: payload.serverId,
-      phase,
-      source: phase === "install" ? "install" : "deployment",
-      stream: payload.type,
-      timestamp: payload.timestamp ?? new Date().toISOString(),
-      message,
-    });
   }
 
+  /**
+   * Normalizes and emits a deployment log stream payload to clients.
+   */
   private emitStreamPayload(
     input: Omit<DeploymentLogStreamPayload, "stream"> & {
       stream?: DeploymentLogStreamType;
@@ -928,15 +1104,11 @@ export class DeploymentGateway
   ): void {
     const deploymentId = input.deploymentId?.trim();
     if (!deploymentId) {
-      this.logger.warn("[stream] emit skipped: missing deploymentId");
       return;
     }
 
     const ns = this.getNamespaceServer();
     if (!ns) {
-      this.logger.error(
-        "[stream] emit skipped: namespace server is not initialized",
-      );
       return;
     }
 
@@ -966,8 +1138,10 @@ export class DeploymentGateway
 
       this.streamBuffer.append(normalized);
 
-      // Namespace broadcast: required for local deployOnLocal (console + agent on
-      // localhost). Room join + replay below covers late logs:subscribe.
+      this.logEmitEvent(
+        DeploymentEvents.DEPLOYMENT_STREAM,
+        `deploymentId=${deploymentId} room=${room} bytes=${normalized.message.length}`,
+      );
       ns.emit(DeploymentEvents.DEPLOYMENT_STREAM, normalized);
     } catch (error) {
       this.logger.error(
@@ -976,54 +1150,85 @@ export class DeploymentGateway
     }
   }
 
+  /**
+   * Replays buffered deployment logs to a client that just subscribed.
+   */
   private replayBufferedLogsToClient(
     client: Socket,
     deploymentId: string,
   ): void {
-    const buffered = this.streamBuffer.get(deploymentId);
-    if (buffered.length === 0) {
-      return;
-    }
+    try {
+      const buffered = this.streamBuffer.get(deploymentId);
+      if (buffered.length === 0) {
+        return;
+      }
 
-    this.logger.log(
-      `[stream] replay ${buffered.length} buffered line(s) to client=${client.id} deploymentId=${deploymentId}`,
-    );
-
-    for (const entry of buffered) {
-      client.emit(DeploymentEvents.DEPLOYMENT_STREAM, entry);
+      for (const entry of buffered) {
+        client.emit(DeploymentEvents.DEPLOYMENT_STREAM, entry);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to replay buffered logs: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
+  /**
+   * Returns the deployments namespace server instance.
+   */
   private getNamespaceServer(): Server | null {
-    return this.server ?? null;
+    try {
+      return this.server ?? null;
+    } catch (error) {
+      this.logger.error(
+        `Failed to get namespace server: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
   }
 
+  /**
+   * Writes optional stream diagnostics when STREAM_DEBUG is enabled.
+   */
   private logStreamDiagnostics(
     context: string,
     extra?: Record<string, unknown>,
-  ) {
-    if (!STREAM_DEBUG) {
-      return;
+  ): void {
+    try {
+      if (!STREAM_DEBUG) {
+        return;
+      }
+
+      const ns = this.server;
+
+      this.logger.debug(
+        `[stream][diag] ${context} serverDefined=${Boolean(ns)} trackedAgents=${this.connectedAgents.size} ${extra ? JSON.stringify(extra) : ""}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to write stream diagnostics: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
-
-    const ns = this.server;
-
-    this.logger.debug(
-      `[stream][diag] ${context} serverDefined=${Boolean(ns)} trackedAgents=${this.connectedAgents.size} ${extra ? JSON.stringify(extra) : ""}`,
-    );
   }
 
+  /**
+   * Emits a deployment removal request to the connected agent.
+   */
   emitRemove(message: SocketRemoveMessage, serverId: string): void {
     try {
       const client = this.agentsByServerId.get(serverId);
       if (!client) {
         throw new Error(
-          `No connected agent for server '${serverId}' (deployment ${message.payload.deploymentId})`,
+          WEBSOCKET_ERROR_MESSAGES.NO_CONNECTED_AGENT_FOR_DEPLOYMENT(
+            serverId,
+            message.payload.deploymentId,
+          ),
         );
       }
 
-      this.logger.log(
-        `Emitting remove to serverId=${serverId} for deployment: ${message.payload.deploymentId}`,
+      this.logEmitEvent(
+        DeploymentEvents.REMOVE,
+        `serverId=${serverId} deploymentId=${message.payload.deploymentId}`,
       );
       client.emit(DeploymentEvents.REMOVE, message);
     } catch (error) {
@@ -1047,7 +1252,9 @@ export class DeploymentGateway
       try {
         const client = this.agentsByServerId.get(serverId);
         if (!client?.connected) {
-          reject(new Error(`No connected agent for server '${serverId}'`));
+          reject(
+            new Error(WEBSOCKET_ERROR_MESSAGES.NO_CONNECTED_AGENT(serverId)),
+          );
           return;
         }
 
@@ -1055,7 +1262,10 @@ export class DeploymentGateway
           this.pendingDeploymentRemoves.delete(deploymentId);
           reject(
             new Error(
-              `Deployment remove timed out after ${timeoutMs / 1000}s for server '${serverId}'`,
+              WEBSOCKET_ERROR_MESSAGES.TIMEOUT.DEPLOYMENT_REMOVE(
+                timeoutMs / 1000,
+                serverId,
+              ),
             ),
           );
         }, timeoutMs);
@@ -1075,8 +1285,9 @@ export class DeploymentGateway
           payload: { deploymentId, templateSlug },
         };
 
-        this.logger.log(
-          `[DEPLOY_REMOVE] requesting removal deploymentId=${deploymentId} serverId=${serverId}`,
+        this.logEmitEvent(
+          DeploymentEvents.REMOVE,
+          `deploymentId=${deploymentId} serverId=${serverId}`,
         );
         client.emit(DeploymentEvents.REMOVE, message);
       } catch (error) {
@@ -1097,14 +1308,16 @@ export class DeploymentGateway
       try {
         const client = this.agentsByServerId.get(serverId);
         if (!client?.connected) {
-          reject(new Error(`No connected agent for server '${serverId}'`));
+          reject(
+            new Error(WEBSOCKET_ERROR_MESSAGES.NO_CONNECTED_AGENT(serverId)),
+          );
           return;
         }
 
         if (!this.agentSupports(serverId, DeploymentEvents.AGENT_REMOVE)) {
           reject(
             new Error(
-              `Connected agent for server '${serverId}' does not support agent removal`,
+              WEBSOCKET_ERROR_MESSAGES.AGENT_DOES_NOT_SUPPORT_REMOVAL(serverId),
             ),
           );
           return;
@@ -1121,7 +1334,10 @@ export class DeploymentGateway
           this.pendingAgentRemoves.delete(requestId);
           reject(
             new Error(
-              `Agent removal timed out after ${timeoutMs / 1000}s for server '${serverId}'`,
+              WEBSOCKET_ERROR_MESSAGES.TIMEOUT.AGENT_REMOVE(
+                timeoutMs / 1000,
+                serverId,
+              ),
             ),
           );
         }, timeoutMs);
@@ -1133,8 +1349,9 @@ export class DeploymentGateway
           timer,
         });
 
-        this.logger.log(
-          `[AGENT_REMOVE] requesting removal serverId=${serverId} requestId=${requestId}`,
+        this.logEmitEvent(
+          DeploymentEvents.AGENT_REMOVE,
+          `serverId=${serverId} requestId=${requestId}`,
         );
         client.emit(DeploymentEvents.AGENT_REMOVE, payload);
       } catch (error) {
@@ -1143,23 +1360,33 @@ export class DeploymentGateway
     });
   }
 
+  /**
+   * Emits a deployment request to the connected agent.
+   */
   emitDeploy(message: SocketDeployMessage, serverId: string): void {
     try {
       const client = this.agentsByServerId.get(serverId);
       if (!client) {
         throw new Error(
-          `No connected agent for server '${serverId}' (template ${message.payload.name})`,
+          WEBSOCKET_ERROR_MESSAGES.NO_CONNECTED_AGENT_FOR_TEMPLATE(
+            serverId,
+            message.payload.name,
+          ),
         );
       }
 
       if (!client.connected) {
         throw new Error(
-          `Agent for server '${serverId}' is disconnected (template ${message.payload.name})`,
+          WEBSOCKET_ERROR_MESSAGES.AGENT_NOT_CONNECTED(
+            serverId,
+            message.payload.name,
+          ),
         );
       }
 
-      this.logger.log(
-        `[DEPLOY_TRACE] emitting deploy deploymentId=${message.payload.deploymentId ?? "n/a"} serverId=${serverId} template=${message.payload.name} agentSocket=${client.id}`,
+      this.logEmitEvent(
+        DeploymentEvents.DEPLOY,
+        `deploymentId=${message.payload.deploymentId ?? "n/a"} serverId=${serverId} template=${message.payload.name} agentSocket=${client.id}`,
       );
       client.emit(DeploymentEvents.DEPLOY, message);
     } catch (error) {
@@ -1181,7 +1408,9 @@ export class DeploymentGateway
       try {
         const client = this.agentsByServerId.get(serverId);
         if (!client?.connected) {
-          reject(new Error(`No connected agent for server '${serverId}'`));
+          reject(
+            new Error(WEBSOCKET_ERROR_MESSAGES.NO_CONNECTED_AGENT(serverId)),
+          );
           return;
         }
 
@@ -1192,7 +1421,10 @@ export class DeploymentGateway
           this.pendingServerResources.delete(requestId);
           reject(
             new Error(
-              `Server resource collection timed out after ${timeoutMs / 1000}s for server '${serverId}'`,
+              WEBSOCKET_ERROR_MESSAGES.TIMEOUT.SERVER_RESOURCES(
+                timeoutMs / 1000,
+                serverId,
+              ),
             ),
           );
         }, timeoutMs);
@@ -1204,8 +1436,9 @@ export class DeploymentGateway
           timer,
         });
 
-        this.logger.log(
-          `[SERVER_RESOURCES] emitting event=${DeploymentEvents.SERVER_GET_RESOURCES} to agentSocket=${client.id} serverId=${serverId} requestId=${requestId} connected=${client.connected}`,
+        this.logEmitEvent(
+          DeploymentEvents.SERVER_GET_RESOURCES,
+          `agentSocket=${client.id} serverId=${serverId} requestId=${requestId}`,
         );
 
         client.emit(DeploymentEvents.SERVER_GET_RESOURCES, payload);
@@ -1216,48 +1449,58 @@ export class DeploymentGateway
   }
 
   /**
-   * Requests a pre-deploy host port availability check from the connected agent.
+   * Requests pre-deploy validation (RAM, ports, CPU) from the connected agent.
    */
-  requestPortsCheck(
+  requestDeploymentValidate(
     serverId: string,
-    payload: PortsCheckRequestPayload,
-    timeoutMs: number = PORTS_CHECK_TIMEOUT_MS,
-  ): Promise<PortsCheckResponsePayload> {
+    payload: DeploymentValidateRequestPayload,
+    timeoutMs: number = DEPLOYMENT_VALIDATE_TIMEOUT_MS,
+  ): Promise<DeploymentValidateResponsePayload> {
     return new Promise((resolve, reject) => {
       try {
         const client = this.agentsByServerId.get(serverId);
         if (!client?.connected) {
-          reject(new Error(`No connected agent for server '${serverId}'`));
+          reject(
+            new Error(WEBSOCKET_ERROR_MESSAGES.NO_CONNECTED_AGENT(serverId)),
+          );
           return;
         }
 
         const requestId = payload.requestId?.trim();
         if (!requestId) {
-          reject(new Error("Missing requestId for ports check"));
+          reject(
+            new Error(
+              WEBSOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID_FOR_DEPLOYMENT_VALIDATION,
+            ),
+          );
           return;
         }
 
         const timer = setTimeout(() => {
-          this.pendingPortsChecks.delete(requestId);
+          this.pendingDeploymentValidations.delete(requestId);
           reject(
             new Error(
-              `Port availability check timed out after ${timeoutMs / 1000}s for server '${serverId}'`,
+              WEBSOCKET_ERROR_MESSAGES.TIMEOUT.DEPLOYMENT_VALIDATE(
+                timeoutMs / 1000,
+                serverId,
+              ),
             ),
           );
         }, timeoutMs);
 
-        this.pendingPortsChecks.set(requestId, {
+        this.pendingDeploymentValidations.set(requestId, {
           serverId,
           resolve,
           reject,
           timer,
         });
 
-        this.logger.log(
-          `[PORTS_CHECK] emitting event=${DeploymentEvents.PORTS_CHECK} to agentSocket=${client.id} serverId=${serverId} requestId=${requestId} template=${payload.templateSlug}`,
+        this.logEmitEvent(
+          DeploymentEvents.DEPLOYMENT_VALIDATE,
+          `agentSocket=${client.id} serverId=${serverId} requestId=${requestId} template=${payload.templateSlug}`,
         );
 
-        client.emit(DeploymentEvents.PORTS_CHECK, payload);
+        client.emit(DeploymentEvents.DEPLOYMENT_VALIDATE, payload);
       } catch (error) {
         reject(error instanceof Error ? error : new Error(String(error)));
       }
@@ -1277,7 +1520,9 @@ export class DeploymentGateway
       try {
         const client = this.agentsByServerId.get(serverId);
         if (!client?.connected) {
-          reject(new Error(`No connected agent for server '${serverId}'`));
+          reject(
+            new Error(WEBSOCKET_ERROR_MESSAGES.NO_CONNECTED_AGENT(serverId)),
+          );
           return;
         }
 
@@ -1292,7 +1537,10 @@ export class DeploymentGateway
           this.pendingContainerActions.delete(requestId);
           reject(
             new Error(
-              `Container action timed out after ${timeoutMs / 1000}s for server '${serverId}'`,
+              WEBSOCKET_ERROR_MESSAGES.TIMEOUT.CONTAINER_ACTION(
+                timeoutMs / 1000,
+                serverId,
+              ),
             ),
           );
         }, timeoutMs);
@@ -1304,8 +1552,9 @@ export class DeploymentGateway
           timer,
         });
 
-        this.logger.log(
-          `[CONTAINER_ACTION] emitting event=${DeploymentEvents.CONTAINER_ACTION} to agentSocket=${client.id} serverId=${serverId} action=${action} containerId=${containerId} requestId=${requestId} connected=${client.connected}`,
+        this.logEmitEvent(
+          DeploymentEvents.CONTAINER_ACTION,
+          `agentSocket=${client.id} serverId=${serverId} action=${action} containerId=${containerId} requestId=${requestId}`,
         );
 
         client.emit(DeploymentEvents.CONTAINER_ACTION, payload);
@@ -1329,7 +1578,9 @@ export class DeploymentGateway
       try {
         const client = this.agentsByServerId.get(serverId);
         if (!client?.connected) {
-          reject(new Error(`No connected agent for server '${serverId}'`));
+          reject(
+            new Error(WEBSOCKET_ERROR_MESSAGES.NO_CONNECTED_AGENT(serverId)),
+          );
           return;
         }
 
@@ -1344,7 +1595,10 @@ export class DeploymentGateway
           this.pendingTerminalConnects.delete(requestId);
           reject(
             new Error(
-              `Terminal connect timed out after ${timeoutMs / 1000}s for server '${serverId}'`,
+              WEBSOCKET_ERROR_MESSAGES.TIMEOUT.TERMINAL_CONNECT(
+                timeoutMs / 1000,
+                serverId,
+              ),
             ),
           );
         }, timeoutMs);
@@ -1357,8 +1611,9 @@ export class DeploymentGateway
           timer,
         });
 
-        this.logger.log(
-          `[TERMINAL] emitting event=${DeploymentEvents.TERMINAL_CONNECT} to agentSocket=${client.id} serverId=${serverId} requestId=${requestId}`,
+        this.logEmitEvent(
+          DeploymentEvents.TERMINAL_CONNECT,
+          `agentSocket=${client.id} serverId=${serverId} requestId=${requestId}`,
         );
 
         client.emit(DeploymentEvents.TERMINAL_CONNECT, payload);
@@ -1377,33 +1632,62 @@ export class DeploymentGateway
     userId: string,
     transport: TerminalTransport = TerminalTransport.AGENT,
   ): void {
-    this.terminalSessionsById.set(sessionId, {
-      sessionId,
-      serverId,
-      userId,
-      transport,
-    });
+    try {
+      this.terminalSessionsById.set(sessionId, {
+        sessionId,
+        serverId,
+        userId,
+        transport,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to register terminal session: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
+  /**
+   * Broadcasts terminal output to subscribed console clients.
+   */
   broadcastTerminalOutput(sessionId: string, data: string): void {
-    const session = this.terminalSessionsById.get(sessionId);
-    if (!session) {
-      return;
-    }
+    try {
+      const session = this.terminalSessionsById.get(sessionId);
+      if (!session) {
+        return;
+      }
 
-    const ns = this.getNamespaceServer();
-    if (!ns) {
-      return;
-    }
+      const ns = this.getNamespaceServer();
+      if (!ns) {
+        return;
+      }
 
-    ns.to(terminalRoom(sessionId)).emit(DeploymentEvents.TERMINAL_OUTPUT, {
-      sessionId,
-      data,
-    });
+      this.logEmitEvent(
+        DeploymentEvents.TERMINAL_OUTPUT,
+        `sessionId=${sessionId}`,
+      );
+      ns.to(terminalRoom(sessionId)).emit(DeploymentEvents.TERMINAL_OUTPUT, {
+        sessionId,
+        data,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to broadcast terminal output: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
+  /**
+   * Returns a tracked terminal session by id.
+   */
   getTerminalSession(sessionId: string): TerminalSessionRecord | undefined {
-    return this.terminalSessionsById.get(sessionId);
+    try {
+      return this.terminalSessionsById.get(sessionId);
+    } catch (error) {
+      this.logger.error(
+        `Failed to get terminal session: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return undefined;
+    }
   }
 
   /**
@@ -1419,7 +1703,9 @@ export class DeploymentGateway
       try {
         const client = this.agentsByServerId.get(serverId);
         if (!client?.connected) {
-          reject(new Error(`No connected agent for server '${serverId}'`));
+          reject(
+            new Error(WEBSOCKET_ERROR_MESSAGES.NO_CONNECTED_AGENT(serverId)),
+          );
           return;
         }
 
@@ -1436,7 +1722,10 @@ export class DeploymentGateway
           this.containerLogsSessionsById.delete(sessionId);
           reject(
             new Error(
-              `Container logs start timed out after ${timeoutMs / 1000}s for server '${serverId}'`,
+              WEBSOCKET_ERROR_MESSAGES.TIMEOUT.CONTAINER_LOGS_START(
+                timeoutMs / 1000,
+                serverId,
+              ),
             ),
           );
         }, timeoutMs);
@@ -1463,8 +1752,9 @@ export class DeploymentGateway
           containerId,
         );
 
-        this.logger.log(
-          `[CONTAINER_LOGS] emitting event=${DeploymentEvents.CONTAINER_LOGS_START} to agentSocket=${client.id} serverId=${serverId} containerId=${containerId} sessionId=${sessionId} requestId=${requestId}`,
+        this.logEmitEvent(
+          DeploymentEvents.CONTAINER_LOGS_START,
+          `agentSocket=${client.id} serverId=${serverId} containerId=${containerId} sessionId=${sessionId} requestId=${requestId}`,
         );
 
         client.emit(DeploymentEvents.CONTAINER_LOGS_START, payload);
@@ -1474,24 +1764,43 @@ export class DeploymentGateway
     });
   }
 
+  /**
+   * Registers a container logs session in the gateway registry.
+   */
   registerContainerLogsSession(
     sessionId: string,
     serverId: string,
     userId: string,
     containerId: string,
   ): void {
-    this.containerLogsSessionsById.set(sessionId, {
-      sessionId,
-      serverId,
-      userId,
-      containerId,
-    });
+    try {
+      this.containerLogsSessionsById.set(sessionId, {
+        sessionId,
+        serverId,
+        userId,
+        containerId,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to register container logs session: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
+  /**
+   * Returns a tracked container logs session by id.
+   */
   getContainerLogsSession(
     sessionId: string,
   ): ContainerLogsSessionRecord | undefined {
-    return this.containerLogsSessionsById.get(sessionId);
+    try {
+      return this.containerLogsSessionsById.get(sessionId);
+    } catch (error) {
+      this.logger.error(
+        `Failed to get container logs session: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return undefined;
+    }
   }
 
   /**
@@ -1501,31 +1810,73 @@ export class DeploymentGateway
     sessionId: string,
     options: { notifyAgent?: boolean } = {},
   ): void {
-    const session = this.containerLogsSessionsById.get(sessionId);
-    if (!session) {
-      return;
-    }
-
-    this.containerLogsSessionsById.delete(sessionId);
-
-    if (options.notifyAgent !== false) {
-      const agent = this.agentsByServerId.get(session.serverId);
-      if (agent?.connected) {
-        const payload: ContainerLogsStopPayload = { sessionId };
-        agent.emit(DeploymentEvents.CONTAINER_LOGS_STOP, payload);
+    try {
+      const session = this.containerLogsSessionsById.get(sessionId);
+      if (!session) {
+        return;
       }
-    }
 
-    const ns = this.getNamespaceServer();
-    const payload: ContainerLogsStopPayload = { sessionId };
-    ns?.to(containerLogsRoom(sessionId)).emit(
-      DeploymentEvents.CONTAINER_LOGS_STOP,
-      payload,
-    );
+      this.containerLogsSessionsById.delete(sessionId);
+
+      if (options.notifyAgent !== false) {
+        const agent = this.agentsByServerId.get(session.serverId);
+        if (agent?.connected) {
+          const payload: ContainerLogsStopPayload = { sessionId };
+          this.logEmitEvent(
+            DeploymentEvents.CONTAINER_LOGS_STOP,
+            `sessionId=${sessionId} target=agent serverId=${session.serverId}`,
+          );
+          agent.emit(DeploymentEvents.CONTAINER_LOGS_STOP, payload);
+        }
+      }
+
+      const ns = this.getNamespaceServer();
+      const payload: ContainerLogsStopPayload = { sessionId };
+      this.logEmitEvent(
+        DeploymentEvents.CONTAINER_LOGS_STOP,
+        `sessionId=${sessionId} target=console`,
+      );
+      ns?.to(containerLogsRoom(sessionId)).emit(
+        DeploymentEvents.CONTAINER_LOGS_STOP,
+        payload,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to close container logs session: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Notifies an agent about a container logs session stop.
+   * @param serverId - The server ID.
+   * @param sessionId - The session ID.
+   */
+  notifyAgentContainerLogsStop(serverId: string, sessionId: string): void {
+    try {
+      const agent = this.agentsByServerId.get(serverId);
+      if (!agent?.connected) {
+        return;
+      }
+
+      const payload: ContainerLogsStopPayload = { sessionId };
+      this.logEmitEvent(
+        DeploymentEvents.CONTAINER_LOGS_STOP,
+        `sessionId=${sessionId} target=agent serverId=${serverId}`,
+      );
+      agent.emit(DeploymentEvents.CONTAINER_LOGS_STOP, payload);
+    } catch (error) {
+      this.logger.error(
+        `Failed to notify agent container logs stop: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
    * Closes a terminal session.
+   * @param sessionId - The session ID.
+   * @param options - The options for closing the terminal session.
+   * @returns A promise that resolves when the terminal session is closed.
    */
   closeTerminalSession(
     sessionId: string,
@@ -1534,33 +1885,72 @@ export class DeploymentGateway
       skipTransportClose?: boolean;
     } = {},
   ): void {
-    const session = this.terminalSessionsById.get(sessionId);
-    if (!session) {
-      return;
-    }
+    try {
+      const session = this.terminalSessionsById.get(sessionId);
+      if (!session) {
+        return;
+      }
 
-    this.terminalSessionsById.delete(sessionId);
+      this.terminalSessionsById.delete(sessionId);
 
-    if (!options.skipTransportClose) {
-      if (session.transport === TerminalTransport.SSH) {
-        this.sshTerminalService.closeSession(sessionId, {
-          notifyClients: false,
-        });
-      } else if (options.notifyAgent !== false) {
-        const agent = this.agentsByServerId.get(session.serverId);
-        if (agent?.connected) {
-          const payload: TerminalDisconnectPayload = { sessionId };
-          agent.emit(DeploymentEvents.TERMINAL_DISCONNECT, payload);
+      if (!options.skipTransportClose) {
+        if (session.transport === TerminalTransport.SSH) {
+          this.sshTerminalService.closeSession(sessionId, {
+            notifyClients: false,
+          });
+        } else if (options.notifyAgent !== false) {
+          const agent = this.agentsByServerId.get(session.serverId);
+          if (agent?.connected) {
+            const payload: TerminalDisconnectPayload = { sessionId };
+            this.logEmitEvent(
+              DeploymentEvents.TERMINAL_DISCONNECT,
+              `sessionId=${sessionId} target=agent serverId=${session.serverId}`,
+            );
+            agent.emit(DeploymentEvents.TERMINAL_DISCONNECT, payload);
+          }
         }
       }
-    }
 
-    const ns = this.getNamespaceServer();
-    const payload: TerminalDisconnectPayload = { sessionId };
-    ns?.to(terminalRoom(sessionId)).emit(
-      DeploymentEvents.TERMINAL_DISCONNECT,
-      payload,
-    );
+      const ns = this.getNamespaceServer();
+      const payload: TerminalDisconnectPayload = { sessionId };
+      this.logEmitEvent(
+        DeploymentEvents.TERMINAL_DISCONNECT,
+        `sessionId=${sessionId} target=console`,
+      );
+      ns?.to(terminalRoom(sessionId)).emit(
+        DeploymentEvents.TERMINAL_DISCONNECT,
+        payload,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to close terminal session: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Notifies an agent about a terminal session disconnect.
+   * @param serverId - The server ID.
+   * @param sessionId - The session ID.
+   */
+  notifyAgentTerminalDisconnect(serverId: string, sessionId: string): void {
+    try {
+      const agent = this.agentsByServerId.get(serverId);
+      if (!agent?.connected) {
+        return;
+      }
+
+      const payload: TerminalDisconnectPayload = { sessionId };
+      this.logEmitEvent(
+        DeploymentEvents.TERMINAL_DISCONNECT,
+        `sessionId=${sessionId} target=agent serverId=${serverId}`,
+      );
+      agent.emit(DeploymentEvents.TERMINAL_DISCONNECT, payload);
+    } catch (error) {
+      this.logger.error(
+        `Failed to notify agent terminal disconnect: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
@@ -1574,7 +1964,9 @@ export class DeploymentGateway
       try {
         const client = this.agentsByServerId.get(serverId);
         if (!client?.connected) {
-          reject(new Error(`No connected agent for server '${serverId}'`));
+          reject(
+            new Error(WEBSOCKET_ERROR_MESSAGES.NO_CONNECTED_AGENT(serverId)),
+          );
           return;
         }
 
@@ -1585,7 +1977,10 @@ export class DeploymentGateway
           this.pendingContainerDiscovery.delete(requestId);
           reject(
             new Error(
-              `Container discovery timed out after ${timeoutMs / 1000}s for server '${serverId}'`,
+              WEBSOCKET_ERROR_MESSAGES.TIMEOUT.CONTAINER_DISCOVER(
+                timeoutMs / 1000,
+                serverId,
+              ),
             ),
           );
         }, timeoutMs);
@@ -1597,8 +1992,9 @@ export class DeploymentGateway
           timer,
         });
 
-        this.logger.log(
-          `[CONTAINER_DISCOVER] emitting event=${DeploymentEvents.CONTAINER_DISCOVER} to agentSocket=${client.id} serverId=${serverId} requestId=${requestId} connected=${client.connected}`,
+        this.logEmitEvent(
+          DeploymentEvents.CONTAINER_DISCOVER,
+          `agentSocket=${client.id} serverId=${serverId} requestId=${requestId}`,
         );
 
         client.emit(DeploymentEvents.CONTAINER_DISCOVER, payload);
@@ -1608,81 +2004,90 @@ export class DeploymentGateway
     });
   }
 
+  /**
+   * Attaches inbound event handlers to an agent socket connection.
+   */
   private attachAgentInboundHandlers(client: Socket): void {
-    client.removeAllListeners(DeploymentEvents.AGENT_HELLO);
-    client.removeAllListeners(DeploymentEvents.CONTAINER_ACTION_RESULT);
-    client.removeAllListeners(DeploymentEvents.CONTAINER_DISCOVER_RESULT);
-    client.removeAllListeners(DeploymentEvents.SERVER_GET_RESOURCES_RESULT);
-    client.removeAllListeners(DeploymentEvents.TERMINAL_CONNECT_RESULT);
-    client.removeAllListeners(DeploymentEvents.TERMINAL_OUTPUT);
-    client.removeAllListeners(DeploymentEvents.TERMINAL_DISCONNECT);
-    client.removeAllListeners(DeploymentEvents.CONTAINER_LOGS_START_RESULT);
-    client.removeAllListeners(DeploymentEvents.CONTAINER_LOGS_DATA);
-    client.removeAllListeners(DeploymentEvents.CONTAINER_LOGS_ERROR);
-    client.removeAllListeners(DeploymentEvents.CONTAINER_LOGS_STOP);
-    client.on(DeploymentEvents.AGENT_HELLO, (payload: AgentHelloPayload) => {
-      this.processAgentHello(client, payload);
-    });
-    client.on(
-      DeploymentEvents.CONTAINER_ACTION_RESULT,
-      (payload: ContainerActionResponsePayload) => {
-        this.handleContainerActionResult(client, payload);
-      },
-    );
-    client.on(
-      DeploymentEvents.CONTAINER_DISCOVER_RESULT,
-      (payload: ContainerDiscoverResponsePayload) => {
-        this.handleContainerDiscoverResult(client, payload);
-      },
-    );
-    client.on(
-      DeploymentEvents.SERVER_GET_RESOURCES_RESULT,
-      (payload: ServerGetResourcesResponsePayload) => {
-        this.handleServerGetResourcesResult(client, payload);
-      },
-    );
-    client.on(
-      DeploymentEvents.TERMINAL_CONNECT_RESULT,
-      (payload: TerminalConnectResponsePayload) => {
-        this.processTerminalConnectResult(client, payload);
-      },
-    );
-    client.on(
-      DeploymentEvents.TERMINAL_OUTPUT,
-      (payload: TerminalOutputPayload) => {
-        this.relayTerminalOutput(client, payload);
-      },
-    );
-    client.on(
-      DeploymentEvents.TERMINAL_DISCONNECT,
-      (payload: TerminalDisconnectPayload) => {
-        this.processAgentTerminalDisconnect(client, payload);
-      },
-    );
-    client.on(
-      DeploymentEvents.CONTAINER_LOGS_START_RESULT,
-      (payload: ContainerLogsStartResponsePayload) => {
-        this.processContainerLogsStartResult(client, payload);
-      },
-    );
-    client.on(
-      DeploymentEvents.CONTAINER_LOGS_DATA,
-      (payload: ContainerLogsDataPayload) => {
-        this.relayContainerLogsData(client, payload);
-      },
-    );
-    client.on(
-      DeploymentEvents.CONTAINER_LOGS_ERROR,
-      (payload: ContainerLogsErrorPayload) => {
-        this.relayContainerLogsError(client, payload);
-      },
-    );
-    client.on(
-      DeploymentEvents.CONTAINER_LOGS_STOP,
-      (payload: ContainerLogsStopPayload) => {
-        this.processAgentContainerLogsStop(client, payload);
-      },
-    );
+    try {
+      client.removeAllListeners(DeploymentEvents.AGENT_HELLO);
+      client.removeAllListeners(DeploymentEvents.CONTAINER_ACTION_RESULT);
+      client.removeAllListeners(DeploymentEvents.CONTAINER_DISCOVER_RESULT);
+      client.removeAllListeners(DeploymentEvents.SERVER_GET_RESOURCES_RESULT);
+      client.removeAllListeners(DeploymentEvents.TERMINAL_CONNECT_RESULT);
+      client.removeAllListeners(DeploymentEvents.TERMINAL_OUTPUT);
+      client.removeAllListeners(DeploymentEvents.TERMINAL_DISCONNECT);
+      client.removeAllListeners(DeploymentEvents.CONTAINER_LOGS_START_RESULT);
+      client.removeAllListeners(DeploymentEvents.CONTAINER_LOGS_DATA);
+      client.removeAllListeners(DeploymentEvents.CONTAINER_LOGS_ERROR);
+      client.removeAllListeners(DeploymentEvents.CONTAINER_LOGS_STOP);
+      client.on(DeploymentEvents.AGENT_HELLO, (payload: AgentHelloPayload) => {
+        this.processAgentHello(client, payload);
+      });
+      client.on(
+        DeploymentEvents.CONTAINER_ACTION_RESULT,
+        (payload: ContainerActionResponsePayload) => {
+          this.handleContainerActionResult(client, payload);
+        },
+      );
+      client.on(
+        DeploymentEvents.CONTAINER_DISCOVER_RESULT,
+        (payload: ContainerDiscoverResponsePayload) => {
+          this.handleContainerDiscoverResult(client, payload);
+        },
+      );
+      client.on(
+        DeploymentEvents.SERVER_GET_RESOURCES_RESULT,
+        (payload: ServerGetResourcesResponsePayload) => {
+          this.handleServerGetResourcesResult(client, payload);
+        },
+      );
+      client.on(
+        DeploymentEvents.TERMINAL_CONNECT_RESULT,
+        (payload: TerminalConnectResponsePayload) => {
+          this.processTerminalConnectResult(client, payload);
+        },
+      );
+      client.on(
+        DeploymentEvents.TERMINAL_OUTPUT,
+        (payload: TerminalOutputPayload) => {
+          this.relayTerminalOutput(client, payload);
+        },
+      );
+      client.on(
+        DeploymentEvents.TERMINAL_DISCONNECT,
+        (payload: TerminalDisconnectPayload) => {
+          this.processAgentTerminalDisconnect(client, payload);
+        },
+      );
+      client.on(
+        DeploymentEvents.CONTAINER_LOGS_START_RESULT,
+        (payload: ContainerLogsStartResponsePayload) => {
+          this.processContainerLogsStartResult(client, payload);
+        },
+      );
+      client.on(
+        DeploymentEvents.CONTAINER_LOGS_DATA,
+        (payload: ContainerLogsDataPayload) => {
+          this.relayContainerLogsData(client, payload);
+        },
+      );
+      client.on(
+        DeploymentEvents.CONTAINER_LOGS_ERROR,
+        (payload: ContainerLogsErrorPayload) => {
+          this.relayContainerLogsError(client, payload);
+        },
+      );
+      client.on(
+        DeploymentEvents.CONTAINER_LOGS_STOP,
+        (payload: ContainerLogsStopPayload) => {
+          this.processAgentContainerLogsStop(client, payload);
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to attach agent inbound handlers: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
@@ -1692,21 +2097,27 @@ export class DeploymentGateway
     client: Socket,
     payload: TerminalDisconnectPayload,
   ): void {
-    const sessionId = payload?.sessionId?.trim();
-    if (!sessionId) {
-      return;
-    }
+    try {
+      const sessionId = payload?.sessionId?.trim();
+      if (!sessionId) {
+        return;
+      }
 
-    const session = this.terminalSessionsById.get(sessionId);
-    const serverId = this.serverIdBySocketId.get(client.id);
-    if (session && serverId && serverId !== session.serverId) {
-      return;
-    }
+      const session = this.terminalSessionsById.get(sessionId);
+      const serverId = this.serverIdBySocketId.get(client.id);
+      if (session && serverId && serverId !== session.serverId) {
+        return;
+      }
 
-    this.closeTerminalSession(sessionId, {
-      notifyAgent: false,
-      skipTransportClose: true,
-    });
+      this.closeTerminalSession(sessionId, {
+        notifyAgent: false,
+        skipTransportClose: true,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to process agent terminal disconnect: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
@@ -1719,25 +2130,16 @@ export class DeploymentGateway
     try {
       const requestId = payload?.requestId?.trim();
       if (!requestId) {
-        this.logger.warn(
-          `Ignoring terminal connect result without requestId from ${client.id}`,
-        );
         return;
       }
 
       const pending = this.pendingTerminalConnects.get(requestId);
       if (!pending) {
-        this.logger.warn(
-          `No pending terminal connect for requestId=${requestId}`,
-        );
         return;
       }
 
       const serverId = this.serverIdBySocketId.get(client.id);
       if (serverId && serverId !== pending.serverId) {
-        this.logger.warn(
-          `Terminal connect result server mismatch requestId=${requestId} expected=${pending.serverId} got=${serverId}`,
-        );
         return;
       }
 
@@ -1751,7 +2153,11 @@ export class DeploymentGateway
 
       const sessionId = payload.sessionId?.trim();
       if (!sessionId) {
-        pending.reject(new Error("Agent returned no terminal session id"));
+        pending.reject(
+          new Error(
+            WEBSOCKET_ERROR_MESSAGES.AGENT_RETURNED_NO_TERMINAL_SESSION_ID,
+          ),
+        );
         return;
       }
 
@@ -1794,6 +2200,10 @@ export class DeploymentGateway
         return;
       }
 
+      this.logEmitEvent(
+        DeploymentEvents.TERMINAL_OUTPUT,
+        `sessionId=${sessionId} target=console`,
+      );
       ns.to(terminalRoom(sessionId)).emit(DeploymentEvents.TERMINAL_OUTPUT, {
         sessionId,
         data,
@@ -1821,9 +2231,6 @@ export class DeploymentGateway
 
       const session = this.terminalSessionsById.get(sessionId);
       if (!session) {
-        this.logger.warn(
-          `[TERMINAL] ${event} ignored for unknown sessionId=${sessionId} client=${client.id}`,
-        );
         return;
       }
 
@@ -1847,6 +2254,7 @@ export class DeploymentGateway
       }
 
       agent.emit(event, payload);
+      this.logEmitEvent(event, `sessionId=${sessionId} target=agent`);
     } catch (error) {
       this.logger.error(
         `Failed to forward terminal event ${event}: ${error instanceof Error ? error.message : String(error)}`,
@@ -1861,32 +2269,38 @@ export class DeploymentGateway
     serverId: string,
     reason: string,
   ): void {
-    for (const [requestId, pending] of this.pendingTerminalConnects) {
-      if (pending.serverId !== serverId) {
-        continue;
+    try {
+      for (const [requestId, pending] of this.pendingTerminalConnects) {
+        if (pending.serverId !== serverId) {
+          continue;
+        }
+        clearTimeout(pending.timer);
+        this.pendingTerminalConnects.delete(requestId);
+        pending.reject(new Error(reason));
       }
-      clearTimeout(pending.timer);
-      this.pendingTerminalConnects.delete(requestId);
-      pending.reject(new Error(reason));
+    } catch (error) {
+      this.logger.error(
+        `Failed to reject pending terminal connects: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
   /**
    * Closes terminal sessions for a server.
    */
-  private closeTerminalSessionsForServer(
-    serverId: string,
-    reason: string,
-  ): void {
-    for (const [sessionId, session] of this.terminalSessionsById) {
-      if (session.serverId !== serverId) {
-        continue;
+  private closeTerminalSessionsForServer(serverId: string): void {
+    try {
+      for (const [sessionId, session] of this.terminalSessionsById) {
+        if (session.serverId !== serverId) {
+          continue;
+        }
+        this.closeTerminalSession(sessionId, {
+          notifyAgent: session.transport === TerminalTransport.AGENT,
+        });
       }
-      this.closeTerminalSession(sessionId, {
-        notifyAgent: session.transport === TerminalTransport.AGENT,
-      });
-      this.logger.log(
-        `[TERMINAL] closed sessionId=${sessionId} serverId=${serverId}: ${reason}`,
+    } catch (error) {
+      this.logger.error(
+        `Failed to close terminal sessions for server: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -1898,31 +2312,37 @@ export class DeploymentGateway
     serverId: string,
     reason: string,
   ): void {
-    for (const [requestId, pending] of this.pendingContainerLogsStarts) {
-      if (pending.serverId !== serverId) {
-        continue;
+    try {
+      for (const [requestId, pending] of this.pendingContainerLogsStarts) {
+        if (pending.serverId !== serverId) {
+          continue;
+        }
+        clearTimeout(pending.timer);
+        this.pendingContainerLogsStarts.delete(requestId);
+        this.containerLogsSessionsById.delete(pending.sessionId);
+        pending.reject(new Error(reason));
       }
-      clearTimeout(pending.timer);
-      this.pendingContainerLogsStarts.delete(requestId);
-      this.containerLogsSessionsById.delete(pending.sessionId);
-      pending.reject(new Error(reason));
+    } catch (error) {
+      this.logger.error(
+        `Failed to reject pending container logs starts: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
   /**
    * Closes container logs sessions for a server.
    */
-  private closeContainerLogsSessionsForServer(
-    serverId: string,
-    reason: string,
-  ): void {
-    for (const [sessionId, session] of this.containerLogsSessionsById) {
-      if (session.serverId !== serverId) {
-        continue;
+  private closeContainerLogsSessionsForServer(serverId: string): void {
+    try {
+      for (const [sessionId, session] of this.containerLogsSessionsById) {
+        if (session.serverId !== serverId) {
+          continue;
+        }
+        this.closeContainerLogsSession(sessionId, { notifyAgent: false });
       }
-      this.closeContainerLogsSession(sessionId, { notifyAgent: false });
-      this.logger.log(
-        `[CONTAINER_LOGS] closed sessionId=${sessionId} serverId=${serverId}: ${reason}`,
+    } catch (error) {
+      this.logger.error(
+        `Failed to close container logs sessions for server: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
@@ -1937,25 +2357,16 @@ export class DeploymentGateway
     try {
       const requestId = payload?.requestId?.trim();
       if (!requestId) {
-        this.logger.warn(
-          `Ignoring container logs start result without requestId from ${client.id}`,
-        );
         return;
       }
 
       const pending = this.pendingContainerLogsStarts.get(requestId);
       if (!pending) {
-        this.logger.warn(
-          `No pending container logs start for requestId=${requestId}`,
-        );
         return;
       }
 
       const serverId = this.serverIdBySocketId.get(client.id);
       if (serverId && serverId !== pending.serverId) {
-        this.logger.warn(
-          `Container logs start result server mismatch requestId=${requestId} expected=${pending.serverId} got=${serverId}`,
-        );
         return;
       }
 
@@ -1972,7 +2383,9 @@ export class DeploymentGateway
       if (!sessionId) {
         this.containerLogsSessionsById.delete(pending.sessionId);
         pending.reject(
-          new Error("Agent returned no container logs session id"),
+          new Error(
+            WEBSOCKET_ERROR_MESSAGES.AGENT_RETURNED_NO_CONTAINER_LOGS_SESSION_ID,
+          ),
         );
         return;
       }
@@ -2010,6 +2423,10 @@ export class DeploymentGateway
         return;
       }
 
+      this.logEmitEvent(
+        DeploymentEvents.CONTAINER_LOGS_DATA,
+        `sessionId=${sessionId} target=console`,
+      );
       ns.to(containerLogsRoom(sessionId)).emit(
         DeploymentEvents.CONTAINER_LOGS_DATA,
         { sessionId, data },
@@ -2046,6 +2463,10 @@ export class DeploymentGateway
         return;
       }
 
+      this.logEmitEvent(
+        DeploymentEvents.CONTAINER_LOGS_ERROR,
+        `sessionId=${sessionId} target=console`,
+      );
       ns.to(containerLogsRoom(sessionId)).emit(
         DeploymentEvents.CONTAINER_LOGS_ERROR,
         { sessionId, error },
@@ -2066,18 +2487,24 @@ export class DeploymentGateway
     client: Socket,
     payload: ContainerLogsStopPayload,
   ): void {
-    const sessionId = payload?.sessionId?.trim();
-    if (!sessionId) {
-      return;
-    }
+    try {
+      const sessionId = payload?.sessionId?.trim();
+      if (!sessionId) {
+        return;
+      }
 
-    const session = this.containerLogsSessionsById.get(sessionId);
-    const serverId = this.serverIdBySocketId.get(client.id);
-    if (session && serverId && serverId !== session.serverId) {
-      return;
-    }
+      const session = this.containerLogsSessionsById.get(sessionId);
+      const serverId = this.serverIdBySocketId.get(client.id);
+      if (session && serverId && serverId !== session.serverId) {
+        return;
+      }
 
-    this.closeContainerLogsSession(sessionId, { notifyAgent: false });
+      this.closeContainerLogsSession(sessionId, { notifyAgent: false });
+    } catch (error) {
+      this.logger.error(
+        `Failed to process agent container logs stop: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
@@ -2087,30 +2514,42 @@ export class DeploymentGateway
     serverId: string,
     reason: string,
   ): void {
-    for (const [requestId, pending] of this.pendingContainerDiscovery) {
-      if (pending.serverId !== serverId) {
-        continue;
+    try {
+      for (const [requestId, pending] of this.pendingContainerDiscovery) {
+        if (pending.serverId !== serverId) {
+          continue;
+        }
+        clearTimeout(pending.timer);
+        this.pendingContainerDiscovery.delete(requestId);
+        pending.reject(new Error(reason));
       }
-      clearTimeout(pending.timer);
-      this.pendingContainerDiscovery.delete(requestId);
-      pending.reject(new Error(reason));
+    } catch (error) {
+      this.logger.error(
+        `Failed to reject pending container discovery: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
   /**
-   * Rejects pending ports checks for a server.
+   * Rejects pending deployment validations for a server.
    */
-  private rejectPendingPortsChecksForServer(
+  private rejectPendingDeploymentValidatesForServer(
     serverId: string,
     reason: string,
   ): void {
-    for (const [requestId, pending] of this.pendingPortsChecks) {
-      if (pending.serverId !== serverId) {
-        continue;
+    try {
+      for (const [requestId, pending] of this.pendingDeploymentValidations) {
+        if (pending.serverId !== serverId) {
+          continue;
+        }
+        clearTimeout(pending.timer);
+        this.pendingDeploymentValidations.delete(requestId);
+        pending.reject(new Error(reason));
       }
-      clearTimeout(pending.timer);
-      this.pendingPortsChecks.delete(requestId);
-      pending.reject(new Error(reason));
+    } catch (error) {
+      this.logger.error(
+        `Failed to reject pending deployment validations: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -2121,13 +2560,19 @@ export class DeploymentGateway
     serverId: string,
     reason: string,
   ): void {
-    for (const [requestId, pending] of this.pendingServerResources) {
-      if (pending.serverId !== serverId) {
-        continue;
+    try {
+      for (const [requestId, pending] of this.pendingServerResources) {
+        if (pending.serverId !== serverId) {
+          continue;
+        }
+        clearTimeout(pending.timer);
+        this.pendingServerResources.delete(requestId);
+        pending.reject(new Error(reason));
       }
-      clearTimeout(pending.timer);
-      this.pendingServerResources.delete(requestId);
-      pending.reject(new Error(reason));
+    } catch (error) {
+      this.logger.error(
+        `Failed to reject pending server resources: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -2138,13 +2583,19 @@ export class DeploymentGateway
     serverId: string,
     reason: string,
   ): void {
-    for (const [requestId, pending] of this.pendingContainerActions) {
-      if (pending.serverId !== serverId) {
-        continue;
+    try {
+      for (const [requestId, pending] of this.pendingContainerActions) {
+        if (pending.serverId !== serverId) {
+          continue;
+        }
+        clearTimeout(pending.timer);
+        this.pendingContainerActions.delete(requestId);
+        pending.reject(new Error(reason));
       }
-      clearTimeout(pending.timer);
-      this.pendingContainerActions.delete(requestId);
-      pending.reject(new Error(reason));
+    } catch (error) {
+      this.logger.error(
+        `Failed to reject pending container actions: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -2155,27 +2606,42 @@ export class DeploymentGateway
     serverId: string,
     reason: string,
   ): void {
-    for (const [deploymentId, pending] of this.pendingDeploymentRemoves) {
-      if (pending.serverId !== serverId) {
-        continue;
+    try {
+      for (const [deploymentId, pending] of this.pendingDeploymentRemoves) {
+        if (pending.serverId !== serverId) {
+          continue;
+        }
+        clearTimeout(pending.timer);
+        this.pendingDeploymentRemoves.delete(deploymentId);
+        pending.reject(new Error(reason));
       }
-      clearTimeout(pending.timer);
-      this.pendingDeploymentRemoves.delete(deploymentId);
-      pending.reject(new Error(reason));
+    } catch (error) {
+      this.logger.error(
+        `Failed to reject pending deployment removes: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
+  /**
+   * Rejects pending agent removes for a server.
+   */
   private rejectPendingAgentRemovesForServer(
     serverId: string,
     reason: string,
   ): void {
-    for (const [requestId, pending] of this.pendingAgentRemoves) {
-      if (pending.serverId !== serverId) {
-        continue;
+    try {
+      for (const [requestId, pending] of this.pendingAgentRemoves) {
+        if (pending.serverId !== serverId) {
+          continue;
+        }
+        clearTimeout(pending.timer);
+        this.pendingAgentRemoves.delete(requestId);
+        pending.reject(new Error(reason));
       }
-      clearTimeout(pending.timer);
-      this.pendingAgentRemoves.delete(requestId);
-      pending.reject(new Error(reason));
+    } catch (error) {
+      this.logger.error(
+        `Failed to reject pending agent removes: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -2198,15 +2664,29 @@ export class DeploymentGateway
    * Checks if an agent supports a capability.
    */
   agentSupports(serverId: string, capability: string): boolean {
-    const capabilities = this.agentCapabilitiesByServerId.get(serverId);
-    return Boolean(capabilities?.has(capability));
+    try {
+      const capabilities = this.agentCapabilitiesByServerId.get(serverId);
+      return Boolean(capabilities?.has(capability));
+    } catch (error) {
+      this.logger.error(
+        `Failed to check agent capability: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
   }
 
   /**
    * Gets the version of an agent for a server.
    */
   getAgentVersion(serverId: string): string | null {
-    return this.agentVersionsByServerId.get(serverId) ?? null;
+    try {
+      return this.agentVersionsByServerId.get(serverId) ?? null;
+    } catch (error) {
+      this.logger.error(
+        `Failed to get agent version: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
   }
 
   /**
@@ -2222,13 +2702,6 @@ export class DeploymentGateway
         this.agentCapabilitiesByServerId.set(serverId, capabilities);
         this.agentVersionsByServerId.set(serverId, version);
       }
-
-      this.logger.log(
-        `[AgentHello] received from agentSocket=${client.id}` +
-          (serverId ? ` serverId=${serverId}` : " (unbound)") +
-          ` version=${version} capabilities=[${[...capabilities].join(", ")}]` +
-          ` supportsContainerAction=${capabilities.has(DeploymentEvents.CONTAINER_ACTION)}`,
-      );
     } catch (error) {
       this.logger.error(
         `Failed to process agent hello: ${error instanceof Error ? error.message : String(error)}`,
@@ -2240,8 +2713,14 @@ export class DeploymentGateway
    * Clears agent metadata for a server.
    */
   private clearAgentMetadataForServer(serverId: string): void {
-    this.agentCapabilitiesByServerId.delete(serverId);
-    this.agentVersionsByServerId.delete(serverId);
+    try {
+      this.agentCapabilitiesByServerId.delete(serverId);
+      this.agentVersionsByServerId.delete(serverId);
+    } catch (error) {
+      this.logger.error(
+        `Failed to clear agent metadata: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
@@ -2262,7 +2741,14 @@ export class DeploymentGateway
    * Gets the number of connected agents.
    */
   getConnectedAgentsCount(): number {
-    return this.connectedAgents.size;
+    try {
+      return this.connectedAgents.size;
+    } catch (error) {
+      this.logger.error(
+        `Failed to get connected agents count: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return 0;
+    }
   }
 
   /**
@@ -2314,7 +2800,7 @@ export class DeploymentGateway
 
       return raw || null;
     } catch (error) {
-      this.logger.warn(
+      this.logger.error(
         `Failed to parse server id from handshake: ${error instanceof Error ? error.message : String(error)}`,
       );
       return null;
@@ -2335,7 +2821,7 @@ export class DeploymentGateway
         this.serverIdBySocketId.delete(socketId);
       }
     } catch (error) {
-      this.logger.warn(
+      this.logger.error(
         `Failed to unregister server binding for socket ${socketId}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }

@@ -1,5 +1,6 @@
 import { useParams } from "react-router-dom";
 import { BackLink } from "@/components/shared/back-link";
+import { CopyButton } from "@/components/shared/copy-button";
 import { ServerDetailTabs } from "@/components/server-detail-tabs";
 import { useServerQuery } from "@/features/servers/hooks";
 import { isServerOperationBusy } from "@/features/servers/types";
@@ -62,7 +63,11 @@ export function ServerDetailPage() {
         <div className="server-detail-header-main">
           <h1>{server.name}</h1>
           <p>
-            <code>{server.host}</code> · {server.username}
+            <span className="server-detail-host-row">
+              <CopyButton text={server.host} label="Copy host" />
+              <code>{server.host}</code>
+            </span>{" "}
+            · {server.username}
           </p>
           {operationLabel && (
             <span

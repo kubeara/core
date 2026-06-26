@@ -50,89 +50,97 @@ export class ContainerService {
     sessionId: string,
     containerId: string,
   ): Promise<string | null> {
-    const trimmedId = containerId.trim();
-    if (!trimmedId) {
-      return "Missing containerId";
-    }
+    try {
+      const trimmedId = containerId.trim();
+      if (!trimmedId) {
+        return "Missing containerId";
+      }
 
-    if (this.logSessions.has(sessionId)) {
-      this.stopLogStream(sessionId);
-    }
+      if (this.logSessions.has(sessionId)) {
+        this.stopLogStream(sessionId);
+      }
 
-    const inspectResult = await this.execCapture(
-      "docker",
-      ["inspect", "-f", "{{.Id}}", trimmedId],
-      CONTAINER_ACTION_TIMEOUT_MS,
-    );
-
-    if (inspectResult.exitCode !== 0) {
-      const inspectDetail =
-        inspectResult.stderr.trim() ||
-        inspectResult.stdout.trim() ||
-        `Container '${trimmedId}' not found`;
-      return this.classifyDockerError(inspectDetail);
-    }
-
-    const resolvedId =
-      inspectResult.stdout.trim().replace(/^sha256:/, "") || trimmedId;
-    const logsTarget =
-      resolvedId.length >= 12 ? resolvedId.slice(0, 12) : trimmedId;
-
-    const args = CONTAINER_LOGS_COMMAND(logsTarget);
-    this.logger.log(
-      `[CONTAINER_LOGS] starting docker ${args.join(" ")} sessionId=${sessionId}`,
-    );
-
-    const child = spawn("docker", args, { cwd: process.cwd() });
-    const session: ContainerLogSession = {
-      sessionId,
-      containerId: resolvedId,
-      child,
-      stopping: false,
-      stderr: "",
-    };
-
-    child.on("error", (err) => {
-      const message = this.classifyDockerError(err.message);
-      this.logger.error(
-        `[CONTAINER_LOGS] failed to start docker logs sessionId=${sessionId}: ${message}`,
+      const inspectResult = await this.execCapture(
+        "docker",
+        ["inspect", "-f", "{{.Id}}", trimmedId],
+        CONTAINER_ACTION_TIMEOUT_MS,
       );
-      this.cleanupLogSession(sessionId, message);
-    });
 
-    child.stdout.on("data", (chunk: Buffer | string) => {
-      this.dataHandler?.(sessionId, String(chunk));
-    });
-
-    child.stderr.on("data", (chunk: Buffer | string) => {
-      const text = String(chunk);
-      session.stderr += text;
-      this.dataHandler?.(sessionId, text);
-    });
-
-    child.on("close", (code) => {
-      const activeSession = this.logSessions.get(sessionId);
-      if (!activeSession) {
-        return;
+      if (inspectResult.exitCode !== 0) {
+        const inspectDetail =
+          inspectResult.stderr.trim() ||
+          inspectResult.stdout.trim() ||
+          `Container '${trimmedId}' not found`;
+        return this.classifyDockerError(inspectDetail);
       }
 
-      this.logSessions.delete(sessionId);
+      const resolvedId =
+        inspectResult.stdout.trim().replace(/^sha256:/, "") || trimmedId;
+      const logsTarget =
+        resolvedId.length >= 12 ? resolvedId.slice(0, 12) : trimmedId;
 
-      if (!activeSession.stopping && code !== 0 && code !== null) {
-        const detail =
-          activeSession.stderr.trim() || `docker logs exited with code ${code}`;
-        this.errorHandler?.(sessionId, this.classifyDockerError(detail));
-      }
-
-      this.closeHandler?.(sessionId);
+      const args = CONTAINER_LOGS_COMMAND(logsTarget);
       this.logger.log(
-        `[CONTAINER_LOGS] stream closed sessionId=${sessionId} exitCode=${code ?? "null"} stopping=${activeSession.stopping}`,
+        `[CONTAINER_LOGS] starting docker ${args.join(" ")} sessionId=${sessionId}`,
       );
-    });
 
-    this.logSessions.set(sessionId, session);
+      const child = spawn("docker", args, { cwd: process.cwd() });
+      const session: ContainerLogSession = {
+        sessionId,
+        containerId: resolvedId,
+        child,
+        stopping: false,
+        stderr: "",
+      };
 
-    return null;
+      child.on("error", (err) => {
+        const message = this.classifyDockerError(err.message);
+        this.logger.error(
+          `[CONTAINER_LOGS] failed to start docker logs sessionId=${sessionId}: ${message}`,
+        );
+        this.cleanupLogSession(sessionId, message);
+      });
+
+      child.stdout.on("data", (chunk: Buffer | string) => {
+        this.dataHandler?.(sessionId, String(chunk));
+      });
+
+      child.stderr.on("data", (chunk: Buffer | string) => {
+        const text = String(chunk);
+        session.stderr += text;
+        this.dataHandler?.(sessionId, text);
+      });
+
+      child.on("close", (code) => {
+        const activeSession = this.logSessions.get(sessionId);
+        if (!activeSession) {
+          return;
+        }
+
+        this.logSessions.delete(sessionId);
+
+        if (!activeSession.stopping && code !== 0 && code !== null) {
+          const detail =
+            activeSession.stderr.trim() ||
+            `docker logs exited with code ${code}`;
+          this.errorHandler?.(sessionId, this.classifyDockerError(detail));
+        }
+
+        this.closeHandler?.(sessionId);
+        this.logger.log(
+          `[CONTAINER_LOGS] stream closed sessionId=${sessionId} exitCode=${code ?? "null"} stopping=${activeSession.stopping}`,
+        );
+      });
+
+      this.logSessions.set(sessionId, session);
+
+      return null;
+    } catch (error) {
+      this.logger.error(
+        `[CONTAINER_LOGS] start log stream failed sessionId=${sessionId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -519,6 +527,7 @@ export class ContainerService {
       });
       child.on("error", (err) => {
         stderr += `Failed to start process: ${err.message}`;
+        finish(1);
       });
       child.on("close", (code) => {
         finish(code ?? 1);

@@ -173,6 +173,23 @@ export function getContainerServiceName(
   return name || null;
 }
 
+/** Host ports published by Docker (e.g. `0.0.0.0:8080->80/tcp`). */
+export function getContainerHostPorts(ports: string): number[] {
+  if (!ports.trim()) {
+    return [];
+  }
+
+  const hostPorts: number[] = [];
+  for (const match of ports.matchAll(/:(\d+)->/g)) {
+    const port = Number.parseInt(match[1], 10);
+    if (!Number.isNaN(port) && !hostPorts.includes(port)) {
+      hostPorts.push(port);
+    }
+  }
+
+  return hostPorts;
+}
+
 export function getContainerDockerName(container: ServerContainer): string {
   const raw = container.containerName?.trim();
   if (!raw) {

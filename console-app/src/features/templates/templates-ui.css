@@ -863,6 +863,22 @@
   letter-spacing: -0.02em;
 }
 
+.deploy-configure-page .deploy-service-status {
+  display: inline-flex;
+  align-items: center;
+  max-width: min(100%, 22rem);
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.deploy-configure-page .deploy-service-status-validating {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--primary);
+}
+
 .deploy-configure-page .deploy-service-category {
   margin: 0 0 0.5rem;
   font-size: 0.6875rem;
