@@ -172,6 +172,7 @@ verify_service() {
     postgresql) verify_postgresql "${ip}" ;;
     redis) verify_redis "${ip}" ;;
     ollama) verify_ollama "${ip}" ;;
+    ollama-with-webui) verify_ollama "${ip}" ;;
     *) verify_generic "${ip}" ;;
   esac
 }
