@@ -106,12 +106,7 @@ export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
         {activeTab === "insights" && (
           <ServerInsightsTab serverId={server.id} isActive />
         )}
-        {activeTab === "activity" && (
-          <ServerActivityTab
-            serverId={server.id}
-            serverName={server.name}
-          />
-        )}
+        {activeTab === "activity" && <ServerActivityTab />}
         <ServerTerminalTab
           serverId={server.id}
           serverName={server.name}
