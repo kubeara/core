@@ -6,7 +6,6 @@ import {
   type TerminalOutputPayload,
 } from "@/constants/deployment-events";
 import {
-  emitTerminalDisconnect,
   emitTerminalInput,
   emitTerminalResize,
   getDeploymentSocket,
@@ -126,6 +125,18 @@ export function useServerTerminal(
     };
   }, [sessionId, handleSessionClosed]);
 
+  useEffect(() => {
+    return () => {
+      const currentSessionId = sessionIdRef.current;
+      if (currentSessionId) {
+        void disconnectTerminal(serverId, currentSessionId).catch(
+          () => undefined,
+        );
+        unsubscribeTerminalSession(currentSessionId);
+      }
+    };
+  }, [serverId]);
+
   const connect = useCallback(
     async (dimensions?: { cols: number; rows: number }) => {
       setStatus("connecting");
@@ -154,7 +165,6 @@ export function useServerTerminal(
     }
 
     try {
-      emitTerminalDisconnect(currentSessionId);
       await disconnectTerminal(serverId, currentSessionId);
     } catch {
       // Session may already be closed on the server.

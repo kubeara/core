@@ -59,10 +59,10 @@ export enum DeploymentEvents {
   AGENT_REMOVE = "agent:remove",
   /** Agent → control panel: agent uninstall response. */
   AGENT_REMOVE_RESULT = "agent:remove:result",
-  /** Control panel → agent: verify host ports before deployment. */
-  PORTS_CHECK = "ports:check",
-  /** Agent → control panel: host port availability response. */
-  PORTS_CHECK_RESULT = "ports:check:result",
+  /** Control panel → agent: verify host resources before deployment. */
+  DEPLOYMENT_VALIDATE = "deployment:validate",
+  /** Agent → control panel: pre-deploy validation response. */
+  DEPLOYMENT_VALIDATE_RESULT = "deployment:validate:result",
   /** Control panel → console: server add/delete background operation update. */
   SERVER_OPERATION_UPDATED = "server:operation-updated",
 }
@@ -422,8 +422,8 @@ export interface AgentRemoveResponsePayload {
   imageRefs?: string[];
 }
 
-/** Control panel → agent: pre-deploy host port availability check. */
-export interface PortsCheckRequestPayload {
+/** Control panel → agent: pre-deploy resource and port validation. */
+export interface DeploymentValidateRequestPayload {
   requestId: string;
   templateSlug: string;
   /** Encrypted base64-encoded compose JSON (same as deploy). */
@@ -437,8 +437,8 @@ export interface PortsCheckRequestPayload {
   useTraefik?: boolean;
 }
 
-/** Agent → control panel: pre-deploy host port availability response. */
-export interface PortsCheckResponsePayload {
+/** Agent → control panel: pre-deploy validation response. */
+export interface DeploymentValidateResponsePayload {
   requestId: string;
   available: boolean;
   error?: string;

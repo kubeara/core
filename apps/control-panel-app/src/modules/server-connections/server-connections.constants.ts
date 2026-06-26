@@ -1,6 +1,5 @@
 export const DEFAULT_SSH_PORT = 22;
 export const ONBOARD_SSH_TEST_SERVER_ID = "onboard-ssh-test";
-export const SERVER_NAME_MAXLength = 120;
 export const SERVER_NAME_MAX_LENGTH = 120;
 export const SERVER_HOST_MAX_LENGTH = 255;
 export const SERVER_REGION_MAX_LENGTH = 120;

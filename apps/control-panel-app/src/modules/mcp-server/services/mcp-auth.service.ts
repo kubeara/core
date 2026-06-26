@@ -1,12 +1,15 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 
 import { ERROR_MESSAGES } from "@control-panel/constants/error";
+import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import { McpApiKeysService } from "@control-panel/modules/mcp-api-keys/services/mcp-api-keys.service";
 
 import { McpAuthUser } from "../interfaces/mcp-auth-user.interface";
 
 @Injectable()
 export class McpAuthService {
+  private readonly logger = new Logger(McpAuthService.name);
+
   constructor(private readonly mcpApiKeysService: McpApiKeysService) {}
 
   /**
@@ -15,22 +18,29 @@ export class McpAuthService {
    * @returns A promise that resolves to the MCP auth user.
    */
   async validateToken(authHeader: string | undefined): Promise<McpAuthUser> {
-    if (!authHeader) {
-      throw new UnauthorizedException(
-        ERROR_MESSAGES.MCP_API_KEYS.MISSING_AUTHORIZATION,
+    try {
+      if (!authHeader) {
+        throw new UnauthorizedException(
+          ERROR_MESSAGES.MCP_API_KEYS.MISSING_AUTHORIZATION,
+        );
+      }
+
+      const token = authHeader.startsWith("Bearer ")
+        ? authHeader.slice(7)
+        : authHeader;
+
+      if (!token.trim()) {
+        throw new UnauthorizedException(
+          ERROR_MESSAGES.MCP_API_KEYS.MISSING_AUTHORIZATION,
+        );
+      }
+
+      return await this.mcpApiKeysService.validateBearerToken(token);
+    } catch (error) {
+      this.logger.error(
+        `MCP token validation failed: ${toErrorMessage(error)}`,
       );
+      throw error;
     }
-
-    const token = authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : authHeader;
-
-    if (!token.trim()) {
-      throw new UnauthorizedException(
-        ERROR_MESSAGES.MCP_API_KEYS.MISSING_AUTHORIZATION,
-      );
-    }
-
-    return this.mcpApiKeysService.validateBearerToken(token);
   }
 }

@@ -7,7 +7,6 @@ import {
   type ContainerLogsStopPayload,
 } from "@/constants/deployment-events";
 import {
-  emitContainerLogsStop,
   getDeploymentSocket,
   subscribeContainerLogsSession,
   unsubscribeContainerLogsSession,
@@ -69,7 +68,6 @@ export function useContainerLogs(
     }
 
     try {
-      emitContainerLogsStop(currentSessionId);
       await stopContainerLogs(serverId, currentSessionId);
     } catch {
       // Session may already be closed on the server.
@@ -131,7 +129,6 @@ export function useContainerLogs(
       cancelled = true;
       const currentSessionId = sessionIdRef.current;
       if (currentSessionId) {
-        emitContainerLogsStop(currentSessionId);
         void stopContainerLogs(serverId, currentSessionId).catch(() => undefined);
         unsubscribeContainerLogsSession(currentSessionId);
       }

@@ -8,15 +8,11 @@ import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 import { ERROR_MESSAGES } from "@control-panel/constants/error";
 import { AuthService } from "@control-panel/modules/auth/auth.service";
-import { DeploymentsService } from "@control-panel/modules/deployments/deployments.service";
 import { ServerResponseDto } from "@control-panel/modules/server-connections/dto/server-response.dto";
 import { ServerResourcesResponseDto } from "@control-panel/modules/server-connections/dto/server-resources-response.dto";
 import { ServerConnectionsService } from "@control-panel/modules/server-connections/services/server-connections.service";
 
-import {
-  MCP_SERVER_LIST_LIMIT,
-  SERVICE_NAME_TO_TEMPLATE_SLUG,
-} from "../constants/mcp-tools.constants";
+import { MCP_SERVER_LIST_LIMIT } from "../constants/mcp-tools.constants";
 import { MCP_TOOL_NAMES, McpToolName } from "../constants/mcp-server.constants";
 
 @Injectable()
@@ -24,7 +20,6 @@ export class McpToolsService {
   constructor(
     private readonly authService: AuthService,
     private readonly serverConnectionsService: ServerConnectionsService,
-    private readonly deploymentsService: DeploymentsService,
   ) {}
 
   /**
@@ -114,14 +109,12 @@ export class McpToolsService {
    */
   private async listServers(userId: string) {
     try {
-      console.log("listServers", userId);
       const response = await this.serverConnectionsService.listServers(userId, {
         page: 1,
         limit: MCP_SERVER_LIST_LIMIT,
         sortBy: "createdAt",
         sortOrder: "desc",
       });
-      console.log("response", response);
 
       return response.data.data.map((server) => ({
         id: server.id,
@@ -137,7 +130,6 @@ export class McpToolsService {
         lastConnectedAt: server.lastConnectedAt,
       }));
     } catch (error) {
-      console.log("error", error);
       if (
         error instanceof NotFoundException ||
         error instanceof BadRequestException
@@ -298,27 +290,6 @@ export class McpToolsService {
       architecture: resources.system.architecture,
       timestamp: resources.timestamp,
     };
-  }
-
-  /**
-   * Resolve a service name to a deployment template slug.
-   * @param serviceName - The service name provided by the caller.
-   * @returns The resolved template slug.
-   */
-  private resolveTemplateSlug(serviceName: string): string {
-    const normalized = serviceName.trim().toLowerCase();
-    const mapped = SERVICE_NAME_TO_TEMPLATE_SLUG[normalized];
-
-    if (mapped) {
-      return mapped;
-    }
-
-    const slug = normalized.replace(/\s+/g, "-");
-    if (!slug) {
-      throw new BadRequestException("serviceName is required");
-    }
-
-    return slug;
   }
 
   /**

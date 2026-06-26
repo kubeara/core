@@ -41,6 +41,10 @@ export const ERROR_MESSAGES = {
   DEPLOYMENT_PORT_IN_USE: (port: number) =>
     formatDeploymentPortInUseMessage(port),
   COMPOSE_VALIDATION_FAILED: "Docker compose validation failed",
+  INSUFFICIENT_RAM:
+    "Not enough RAM available in server to run this service container",
+  INSUFFICIENT_CPU:
+    "Not enough CPU available in server to run this service container",
   DEPLOYMENT_FAILED: "Deployment failed",
   CLEANUP_FAILED: "Deployment cleanup failed",
   REMOVAL_FAILED: "Deployment removal failed",
@@ -68,4 +72,15 @@ export const SUCCESS_MESSAGES = {
 export const SOCKET_ERROR_MESSAGES = {
   MISSING_SOCKET_PAYLOAD: "Missing socket payload",
   INVALID_SOCKET_PAYLOAD: "Invalid socket payload",
+  MISSING_REQUEST_ID: "Missing requestId",
+  MISSING_REQUEST_ID_TEMPLATE_COMPOSE:
+    "Missing requestId, templateSlug, or compose payload",
+  MISSING_REQUEST_ID_CONTAINER_ACTION:
+    "Missing requestId, containerId, or action",
+  MISSING_REQUEST_ID_CONTAINER_LOGS_START:
+    "Missing requestId, sessionId, or containerId",
+  MISSING_DEPLOYMENT_SCHEMA: (templateName: string) =>
+    `Missing deployment schema for template ${templateName}`,
+  CANNOT_SEND_TERMINAL_CONNECT_RESULT:
+    "Cannot send terminal connect result: socket disconnected",
 };

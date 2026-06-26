@@ -1,8 +1,10 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from "@nestjs/common";
+import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import * as bcrypt from "bcrypt";
@@ -18,6 +20,8 @@ import { ProfileUser } from "./interfaces/profile-user.interface";
 
 @Injectable()
 export class ProfileService {
+  private readonly logger = new Logger(ProfileService.name);
+
   constructor(
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
@@ -60,28 +64,35 @@ export class ProfileService {
     userId: string,
     dto: UpdateGeneralProfileDto,
   ): Promise<ServiceResponse<ProfileUser>> {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-    });
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+      });
 
-    if (!user) {
-      throw new NotFoundException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+      if (!user) {
+        throw new NotFoundException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+      }
+
+      user.name = this.buildFullName(dto.firstName, dto.lastName);
+
+      if (dto.profilePicture !== undefined) {
+        user.profilePictureUrl = dto.profilePicture ?? "";
+      }
+
+      await this.userRepository.save(user);
+
+      const updatedUser = await this.findProfileUser(userId);
+
+      return {
+        message: SUCCESS_MESSAGES.PROFILE.UPDATED,
+        data: updatedUser,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Update general profile failed: ${toErrorMessage(error)}`,
+      );
+      throw error;
     }
-
-    user.name = this.buildFullName(dto.firstName, dto.lastName);
-
-    if (dto.profilePicture !== undefined) {
-      user.profilePictureUrl = dto.profilePicture ?? "";
-    }
-
-    await this.userRepository.save(user);
-
-    const updatedUser = await this.findProfileUser(userId);
-
-    return {
-      message: SUCCESS_MESSAGES.PROFILE.UPDATED,
-      data: updatedUser,
-    };
   }
 
   /**
@@ -91,42 +102,47 @@ export class ProfileService {
     userId: string,
     dto: ChangePasswordDto,
   ): Promise<ServiceResponse<null>> {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-    });
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+      });
 
-    if (!user) {
-      throw new NotFoundException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
-    }
+      if (!user) {
+        throw new NotFoundException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+      }
 
-    const isCurrentPasswordValid = await bcrypt.compare(
-      dto.currentPassword,
-      user.passwordHash,
-    );
-
-    if (!isCurrentPasswordValid) {
-      throw new BadRequestException(
-        ERROR_MESSAGES.PROFILE.INVALID_CURRENT_PASSWORD,
+      const isCurrentPasswordValid = await bcrypt.compare(
+        dto.currentPassword,
+        user.passwordHash,
       );
+
+      if (!isCurrentPasswordValid) {
+        throw new BadRequestException(
+          ERROR_MESSAGES.PROFILE.INVALID_CURRENT_PASSWORD,
+        );
+      }
+
+      const isSamePassword = await bcrypt.compare(
+        dto.newPassword,
+        user.passwordHash,
+      );
+
+      if (isSamePassword) {
+        throw new BadRequestException(ERROR_MESSAGES.AUTH.OLD_SAME_PASSWORD);
+      }
+
+      user.passwordHash = await bcrypt.hash(dto.newPassword, SALT_ROUNDS);
+      user.lastPasswordResetAt = dayjs().unix();
+
+      await this.userRepository.save(user);
+
+      return {
+        message: SUCCESS_MESSAGES.PROFILE.PASSWORD_CHANGED,
+        data: null,
+      };
+    } catch (error) {
+      this.logger.error(`Change password failed: ${toErrorMessage(error)}`);
+      throw error;
     }
-
-    const isSamePassword = await bcrypt.compare(
-      dto.newPassword,
-      user.passwordHash,
-    );
-
-    if (isSamePassword) {
-      throw new BadRequestException(ERROR_MESSAGES.AUTH.OLD_SAME_PASSWORD);
-    }
-
-    user.passwordHash = await bcrypt.hash(dto.newPassword, SALT_ROUNDS);
-    user.lastPasswordResetAt = dayjs().unix();
-
-    await this.userRepository.save(user);
-
-    return {
-      message: SUCCESS_MESSAGES.PROFILE.PASSWORD_CHANGED,
-      data: null,
-    };
   }
 }

@@ -24,6 +24,7 @@ import {
 
 type ServerOverviewTabProps = {
   serverId: string;
+  serverHost: string;
   containers: ServerContainer[];
   isLoading: boolean;
   isError: boolean;
@@ -31,6 +32,7 @@ type ServerOverviewTabProps = {
 
 export function ServerOverviewTab({
   serverId,
+  serverHost,
   containers,
   isLoading,
   isError,
@@ -148,6 +150,7 @@ export function ServerOverviewTab({
           `${container.deploymentId ?? "offline"}-${container.containerName}`
         }
         container={container}
+        serverHost={serverHost}
         logo={
           container.templateId
             ? (templateLogos.get(container.templateId) ?? null)

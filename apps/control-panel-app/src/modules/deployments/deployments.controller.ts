@@ -117,29 +117,36 @@ export class DeploymentsController {
   }
 
   /**
-   * Verifies configured host ports are available on the target agent before deploy.
+   * Verifies RAM, ports, and CPU are available on the target agent before deploy.
    */
-  @Post("ports/check")
+  @Post("resources/check")
   @HttpCode(200)
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-  async checkPortsBeforeDeploy(
+  async validateBeforeDeploy(
     @Req() req: { user: UserEntity },
     @Body() body: DeployTemplateDto,
   ): Promise<{ available: true }> {
-    const { env: requestEnv, ports: requestPorts } =
-      normalizeDeployRequestVariables(body.env ?? {}, body.ports ?? {});
+    try {
+      const { env: requestEnv, ports: requestPorts } =
+        normalizeDeployRequestVariables(body.env ?? {}, body.ports ?? {});
 
-    await this.deploymentsService.checkPortsBeforeDeploy({
-      userId: req.user.id,
-      serverId: body.serverId,
-      deployOnLocal: body.deployOnLocal,
-      templateSlug: body.templateSlug,
-      requestEnv,
-      requestPorts,
-      useTraefikRequest: body.useTraefik,
-    });
+      await this.deploymentsService.validateBeforeDeploy({
+        userId: req.user.id,
+        serverId: body.serverId,
+        deployOnLocal: body.deployOnLocal,
+        templateSlug: body.templateSlug,
+        requestEnv,
+        requestPorts,
+        useTraefikRequest: body.useTraefik,
+      });
 
-    return { available: true };
+      return { available: true };
+    } catch (error) {
+      this.logger.error(
+        `Validation before deploy failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -263,83 +270,44 @@ export class DeploymentsController {
     @Req() req: { user: UserEntity },
     @Param("serverId") serverId: string,
   ) {
-    const containers = await this.deploymentsService.listServerContainers(
-      serverId,
-      req.user.id,
-    );
-    return { containers };
+    try {
+      const containers = await this.deploymentsService.listServerContainers(
+        serverId,
+        req.user.id,
+      );
+      return { containers };
+    } catch (error) {
+      this.logger.error(
+        `List server containers failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
-   * Stop a container on a server (agent-first, host fallback).
+   * Stop an active container log stream.
+   * Must be registered before :containerId/stop so "logs" is not captured as a container id.
    */
-  @Post(":serverId/containers/:containerId/stop")
+  @Post(":serverId/containers/logs/stop")
   @HttpCode(200)
-  async stopContainer(
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  async stopContainerLogs(
     @Req() req: { user: UserEntity },
     @Param("serverId") serverId: string,
-    @Param("containerId") containerId: string,
+    @Body() body: ContainerLogsStopDto,
   ) {
-    return this.deploymentsService.executeContainerAction(
-      serverId,
-      req.user.id,
-      containerId,
-      "stop",
-    );
-  }
-
-  /**
-   * Start a container on a server (agent-first, host fallback).
-   */
-  @Post(":serverId/containers/:containerId/start")
-  @HttpCode(200)
-  async startContainer(
-    @Req() req: { user: UserEntity },
-    @Param("serverId") serverId: string,
-    @Param("containerId") containerId: string,
-  ) {
-    return this.deploymentsService.executeContainerAction(
-      serverId,
-      req.user.id,
-      containerId,
-      "start",
-    );
-  }
-
-  /**
-   * Restart a container on a server (agent-first, host fallback).
-   */
-  @Post(":serverId/containers/:containerId/restart")
-  @HttpCode(200)
-  async restartContainer(
-    @Req() req: { user: UserEntity },
-    @Param("serverId") serverId: string,
-    @Param("containerId") containerId: string,
-  ) {
-    return this.deploymentsService.executeContainerAction(
-      serverId,
-      req.user.id,
-      containerId,
-      "restart",
-    );
-  }
-
-  /**
-   * Delete a container on a server (agent-first, host fallback).
-   */
-  @Delete(":serverId/containers/:containerId")
-  @HttpCode(200)
-  async deleteContainer(
-    @Req() req: { user: UserEntity },
-    @Param("serverId") serverId: string,
-    @Param("containerId") containerId: string,
-  ) {
-    return this.deploymentsService.executeContainerAction(
-      serverId,
-      req.user.id,
-      containerId,
-      "delete",
-    );
+    try {
+      return this.deploymentsService.stopContainerLogs(
+        serverId,
+        req.user.id,
+        body.sessionId,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Stop container logs failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -352,30 +320,119 @@ export class DeploymentsController {
     @Param("serverId") serverId: string,
     @Param("containerId") containerId: string,
   ) {
-    const data = await this.deploymentsService.startContainerLogs(
-      serverId,
-      req.user.id,
-      containerId,
-    );
-    return { message: "Container log stream started", data };
+    try {
+      const data = await this.deploymentsService.startContainerLogs(
+        serverId,
+        req.user.id,
+        containerId,
+      );
+      return { message: "Container log stream started", data };
+    } catch (error) {
+      this.logger.error(
+        `Start container logs failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
-   * Stop an active container log stream.
+   * Stop a container on a server (agent-first, host fallback).
    */
-  @Post(":serverId/containers/logs/stop")
+  @Post(":serverId/containers/:containerId/stop")
   @HttpCode(200)
-  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-  async stopContainerLogs(
+  async stopContainer(
     @Req() req: { user: UserEntity },
     @Param("serverId") serverId: string,
-    @Body() body: ContainerLogsStopDto,
+    @Param("containerId") containerId: string,
   ) {
-    return this.deploymentsService.stopContainerLogs(
-      serverId,
-      req.user.id,
-      body.sessionId,
-    );
+    try {
+      return this.deploymentsService.executeContainerAction(
+        serverId,
+        req.user.id,
+        containerId,
+        "stop",
+      );
+    } catch (error) {
+      this.logger.error(
+        `Stop container failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Start a container on a server (agent-first, host fallback).
+   */
+  @Post(":serverId/containers/:containerId/start")
+  @HttpCode(200)
+  async startContainer(
+    @Req() req: { user: UserEntity },
+    @Param("serverId") serverId: string,
+    @Param("containerId") containerId: string,
+  ) {
+    try {
+      return this.deploymentsService.executeContainerAction(
+        serverId,
+        req.user.id,
+        containerId,
+        "start",
+      );
+    } catch (error) {
+      this.logger.error(
+        `Start container failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Restart a container on a server (agent-first, host fallback).
+   */
+  @Post(":serverId/containers/:containerId/restart")
+  @HttpCode(200)
+  async restartContainer(
+    @Req() req: { user: UserEntity },
+    @Param("serverId") serverId: string,
+    @Param("containerId") containerId: string,
+  ) {
+    try {
+      return this.deploymentsService.executeContainerAction(
+        serverId,
+        req.user.id,
+        containerId,
+        "restart",
+      );
+    } catch (error) {
+      this.logger.error(
+        `Restart container failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a container on a server (agent-first, host fallback).
+   */
+  @Delete(":serverId/containers/:containerId")
+  @HttpCode(200)
+  async deleteContainer(
+    @Req() req: { user: UserEntity },
+    @Param("serverId") serverId: string,
+    @Param("containerId") containerId: string,
+  ) {
+    try {
+      return this.deploymentsService.executeContainerAction(
+        serverId,
+        req.user.id,
+        containerId,
+        "delete",
+      );
+    } catch (error) {
+      this.logger.error(
+        `Delete container failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -383,9 +440,16 @@ export class DeploymentsController {
    */
   @Get(":deploymentId/env")
   async listEnvironmentVariables(@Param("deploymentId") deploymentId: string) {
-    return this.deploymentsService.listEnvironmentVariables(deploymentId, {
-      maskSecrets: true,
-    });
+    try {
+      return this.deploymentsService.listEnvironmentVariables(deploymentId, {
+        maskSecrets: true,
+      });
+    } catch (error) {
+      this.logger.error(
+        `List environment variables failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -393,26 +457,33 @@ export class DeploymentsController {
    */
   @Get(":deploymentId")
   async getDeployment(@Param("deploymentId") deploymentId: string) {
-    const deployment =
-      await this.deploymentsService.getDeployment(deploymentId);
-    const environmentVariables =
-      await this.deploymentsService.listEnvironmentVariables(deploymentId, {
-        maskSecrets: true,
-      });
+    try {
+      const deployment =
+        await this.deploymentsService.getDeployment(deploymentId);
+      const environmentVariables =
+        await this.deploymentsService.listEnvironmentVariables(deploymentId, {
+          maskSecrets: true,
+        });
 
-    return {
-      id: deployment.id,
-      templateSlug: deployment.templateSlug,
-      serverId: deployment.serverId,
-      userId: deployment.userId,
-      status: deployment.status,
-      deploymentStatus: deployment.deploymentStatus,
-      statusMessage: deployment.statusMessage,
-      lastError: deployment.lastError,
-      createdAt: deployment.createdAt,
-      updatedAt: deployment.updatedAt,
-      environmentVariables,
-    };
+      return {
+        id: deployment.id,
+        templateSlug: deployment.templateSlug,
+        serverId: deployment.serverId,
+        userId: deployment.userId,
+        status: deployment.status,
+        deploymentStatus: deployment.deploymentStatus,
+        statusMessage: deployment.statusMessage,
+        lastError: deployment.lastError,
+        createdAt: deployment.createdAt,
+        updatedAt: deployment.updatedAt,
+        environmentVariables,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Get deployment failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -424,10 +495,17 @@ export class DeploymentsController {
     @Param("deploymentId") deploymentId: string,
     @Body() body: UpdateEnvironmentVariablesDto,
   ) {
-    return this.deploymentsService.updateEnvironmentVariables(deploymentId, {
-      env: body.env,
-      ports: body.ports,
-    });
+    try {
+      return this.deploymentsService.updateEnvironmentVariables(deploymentId, {
+        env: body.env,
+        ports: body.ports,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Update environment variables failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -436,6 +514,13 @@ export class DeploymentsController {
    */
   @Delete(":deploymentId")
   async removeDeployment(@Param("deploymentId") deploymentId: string) {
-    return this.deploymentsService.removeDeployment(deploymentId);
+    try {
+      return this.deploymentsService.removeDeployment(deploymentId);
+    } catch (error) {
+      this.logger.error(
+        `Remove deployment failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 }
