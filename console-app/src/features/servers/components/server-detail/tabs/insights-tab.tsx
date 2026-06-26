@@ -124,6 +124,10 @@ export function ServerInsightsTab({
               label: "Usage",
               value: formatPercent(resources.memory.usagePercent),
             },
+            {
+              label: "Available",
+              value: formatBytes(resources.memory.available),
+            }
           ]}
         />
 

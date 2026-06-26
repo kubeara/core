@@ -131,7 +131,7 @@ export function ServerTemplatesPanel({
       <div className="server-templates-toolbar">
         <div className="server-templates-filters">
           <input
-            type="search"
+            type="text"
             className="server-templates-search"
             placeholder="Search by name, slug, or tag…"
             value={searchInput}

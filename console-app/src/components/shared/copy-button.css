@@ -42,7 +42,7 @@
 .copy-btn.copied {
   color: var(--success);
   opacity: 1;
-  background: rgb(22 163 74 / 10%);
+  background: transparent;
 }
 
 .copy-btn-tooltip {
@@ -101,20 +101,11 @@
 }
 
 .copy-btn-tooltip--success {
-  border-color: rgb(22 163 74 / 35%);
-  background: linear-gradient(180deg, #14532d 0%, #052e16 100%);
-  color: #bbf7d0;
-  box-shadow:
-    0 10px 28px rgb(22 163 74 / 22%),
-    0 0 0 1px rgb(187 247 208 / 12%) inset;
-}
-
-.copy-btn-tooltip--success::after {
-  border-top-color: #052e16;
+  color: lightgreen;
 }
 
 .copy-btn-tooltip--success svg {
-  color: #4ade80;
+  color: lightgreen;
 }
 
 [data-theme="dark"] .copy-btn {
@@ -140,16 +131,11 @@
 }
 
 [data-theme="dark"] .copy-btn-tooltip--success {
-  border-color: rgb(74 222 128 / 30%);
-  background: linear-gradient(180deg, #166534 0%, #052e16 100%);
-  color: #dcfce7;
-  box-shadow:
-    0 10px 28px rgb(22 163 74 / 28%),
-    0 0 0 1px rgb(187 247 208 / 10%) inset;
+  color: lightgreen;
 }
 
-[data-theme="dark"] .copy-btn-tooltip--success::after {
-  border-top-color: #052e16;
+[data-theme="dark"] .copy-btn-tooltip--success svg {
+  color: lightgreen;
 }
 
 @keyframes copy-btn-tooltip-pop {
