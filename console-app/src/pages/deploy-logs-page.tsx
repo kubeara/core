@@ -25,7 +25,7 @@ import { NotFoundPage } from "./not-found-page";
 type PendingDeployLocationState = {
   deployRequest?: Pick<
     DeployTemplateRequest,
-    "env" | "ports" | "templateSlug" | "serverId" | "skipResourceValidation"
+    "env" | "ports" | "templateSlug" | "serverId" | "acknowledgeResourceWarning"
   >;
 };
 
@@ -109,7 +109,7 @@ export function DeployLogsPage() {
       serverId,
       env: pendingDeploy.env,
       ports: pendingDeploy.ports,
-      skipResourceValidation: pendingDeploy.skipResourceValidation,
+      acknowledgeResourceWarning: pendingDeploy.acknowledgeResourceWarning,
     })
       .then((result) => {
         if (cancelled) return;

@@ -104,7 +104,7 @@ export function DeployConfigurationForm({
   function proceedToDeployLogs(
     env: Record<string, string>,
     portValues: Record<string, string>,
-    skipResourceValidation = false,
+    acknowledgeResourceWarning = false,
   ) {
     navigate(`/servers/${serverId}/deploy/${template.slug}/logs`, {
       state: {
@@ -113,7 +113,7 @@ export function DeployConfigurationForm({
           templateSlug: template.slug,
           env,
           ports: portValues,
-          skipResourceValidation,
+          acknowledgeResourceWarning,
         },
       },
     });
