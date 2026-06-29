@@ -39,4 +39,9 @@ export class DeployTemplateDto {
   @IsOptional()
   @IsBoolean()
   useTraefik?: boolean;
+
+  /** When true, skip RAM/CPU availability checks for this deployment only. */
+  @IsOptional()
+  @IsBoolean()
+  skipResourceValidation?: boolean;
 }

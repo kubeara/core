@@ -86,6 +86,7 @@ export class DeployTemplateExecutor {
     schema?: TemplateSchema;
     composeOnly?: boolean;
     useTraefik?: boolean;
+    skipResourceValidation?: boolean;
     notifier: ExecutionNotifier;
   }): Promise<void> {
     const {
@@ -96,6 +97,7 @@ export class DeployTemplateExecutor {
       schema,
       composeOnly,
       useTraefik: useTraefikPayload,
+      skipResourceValidation,
       notifier,
     } = opts;
     const useTraefik = Boolean(
@@ -134,6 +136,7 @@ export class DeployTemplateExecutor {
         schema,
         composeOnly,
         useTraefik,
+        skipResourceValidation,
         notifier,
         startedAt,
         projectName,
@@ -280,6 +283,7 @@ export class DeployTemplateExecutor {
       schema?: TemplateSchema;
       composeOnly?: boolean;
       useTraefik: boolean;
+      skipResourceValidation?: boolean;
       notifier: ExecutionNotifier;
       startedAt: string;
       projectName: string;
@@ -292,6 +296,7 @@ export class DeployTemplateExecutor {
       schema,
       composeOnly,
       useTraefik,
+      skipResourceValidation,
       notifier,
       startedAt,
       projectName,
@@ -443,6 +448,7 @@ export class DeployTemplateExecutor {
           applyTraefikRouting,
           portValues: resolved.portValues,
           expectedPorts: generatedEnv.ports,
+          skipResourceChecks: skipResourceValidation,
         });
       } catch (err) {
         if (err instanceof PortUnavailableError) {
@@ -665,16 +671,9 @@ export class DeployTemplateExecutor {
     applyTraefikRouting: boolean;
     portValues: PortFileInput;
     expectedPorts?: Record<string, number>;
+    skipResourceChecks?: boolean;
   }): Promise<void> {
     try {
-      const requirements = sumComposeResourceLimitsFromYaml(
-        opts.resolvedConfig,
-      );
-
-      await this.resourceAvailabilityService.assertRamAvailable(
-        requirements.memoryBytes,
-      );
-
       if (!opts.applyTraefikRouting) {
         if (Object.keys(opts.portValues).length > 0) {
           await this.resourceAvailabilityService.assertPortsAvailable(
@@ -700,9 +699,23 @@ export class DeployTemplateExecutor {
         );
       }
 
-      await this.resourceAvailabilityService.assertCpuAvailable(
-        requirements.cpuCores,
-      );
+      if (!opts.skipResourceChecks) {
+        const requirements = sumComposeResourceLimitsFromYaml(
+          opts.resolvedConfig,
+        );
+
+        await this.resourceAvailabilityService.assertRamAvailable(
+          requirements.memoryBytes,
+        );
+
+        await this.resourceAvailabilityService.assertCpuAvailable(
+          requirements.cpuCores,
+        );
+      } else {
+        this.logger.warn(
+          "RAM and CPU availability checks skipped: user confirmed resource override",
+        );
+      }
     } catch (error) {
       this.logger.error(
         `Validation before deploy failed: ${error instanceof Error ? error.message : String(error)}`,

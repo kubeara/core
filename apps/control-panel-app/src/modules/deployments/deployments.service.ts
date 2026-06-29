@@ -26,6 +26,7 @@ import {
   ContainerActionType,
   DeploymentEvents,
   DeploymentStatus,
+  DeploymentResourceWarning,
   SchemaFieldDetails,
   TemplateSchema,
   SocketDeployMessage,
@@ -390,6 +391,7 @@ export class DeploymentsService {
   async emitPreparedDeployment(
     prepared: PreparedDeployment,
     isRedeploy: boolean,
+    options?: { skipResourceValidation?: boolean },
   ): Promise<{
     message: string;
     template: string;
@@ -422,6 +424,7 @@ export class DeploymentsService {
           schema: prepared.schema,
           composeOnly: prepared.composeOnly,
           useTraefik: prepared.useTraefik,
+          skipResourceValidation: options?.skipResourceValidation,
         },
       };
 
@@ -469,6 +472,7 @@ export class DeploymentsService {
   schedulePreparedDeployment(
     prepared: PreparedDeployment,
     isRedeploy: boolean,
+    options?: { skipResourceValidation?: boolean },
   ): {
     message: string;
     template: string;
@@ -479,7 +483,7 @@ export class DeploymentsService {
     // before install/deploy output (setImmediate was too early vs browser subscribe).
     const subscribeGraceMs = 300;
     setTimeout(() => {
-      void this.emitPreparedDeployment(prepared, isRedeploy).catch(
+      void this.emitPreparedDeployment(prepared, isRedeploy, options).catch(
         (error: unknown) => {
           this.logger.error(
             `Background deployment ${prepared.deploymentId} failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -507,7 +511,10 @@ export class DeploymentsService {
     requestEnv?: Record<string, unknown>;
     requestPorts?: Record<string, unknown>;
     useTraefikRequest?: boolean;
-  }): Promise<void> {
+  }): Promise<
+    | { available: true }
+    | { available: false; warning: DeploymentResourceWarning }
+  > {
     const { serverId, userId } = await this.resolveDeploymentTarget({
       userId: input.userId,
       serverId: input.serverId,
@@ -522,7 +529,7 @@ export class DeploymentsService {
         this.logger.log(
           `Skipping pre-deploy validation for server '${serverId}': agent is not installed`,
         );
-        return;
+        return { available: true };
       }
 
       this.logger.log(
@@ -580,10 +587,16 @@ export class DeploymentsService {
     );
 
     if (!result.available) {
+      if (result.warning) {
+        return { available: false, warning: result.warning };
+      }
+
       throw new ConflictException(
         result.error?.trim() || "Deployment validation failed",
       );
     }
+
+    return { available: true };
   }
 
   async prepareDeployment(
