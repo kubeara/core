@@ -5,19 +5,23 @@ import { loadStripe, type StripeElementsOptions } from "@stripe/stripe-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { getErrorMessage } from "@/api/api-error";
 import { QUERY_KEYS } from "@/constants/query-keys";
+import { showSuccessToast } from "@/lib/toast";
 import { KubearaLogo } from "@/components/shared/kubeara-logo";
 import { ProfilePageSkeleton } from "@/components/shared/skeleton";
 import { useAuth } from "@/features/auth/context/use-auth";
 import {
   confirmCheckoutPayment,
   createCheckoutPayment,
+  getPlanBillingDisplay,
 } from "@/features/subscriptions/api";
 import {
+  formatBillingInterval,
   formatPrice,
   setCurrentSubscriptionCache,
   useCheckoutSetupQuery,
 } from "@/features/subscriptions/hooks";
 import type {
+  BillingCycleSlug,
   CheckoutPaymentMethod,
   CheckoutResponse,
   PlanSlug,
@@ -25,7 +29,7 @@ import type {
 import "@/features/subscriptions/checkout-ui.css";
 import "@/features/subscriptions/subscriptions-ui.css";
 
-const VALID_SLUGS: PlanSlug[] = ["starter", "pro", "max"];
+import { isPaidPlanSlug } from "@/features/subscriptions/plan-slug.util";
 
 function formatCardBrand(brand: string): string {
   if (brand === "amex") return "American Express";
@@ -116,10 +120,12 @@ function CheckoutPaymentForm({
   email,
   name,
   planSlug,
+  billingCycle,
 }: {
   email: string;
   name: string;
   planSlug: PlanSlug;
+  billingCycle: BillingCycleSlug;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -163,11 +169,15 @@ function CheckoutPaymentForm({
     }
 
     try {
-      const subscription = await confirmCheckoutPayment({ planSlug });
+      const { subscription, message } = await confirmCheckoutPayment({
+        planSlug,
+        billingCycle,
+      });
       setCurrentSubscriptionCache(queryClient, subscription);
       await queryClient.refetchQueries({
         queryKey: QUERY_KEYS.subscriptions.current,
       });
+      showSuccessToast(message);
       navigate("/plans", { replace: true });
     } catch (err) {
       setError(getErrorMessage(err));
@@ -219,12 +229,18 @@ export function CheckoutPage() {
     null,
   );
 
-  if (!planSlug || !VALID_SLUGS.includes(planSlug)) {
+  if (!planSlug || !isPaidPlanSlug(planSlug)) {
     return <Navigate to="/plans" replace />;
   }
 
+  const billingCycle = planSlug.endsWith("-yearly")
+    ? "yearly"
+    : planSlug.endsWith("-quarterly")
+      ? "quarterly"
+      : "monthly";
+
   const { data: preview, isPending, isFetching, isError, error, refetch } =
-    useCheckoutSetupQuery(planSlug);
+    useCheckoutSetupQuery(planSlug, billingCycle);
 
   const data = paymentSetup ?? preview;
 
@@ -242,12 +258,13 @@ export function CheckoutPage() {
 
     setIsConfirmingImmediate(true);
 
-    confirmCheckoutPayment({ planSlug })
-      .then(async (subscription) => {
+    confirmCheckoutPayment({ planSlug, billingCycle })
+      .then(async ({ subscription, message }) => {
         setCurrentSubscriptionCache(queryClient, subscription);
         await queryClient.refetchQueries({
           queryKey: QUERY_KEYS.subscriptions.current,
         });
+        showSuccessToast(message);
         navigate("/plans", { replace: true });
       })
       .catch((err) => {
@@ -262,6 +279,7 @@ export function CheckoutPage() {
     navigate,
     paymentSetup,
     planSlug,
+    billingCycle,
   ]);
 
   const stripePromise = useMemo(
@@ -301,12 +319,63 @@ export function CheckoutPage() {
     try {
       const result = await createCheckoutPayment({
         planSlug,
+        billingCycle,
         startPayment: true,
       });
 
       if (result.immediate) {
-        await confirmCheckoutPayment({ planSlug });
+        if (result.subscription) {
+          setCurrentSubscriptionCache(queryClient, result.subscription);
+          showSuccessToast("Subscription confirmed successfully");
+          navigate("/plans", { replace: true });
+          return;
+        }
+
+        const { subscription, message } = await confirmCheckoutPayment({
+          planSlug,
+          billingCycle,
+        });
+        setCurrentSubscriptionCache(queryClient, subscription);
+        showSuccessToast(message);
         navigate("/plans", { replace: true });
+        return;
+      }
+
+      if (
+        result.proratedUpgrade &&
+        result.clientSecret &&
+        result.publishableKey
+      ) {
+        const stripe = await loadStripe(result.publishableKey);
+        if (stripe) {
+          const { error: confirmError } = await stripe.confirmPayment({
+            clientSecret: result.clientSecret,
+            confirmParams: {
+              return_url: `${window.location.origin}/plans?checkout=success&plan=${planSlug}`,
+            },
+            redirect: "if_required",
+          });
+          if (confirmError) {
+            setStartPaymentError(
+              confirmError.message ?? "Payment confirmation failed",
+            );
+            return;
+          }
+          const { subscription, message } = await confirmCheckoutPayment({
+            planSlug,
+            billingCycle,
+          });
+          setCurrentSubscriptionCache(queryClient, subscription);
+          showSuccessToast(message);
+          navigate("/plans", { replace: true });
+          return;
+        }
+      }
+
+      if (result.proratedUpgrade && result.clientSecret) {
+        setStartPaymentError(
+          "Unable to confirm payment. Please try again in a moment.",
+        );
         return;
       }
 
@@ -371,9 +440,10 @@ export function CheckoutPage() {
   }
 
   const { plan } = data;
+  const billingPrice = getPlanBillingDisplay(plan);
   const dueToday = data.proratedUpgrade
     ? data.amountDue ?? 0
-    : plan.priceMonthly;
+    : billingPrice.display;
 
   return (
     <div className="checkout-page">
@@ -386,18 +456,25 @@ export function CheckoutPage() {
           <div className="checkout-summary-headline">
             <span>Continue to {plan.name}</span>
             <span>
-              {formatPrice(plan.priceMonthly)}
-              <span className="checkout-line-item-interval">/month</span>
+              {formatPrice(billingPrice.display)}
+              {billingPrice.hasDiscount && (
+                <span className="plan-card-price-original">
+                  {formatPrice(billingPrice.original)}
+                </span>
+              )}
+              <span className="checkout-line-item-interval">
+                {formatBillingInterval(plan.billingCycle)}
+              </span>
             </span>
           </div>
-          {data.proratedUpgrade && (
+          {/* {data.proratedUpgrade && (
             <div className="checkout-pricing">
               <div className="checkout-pricing-row checkout-pricing-total">
                 <span>Total due today</span>
                 <span>{formatPrice(dueToday)}</span>
               </div>
             </div>
-          )}
+          )} */}
           <p className="checkout-features-label">Features</p>
           <ul className="checkout-features">
             {plan.featureRows.map((feature) => (
@@ -434,7 +511,7 @@ export function CheckoutPage() {
               <div className="checkout-form-actions">
                 <button
                   type="button"
-                  className="checkout-submit"
+                  className="checkout-submit 2"
                   disabled={isStartingPayment}
                   onClick={() => void handleProceed()}
                 >
@@ -458,6 +535,7 @@ export function CheckoutPage() {
                   email={user.email}
                   name={user.name}
                   planSlug={planSlug}
+                  billingCycle={billingCycle}
                 />
               </Elements>
             )

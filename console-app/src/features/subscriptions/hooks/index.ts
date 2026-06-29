@@ -10,7 +10,8 @@ import {
   fetchCurrentSubscription,
   fetchPlans,
 } from "../api";
-import type { ChangePlanRequest, PlanSlug, Subscription } from "../types";
+import type { BillingCycleSlug, ChangePlanRequest, PlanSlug, Subscription } from "../types";
+import { getPlanTierSlug, PLAN_TIER_ORDER } from "../plan-slug.util";
 
 function withSubscriptionError<TData, TVariables>(
   mutationFn: (variables: TVariables) => Promise<TData>,
@@ -47,10 +48,13 @@ export function setCurrentSubscriptionCache(
   queryClient.setQueryData(QUERY_KEYS.subscriptions.current, subscription);
 }
 
-export function useCheckoutSetupQuery(planSlug: PlanSlug) {
+export function useCheckoutSetupQuery(
+  planSlug: PlanSlug,
+  billingCycle: BillingCycleSlug = "monthly",
+) {
   return useQuery({
-    queryKey: QUERY_KEYS.subscriptions.checkout(planSlug),
-    queryFn: () => createCheckoutPayment({ planSlug }),
+    queryKey: QUERY_KEYS.subscriptions.checkout(planSlug, billingCycle),
+    queryFn: () => createCheckoutPayment({ planSlug, billingCycle }),
     staleTime: 0,
     refetchOnWindowFocus: false,
     retry: 1,
@@ -109,9 +113,9 @@ export function useCancelSubscriptionMutation() {
   return useMutation<
     { subscription: unknown; message: string },
     ApiError,
-    void
+    { reason: string }
   >({
-    mutationFn: withSubscriptionError(() => cancelSubscription()),
+    mutationFn: withSubscriptionError(cancelSubscription),
     onSuccess: ({ message }) => {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.subscriptions.current,
@@ -129,10 +133,17 @@ export function getPlanAction(
   targetSlug: PlanSlug,
 ): "current" | "upgrade" | "downgrade" {
   if (currentSlug === targetSlug) return "current";
-  const order: PlanSlug[] = ["free", "starter", "pro", "max", "enterprise"];
-  const currentIdx = order.indexOf(currentSlug ?? "free");
-  const targetIdx = order.indexOf(targetSlug);
+  const currentTier = getPlanTierSlug(currentSlug ?? "free");
+  const targetTier = getPlanTierSlug(targetSlug);
+  const currentIdx = PLAN_TIER_ORDER.indexOf(currentTier);
+  const targetIdx = PLAN_TIER_ORDER.indexOf(targetTier);
   return targetIdx > currentIdx ? "upgrade" : "downgrade";
+}
+
+export function formatBillingInterval(cycle: BillingCycleSlug): string {
+  if (cycle === "quarterly") return "/quarter";
+  if (cycle === "yearly") return "/year";
+  return "/month";
 }
 
 export function formatPrice(amount?: number | null): string {
@@ -153,3 +164,5 @@ export function formatUnixDate(unix: number | null): string {
 export function formatStatus(status: string): string {
   return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+export { getPlanBillingDisplay } from "../api";

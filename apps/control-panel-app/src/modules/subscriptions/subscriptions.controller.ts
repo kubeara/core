@@ -2,7 +2,11 @@ import { Body, Controller, Get, Post, Req, UseGuards } from "@nestjs/common";
 import { AccessTokenGuard } from "@control-panel/modules/auth/guards/auth.guards";
 import { AuthenticatedRequest } from "@control-panel/common/interfaces/authenticated-request.interface";
 import { SubscriptionService } from "./services/subscription.service";
-import { ChangePlanDto, CheckoutDto } from "./dto/subscription.dto";
+import {
+  CancelSubscriptionDto,
+  ChangePlanDto,
+  CheckoutDto,
+} from "./dto/subscription.dto";
 
 @UseGuards(AccessTokenGuard)
 @Controller("subscriptions")
@@ -29,6 +33,7 @@ export class SubscriptionsController {
       req.user.email,
       req.user.name,
       body.startPayment === true,
+      body.billingCycle,
     );
   }
 
@@ -45,6 +50,7 @@ export class SubscriptionsController {
     return this.subscriptionService.confirmCheckout(
       req.user.organizationId,
       body.planSlug,
+      body.billingCycle,
     );
   }
 
@@ -56,7 +62,13 @@ export class SubscriptionsController {
   }
 
   @Post("cancel")
-  cancel(@Req() req: AuthenticatedRequest) {
-    return this.subscriptionService.cancelSubscription(req.user.organizationId);
+  cancel(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: CancelSubscriptionDto,
+  ) {
+    return this.subscriptionService.cancelSubscription(
+      req.user.organizationId,
+      body.reason,
+    );
   }
 }

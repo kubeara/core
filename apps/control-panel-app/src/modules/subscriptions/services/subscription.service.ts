@@ -10,7 +10,9 @@ import { Repository } from "typeorm";
 import dayjs from "dayjs";
 import type Stripe from "stripe";
 import { PlanEntity } from "../entities/plan.entity";
+import { BillingCycleEntity } from "../entities/billing-cycle.entity";
 import { SubscriptionEntity } from "../entities/subscription.entity";
+import { BillingCycleSlug } from "../enums/billing-cycle.enum";
 import { PlanSlug } from "../enums/plan-slug.enum";
 import { SubscriptionStatus } from "../enums/subscription-status.enum";
 import { PendingDowngradeStatus } from "../enums/pending-downgrade-status.enum";
@@ -25,13 +27,36 @@ import {
   hasMcpAccess,
   normalizePlanFeatures,
 } from "../utils/plan-features.util";
+import {
+  collectPlanStripePriceIds,
+  getPlanPrice,
+  normalizeBillingCycleSlug,
+  resolveBillingCycleFromPlan,
+  resolvePlanStripePriceId,
+} from "../utils/billing.util";
+import {
+  comparePlanTiers,
+  getPlanTierSlug,
+  resolveCheckoutPlanSlug,
+} from "../utils/plan-slug.util";
+
+export interface BillingCycleResponse {
+  slug: BillingCycleSlug;
+  label: string;
+  badge: string | null;
+  discountPercent: number;
+  sortOrder: number;
+}
 
 export interface PlanResponse {
   id: string;
   slug: PlanSlug;
+  tierSlug: string;
+  billingCycle: BillingCycleSlug;
   name: string;
   description: string | null;
-  priceMonthly: number;
+  price: number;
+  listPrice: number | null;
   features: PlanFeatures;
   featureRows: ReturnType<typeof getPlanFeatureRows>;
   serverBadge: string;
@@ -50,6 +75,7 @@ export interface SubscriptionResponse {
   currentPeriodEnd: number | null;
   canceledAt: number | null;
   billingAmount: number;
+  billingCycle: BillingCycleSlug;
   stripeCustomerId: string | null;
 }
 
@@ -58,6 +84,8 @@ export class SubscriptionService {
   constructor(
     @InjectRepository(PlanEntity)
     private readonly planRepository: Repository<PlanEntity>,
+    @InjectRepository(BillingCycleEntity)
+    private readonly billingCycleRepository: Repository<BillingCycleEntity>,
     @InjectRepository(SubscriptionEntity)
     private readonly subscriptionRepository: Repository<SubscriptionEntity>,
     private readonly stripeService: StripeService,
@@ -71,9 +99,12 @@ export class SubscriptionService {
     return {
       id: plan.id,
       slug: plan.slug,
+      tierSlug: plan.tierSlug ?? getPlanTierSlug(plan.slug),
+      billingCycle: resolveBillingCycleFromPlan(plan),
       name: plan.name,
       description: plan.description,
-      priceMonthly: Number(plan.priceMonthly) || 0,
+      price: Number(plan.price) || 0,
+      listPrice: plan.listPrice == null ? null : Number(plan.listPrice) || 0,
       features,
       featureRows: getPlanFeatureRows(plan.slug, features),
       serverBadge: getPlanServerBadge(features, plan.slug),
@@ -102,6 +133,7 @@ export class SubscriptionService {
       currentPeriodEnd: subscription.currentPeriodEnd,
       canceledAt: subscription.canceledAt,
       billingAmount: Number(subscription.billingAmount) || 0,
+      billingCycle: normalizeBillingCycleSlug(subscription.billingCycle),
       stripeCustomerId: subscription.stripeCustomerId,
     };
   }
@@ -165,9 +197,7 @@ export class SubscriptionService {
     const priceId = typeof price === "string" ? price : price?.id;
 
     if (priceId) {
-      const plan = await this.planRepository.findOne({
-        where: { stripePriceId: priceId },
-      });
+      const plan = await this.resolvePlanFromStripePriceId(priceId);
       if (plan) {
         return plan;
       }
@@ -185,6 +215,38 @@ export class SubscriptionService {
     }
   }
 
+  private async resolvePlanFromStripePriceId(
+    priceId: string,
+  ): Promise<PlanEntity | null> {
+    const byLegacy = await this.planRepository.findOne({
+      where: { stripePriceId: priceId },
+    });
+    if (byLegacy) {
+      return byLegacy;
+    }
+
+    const plans = await this.planRepository.find({
+      where: { status: EntityStatus.ACTIVE },
+    });
+
+    return (
+      plans.find((plan) => collectPlanStripePriceIds(plan).includes(priceId)) ??
+      null
+    );
+  }
+
+  private toBillingCycleResponse(
+    cycle: BillingCycleEntity,
+  ): BillingCycleResponse {
+    return {
+      slug: cycle.slug,
+      label: cycle.label,
+      badge: cycle.badge,
+      discountPercent: cycle.discountPercent,
+      sortOrder: cycle.sortOrder,
+    };
+  }
+
   async getPlanBySlug(slug: PlanSlug): Promise<PlanEntity> {
     const plan = await this.planRepository.findOne({ where: { slug } });
     if (!plan) {
@@ -194,14 +256,25 @@ export class SubscriptionService {
   }
 
   async listPlans() {
-    const plans = await this.planRepository.find({
-      where: { status: EntityStatus.ACTIVE },
-      order: { sortOrder: "ASC" },
-    });
+    const [plans, billingCycles] = await Promise.all([
+      this.planRepository.find({
+        where: { status: EntityStatus.ACTIVE },
+        order: { sortOrder: "ASC", billingCycle: "ASC" },
+      }),
+      this.billingCycleRepository.find({
+        where: { status: EntityStatus.ACTIVE },
+        order: { sortOrder: "ASC" },
+      }),
+    ]);
 
     return {
       message: SUCCESS_MESSAGES.SUBSCRIPTIONS.PLANS,
-      data: plans.map((plan) => this.toPlanResponse(plan)),
+      data: {
+        plans: plans.map((plan) => this.toPlanResponse(plan)),
+        billingCycles: billingCycles.map((cycle) =>
+          this.toBillingCycleResponse(cycle),
+        ),
+      },
     };
   }
 
@@ -272,7 +345,7 @@ export class SubscriptionService {
       startedAt: now,
       currentPeriodStart: now,
       currentPeriodEnd: null,
-      billingAmount: freePlan.priceMonthly,
+      billingAmount: freePlan.price,
       status: EntityStatus.ACTIVE,
     });
 
@@ -285,19 +358,26 @@ export class SubscriptionService {
     userEmail: string,
     userName: string,
     startPayment = false,
+    billingCycleInput?: BillingCycleSlug,
   ) {
-    if (planSlug === PlanSlug.FREE) {
+    const resolvedSlug = resolveCheckoutPlanSlug(
+      planSlug,
+      billingCycleInput,
+    ) as PlanSlug;
+
+    if (getPlanTierSlug(resolvedSlug) === getPlanTierSlug(PlanSlug.FREE)) {
       throw new BadRequestException(
         "Use change-plan to switch to the free plan",
       );
     }
 
-    const plan = await this.getPlanBySlug(planSlug);
-    const priceId = plan.stripePriceId;
+    const plan = await this.getPlanBySlug(resolvedSlug);
+    const planBillingCycle = resolveBillingCycleFromPlan(plan);
+    const priceId = resolvePlanStripePriceId(plan);
 
     if (!priceId) {
       throw new BadRequestException(
-        "Stripe price ID is not configured for this plan",
+        `Stripe price ID is not configured for ${planBillingCycle} billing on this plan`,
       );
     }
 
@@ -335,8 +415,9 @@ export class SubscriptionService {
     }
 
     const isPaidUpgrade =
-      subscription.plan.slug !== PlanSlug.FREE &&
-      plan.priceMonthly > subscription.plan.priceMonthly;
+      getPlanTierSlug(subscription.plan.slug) !==
+        getPlanTierSlug(PlanSlug.FREE) &&
+      comparePlanTiers(plan.slug, subscription.plan.slug) > 0;
 
     if (isPaidUpgrade && this.stripeService.isConfigured()) {
       const stripeSubscriptionId =
@@ -350,18 +431,19 @@ export class SubscriptionService {
         if (
           (currentStripeSub.status === "active" ||
             currentStripeSub.status === "trialing") &&
-          this.stripeSubscriptionMatchesPlan(
-            currentStripeSub,
-            planSlug,
-            priceId,
-          )
+          this.stripeSubscriptionMatchesPlan(currentStripeSub, plan)
         ) {
           if (subscription.pendingDowngradeStatus) {
             await this.clearPendingDowngradeOnStripe(subscription);
             this.clearPendingDowngrade(subscription);
           }
 
-          this.applyStripeSubscription(subscription, plan, currentStripeSub);
+          this.applyStripeSubscription(
+            subscription,
+            plan,
+            currentStripeSub,
+            planBillingCycle,
+          );
           await this.subscriptionRepository.save(subscription);
 
           return {
@@ -414,14 +496,24 @@ export class SubscriptionService {
             stripeSubscriptionId,
             priceId,
             organizationId,
-            planSlug,
+            planSlug: plan.slug,
+            billingCycle: planBillingCycle,
           });
 
         if (invoicePaid || amountDue === 0) {
           const stripeSub =
             await stripe.subscriptions.retrieve(stripeSubscriptionId);
-          this.applyStripeSubscription(subscription, plan, stripeSub);
+          this.applyStripeSubscription(
+            subscription,
+            plan,
+            stripeSub,
+            planBillingCycle,
+          );
           await this.subscriptionRepository.save(subscription);
+          const updated = await this.subscriptionRepository.findOneOrFail({
+            where: { id: subscription.id },
+            relations: { plan: true, pendingPlan: true },
+          });
 
           return {
             message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CHECKOUT,
@@ -432,6 +524,7 @@ export class SubscriptionService {
               proratedUpgrade: true,
               amountDue: 0,
               immediate: true,
+              subscription: this.toSubscriptionResponse(updated),
             },
           };
         }
@@ -455,7 +548,8 @@ export class SubscriptionService {
         customerId,
         priceId,
         organizationId,
-        planSlug,
+        planSlug: plan.slug,
+        billingCycle: planBillingCycle,
       });
 
     subscription.stripeSubscriptionId = subscriptionId;
@@ -471,8 +565,17 @@ export class SubscriptionService {
     };
   }
 
-  async confirmCheckout(organizationId: string, planSlug: PlanSlug) {
-    const plan = await this.getPlanBySlug(planSlug);
+  async confirmCheckout(
+    organizationId: string,
+    planSlug: PlanSlug,
+    billingCycleInput?: BillingCycleSlug,
+  ) {
+    const resolvedSlug = resolveCheckoutPlanSlug(
+      planSlug,
+      billingCycleInput,
+    ) as PlanSlug;
+    const plan = await this.getPlanBySlug(resolvedSlug);
+    const planBillingCycle = resolveBillingCycleFromPlan(plan);
     const subscription = await this.getOrCreateSubscription(organizationId);
 
     if (!this.stripeService.isConfigured()) {
@@ -482,46 +585,18 @@ export class SubscriptionService {
     const stripe = this.stripeService.getClient();
     let stripeSub: Stripe.Subscription | null = null;
 
-    for (let attempt = 0; attempt < 8; attempt++) {
-      if (subscription.stripeSubscriptionId) {
-        const retrieved = await stripe.subscriptions.retrieve(
-          subscription.stripeSubscriptionId,
-        );
-        if (
-          (retrieved.status === "active" || retrieved.status === "trialing") &&
-          this.stripeSubscriptionMatchesPlan(
-            retrieved,
-            planSlug,
-            plan.stripePriceId,
-          )
-        ) {
-          stripeSub = retrieved;
-          break;
-        }
+    for (let attempt = 0; attempt < 12; attempt++) {
+      stripeSub = await this.findConfirmedStripeSubscription(
+        stripe,
+        subscription,
+        plan,
+      );
+      if (stripeSub) {
+        break;
       }
 
-      if (subscription.stripeCustomerId) {
-        const result = await stripe.subscriptions.list({
-          customer: subscription.stripeCustomerId,
-          limit: 20,
-        });
-        stripeSub =
-          result.data.find(
-            (item) =>
-              (item.status === "active" || item.status === "trialing") &&
-              this.stripeSubscriptionMatchesPlan(
-                item,
-                planSlug,
-                plan.stripePriceId,
-              ),
-          ) ?? null;
-        if (stripeSub) {
-          break;
-        }
-      }
-
-      if (attempt < 7) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (attempt < 11) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
       }
     }
 
@@ -536,10 +611,19 @@ export class SubscriptionService {
       this.clearPendingDowngrade(subscription);
     }
 
-    this.applyStripeSubscription(subscription, plan, stripeSub);
+    this.applyStripeSubscription(
+      subscription,
+      plan,
+      stripeSub,
+      planBillingCycle,
+    );
     await this.subscriptionRepository.save(subscription);
 
-    return this.getOrganizationSubscription(organizationId);
+    const result = await this.getOrganizationSubscription(organizationId);
+    return {
+      message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CONFIRMED,
+      data: result.data,
+    };
   }
 
   async changePlan(organizationId: string, planSlug: PlanSlug) {
@@ -551,7 +635,7 @@ export class SubscriptionService {
       throw new BadRequestException("Already on this plan");
     }
 
-    if (planSlug === PlanSlug.FREE) {
+    if (getPlanTierSlug(planSlug) === getPlanTierSlug(PlanSlug.FREE)) {
       if (this.stripeService.isConfigured()) {
         const stripeSubscriptionId =
           await this.resolveStripeSubscriptionId(subscription);
@@ -589,7 +673,7 @@ export class SubscriptionService {
       subscription.stripeSubscriptionId = null;
       subscription.subscriptionStatus = SubscriptionStatus.ACTIVE;
       subscription.canceledAt = null;
-      subscription.billingAmount = targetPlan.priceMonthly;
+      subscription.billingAmount = targetPlan.price;
       subscription.currentPeriodEnd = null;
       this.clearPendingDowngrade(subscription);
 
@@ -607,7 +691,7 @@ export class SubscriptionService {
       };
     }
 
-    if (targetPlan.priceMonthly < subscription.plan.priceMonthly) {
+    if (comparePlanTiers(targetPlan.slug, subscription.plan.slug) < 0) {
       if (this.stripeService.isConfigured()) {
         const stripeSubscriptionId =
           await this.resolveStripeSubscriptionId(subscription);
@@ -658,9 +742,14 @@ export class SubscriptionService {
     );
   }
 
-  async cancelSubscription(organizationId: string) {
+  async cancelSubscription(organizationId: string, reason: string) {
     const subscription = await this.getOrCreateSubscription(organizationId);
     const previousPlanName = subscription.plan.name;
+    const cancellationReason = reason.trim();
+
+    if (!cancellationReason) {
+      throw new BadRequestException("Cancellation reason is required");
+    }
 
     if (subscription.plan.slug === PlanSlug.FREE) {
       throw new BadRequestException("Free plan cannot be canceled");
@@ -687,6 +776,7 @@ export class SubscriptionService {
       subscription.currentPeriodEnd =
         periodItem?.current_period_end ?? subscription.currentPeriodEnd;
       subscription.canceledAt = stripeSub.cancel_at;
+      subscription.cancellationReason = cancellationReason;
       this.setPendingDowngrade(
         subscription,
         freePlan,
@@ -715,8 +805,9 @@ export class SubscriptionService {
     subscription.stripeSubscriptionId = null;
     subscription.subscriptionStatus = SubscriptionStatus.CANCELED;
     subscription.canceledAt = dayjs().unix();
-    subscription.billingAmount = freePlan.priceMonthly;
+    subscription.billingAmount = freePlan.price;
     subscription.currentPeriodEnd = null;
+    subscription.cancellationReason = cancellationReason;
 
     await this.subscriptionRepository.save(subscription);
 
@@ -805,18 +896,69 @@ export class SubscriptionService {
     return stripeSub?.id ?? null;
   }
 
+  private isConfirmedStripeSubscription(
+    stripeSub: Stripe.Subscription,
+    plan: PlanEntity,
+  ): boolean {
+    if (!this.stripeSubscriptionMatchesPlan(stripeSub, plan)) {
+      return false;
+    }
+
+    if (stripeSub.status === "active" || stripeSub.status === "trialing") {
+      return true;
+    }
+
+    const invoice = stripeSub.latest_invoice;
+    return (
+      typeof invoice === "object" &&
+      invoice !== null &&
+      invoice.status === "paid"
+    );
+  }
+
+  private async findConfirmedStripeSubscription(
+    stripe: Stripe,
+    subscription: SubscriptionEntity,
+    plan: PlanEntity,
+  ): Promise<Stripe.Subscription | null> {
+    if (subscription.stripeSubscriptionId) {
+      const retrieved = await stripe.subscriptions.retrieve(
+        subscription.stripeSubscriptionId,
+        { expand: ["latest_invoice"] },
+      );
+      if (this.isConfirmedStripeSubscription(retrieved, plan)) {
+        return retrieved;
+      }
+    }
+
+    if (!subscription.stripeCustomerId) {
+      return null;
+    }
+
+    const result = await stripe.subscriptions.list({
+      customer: subscription.stripeCustomerId,
+      limit: 20,
+      expand: ["data.latest_invoice"],
+    });
+
+    return (
+      result.data.find((item) =>
+        this.isConfirmedStripeSubscription(item, plan),
+      ) ?? null
+    );
+  }
+
   private stripeSubscriptionMatchesPlan(
     stripeSub: Stripe.Subscription,
-    planSlug: PlanSlug,
-    stripePriceId: string | null,
+    plan: PlanEntity,
   ): boolean {
-    if ((stripeSub.metadata?.planSlug as PlanSlug | undefined) === planSlug) {
+    if ((stripeSub.metadata?.planSlug as PlanSlug | undefined) === plan.slug) {
       return true;
     }
 
     const price = stripeSub.items.data[0]?.price;
     const priceId = typeof price === "string" ? price : price?.id;
-    return !!stripePriceId && priceId === stripePriceId;
+    return !!priceId && collectPlanStripePriceIds(plan).includes(priceId);
   }
 
   private async syncSubscriptionFromStripe(
@@ -882,14 +1024,17 @@ export class SubscriptionService {
     subscription: SubscriptionEntity,
     plan: PlanEntity,
     stripeSub: Stripe.Subscription,
+    billingCycleInput?: BillingCycleSlug,
   ): void {
+    const billingCycle = billingCycleInput ?? resolveBillingCycleFromPlan(plan);
     const periodItem = stripeSub.items.data[0];
 
     subscription.planId = plan.id;
     subscription.plan = plan;
     subscription.stripeSubscriptionId = stripeSub.id;
     subscription.subscriptionStatus = this.mapStripeStatus(stripeSub.status);
-    subscription.billingAmount = plan.priceMonthly;
+    subscription.billingCycle = billingCycle;
+    subscription.billingAmount = getPlanPrice(plan);
     subscription.currentPeriodStart = periodItem?.current_period_start ?? null;
     subscription.currentPeriodEnd = periodItem?.current_period_end ?? null;
     subscription.canceledAt = stripeSub.canceled_at;
@@ -949,7 +1094,8 @@ export class SubscriptionService {
       subscription.planId = plan.id;
       subscription.plan = plan;
       subscription.subscriptionStatus = SubscriptionStatus.ACTIVE;
-      subscription.billingAmount = plan.priceMonthly;
+      subscription.billingCycle = BillingCycleSlug.MONTHLY;
+      subscription.billingAmount = getPlanPrice(plan);
       subscription.startedAt = dayjs().unix();
     }
 
@@ -989,7 +1135,8 @@ export class SubscriptionService {
       if (plan) {
         subscription.planId = plan.id;
         subscription.plan = plan;
-        subscription.billingAmount = plan.priceMonthly;
+        subscription.billingCycle = resolveBillingCycleFromPlan(plan);
+        subscription.billingAmount = getPlanPrice(plan);
       }
     }
 
@@ -1070,7 +1217,7 @@ export class SubscriptionService {
     subscription.stripeSubscriptionId = null;
     subscription.subscriptionStatus = SubscriptionStatus.CANCELED;
     subscription.canceledAt = dayjs().unix();
-    subscription.billingAmount = freePlan.priceMonthly;
+    subscription.billingAmount = freePlan.price;
     subscription.currentPeriodEnd = null;
     this.clearPendingDowngrade(subscription);
 

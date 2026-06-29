@@ -4,6 +4,7 @@ import { getErrorMessage } from "@/api/api-error";
 import { BackLink } from "@/components/shared/back-link";
 import { ProfilePageSkeleton } from "@/components/shared/skeleton";
 import {
+  formatBillingInterval,
   formatPrice,
   formatStatus,
   formatUnixDate,
@@ -26,6 +27,7 @@ export function SubscriptionPage() {
   const cancelPendingMutation = useCancelPendingDowngradeMutation();
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelScheduledModalOpen, setCancelScheduledModalOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
 
   useEffect(() => {
     if (!cancelModalOpen && !cancelScheduledModalOpen) return;
@@ -33,7 +35,10 @@ export function SubscriptionPage() {
     function handleEscape(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       if (cancelMutation.isPending || cancelPendingMutation.isPending) return;
-      if (cancelModalOpen) setCancelModalOpen(false);
+      if (cancelModalOpen) {
+        setCancelModalOpen(false);
+        setCancelReason("");
+      }
       if (cancelScheduledModalOpen) setCancelScheduledModalOpen(false);
     }
 
@@ -95,7 +100,8 @@ export function SubscriptionPage() {
         <section className="profile-section-card">
           <h2>Current plan</h2>
           <p className="profile-section-desc">
-            {subscription.plan.name} — {formatPrice(subscription.billingAmount)}/month
+            {subscription.plan.name} — {formatPrice(subscription.billingAmount)}
+            {formatBillingInterval(subscription.billingCycle)}
           </p>
 
           <div className="subscription-details-grid">
@@ -120,7 +126,8 @@ export function SubscriptionPage() {
             <div className="subscription-detail-item">
               <span className="subscription-detail-label">Billing amount</span>
               <span className="subscription-detail-value">
-                {formatPrice(subscription.billingAmount)}/month
+                {formatPrice(subscription.billingAmount)}
+                {formatBillingInterval(subscription.billingCycle)}
               </span>
             </div>
           </div>
@@ -140,7 +147,8 @@ export function SubscriptionPage() {
               ) : (
                 <>
                   Downgrade to {subscription.pendingPlan.name} (
-                  {formatPrice(subscription.pendingPlan.priceMonthly)}/month)
+                  {formatPrice(subscription.pendingPlan.price)}
+                  {formatBillingInterval(subscription.pendingPlan.billingCycle)})
                   <br />
                   Effective on {formatUnixDate(subscription.scheduledChangeAt)}.
                 </>
@@ -169,7 +177,10 @@ export function SubscriptionPage() {
                 type="button"
                 className="btn-secondary btn-danger-outline"
                 disabled={cancelMutation.isPending}
-                onClick={() => setCancelModalOpen(true)}
+                  onClick={() => {
+                    setCancelReason("");
+                    setCancelModalOpen(true);
+                  }}
               >
                 Cancel
               </button>
@@ -184,7 +195,11 @@ export function SubscriptionPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="cancel-subscription-title"
-          onClick={() => !cancelMutation.isPending && setCancelModalOpen(false)}
+          onClick={() => {
+            if (cancelMutation.isPending) return;
+            setCancelModalOpen(false);
+            setCancelReason("");
+          }}
         >
           <div
             className="modal-dialog modal-dialog-sm subscription-confirm-modal"
@@ -197,7 +212,10 @@ export function SubscriptionPage() {
                 className="modal-close"
                 aria-label="Close"
                 disabled={cancelMutation.isPending}
-                onClick={() => setCancelModalOpen(false)}
+                onClick={() => {
+                  setCancelModalOpen(false);
+                  setCancelReason("");
+                }}
               >
                 ×
               </button>
@@ -207,15 +225,26 @@ export function SubscriptionPage() {
               {formatUnixDate(subscription.currentPeriodEnd)}. After that, your
               subscription will be canceled and you will not be charged again.
             </p>
+            <textarea
+              className="subscription-cancel-reason"
+              placeholder="Reason for cancellation"
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              rows={3}
+              disabled={cancelMutation.isPending}
+            />
             <div className="modal-actions modal-actions-single">
               <button
                 type="button"
                 className={`btn-danger-outline${cancelMutation.isPending ? " is-loading" : ""}`}
-                disabled={cancelMutation.isPending}
+                disabled={cancelMutation.isPending || !cancelReason.trim()}
                 aria-busy={cancelMutation.isPending}
                 onClick={() =>
-                  cancelMutation.mutate(undefined, {
-                    onSuccess: () => setCancelModalOpen(false),
+                  cancelMutation.mutate({ reason: cancelReason.trim() }, {
+                    onSuccess: () => {
+                      setCancelModalOpen(false);
+                      setCancelReason("");
+                    },
                   })
                 }
               >
@@ -241,7 +270,7 @@ export function SubscriptionPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
-              <h2 id="cancel-scheduled-title">Cancel scheduled change?</h2>
+              <h2 id="cancel-scheduled-title">Discard scheduled change?</h2>
               <button
                 type="button"
                 className="modal-close"

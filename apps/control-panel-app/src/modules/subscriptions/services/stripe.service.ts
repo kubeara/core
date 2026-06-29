@@ -7,8 +7,15 @@ import {
 import { ConfigService } from "@nestjs/config";
 import Stripe from "stripe";
 import { PlanSlug } from "../enums/plan-slug.enum";
+import { BillingCycleSlug } from "../enums/billing-cycle.enum";
 
 type StripeSubscription = Stripe.Subscription;
+type CheckoutPaymentMethodType =
+  | "card"
+  | "customer_balance"
+  | "paypal"
+  | "sepa_debit"
+  | "us_bank_account";
 
 @Injectable()
 export class StripeService implements OnModuleInit {
@@ -37,6 +44,102 @@ export class StripeService implements OnModuleInit {
       throw new BadRequestException("Stripe is not configured");
     }
     return this.stripe;
+  }
+
+  private getCheckoutPaymentMethodTypes(): CheckoutPaymentMethodType[] {
+    const allowed: CheckoutPaymentMethodType[] = [
+      "card",
+      "customer_balance",
+      "paypal",
+      "sepa_debit",
+      "us_bank_account",
+    ];
+    const configured = this.configService
+      .get<string>("STRIPE_CHECKOUT_PAYMENT_METHODS")
+      ?.split(",")
+      .map((value) => value.trim().toLowerCase())
+      .filter((value): value is CheckoutPaymentMethodType =>
+        allowed.includes(value as CheckoutPaymentMethodType),
+      );
+
+    const methods: CheckoutPaymentMethodType[] = configured?.length
+      ? [...new Set(configured)]
+      : ["card"];
+    return methods.includes("card") ? methods : ["card", ...methods];
+  }
+
+  private isPaymentMethodConfigError(error: unknown): boolean {
+    if (!error || typeof error !== "object") {
+      return false;
+    }
+    const message =
+      (error as Stripe.errors.StripeError).message?.toLowerCase() ?? "";
+    return (
+      message.includes("payment method type") ||
+      message.includes("payment_method_types")
+    );
+  }
+
+  private extractInvalidPaymentMethodType(
+    error: unknown,
+  ): CheckoutPaymentMethodType | null {
+    if (!error || typeof error !== "object") {
+      return null;
+    }
+    const message = (error as Stripe.errors.StripeError).message ?? "";
+    const match = message.match(/payment method type [`']([^`']+)[`']/i);
+    const value = match?.[1]?.trim().toLowerCase();
+    if (!value) {
+      return null;
+    }
+    const allowed: CheckoutPaymentMethodType[] = [
+      "card",
+      "customer_balance",
+      "paypal",
+      "sepa_debit",
+      "us_bank_account",
+    ];
+    return allowed.includes(value as CheckoutPaymentMethodType)
+      ? (value as CheckoutPaymentMethodType)
+      : null;
+  }
+
+  private async runWithResolvedPaymentMethodTypes<T>(
+    operation: (paymentMethodTypes: CheckoutPaymentMethodType[]) => Promise<T>,
+  ): Promise<T> {
+    let methods = this.getCheckoutPaymentMethodTypes();
+    const maxAttempts = methods.length + 1;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        return await operation(methods);
+      } catch (error) {
+        if (!this.isPaymentMethodConfigError(error)) {
+          throw error;
+        }
+
+        const invalidMethod = this.extractInvalidPaymentMethodType(error);
+        if (invalidMethod && methods.length > 1) {
+          methods = methods.filter((method) => method !== invalidMethod);
+          this.logger.warn(
+            `Removing unsupported checkout payment method: ${invalidMethod}`,
+          );
+          continue;
+        }
+
+        if (methods.length !== 1 || methods[0] !== "card") {
+          methods = ["card"];
+          this.logger.warn(
+            "Falling back checkout payment methods to card only",
+          );
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    throw new BadRequestException("Failed to resolve checkout payment methods");
   }
 
   async createCustomer(input: {
@@ -139,20 +242,31 @@ export class StripeService implements OnModuleInit {
     priceId: string;
     organizationId: string;
     planSlug: PlanSlug;
+    billingCycle?: BillingCycleSlug;
   }): Promise<{ clientSecret: string; subscriptionId: string }> {
     const stripe = this.getClient();
-
-    const subscription = await stripe.subscriptions.create({
+    const createParams: Stripe.SubscriptionCreateParams = {
       customer: input.customerId,
       items: [{ price: input.priceId }],
       payment_behavior: "default_incomplete",
-      payment_settings: { save_default_payment_method: "on_subscription" },
       expand: ["latest_invoice.confirmation_secret"],
       metadata: {
         organizationId: input.organizationId,
         planSlug: input.planSlug,
+        ...(input.billingCycle ? { billingCycle: input.billingCycle } : {}),
       },
-    });
+    };
+
+    const subscription = await this.runWithResolvedPaymentMethodTypes(
+      (paymentMethodTypes) =>
+        stripe.subscriptions.create({
+          ...createParams,
+          payment_settings: {
+            save_default_payment_method: "on_subscription",
+            payment_method_types: paymentMethodTypes,
+          },
+        }),
+    );
 
     const invoice = subscription.latest_invoice;
     if (!invoice || typeof invoice === "string") {
@@ -313,11 +427,74 @@ export class StripeService implements OnModuleInit {
     return { amountDue: preview.amount_due ?? 0 };
   }
 
+  private async resolveInvoiceClientSecret(
+    stripe: Stripe,
+    invoice: Stripe.Invoice,
+  ): Promise<string | null> {
+    const invoiceId = invoice.id;
+    const resolved = invoiceId
+      ? await stripe.invoices.retrieve(invoiceId, {
+          expand: ["payment_intent", "confirmation_secret"],
+        })
+      : invoice;
+
+    const paymentIntent = (
+      resolved as Stripe.Invoice & {
+        payment_intent?: Stripe.PaymentIntent | string | null;
+      }
+    ).payment_intent;
+
+    if (paymentIntent && typeof paymentIntent !== "string") {
+      if (paymentIntent.client_secret) {
+        return paymentIntent.client_secret;
+      }
+    } else if (typeof paymentIntent === "string") {
+      const intent = await stripe.paymentIntents.retrieve(paymentIntent);
+      return intent.client_secret ?? null;
+    }
+
+    return resolved.confirmation_secret?.client_secret ?? null;
+  }
+
+  private requiresPaymentAction(
+    error: unknown,
+    invoice?: Stripe.Invoice,
+  ): boolean {
+    if (!error || typeof error !== "object") {
+      return false;
+    }
+
+    const stripeError = error as Stripe.errors.StripeError;
+    const message = stripeError.message?.toLowerCase() ?? "";
+
+    if (
+      stripeError.code === "authentication_required" ||
+      stripeError.decline_code === "authentication_required" ||
+      stripeError.code === "invoice_payment_intent_requires_action" ||
+      message.includes("requires additional user action") ||
+      message.includes("requires_action")
+    ) {
+      return true;
+    }
+
+    const paymentIntent = (
+      invoice as Stripe.Invoice & {
+        payment_intent?: Stripe.PaymentIntent | string | null;
+      }
+    )?.payment_intent;
+
+    return (
+      typeof paymentIntent === "object" &&
+      paymentIntent?.status === "requires_action"
+    );
+  }
+
   async createProratedUpgradePayment(input: {
     stripeSubscriptionId: string;
     priceId: string;
     organizationId: string;
     planSlug: PlanSlug;
+    billingCycle?: BillingCycleSlug;
   }): Promise<{
     clientSecret: string | null;
     amountDue: number;
@@ -333,21 +510,36 @@ export class StripeService implements OnModuleInit {
       throw new BadRequestException("Subscription has no items");
     }
 
-    const updated = await stripe.subscriptions.update(
-      input.stripeSubscriptionId,
-      {
-        items: [{ id: itemId, price: input.priceId }],
-        proration_behavior: "always_invoice",
-        payment_behavior: "pending_if_incomplete",
-        metadata: {
-          ...subscription.metadata,
-          organizationId: input.organizationId,
-          planSlug: input.planSlug,
-          pendingPlanSlug: "",
-        },
-        expand: ["latest_invoice.confirmation_secret"],
+    const updateParams: Stripe.SubscriptionUpdateParams = {
+      items: [{ id: itemId, price: input.priceId }],
+      proration_behavior: "always_invoice",
+      payment_behavior: "pending_if_incomplete",
+      metadata: {
+        ...subscription.metadata,
+        organizationId: input.organizationId,
+        planSlug: input.planSlug,
+        pendingPlanSlug: "",
+        ...(input.billingCycle ? { billingCycle: input.billingCycle } : {}),
       },
-    );
+      expand: [
+        "latest_invoice.payment_intent",
+        "latest_invoice.confirmation_secret",
+      ],
+    };
+
+    let updated: Stripe.Subscription;
+    try {
+      updated = await stripe.subscriptions.update(
+        input.stripeSubscriptionId,
+        updateParams,
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to upgrade subscription";
+      throw new BadRequestException(message);
+    }
 
     const invoice = updated.latest_invoice;
     if (!invoice || typeof invoice === "string") {
@@ -363,8 +555,33 @@ export class StripeService implements OnModuleInit {
       return { clientSecret: null, amountDue: 0, invoicePaid: true };
     }
 
-    const clientSecret = invoice.confirmation_secret?.client_secret ?? null;
+    if (invoice.id) {
+      try {
+        const paidInvoice = await stripe.invoices.pay(invoice.id, {
+          off_session: true,
+        });
+        if (
+          paidInvoice.status === "paid" ||
+          (paidInvoice.amount_due ?? 0) === 0
+        ) {
+          return { clientSecret: null, amountDue: 0, invoicePaid: true };
+        }
+      } catch (error) {
+        const clientSecret = await this.resolveInvoiceClientSecret(
+          stripe,
+          invoice,
+        );
+        if (clientSecret) {
+          return { clientSecret, amountDue, invoicePaid: false };
+        }
 
+        const message =
+          error instanceof Error ? error.message : "Payment failed";
+        throw new BadRequestException(message);
+      }
+    }
+
+    const clientSecret = await this.resolveInvoiceClientSecret(stripe, invoice);
     if (!clientSecret) {
       throw new BadRequestException("Failed to create payment client secret");
     }

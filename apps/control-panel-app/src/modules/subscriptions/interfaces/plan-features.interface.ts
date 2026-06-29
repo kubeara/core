@@ -1,4 +1,4 @@
-import { PlanSlug } from "../enums/plan-slug.enum";
+import { PlanTierSlug } from "../enums/plan-slug.enum";
 
 export type PlanLimitValue = number | "unlimited";
 
@@ -17,7 +17,7 @@ export interface PlanFeatures {
   auditLogs?: boolean;
   sso?: boolean;
   ldap?: boolean;
-  inheritsFrom?: PlanSlug;
+  inheritsFrom?: PlanTierSlug;
 }
 
 export type PlanFeatureDisplayRow = {

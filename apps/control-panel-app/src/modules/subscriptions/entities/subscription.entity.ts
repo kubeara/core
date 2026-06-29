@@ -4,6 +4,7 @@ import { OrganizationEntity } from "@control-panel/modules/organizations/entitie
 import { PlanEntity } from "./plan.entity";
 import { SubscriptionStatus } from "../enums/subscription-status.enum";
 import { PendingDowngradeStatus } from "../enums/pending-downgrade-status.enum";
+import { BillingCycleSlug } from "../enums/billing-cycle.enum";
 
 @Entity({ name: "subscriptions" })
 export class SubscriptionEntity extends BaseEntity {
@@ -46,8 +47,15 @@ export class SubscriptionEntity extends BaseEntity {
   @Column({ type: "bigint", nullable: true })
   canceledAt!: number | null;
 
-  @Column({ type: "int", default: 0 })
+  @Column({ type: "decimal", precision: 10, scale: 2, default: 0 })
   billingAmount!: number;
+
+  @Column({
+    type: "varchar",
+    length: 20,
+    default: BillingCycleSlug.MONTHLY,
+  })
+  billingCycle!: BillingCycleSlug;
 
   @Column({ type: "uuid", nullable: true })
   pendingPlanId!: string | null;
@@ -61,4 +69,7 @@ export class SubscriptionEntity extends BaseEntity {
 
   @Column({ type: "varchar", length: 50, nullable: true })
   pendingDowngradeStatus!: PendingDowngradeStatus | null;
+
+  @Column({ type: "text", nullable: true })
+  cancellationReason!: string | null;
 }

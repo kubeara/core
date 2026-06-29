@@ -8,9 +8,8 @@ import dayjs from "dayjs";
 
 import { PlanEntity } from "../src/modules/subscriptions/entities/plan.entity";
 import { PlanSlug } from "../src/modules/subscriptions/enums/plan-slug.enum";
-import { PlanFeatures } from "../src/modules/subscriptions/interfaces/plan-features.interface";
-import { DEFAULT_PLAN_FEATURES } from "../src/modules/subscriptions/utils/plan-features.util";
 import { EntityStatus } from "../src/common/entity/base.entity";
+import { PLAN_DEFINITIONS } from "./plan-definitions.defaults";
 
 const ROOT_DIR = process.cwd();
 const APP_ENV_PATH = path.join(ROOT_DIR, "apps/control-panel-app/.env");
@@ -22,61 +21,7 @@ function loadEnv(): ConfigService {
   return new ConfigService();
 }
 
-const PLAN_DEFINITIONS: Array<{
-  slug: PlanSlug;
-  name: string;
-  description: string;
-  priceMonthly: number;
-  stripePriceId: string | null;
-  sortOrder: number;
-  features: PlanFeatures;
-}> = [
-  {
-    slug: PlanSlug.FREE,
-    name: "Free",
-    description: "For individuals exploring Kubeara",
-    priceMonthly: 0,
-    stripePriceId: "price_1TjvBKDwyDm0QIBwMvOA1RnY",
-    sortOrder: 0,
-    features: DEFAULT_PLAN_FEATURES[PlanSlug.FREE],
-  },
-  {
-    slug: PlanSlug.STARTER,
-    name: "Starter",
-    description: "For small teams getting production-ready",
-    priceMonthly: 5,
-    stripePriceId: "price_1TjvCMDwyDm0QIBwaaphIOtV",
-    sortOrder: 1,
-    features: DEFAULT_PLAN_FEATURES[PlanSlug.STARTER],
-  },
-  {
-    slug: PlanSlug.PRO,
-    name: "Pro",
-    description: "For growing teams with collaboration needs",
-    priceMonthly: 29,
-    stripePriceId: "price_1TlkRnDwyDm0QIBwx5DVaQCF",
-    sortOrder: 2,
-    features: DEFAULT_PLAN_FEATURES[PlanSlug.PRO],
-  },
-  {
-    slug: PlanSlug.MAX,
-    name: "Max",
-    description: "For advanced teams running at scale",
-    priceMonthly: 99,
-    stripePriceId: "price_1TlkT9DwyDm0QIBwfMRRNakN",
-    sortOrder: 3,
-    features: DEFAULT_PLAN_FEATURES[PlanSlug.MAX],
-  },
-  {
-    slug: PlanSlug.ENTERPRISE,
-    name: "Enterprise",
-    description: "For compliance-heavy organizations",
-    priceMonthly: 0,
-    stripePriceId: null,
-    sortOrder: 4,
-    features: DEFAULT_PLAN_FEATURES[PlanSlug.ENTERPRISE],
-  },
-];
+const LEGACY_SLUGS = ["starter", "pro", "max", "business"] as const;
 
 export async function seedPlans(): Promise<void> {
   const configService = loadEnv();
@@ -106,7 +51,10 @@ export async function seedPlans(): Promise<void> {
     if (existing) {
       existing.name = def.name;
       existing.description = def.description;
-      existing.priceMonthly = def.priceMonthly;
+      existing.tierSlug = def.tierSlug;
+      existing.billingCycle = def.billingCycle;
+      existing.price = def.price;
+      existing.listPrice = def.listPrice;
       existing.stripePriceId = def.stripePriceId;
       existing.features = def.features;
       existing.sortOrder = def.sortOrder;
@@ -116,9 +64,12 @@ export async function seedPlans(): Promise<void> {
     } else {
       const plan = planRepository.create({
         slug: def.slug,
+        tierSlug: def.tierSlug,
+        billingCycle: def.billingCycle,
         name: def.name,
         description: def.description,
-        priceMonthly: def.priceMonthly,
+        price: def.price,
+        listPrice: def.listPrice,
         stripePriceId: def.stripePriceId,
         features: def.features,
         sortOrder: def.sortOrder,
@@ -130,13 +81,15 @@ export async function seedPlans(): Promise<void> {
     }
   }
 
-  const legacyBusiness = await planRepository.findOne({
-    where: { slug: "business" as PlanSlug },
-  });
-  if (legacyBusiness) {
-    legacyBusiness.status = EntityStatus.INACTIVE;
-    legacyBusiness.updatedAt = now;
-    await planRepository.save(legacyBusiness);
+  for (const legacySlug of LEGACY_SLUGS) {
+    const legacy = await planRepository.findOne({
+      where: { slug: legacySlug as PlanSlug },
+    });
+    if (legacy) {
+      legacy.status = EntityStatus.INACTIVE;
+      legacy.updatedAt = now;
+      await planRepository.save(legacy);
+    }
   }
 
   console.log(`Seeded ${PLAN_DEFINITIONS.length} subscription plans`);

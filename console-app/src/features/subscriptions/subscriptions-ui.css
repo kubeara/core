@@ -1,6 +1,61 @@
+.plans-billing-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.25rem;
+  width: fit-content;
+  max-width: 100%;
+  margin: 1.5rem auto 0;
+  padding: 0.25rem;
+  background: color-mix(in srgb, var(--foreground) 4%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.plans-billing-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.plans-billing-option.is-active {
+  color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.plans-billing-badge {
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #fff;
+  background: #7c3aed;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.plan-card-price-original {
+  margin-left: 0.375rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
 .plans-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 220px));
+  justify-content: center;
   gap: 1rem;
   margin-top: 1.5rem;
   padding-top: 0.75rem;
@@ -376,6 +431,36 @@
 .subscription-confirm-modal .modal-body-text {
   padding: 0.75rem 1.5rem 0;
   line-height: 1.6;
+}
+
+.subscription-cancel-reason {
+  width: calc(100% - 3rem);
+  margin: 0.875rem 1.5rem 0;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--foreground) 12%);
+  color: var(--foreground);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  resize: vertical;
+  min-height: 84px;
+  box-sizing: border-box;
+}
+
+.subscription-cancel-reason::placeholder {
+  color: var(--muted);
+}
+
+.subscription-cancel-reason:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.subscription-cancel-reason:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
 }
 
 .subscription-confirm-modal .modal-actions {

@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getErrorMessage } from "@/api/api-error";
 import { BackLink } from "@/components/shared/back-link";
 import { SkeletonGrid } from "@/components/shared/skeleton";
 import {
+  formatBillingInterval,
   formatPrice,
   formatStatus,
   formatUnixDate,
   getPlanAction,
+  getPlanBillingDisplay,
   setCurrentSubscriptionCache,
   useCancelPendingDowngradeMutation,
   useCancelSubscriptionMutation,
@@ -16,14 +18,24 @@ import {
   usePlansQuery,
 } from "@/features/subscriptions/hooks";
 import { confirmCheckoutPayment } from "@/features/subscriptions/api";
-import type { Plan, PlanSlug } from "@/features/subscriptions/types";
+import { showSuccessToast } from "@/lib/toast";
+import type { BillingCycleSlug, Plan, PlanSlug } from "@/features/subscriptions/types";
+import { getPlanTierSlug, PLAN_TIER_ORDER } from "@/features/subscriptions/plan-slug.util";
 import { useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/constants/query-keys";
 import "@/features/subscriptions/subscriptions-ui.css";
 
-const CHECKOUT_PLAN_SLUGS: PlanSlug[] = ["starter", "pro", "max"];
-
-const PLAN_ORDER: PlanSlug[] = ["free", "starter", "pro", "max", "enterprise"];
+const CHECKOUT_PLAN_SLUGS: PlanSlug[] = [
+  "starter-monthly",
+  "starter-quarterly",
+  "starter-yearly",
+  "pro-monthly",
+  "pro-quarterly",
+  "pro-yearly",
+  "max-monthly",
+  "max-quarterly",
+  "max-yearly",
+];
 
 function PlanCard({
   plan,
@@ -40,7 +52,7 @@ function PlanCard({
   const isPending = changePlanMutation.isPending;
 
   function handleAction() {
-    if (plan.slug === "enterprise") {
+    if (plan.tierSlug === "enterprise") {
       window.location.href =
         "mailto:support@kubeara.com?subject=Enterprise%20plan";
       return;
@@ -54,11 +66,12 @@ function PlanCard({
     }
   }
 
-  const isEnterprise = plan.slug === "enterprise";
-  const currentIdx = PLAN_ORDER.indexOf(currentSlug ?? "free");
-  const proIdx = PLAN_ORDER.indexOf("pro");
+  const isEnterprise = plan.tierSlug === "enterprise";
+  const billingPrice = getPlanBillingDisplay(plan);
+  const currentIdx = PLAN_TIER_ORDER.indexOf(getPlanTierSlug(currentSlug ?? "free"));
+  const proIdx = PLAN_TIER_ORDER.indexOf("pro");
   const isPopular =
-    plan.slug === "pro" && currentIdx < proIdx && action !== "current";
+    plan.tierSlug === "pro" && currentIdx < proIdx && action !== "current";
   const isScheduledTarget = scheduledPlanSlug === plan.slug;
   const ctaLabel = isEnterprise
     ? "Contact support team"
@@ -105,8 +118,13 @@ function PlanCard({
             "Contact support team"
           ) : (
             <>
-              {formatPrice(plan.priceMonthly)}
-              <span>/month</span>
+              {formatPrice(billingPrice.display)}
+              {billingPrice.hasDiscount && (
+                <span className="plan-card-price-original">
+                  {formatPrice(billingPrice.original)}
+                </span>
+              )}
+              <span>{formatBillingInterval(plan.billingCycle)}</span>
             </>
           )}
         </p>
@@ -161,17 +179,31 @@ export function PlansPage() {
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const {
-    data: plans,
+    data: plansData,
     isPending: plansPending,
     isError: plansError,
     error: plansErr,
   } = usePlansQuery();
   const { data: subscription, isPending: subPending } =
     useCurrentSubscriptionQuery();
+  const [billingCycle, setBillingCycle] = useState<BillingCycleSlug>("yearly");
+  const billingCycleSynced = useRef(false);
+  const plans = plansData?.plans?.filter(
+    (plan) => plan.billingCycle === billingCycle,
+  );
+  const billingCycles = plansData?.billingCycles ?? [];
+
+  useEffect(() => {
+    if (billingCycleSynced.current || !subscription) return;
+    const cycle = subscription.billingCycle ?? subscription.plan.billingCycle;
+    if (cycle) setBillingCycle(cycle);
+    billingCycleSynced.current = true;
+  }, [subscription]);
   const cancelMutation = useCancelSubscriptionMutation();
   const cancelPendingMutation = useCancelPendingDowngradeMutation();
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelScheduledModalOpen, setCancelScheduledModalOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const [isCompletingCheckout, setIsCompletingCheckout] = useState(
     () => searchParams.get("checkout") === "success",
   );
@@ -222,12 +254,13 @@ export function PlansPage() {
     setIsCompletingCheckout(true);
 
     void confirmCheckoutPayment({ planSlug: plan as PlanSlug })
-      .then(async (subscription) => {
+      .then(async ({ subscription, message }) => {
         if (cancelled) return;
         setCurrentSubscriptionCache(queryClient, subscription);
         await queryClient.refetchQueries({
           queryKey: QUERY_KEYS.subscriptions.current,
         });
+        showSuccessToast(message);
       })
       .finally(() => {
         if (cancelled) return;
@@ -265,7 +298,8 @@ export function PlansPage() {
               <div className="subscription-section-header">
                 <h2>Current subscription</h2>
                 <p className="profile-section-desc">
-                  {subscription.plan.name} — {formatPrice(subscription.billingAmount)}/month
+                  {subscription.plan.name} — {formatPrice(subscription.billingAmount)}
+                  {formatBillingInterval(subscription.billingCycle)}
                 </p>
               </div>
               <div className="subscription-details-grid">
@@ -290,7 +324,8 @@ export function PlansPage() {
                 <div className="subscription-detail-item">
                   <span className="subscription-detail-label">Billing amount</span>
                   <span className="subscription-detail-value">
-                    {formatPrice(subscription.billingAmount)}/month
+                    {formatPrice(subscription.billingAmount)}
+                    {formatBillingInterval(subscription.billingCycle)}
                   </span>
                 </div>
               </div>
@@ -300,7 +335,10 @@ export function PlansPage() {
                     type="button"
                     className="btn-secondary btn-danger-outline"
                     disabled={cancelMutation.isPending}
-                    onClick={() => setCancelModalOpen(true)}
+                    onClick={() => {
+                      setCancelReason("");
+                      setCancelModalOpen(true);
+                    }}
                   >
                     Cancel Subscription
                   </button>
@@ -322,7 +360,8 @@ export function PlansPage() {
                     ) : (
                       <p className="profile-section-desc">
                         {subscription.pendingPlan.name} —{" "}
-                        {formatPrice(subscription.pendingPlan.priceMonthly)}/month
+                        {formatPrice(subscription.pendingPlan.price)}
+                        {formatBillingInterval(subscription.pendingPlan.billingCycle)}
                       </p>
                     )}
                   </div>
@@ -342,7 +381,8 @@ export function PlansPage() {
                     <div className="subscription-detail-item">
                       <span className="subscription-detail-label">Billing amount</span>
                       <span className="subscription-detail-value">
-                        {formatPrice(subscription.pendingPlan.priceMonthly)}/month
+                        {formatPrice(subscription.pendingPlan.price)}
+                        {formatBillingInterval(subscription.pendingPlan.billingCycle)}
                       </span>
                     </div>
                   </div>
@@ -354,7 +394,7 @@ export function PlansPage() {
                         disabled={cancelPendingMutation.isPending}
                         onClick={() => setCancelScheduledModalOpen(true)}
                       >
-                        Cancel Scheduled Change
+                        Discard scheduled change
                       </button>
                     </div>
                   )}
@@ -371,7 +411,11 @@ export function PlansPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="cancel-subscription-title"
-          onClick={() => !cancelMutation.isPending && setCancelModalOpen(false)}
+          onClick={() => {
+            if (cancelMutation.isPending) return;
+            setCancelModalOpen(false);
+            setCancelReason("");
+          }}
         >
           <div
             className="modal-dialog modal-dialog-sm subscription-confirm-modal"
@@ -384,7 +428,10 @@ export function PlansPage() {
                 className="modal-close"
                 aria-label="Close"
                 disabled={cancelMutation.isPending}
-                onClick={() => setCancelModalOpen(false)}
+                onClick={() => {
+                  setCancelModalOpen(false);
+                  setCancelReason("");
+                }}
               >
                 ×
               </button>
@@ -394,15 +441,26 @@ export function PlansPage() {
               {formatUnixDate(subscription.currentPeriodEnd)}. After that, your
               subscription will be canceled and you will not be charged again.
             </p>
+            <textarea
+              className="subscription-cancel-reason"
+              placeholder="Reason for cancellation"
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              rows={3}
+              disabled={cancelMutation.isPending}
+            />
             <div className="modal-actions modal-actions-single">
               <button
                 type="button"
                 className={`btn-danger-outline${cancelMutation.isPending ? " is-loading" : ""}`}
-                disabled={cancelMutation.isPending}
+                disabled={cancelMutation.isPending || !cancelReason.trim()}
                 aria-busy={cancelMutation.isPending}
                 onClick={() =>
-                  cancelMutation.mutate(undefined, {
-                    onSuccess: () => setCancelModalOpen(false),
+                  cancelMutation.mutate({ reason: cancelReason.trim() }, {
+                    onSuccess: () => {
+                      setCancelModalOpen(false);
+                      setCancelReason("");
+                    },
                   })
                 }
               >
@@ -428,7 +486,7 @@ export function PlansPage() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="modal-header">
-              <h2 id="cancel-scheduled-title">Cancel scheduled change?</h2>
+              <h2 id="cancel-scheduled-title">Discard scheduled change?</h2>
               <button
                 type="button"
                 className="modal-close"
@@ -475,18 +533,41 @@ export function PlansPage() {
       )}
 
       {!isLoading && plans && (
-        <div className="plans-grid">
-          {plans.map((plan) => (
-            <PlanCard
-              key={plan.id}
-              plan={plan}
-              currentSlug={subscription?.plan.slug}
-              scheduledPlanSlug={
-                hasScheduledChange ? subscription?.pendingPlan?.slug : null
-              }
-            />
-          ))}
-        </div>
+        <>
+          <div
+            className="plans-billing-toggle"
+            role="tablist"
+            aria-label="Billing cycle"
+          >
+            {billingCycles.map((cycle) => (
+              <button
+                key={cycle.slug}
+                type="button"
+                role="tab"
+                aria-selected={billingCycle === cycle.slug}
+                className={`plans-billing-option${billingCycle === cycle.slug ? " is-active" : ""}`}
+                onClick={() => setBillingCycle(cycle.slug)}
+              >
+                {cycle.label}
+                {cycle.badge && (
+                  <span className="plans-billing-badge">{cycle.badge}</span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="plans-grid">
+            {plans.map((plan) => (
+              <PlanCard
+                key={plan.id}
+                plan={plan}
+                currentSlug={subscription?.plan.slug}
+                scheduledPlanSlug={
+                  hasScheduledChange ? subscription?.pendingPlan?.slug : null
+                }
+              />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

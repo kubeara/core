@@ -1,4 +1,11 @@
-import { IsBoolean, IsEnum, IsOptional } from "class-validator";
+import {
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+  MinLength,
+} from "class-validator";
+import { BillingCycleSlug } from "../enums/billing-cycle.enum";
 import { PlanSlug } from "../enums/plan-slug.enum";
 
 export class ChangePlanDto {
@@ -13,4 +20,14 @@ export class CheckoutDto {
   @IsOptional()
   @IsBoolean()
   startPayment?: boolean;
+
+  @IsOptional()
+  @IsEnum(BillingCycleSlug)
+  billingCycle?: BillingCycleSlug;
+}
+
+export class CancelSubscriptionDto {
+  @IsString()
+  @MinLength(1)
+  reason!: string;
 }

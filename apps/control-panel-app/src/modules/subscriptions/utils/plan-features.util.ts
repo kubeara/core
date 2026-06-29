@@ -1,4 +1,5 @@
-import { PlanSlug } from "../enums/plan-slug.enum";
+import { PlanTierSlug } from "../enums/plan-slug.enum";
+import { getPlanTierSlug } from "./plan-slug.util";
 import {
   McpAccess,
   PlanFeatureDisplayRow,
@@ -7,16 +8,16 @@ import {
   SupportTier,
 } from "../interfaces/plan-features.interface";
 
-const INHERITS_LABEL: Record<PlanSlug, string> = {
-  [PlanSlug.FREE]: "",
-  [PlanSlug.STARTER]: "Starter",
-  [PlanSlug.PRO]: "Pro",
-  [PlanSlug.MAX]: "Max",
-  [PlanSlug.ENTERPRISE]: "Enterprise",
+const INHERITS_LABEL: Record<PlanTierSlug, string> = {
+  free: "",
+  starter: "Starter",
+  pro: "Pro",
+  max: "Max",
+  enterprise: "Enterprise",
 };
 
-export const DEFAULT_PLAN_FEATURES: Record<PlanSlug, PlanFeatures> = {
-  [PlanSlug.FREE]: {
+export const DEFAULT_PLAN_FEATURES: Record<PlanTierSlug, PlanFeatures> = {
+  free: {
     serverLimit: 1,
     teams: 1,
     teamMembers: 1,
@@ -24,7 +25,7 @@ export const DEFAULT_PLAN_FEATURES: Record<PlanSlug, PlanFeatures> = {
     mcpAccess: "none",
     support: "community",
   },
-  [PlanSlug.STARTER]: {
+  starter: {
     serverLimit: 5,
     teams: 2,
     teamMembers: 10,
@@ -32,7 +33,7 @@ export const DEFAULT_PLAN_FEATURES: Record<PlanSlug, PlanFeatures> = {
     mcpAccess: "read",
     support: "email",
   },
-  [PlanSlug.PRO]: {
+  pro: {
     serverLimit: 25,
     teams: 5,
     teamMembers: 25,
@@ -40,9 +41,9 @@ export const DEFAULT_PLAN_FEATURES: Record<PlanSlug, PlanFeatures> = {
     mcpAccess: "full",
     support: "email",
     customDomain: true,
-    inheritsFrom: PlanSlug.STARTER,
+    inheritsFrom: "starter",
   },
-  [PlanSlug.MAX]: {
+  max: {
     serverLimit: "unlimited",
     teams: "unlimited",
     teamMembers: "unlimited",
@@ -50,9 +51,9 @@ export const DEFAULT_PLAN_FEATURES: Record<PlanSlug, PlanFeatures> = {
     mcpAccess: "full",
     support: "priority",
     customDomain: true,
-    inheritsFrom: PlanSlug.PRO,
+    inheritsFrom: "pro",
   },
-  [PlanSlug.ENTERPRISE]: {
+  enterprise: {
     serverLimit: "unlimited",
     teams: "unlimited",
     teamMembers: "unlimited",
@@ -63,7 +64,7 @@ export const DEFAULT_PLAN_FEATURES: Record<PlanSlug, PlanFeatures> = {
     auditLogs: true,
     sso: true,
     ldap: true,
-    inheritsFrom: PlanSlug.MAX,
+    inheritsFrom: "max",
   },
 };
 
@@ -96,8 +97,8 @@ function parseLimitToken(raw: string): PlanLimitValue {
 function parseLegacyFeatureString(line: string): Partial<PlanFeatures> | null {
   if (line.startsWith("Includes all features of ")) {
     const name = line.replace("Includes all features of ", "").trim();
-    const inheritsFrom = Object.values(PlanSlug).find(
-      (slug) => INHERITS_LABEL[slug].toLowerCase() === name.toLowerCase(),
+    const inheritsFrom = (Object.keys(INHERITS_LABEL) as PlanTierSlug[]).find(
+      (tier) => INHERITS_LABEL[tier].toLowerCase() === name.toLowerCase(),
     );
     return inheritsFrom ? { inheritsFrom } : null;
   }
@@ -153,20 +154,20 @@ function isPlanFeaturesObject(value: unknown): value is PlanFeatures {
 
 export function normalizePlanFeatures(
   raw: unknown,
-  slug?: PlanSlug,
+  slug?: string,
 ): PlanFeatures {
+  const tier = slug ? getPlanTierSlug(slug) : undefined;
+
   if (isPlanFeaturesObject(raw)) {
     return {
-      ...(slug ? DEFAULT_PLAN_FEATURES[slug] : {}),
+      ...(tier ? DEFAULT_PLAN_FEATURES[tier] : {}),
       ...raw,
     };
   }
 
   if (Array.isArray(raw) && raw.every((item) => typeof item === "string")) {
     const merged: PlanFeatures = {
-      ...(slug
-        ? DEFAULT_PLAN_FEATURES[slug]
-        : DEFAULT_PLAN_FEATURES[PlanSlug.FREE]),
+      ...(tier ? DEFAULT_PLAN_FEATURES[tier] : DEFAULT_PLAN_FEATURES.free),
     };
 
     for (const line of raw) {
@@ -179,18 +180,19 @@ export function normalizePlanFeatures(
     return merged;
   }
 
-  if (slug) {
-    return DEFAULT_PLAN_FEATURES[slug];
+  if (tier) {
+    return DEFAULT_PLAN_FEATURES[tier];
   }
 
-  return DEFAULT_PLAN_FEATURES[PlanSlug.FREE];
+  return DEFAULT_PLAN_FEATURES.free;
 }
 
 export function getPlanServerBadge(
   features: PlanFeatures,
-  slug: PlanSlug,
+  slug: string,
 ): string {
-  if (slug === PlanSlug.ENTERPRISE) {
+  const tier = getPlanTierSlug(slug);
+  if (tier === "enterprise") {
     return "Unlimited · Compliance & SSO";
   }
 
@@ -203,7 +205,7 @@ export function getPlanServerBadge(
 }
 
 export function getPlanFeatureRows(
-  slug: PlanSlug,
+  slug: string,
   features: PlanFeatures,
 ): PlanFeatureDisplayRow[] {
   const row = (
@@ -222,15 +224,15 @@ export function getPlanFeatureRows(
   const inheritsRow = features.inheritsFrom
     ? row(
         "inheritsFrom",
-        `Includes all features of ${INHERITS_LABEL[features.inheritsFrom]}`,
+        `Includes all features of ${INHERITS_LABEL[getPlanTierSlug(features.inheritsFrom)]}`,
         "",
         { includes: true },
       )
     : null;
 
-  switch (slug) {
-    case PlanSlug.FREE:
-    case PlanSlug.STARTER:
+  switch (getPlanTierSlug(slug)) {
+    case "free":
+    case "starter":
       return [
         row("teams", "Teams", formatLimit(features.teams)),
         row("teamMembers", "Team members", formatLimit(features.teamMembers)),
@@ -240,7 +242,7 @@ export function getPlanFeatureRows(
         }),
         row("support", "Support", formatSupport(features.support)),
       ];
-    case PlanSlug.PRO:
+    case "pro":
       return [
         row("teams", "Teams", formatLimit(features.teams)),
         row("teamMembers", "Team members", formatLimit(features.teamMembers)),
@@ -252,14 +254,14 @@ export function getPlanFeatureRows(
         row("mcpAccess", "MCP server", formatMcpAccess(features.mcpAccess)),
         ...(inheritsRow ? [inheritsRow] : []),
       ];
-    case PlanSlug.MAX:
+    case "max":
       return [
         row("teams", "Teams", formatLimit(features.teams)),
         row("teamMembers", "Team members", formatLimit(features.teamMembers)),
         row("support", "Support", formatSupport(features.support)),
         ...(inheritsRow ? [inheritsRow] : []),
       ];
-    case PlanSlug.ENTERPRISE:
+    case "enterprise":
       return [
         row(
           "auditLogs",

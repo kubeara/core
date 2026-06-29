@@ -1,3 +1,5 @@
+import type { BillingCycleSlug } from "@/features/subscriptions/types";
+
 /**
  * Centralized query keys for TanStack Query.
  * 
@@ -94,7 +96,7 @@ export const QUERY_KEYS = {
     subscriptions: {
         plans: ["subscriptions", "plans"] as const,
         current: ["subscriptions", "current"] as const,
-        checkout: (planSlug: string) =>
-            ["subscriptions", "checkout", planSlug] as const,
+        checkout: (planSlug: string, billingCycle?: BillingCycleSlug) =>
+            ["subscriptions", "checkout", planSlug, billingCycle ?? "monthly"] as const,
     },
 } as const;
