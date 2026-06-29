@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
   UsePipes,
@@ -45,6 +46,7 @@ export class DeploymentsController {
   async deployCompose(
     @Req() req: { user: UserEntity },
     @Body() body: DeployTemplateDto,
+    @Query("acknowledgeResourceWarning") acknowledgeResourceWarning?: string,
   ): Promise<{
     message: string;
     template: string;
@@ -100,7 +102,9 @@ export class DeploymentsController {
       const result = this.deploymentsService.schedulePreparedDeployment(
         prepared,
         Boolean(deploymentId),
-        { skipResourceValidation: body.skipResourceValidation },
+        {
+          skipResourceValidation: acknowledgeResourceWarning === "true",
+        },
       );
 
       const publicUrl = resolvePrimaryServicePublicUrl(
@@ -160,6 +164,7 @@ export class DeploymentsController {
   async deploy(
     @Req() req: { user: UserEntity },
     @Body() body: DeployTemplateDto,
+    @Query("acknowledgeResourceWarning") acknowledgeResourceWarning?: string,
   ): Promise<{
     message: string;
     template: string;
@@ -213,7 +218,9 @@ export class DeploymentsController {
       return this.deploymentsService.schedulePreparedDeployment(
         prepared,
         Boolean(deploymentId),
-        { skipResourceValidation: body.skipResourceValidation },
+        {
+          skipResourceValidation: acknowledgeResourceWarning === "true",
+        },
       );
     } catch (error) {
       this.logger.error(
@@ -233,6 +240,7 @@ export class DeploymentsController {
     @Req() req: { user: UserEntity },
     @Param("deploymentId") deploymentId: string,
     @Body() body: DeployTemplateDto,
+    @Query("acknowledgeResourceWarning") acknowledgeResourceWarning?: string,
   ): Promise<{
     message: string;
     template: string;
@@ -249,14 +257,18 @@ export class DeploymentsController {
         );
       }
 
-      return this.deploy(req, {
-        ...body,
-        templateSlug: deployment.templateSlug,
-        deploymentId,
-        serverId: body.serverId ?? deployment.serverId ?? undefined,
-        deployOnLocal:
-          body.deployOnLocal ?? (!body.serverId && !deployment.serverId),
-      });
+      return this.deploy(
+        req,
+        {
+          ...body,
+          templateSlug: deployment.templateSlug,
+          deploymentId,
+          serverId: body.serverId ?? deployment.serverId ?? undefined,
+          deployOnLocal:
+            body.deployOnLocal ?? (!body.serverId && !deployment.serverId),
+        },
+        acknowledgeResourceWarning,
+      );
     } catch (error) {
       this.logger.error(
         `Redeploy failed: ${error instanceof Error ? error.message : String(error)}`,
