@@ -11,6 +11,7 @@ import { AppModule } from "./app.module";
 import { buildCorsOptions } from "./common/config/cors.util";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
+import { LokiLoggerService } from "./modules/loki-logger";
 
 const APP_NAME = "control-panel-app";
 
@@ -143,7 +144,12 @@ function initializeEnvironment(): void {
 async function bootstrap(): Promise<void> {
   initializeEnvironment();
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+  });
+
+  const lokiLogger = app.get(LokiLoggerService);
+  app.useLogger(lokiLogger);
 
   const configService = app.get(ConfigService);
 
@@ -169,7 +175,7 @@ async function bootstrap(): Promise<void> {
 
   await app.listen(port);
 
-  console.log(`[${APP_NAME}] Server running on port ${port}`);
+  lokiLogger.log(`Server running on port ${port}`, APP_NAME);
 }
 
 void bootstrap();

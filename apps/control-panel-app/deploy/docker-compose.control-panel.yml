@@ -89,6 +89,12 @@ services:
       COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-lax}
       CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:-}
       KUBEARA_AGENT_IMAGE: ${KUBEARA_AGENT_IMAGE:-kubeara/agent:prod}
+      GRAFANA_CLOUD_LOKI_URL: ${GRAFANA_CLOUD_LOKI_URL:-}
+      GRAFANA_CLOUD_LOKI_USER: ${GRAFANA_CLOUD_LOKI_USER:-}
+      GRAFANA_CLOUD_LOKI_API_KEY: ${GRAFANA_CLOUD_LOKI_API_KEY:-}
+      KUBEARA_ENV: ${KUBEARA_ENV:-}
+      KUBEARA_HOST_LABEL: ${KUBEARA_HOST_LABEL:-control-panel}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - ./.env.control-panel:/app/apps/control-panel-app/.env:ro
     depends_on:
