@@ -54,5 +54,6 @@ export const SUCCESS_MESSAGES = {
     CONFIRMED: "Subscription confirmed successfully",
     PENDING_DOWNGRADE_CANCELED:
       "Scheduled plan change canceled. Your current plan will continue.",
+    INVOICES: "Invoices fetched successfully",
   },
 };

@@ -25,6 +25,15 @@ export class SubscriptionsController {
     );
   }
 
+  @Get("invoices")
+  listInvoices(@Req() req: AuthenticatedRequest) {
+    return this.subscriptionService.listOrganizationInvoices(
+      req.user.organizationId,
+      req.user.name,
+      req.user.email,
+    );
+  }
+
   @Post("checkout")
   checkout(@Req() req: AuthenticatedRequest, @Body() body: CheckoutDto) {
     return this.subscriptionService.createCheckoutSession(

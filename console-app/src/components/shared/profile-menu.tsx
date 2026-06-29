@@ -19,6 +19,7 @@ export function ProfileMenu({ user }: ProfileMenuProps) {
 
     const isProfileActive = pathname === "/profile";
     const isPlansActive = pathname === "/plans";
+    const isInvoicesActive = pathname === "/invoices";
 
     useEffect(() => {
         if (!open) return;
@@ -84,20 +85,28 @@ export function ProfileMenu({ user }: ProfileMenuProps) {
             {open && (
                 <div id={menuId} className="profile-menu-dropdown" role="menu">
                     <Link
-                        to="/profile"
-                        role="menuitem"
-                        className="profile-menu-item"
-                        onClick={() => setOpen(false)}
-                    >
-                        Profile
-                    </Link>
-                    <Link
                         to="/plans"
                         role="menuitem"
                         className={`profile-menu-item${isPlansActive ? " active" : ""}`}
                         onClick={() => setOpen(false)}
                     >
                         Plans
+                    </Link>
+                    <Link
+                        to="/invoices"
+                        role="menuitem"
+                        className={`profile-menu-item${isInvoicesActive ? " active" : ""}`}
+                        onClick={() => setOpen(false)}
+                    >
+                        Invoices
+                    </Link>
+                    <Link
+                        to="/profile"
+                        role="menuitem"
+                        className={`profile-menu-item${isProfileActive ? " active" : ""}`}
+                        onClick={() => setOpen(false)}
+                    >
+                        Profile
                     </Link>
                     <button
                         type="button"

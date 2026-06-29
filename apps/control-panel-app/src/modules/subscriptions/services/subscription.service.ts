@@ -40,6 +40,7 @@ import {
   getPlanTierSlug,
   resolveCheckoutPlanSlug,
 } from "../utils/plan-slug.util";
+import { buildInvoiceRecords, InvoiceRecord } from "../utils/invoice.util";
 
 export interface BillingCycleResponse {
   slug: BillingCycleSlug;
@@ -310,15 +311,13 @@ export class SubscriptionService {
     const response = this.toSubscriptionResponse(subscription);
     let paymentMethod: SubscriptionResponse["paymentMethod"] = null;
 
-    if (
-      subscription.stripeCustomerId &&
-      this.stripeService.isConfigured()
-    ) {
+    if (subscription.stripeCustomerId && this.stripeService.isConfigured()) {
       try {
-        paymentMethod = await this.stripeService.getCustomerPaymentMethodSummary(
-          subscription.stripeCustomerId,
-          subscription.stripeSubscriptionId,
-        );
+        paymentMethod =
+          await this.stripeService.getCustomerPaymentMethodSummary(
+            subscription.stripeCustomerId,
+            subscription.stripeSubscriptionId,
+          );
       } catch {
         paymentMethod = null;
       }
@@ -327,6 +326,35 @@ export class SubscriptionService {
     return {
       message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CURRENT,
       data: { ...response, paymentMethod },
+    };
+  }
+
+  async listOrganizationInvoices(
+    organizationId: string,
+    customerName: string,
+    customerEmail: string,
+  ): Promise<{ message: string; data: InvoiceRecord[] }> {
+    const subscription = await this.subscriptionRepository.findOne({
+      where: { organizationId, status: EntityStatus.ACTIVE },
+      relations: { plan: true, organization: true },
+      order: { createdAt: "DESC" },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException("No active subscription found");
+    }
+
+    const organizationName =
+      subscription.organization?.name ?? customerName ?? customerEmail;
+
+    return {
+      message: SUCCESS_MESSAGES.SUBSCRIPTIONS.INVOICES,
+      data: buildInvoiceRecords({
+        subscription,
+        customerName: customerName || organizationName,
+        customerEmail,
+        organizationName,
+      }),
     };
   }
 

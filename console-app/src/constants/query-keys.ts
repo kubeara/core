@@ -98,5 +98,6 @@ export const QUERY_KEYS = {
         current: ["subscriptions", "current"] as const,
         checkout: (planSlug: string, billingCycle?: BillingCycleSlug) =>
             ["subscriptions", "checkout", planSlug, billingCycle ?? "monthly"] as const,
+        invoices: ["subscriptions", "invoices"] as const,
     },
 } as const;

@@ -17,6 +17,7 @@ import { McpServersPage } from "@/pages/mcp-servers-page";
 import { ServersPage } from "@/pages/servers-page";
 import { TemplatesPage } from "@/pages/templates-page";
 import { PlansPage } from "@/pages/plans-page";
+import { InvoicesPage } from "@/pages/invoices-page";
 import { CheckoutPage } from "@/pages/checkout-page";
 
 function RedirectSubscriptionToPlans() {
@@ -64,6 +65,7 @@ export function AppRoutes() {
           <Route path="/templates" element={<TemplatesPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/plans" element={<PlansPage />} />
+          <Route path="/invoices" element={<InvoicesPage />} />
           <Route path="/checkout/:planSlug" element={<CheckoutPage />} />
           <Route path="/subscription" element={<RedirectSubscriptionToPlans />} />
 
