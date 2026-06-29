@@ -138,6 +138,8 @@ export interface SocketDeployMessage {
     composeOnly?: boolean;
     /** Route HTTP(S) via Traefik on the agent (port 80/443, no host port publish). */
     useTraefik?: boolean;
+    /** When true, skip RAM/CPU availability checks for this deployment only. */
+    skipResourceValidation?: boolean;
   };
 }
 
@@ -437,11 +439,22 @@ export interface DeploymentValidateRequestPayload {
   useTraefik?: boolean;
 }
 
+export type DeploymentResourceWarningCode =
+  | "insufficient_ram"
+  | "insufficient_cpu";
+
+export interface DeploymentResourceWarning {
+  code: DeploymentResourceWarningCode;
+  message: string;
+}
+
 /** Agent → control panel: pre-deploy validation response. */
 export interface DeploymentValidateResponsePayload {
   requestId: string;
   available: boolean;
   error?: string;
+  /** Set when RAM/CPU is insufficient but the user may override and continue. */
+  warning?: DeploymentResourceWarning;
 }
 
 export type ServerOperationStatusValue =
