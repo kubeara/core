@@ -19,13 +19,18 @@ function responseBody(response: { data: unknown }): Record<string, unknown> {
 export async function deployTemplate(
   input: DeployTemplateInput,
 ): Promise<DeployTemplateResult> {
-  const response = await apiClient.post("/deployments/compose", {
-    templateSlug: input.templateSlug,
-    serverId: input.serverId,
-    env: input.env ?? {},
-    ports: input.ports ?? {},
-    skipResourceValidation: input.skipResourceValidation,
-  });
+  const response = await apiClient.post(
+    "/deployments/compose",
+    {
+      templateSlug: input.templateSlug,
+      serverId: input.serverId,
+      env: input.env ?? {},
+      ports: input.ports ?? {},
+    },
+    input.acknowledgeResourceWarning
+      ? { params: { acknowledgeResourceWarning: "true" } }
+      : undefined,
+  );
   return unwrapServerApiData<DeployTemplateResult>(
     responseBody(response),
     "Failed to start deployment",

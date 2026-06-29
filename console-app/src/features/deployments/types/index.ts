@@ -38,7 +38,7 @@ export interface DeployTemplateInput {
   serverId: string;
   env?: Record<string, string>;
   ports?: Record<string, string>;
-  skipResourceValidation?: boolean;
+  acknowledgeResourceWarning?: boolean;
 }
 
 export type DeploymentResourceWarningCode =
