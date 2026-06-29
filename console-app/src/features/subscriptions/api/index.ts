@@ -71,6 +71,7 @@ function normalizeSubscription(subscription: RawSubscription): Subscription {
     billingDiscountAmount: Number(subscription.billingDiscountAmount) || 0,
     promoCode: subscription.promoCode ?? null,
     billingCycle: subscription.billingCycle ?? "monthly",
+    paymentMethod: subscription.paymentMethod ?? null,
   };
 }
 

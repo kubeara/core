@@ -81,6 +81,12 @@ export interface SubscriptionResponse {
   promoCode: string | null;
   billingCycle: BillingCycleSlug;
   stripeCustomerId: string | null;
+  paymentMethod?: {
+    brand: string;
+    last4: string;
+    expMonth: number;
+    expYear: number;
+  } | null;
 }
 
 @Injectable()
@@ -301,9 +307,26 @@ export class SubscriptionService {
 
     subscription = await this.syncSubscriptionFromStripe(subscription);
 
+    const response = this.toSubscriptionResponse(subscription);
+    let paymentMethod: SubscriptionResponse["paymentMethod"] = null;
+
+    if (
+      subscription.stripeCustomerId &&
+      this.stripeService.isConfigured()
+    ) {
+      try {
+        paymentMethod = await this.stripeService.getCustomerPaymentMethodSummary(
+          subscription.stripeCustomerId,
+          subscription.stripeSubscriptionId,
+        );
+      } catch {
+        paymentMethod = null;
+      }
+    }
+
     return {
       message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CURRENT,
-      data: this.toSubscriptionResponse(subscription),
+      data: { ...response, paymentMethod },
     };
   }
 
@@ -578,9 +601,11 @@ export class SubscriptionService {
             publishableKey,
             plan: this.toPlanResponse(plan),
             proratedUpgrade: true,
-            amountDue: (pricing?.total ?? amountDue / 100),
+            amountDue: pricing?.total ?? amountDue / 100,
             immediate: false,
-            pricing: pricing ?? this.buildPlanPricing(plan, promoMeta, amountDue / 100),
+            pricing:
+              pricing ??
+              this.buildPlanPricing(plan, promoMeta, amountDue / 100),
           },
         };
       }
@@ -1081,11 +1106,10 @@ export class SubscriptionService {
       );
 
       if (existingStripeSub.status === "incomplete") {
-        const removed = await this.stripeService.removePromotionFromSubscription(
-          {
+        const removed =
+          await this.stripeService.removePromotionFromSubscription({
             stripeSubscriptionId: subscription.stripeSubscriptionId,
-          },
-        );
+          });
         if (!removed.clientSecret) {
           throw new BadRequestException("Failed to remove promo code");
         }

@@ -327,9 +327,12 @@ export class StripeService implements OnModuleInit {
     planAmount: number,
   ): Promise<SubscriptionBillingDetails> {
     const stripe = this.getClient();
-    const stripeSub = await stripe.subscriptions.retrieve(stripeSubscriptionId, {
-      expand: ["discounts.promotion_code", "discounts.source.coupon"],
-    });
+    const stripeSub = await stripe.subscriptions.retrieve(
+      stripeSubscriptionId,
+      {
+        expand: ["discounts.promotion_code", "discounts.source.coupon"],
+      },
+    );
 
     const listAmount = planAmount;
     let promoCode: string | null = null;

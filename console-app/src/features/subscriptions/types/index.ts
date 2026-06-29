@@ -72,6 +72,7 @@ export type Subscription = {
   promoCode: string | null;
   billingCycle: BillingCycleSlug;
   stripeCustomerId: string | null;
+  paymentMethod?: CheckoutPaymentMethod | null;
 };
 
 export type SubscriptionsApiResponse<T = unknown> = {

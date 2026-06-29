@@ -6,7 +6,6 @@ import { SkeletonGrid } from "@/components/shared/skeleton";
 import {
   formatBillingInterval,
   formatPrice,
-  formatStatus,
   formatUnixDate,
   getPlanAction,
   getPlanBillingDisplay,
@@ -24,6 +23,13 @@ import { getPlanTierSlug, PLAN_TIER_ORDER } from "@/features/subscriptions/plan-
 import { useQueryClient } from "@tanstack/react-query";
 import { QUERY_KEYS } from "@/constants/query-keys";
 import "@/features/subscriptions/subscriptions-ui.css";
+
+type SubscriptionTab = "current" | "schedules" | "card";
+
+function formatCardBrand(brand: string): string {
+  if (brand === "amex") return "American Express";
+  return brand.charAt(0).toUpperCase() + brand.slice(1);
+}
 
 const CHECKOUT_PLAN_SLUGS: PlanSlug[] = [
   "starter-monthly",
@@ -204,6 +210,8 @@ export function PlansPage() {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelScheduledModalOpen, setCancelScheduledModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [subscriptionTab, setSubscriptionTab] =
+    useState<SubscriptionTab>("current");
   const [isCompletingCheckout, setIsCompletingCheckout] = useState(
     () => searchParams.get("checkout") === "success",
   );
@@ -214,6 +222,8 @@ export function PlansPage() {
     !!subscription?.pendingPlan;
   const isCancelScheduled = subscription?.pendingPlan?.slug === "free";
   const isFree = subscription?.plan.slug === "free";
+  const hasPaymentCard =
+    !isFree || !!subscription?.paymentMethod;
   const canCancel =
     !isFree &&
     subscription?.subscriptionStatus === "active" &&
@@ -273,6 +283,29 @@ export function PlansPage() {
     };
   }, [navigate, queryClient, searchParams]);
 
+  useEffect(() => {
+    if (!hasScheduledChange && subscriptionTab === "schedules") {
+      setSubscriptionTab("current");
+    }
+    if (!hasPaymentCard && subscriptionTab === "card") {
+      setSubscriptionTab("current");
+    }
+  }, [hasScheduledChange, hasPaymentCard, subscriptionTab]);
+
+  const subscriptionTabs: Array<{ id: SubscriptionTab; label: string }> = [
+    { id: "current", label: "Current subscription" },
+    ...(hasScheduledChange
+      ? [{ id: "schedules" as SubscriptionTab, label: "Schedule changes" }]
+      : []),
+    ...(hasPaymentCard
+      ? [{ id: "card" as SubscriptionTab, label: "Payment card" }]
+      : []),
+  ];
+  const showSubscriptionTabs = subscriptionTabs.length > 1;
+  const activeSubscriptionTab = showSubscriptionTabs
+    ? subscriptionTab
+    : "current";
+
   return (
     <div className="profile-page">
       <BackLink to="/servers" label="Back" />
@@ -294,65 +327,132 @@ export function PlansPage() {
       {!isLoading && subscription && (
         <div className="profile-page-body">
           <section className="profile-section-card">
-            <div className="subscription-block">
-              <div className="subscription-section-header">
-                <h2>Current subscription</h2>
-                <p className="profile-section-desc">
-                  {subscription.plan.name} — {formatPrice(subscription.billingAmount)}
-                  {formatBillingInterval(subscription.billingCycle)}
-                </p>
+            {showSubscriptionTabs && (
+              <div className="subscription-tabs-row">
+                <div
+                  className="subscription-tabs"
+                  role="tablist"
+                  aria-label="Subscription details"
+                >
+                  {subscriptionTabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeSubscriptionTab === tab.id}
+                      className={`subscription-tab${activeSubscriptionTab === tab.id ? " is-active" : ""}`}
+                      onClick={() => setSubscriptionTab(tab.id)}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+                {activeSubscriptionTab === "current" && canCancel && (
+                  <div className="subscription-tabs-actions">
+                    <button
+                      type="button"
+                      className="btn-secondary btn-danger-outline"
+                      disabled={cancelMutation.isPending}
+                      onClick={() => {
+                        setCancelReason("");
+                        setCancelModalOpen(true);
+                      }}
+                    >
+                      Cancel Subscription
+                    </button>
+                  </div>
+                )}
+                {activeSubscriptionTab === "schedules" && canCancelScheduledChange && (
+                  <div className="subscription-tabs-actions">
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      disabled={cancelPendingMutation.isPending}
+                      onClick={() => setCancelScheduledModalOpen(true)}
+                    >
+                      Discard scheduled change
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="subscription-details-grid">
-                <div className="subscription-detail-item">
-                  <span className="subscription-detail-label">Status</span>
-                  <span className="subscription-detail-value">
-                    {formatStatus(subscription.subscriptionStatus)}
-                  </span>
-                </div>
-                <div className="subscription-detail-item">
-                  <span className="subscription-detail-label">Start date</span>
-                  <span className="subscription-detail-value">
-                    {formatUnixDate(subscription.startedAt)}
-                  </span>
-                </div>
-                <div className="subscription-detail-item">
-                  <span className="subscription-detail-label">Renewal date</span>
-                  <span className="subscription-detail-value">
-                    {formatUnixDate(subscription.currentPeriodEnd)}
-                  </span>
-                </div>
-                <div className="subscription-detail-item">
-                  <span className="subscription-detail-label">Billing amount</span>
-                  <span className="subscription-detail-value">
+            )}
+
+            {activeSubscriptionTab === "current" && (
+              <div className="subscription-block">
+                <div className="subscription-section-header">
+                  <h2>Current subscription</h2>
+                  <p className="profile-section-desc">
+                    {subscription.plan.name} —{" "}
                     {formatPrice(subscription.billingAmount)}
                     {formatBillingInterval(subscription.billingCycle)}
-                  </span>
+                    {subscription.promoCode &&
+                      subscription.billingDiscountAmount > 0 && (
+                        <span className="subscription-promo-badge">
+                          {" "}
+                          ({subscription.promoCode})
+                        </span>
+                      )}
+                  </p>
+                </div>
+                <div className="subscription-details-grid">
+                  <div className="subscription-detail-item">
+                    <span className="subscription-detail-label">Start date</span>
+                    <span className="subscription-detail-value">
+                      {formatUnixDate(subscription.startedAt)}
+                    </span>
+                  </div>
+                  <div className="subscription-detail-item">
+                    <span className="subscription-detail-label">Renewal date</span>
+                    <span className="subscription-detail-value">
+                      {formatUnixDate(subscription.currentPeriodEnd)}
+                    </span>
+                  </div>
+                  {subscription.billingDiscountAmount > 0 && (
+                    <>
+                      <div className="subscription-detail-item">
+                        <span className="subscription-detail-label">Plan amount</span>
+                        <span className="subscription-detail-value">
+                          {formatPrice(
+                            subscription.billingListAmount ??
+                              subscription.billingAmount,
+                          )}
+                          {formatBillingInterval(subscription.billingCycle)}
+                        </span>
+                      </div>
+                      <div className="subscription-detail-item">
+                        <span className="subscription-detail-label">
+                          Promo discount
+                        </span>
+                        <span className="subscription-detail-value subscription-promo-discount">
+                          -{formatPrice(subscription.billingDiscountAmount)}
+                          {subscription.promoCode
+                            ? ` (${subscription.promoCode})`
+                            : ""}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  <div className="subscription-detail-item">
+                    <span className="subscription-detail-label">
+                      {subscription.billingDiscountAmount > 0
+                        ? "Amount paid"
+                        : "Billing amount"}
+                    </span>
+                    <span className="subscription-detail-value">
+                      {formatPrice(subscription.billingAmount)}
+                      {formatBillingInterval(subscription.billingCycle)}
+                    </span>
+                  </div>
                 </div>
               </div>
-              {canCancel && (
-                <div className="subscription-section-action">
-                  <button
-                    type="button"
-                    className="btn-secondary btn-danger-outline"
-                    disabled={cancelMutation.isPending}
-                    onClick={() => {
-                      setCancelReason("");
-                      setCancelModalOpen(true);
-                    }}
-                  >
-                    Cancel Subscription
-                  </button>
-                </div>
-              )}
-            </div>
+            )}
 
-            {hasScheduledChange && subscription.pendingPlan && (
-              <>
-                <hr className="subscription-section-divider" />
-                <div className="subscription-block">
-                  <div className="subscription-section-header">
-                    <h2>Scheduled change</h2>
-                    {isCancelScheduled ? (
+            {activeSubscriptionTab === "schedules" && (
+              <div className="subscription-block">
+                <div className="subscription-section-header">
+                  <h2>Schedules</h2>
+                  {hasScheduledChange && subscription.pendingPlan && (
+                    isCancelScheduled ? (
                       <p className="profile-section-desc subscription-notice">
                         Your subscription is canceled on{" "}
                         {formatUnixDate(subscription.scheduledChangeAt)}.
@@ -363,43 +463,89 @@ export function PlansPage() {
                         {formatPrice(subscription.pendingPlan.price)}
                         {formatBillingInterval(subscription.pendingPlan.billingCycle)}
                       </p>
-                    )}
-                  </div>
-                  <div className="subscription-details-grid">
-                    <div className="subscription-detail-item">
-                      <span className="subscription-detail-label">Scheduled on</span>
-                      <span className="subscription-detail-value">
-                        {formatUnixDate(subscription.scheduledChangeAt)}
-                      </span>
-                    </div>
-                    <div className="subscription-detail-item">
-                      <span className="subscription-detail-label">Plan</span>
-                      <span className="subscription-detail-value">
-                        {subscription.pendingPlan.name}
-                      </span>
-                    </div>
-                    <div className="subscription-detail-item">
-                      <span className="subscription-detail-label">Billing amount</span>
-                      <span className="subscription-detail-value">
-                        {formatPrice(subscription.pendingPlan.price)}
-                        {formatBillingInterval(subscription.pendingPlan.billingCycle)}
-                      </span>
-                    </div>
-                  </div>
-                  {canCancelScheduledChange && (
-                    <div className="subscription-section-action">
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        disabled={cancelPendingMutation.isPending}
-                        onClick={() => setCancelScheduledModalOpen(true)}
-                      >
-                        Discard scheduled change
-                      </button>
-                    </div>
+                    )
                   )}
                 </div>
-              </>
+                {hasScheduledChange && subscription.pendingPlan ? (
+                  <>
+                    <div className="subscription-details-grid">
+                      <div className="subscription-detail-item">
+                        <span className="subscription-detail-label">
+                          Scheduled on
+                        </span>
+                        <span className="subscription-detail-value">
+                          {formatUnixDate(subscription.scheduledChangeAt)}
+                        </span>
+                      </div>
+                      <div className="subscription-detail-item">
+                        <span className="subscription-detail-label">Plan</span>
+                        <span className="subscription-detail-value">
+                          {subscription.pendingPlan.name}
+                        </span>
+                      </div>
+                      <div className="subscription-detail-item">
+                        <span className="subscription-detail-label">
+                          Billing amount
+                        </span>
+                        <span className="subscription-detail-value">
+                          {formatPrice(subscription.pendingPlan.price)}
+                          {formatBillingInterval(
+                            subscription.pendingPlan.billingCycle,
+                          )}
+                        </span>
+                      </div>
+                      <div className="subscription-detail-item">
+                        <span className="subscription-detail-label">Type</span>
+                        <span className="subscription-detail-value">
+                          {isCancelScheduled ? "Cancellation" : "Downgrade"}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <p className="profile-section-desc subscription-notice">
+                    No scheduled changes.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {activeSubscriptionTab === "card" && (
+              <div className="subscription-block">
+                <div className="subscription-section-header">
+                  <h2>Payment card</h2>
+                </div>
+                {subscription.paymentMethod ? (
+                  <div className="subscription-details-grid">
+                    <div className="subscription-detail-item">
+                      <span className="subscription-detail-label">Card number</span>
+                      <span className="subscription-detail-value">
+                        •••• •••• •••• {subscription.paymentMethod.last4}
+                      </span>
+                    </div>
+                    <div className="subscription-detail-item">
+                      <span className="subscription-detail-label">Expiry</span>
+                      <span className="subscription-detail-value">
+                        {String(subscription.paymentMethod.expMonth).padStart(
+                          2,
+                          "0",
+                        )}
+                        /{String(subscription.paymentMethod.expYear).slice(-2)}
+                      </span>
+                    </div>
+                    <div className="subscription-detail-item">
+                      <span className="subscription-detail-label">Brand</span>
+                      <span className="subscription-detail-value">
+                        {formatCardBrand(subscription.paymentMethod.brand)}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="profile-section-desc subscription-notice">
+                    No payment card on file.
+                  </p>
+                )}
+              </div>
             )}
           </section>
         </div>
