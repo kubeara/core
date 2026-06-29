@@ -19,7 +19,9 @@ import {
 type WinstonLogLevel = "info" | "error" | "warn" | "debug" | "verbose";
 
 @Injectable()
-export class LokiLoggerService implements LoggerService, OnModuleInit, OnModuleDestroy {
+export class LokiLoggerService
+  implements LoggerService, OnModuleInit, OnModuleDestroy
+{
   private readonly winston: winston.Logger;
   private readonly lokiEnabled: boolean;
 

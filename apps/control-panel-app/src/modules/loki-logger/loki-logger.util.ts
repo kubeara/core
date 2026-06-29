@@ -29,7 +29,8 @@ export function resolveLokiLoggerConfig(
 
   return {
     enabled: hasCredentials && isLokiShippingEnv(kubearaEnv),
-    logLevel: configService.get<string>(LOKI_ENV_KEYS.LOG_LEVEL)?.trim() || "info",
+    logLevel:
+      configService.get<string>(LOKI_ENV_KEYS.LOG_LEVEL)?.trim() || "info",
   };
 }
 
