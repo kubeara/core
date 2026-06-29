@@ -102,6 +102,14 @@ export function SubscriptionPage() {
           <p className="profile-section-desc">
             {subscription.plan.name} — {formatPrice(subscription.billingAmount)}
             {formatBillingInterval(subscription.billingCycle)}
+            {subscription.promoCode && subscription.billingDiscountAmount > 0 && (
+              <>
+                {" "}
+                <span className="subscription-promo-badge">
+                  ({subscription.promoCode})
+                </span>
+              </>
+            )}
           </p>
 
           <div className="subscription-details-grid">
@@ -123,8 +131,30 @@ export function SubscriptionPage() {
                 {formatUnixDate(subscription.currentPeriodEnd)}
               </span>
             </div>
+            {subscription.billingDiscountAmount > 0 && (
+              <>
+                <div className="subscription-detail-item">
+                  <span className="subscription-detail-label">Plan amount</span>
+                  <span className="subscription-detail-value">
+                    {formatPrice(subscription.billingListAmount ?? subscription.billingAmount)}
+                    {formatBillingInterval(subscription.billingCycle)}
+                  </span>
+                </div>
+                <div className="subscription-detail-item">
+                  <span className="subscription-detail-label">Promo discount</span>
+                  <span className="subscription-detail-value subscription-promo-discount">
+                    -{formatPrice(subscription.billingDiscountAmount)}
+                    {subscription.promoCode ? ` (${subscription.promoCode})` : ""}
+                  </span>
+                </div>
+              </>
+            )}
             <div className="subscription-detail-item">
-              <span className="subscription-detail-label">Billing amount</span>
+              <span className="subscription-detail-label">
+                {subscription.billingDiscountAmount > 0
+                  ? "Amount payable"
+                  : "Billing amount"}
+              </span>
               <span className="subscription-detail-value">
                 {formatPrice(subscription.billingAmount)}
                 {formatBillingInterval(subscription.billingCycle)}

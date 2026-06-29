@@ -34,6 +34,8 @@ export class SubscriptionsController {
       req.user.name,
       body.startPayment === true,
       body.billingCycle,
+      body.promoCode,
+      body.removePromo === true,
     );
   }
 

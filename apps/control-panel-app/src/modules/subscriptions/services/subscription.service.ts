@@ -13,6 +13,7 @@ import { PlanEntity } from "../entities/plan.entity";
 import { BillingCycleEntity } from "../entities/billing-cycle.entity";
 import { SubscriptionEntity } from "../entities/subscription.entity";
 import { BillingCycleSlug } from "../enums/billing-cycle.enum";
+import { CheckoutPricing } from "../interfaces/checkout-pricing.interface";
 import { PlanSlug } from "../enums/plan-slug.enum";
 import { SubscriptionStatus } from "../enums/subscription-status.enum";
 import { PendingDowngradeStatus } from "../enums/pending-downgrade-status.enum";
@@ -75,6 +76,9 @@ export interface SubscriptionResponse {
   currentPeriodEnd: number | null;
   canceledAt: number | null;
   billingAmount: number;
+  billingListAmount: number | null;
+  billingDiscountAmount: number;
+  promoCode: string | null;
   billingCycle: BillingCycleSlug;
   stripeCustomerId: string | null;
 }
@@ -133,6 +137,12 @@ export class SubscriptionService {
       currentPeriodEnd: subscription.currentPeriodEnd,
       canceledAt: subscription.canceledAt,
       billingAmount: Number(subscription.billingAmount) || 0,
+      billingListAmount:
+        subscription.billingListAmount == null
+          ? Number(subscription.billingAmount) || 0
+          : Number(subscription.billingListAmount) || 0,
+      billingDiscountAmount: Number(subscription.billingDiscountAmount) || 0,
+      promoCode: subscription.promoCode,
       billingCycle: normalizeBillingCycleSlug(subscription.billingCycle),
       stripeCustomerId: subscription.stripeCustomerId,
     };
@@ -346,6 +356,10 @@ export class SubscriptionService {
       currentPeriodStart: now,
       currentPeriodEnd: null,
       billingAmount: freePlan.price,
+      billingListAmount: freePlan.price,
+      billingDiscountAmount: 0,
+      promoCode: null,
+      stripePromotionCodeId: null,
       status: EntityStatus.ACTIVE,
     });
 
@@ -359,6 +373,8 @@ export class SubscriptionService {
     userName: string,
     startPayment = false,
     billingCycleInput?: BillingCycleSlug,
+    promoCodeInput?: string,
+    removePromo = false,
   ) {
     const resolvedSlug = resolveCheckoutPlanSlug(
       planSlug,
@@ -414,6 +430,27 @@ export class SubscriptionService {
       throw new BadRequestException("Stripe publishable key is not configured");
     }
 
+    if (removePromo) {
+      return this.createCheckoutSessionWithoutPromo({
+        organizationId,
+        subscription,
+        plan,
+        planBillingCycle,
+        priceId,
+        customerId,
+        publishableKey,
+        startPayment,
+      });
+    }
+
+    const promo = promoCodeInput?.trim()
+      ? await this.stripeService.resolvePromotionCode(promoCodeInput)
+      : null;
+    const promoMeta = promo
+      ? { code: promo.code, label: promo.label }
+      : undefined;
+    const defaultPricing = this.buildPlanPricing(plan, promoMeta);
+
     const isPaidUpgrade =
       getPlanTierSlug(subscription.plan.slug) !==
         getPlanTierSlug(PlanSlug.FREE) &&
@@ -438,7 +475,7 @@ export class SubscriptionService {
             this.clearPendingDowngrade(subscription);
           }
 
-          this.applyStripeSubscription(
+          await this.applyStripeSubscription(
             subscription,
             plan,
             currentStripeSub,
@@ -455,17 +492,18 @@ export class SubscriptionService {
               proratedUpgrade: true,
               amountDue: 0,
               immediate: true,
+              pricing: defaultPricing,
             },
           };
         }
 
         if (!startPayment) {
-          const { amountDue } = await this.stripeService.previewProratedUpgrade(
-            {
-              stripeSubscriptionId,
-              priceId,
-            },
-          );
+          const pricing = await this.stripeService.previewProratedUpgrade({
+            stripeSubscriptionId,
+            priceId,
+            promotionCodeId: promo?.promotionCodeId,
+            promo: promoMeta,
+          });
           const paymentMethod =
             await this.stripeService.getCustomerPaymentMethodSummary(
               customerId,
@@ -479,9 +517,10 @@ export class SubscriptionService {
               publishableKey,
               plan: this.toPlanResponse(plan),
               proratedUpgrade: true,
-              amountDue: amountDue / 100,
+              amountDue: pricing.total,
               immediate: false,
               paymentMethod,
+              pricing,
             },
           };
         }
@@ -491,19 +530,21 @@ export class SubscriptionService {
           this.clearPendingDowngrade(subscription);
         }
 
-        const { clientSecret, amountDue, invoicePaid } =
+        const { clientSecret, amountDue, invoicePaid, pricing } =
           await this.stripeService.createProratedUpgradePayment({
             stripeSubscriptionId,
             priceId,
             organizationId,
             planSlug: plan.slug,
             billingCycle: planBillingCycle,
+            promotionCodeId: promo?.promotionCodeId,
+            promo: promoMeta,
           });
 
         if (invoicePaid || amountDue === 0) {
           const stripeSub =
             await stripe.subscriptions.retrieve(stripeSubscriptionId);
-          this.applyStripeSubscription(
+          await this.applyStripeSubscription(
             subscription,
             plan,
             stripeSub,
@@ -525,6 +566,7 @@ export class SubscriptionService {
               amountDue: 0,
               immediate: true,
               subscription: this.toSubscriptionResponse(updated),
+              pricing: pricing ?? defaultPricing,
             },
           };
         }
@@ -536,20 +578,78 @@ export class SubscriptionService {
             publishableKey,
             plan: this.toPlanResponse(plan),
             proratedUpgrade: true,
-            amountDue: amountDue / 100,
+            amountDue: (pricing?.total ?? amountDue / 100),
             immediate: false,
+            pricing: pricing ?? this.buildPlanPricing(plan, promoMeta, amountDue / 100),
           },
         };
       }
     }
 
-    const { clientSecret, subscriptionId } =
+    if (
+      promo &&
+      subscription.stripeSubscriptionId &&
+      this.stripeService.isConfigured()
+    ) {
+      const stripe = this.stripeService.getClient();
+      const existingStripeSub = await stripe.subscriptions.retrieve(
+        subscription.stripeSubscriptionId,
+      );
+      if (existingStripeSub.status === "incomplete") {
+        const pricing = await this.stripeService.previewSubscriptionPromo({
+          stripeSubscriptionId: subscription.stripeSubscriptionId,
+          promotionCodeId: promo.promotionCodeId,
+          promo: promoMeta!,
+        });
+        if (pricing.discount <= 0) {
+          throw new BadRequestException(
+            "This promo code does not apply to this plan",
+          );
+        }
+
+        const applied = await this.stripeService.applyPromotionToSubscription({
+          stripeSubscriptionId: subscription.stripeSubscriptionId,
+          promotionCodeId: promo.promotionCodeId,
+          promo: promoMeta!,
+        });
+        if (!applied.clientSecret) {
+          throw new BadRequestException("Failed to apply promo code");
+        }
+        return {
+          message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CHECKOUT,
+          data: {
+            clientSecret: applied.clientSecret,
+            publishableKey,
+            plan: this.toPlanResponse(plan),
+            pricing,
+          },
+        };
+      }
+    }
+
+    if (promo && !startPayment) {
+      const pricing = await this.stripeService.previewNewSubscriptionCheckout({
+        customerId,
+        priceId,
+        promotionCodeId: promo.promotionCodeId,
+        promo: promoMeta,
+      });
+      if (pricing.discount <= 0) {
+        throw new BadRequestException(
+          "This promo code does not apply to this plan",
+        );
+      }
+    }
+
+    const { clientSecret, subscriptionId, pricing } =
       await this.stripeService.createSubscriptionPayment({
         customerId,
         priceId,
         organizationId,
         planSlug: plan.slug,
         billingCycle: planBillingCycle,
+        promotionCodeId: promo?.promotionCodeId,
+        promo: promoMeta,
       });
 
     subscription.stripeSubscriptionId = subscriptionId;
@@ -561,6 +661,7 @@ export class SubscriptionService {
         clientSecret,
         publishableKey,
         plan: this.toPlanResponse(plan),
+        pricing,
       },
     };
   }
@@ -611,7 +712,7 @@ export class SubscriptionService {
       this.clearPendingDowngrade(subscription);
     }
 
-    this.applyStripeSubscription(
+    await this.applyStripeSubscription(
       subscription,
       plan,
       stripeSub,
@@ -673,7 +774,7 @@ export class SubscriptionService {
       subscription.stripeSubscriptionId = null;
       subscription.subscriptionStatus = SubscriptionStatus.ACTIVE;
       subscription.canceledAt = null;
-      subscription.billingAmount = targetPlan.price;
+      this.clearSubscriptionPromo(subscription, targetPlan);
       subscription.currentPeriodEnd = null;
       this.clearPendingDowngrade(subscription);
 
@@ -805,7 +906,7 @@ export class SubscriptionService {
     subscription.stripeSubscriptionId = null;
     subscription.subscriptionStatus = SubscriptionStatus.CANCELED;
     subscription.canceledAt = dayjs().unix();
-    subscription.billingAmount = freePlan.price;
+    this.clearSubscriptionPromo(subscription, freePlan);
     subscription.currentPeriodEnd = null;
     subscription.cancellationReason = cancellationReason;
 
@@ -948,6 +1049,133 @@ export class SubscriptionService {
     );
   }
 
+  private async createCheckoutSessionWithoutPromo(input: {
+    organizationId: string;
+    subscription: SubscriptionEntity;
+    plan: PlanEntity;
+    planBillingCycle: BillingCycleSlug;
+    priceId: string;
+    customerId: string;
+    publishableKey: string;
+    startPayment: boolean;
+  }) {
+    const {
+      organizationId,
+      subscription,
+      plan,
+      planBillingCycle,
+      priceId,
+      customerId,
+      publishableKey,
+      startPayment,
+    } = input;
+    const defaultPricing = this.buildPlanPricing(plan);
+
+    if (
+      subscription.stripeSubscriptionId &&
+      this.stripeService.isConfigured()
+    ) {
+      const stripe = this.stripeService.getClient();
+      const existingStripeSub = await stripe.subscriptions.retrieve(
+        subscription.stripeSubscriptionId,
+      );
+
+      if (existingStripeSub.status === "incomplete") {
+        const removed = await this.stripeService.removePromotionFromSubscription(
+          {
+            stripeSubscriptionId: subscription.stripeSubscriptionId,
+          },
+        );
+        if (!removed.clientSecret) {
+          throw new BadRequestException("Failed to remove promo code");
+        }
+        return {
+          message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CHECKOUT,
+          data: {
+            clientSecret: removed.clientSecret,
+            publishableKey,
+            plan: this.toPlanResponse(plan),
+            pricing: removed.pricing,
+          },
+        };
+      }
+    }
+
+    const isPaidUpgrade =
+      getPlanTierSlug(subscription.plan.slug) !==
+        getPlanTierSlug(PlanSlug.FREE) &&
+      comparePlanTiers(plan.slug, subscription.plan.slug) > 0;
+
+    if (isPaidUpgrade && this.stripeService.isConfigured() && !startPayment) {
+      const stripeSubscriptionId =
+        await this.resolveStripeSubscriptionId(subscription);
+
+      if (stripeSubscriptionId) {
+        const pricing = await this.stripeService.previewProratedUpgrade({
+          stripeSubscriptionId,
+          priceId,
+        });
+        const paymentMethod =
+          await this.stripeService.getCustomerPaymentMethodSummary(
+            customerId,
+            stripeSubscriptionId,
+          );
+
+        return {
+          message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CHECKOUT,
+          data: {
+            clientSecret: null,
+            publishableKey,
+            plan: this.toPlanResponse(plan),
+            proratedUpgrade: true,
+            amountDue: pricing.total,
+            immediate: false,
+            paymentMethod,
+            pricing,
+          },
+        };
+      }
+    }
+
+    const { clientSecret, subscriptionId, pricing } =
+      await this.stripeService.createSubscriptionPayment({
+        customerId,
+        priceId,
+        organizationId,
+        planSlug: plan.slug,
+        billingCycle: planBillingCycle,
+      });
+
+    subscription.stripeSubscriptionId = subscriptionId;
+    await this.subscriptionRepository.save(subscription);
+
+    return {
+      message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CHECKOUT,
+      data: {
+        clientSecret,
+        publishableKey,
+        plan: this.toPlanResponse(plan),
+        pricing: pricing ?? defaultPricing,
+      },
+    };
+  }
+
+  private buildPlanPricing(
+    plan: PlanEntity,
+    promo?: { code: string; label: string },
+    totalOverride?: number,
+  ): CheckoutPricing {
+    const subtotal = getPlanPrice(plan);
+    const total = totalOverride ?? subtotal;
+    return {
+      subtotal,
+      discount: Math.max(0, subtotal - total),
+      total,
+      promoCode: promo?.code,
+      promoLabel: promo?.label,
+    };
+  }
+
   private stripeSubscriptionMatchesPlan(
     stripeSub: Stripe.Subscription,
     plan: PlanEntity,
@@ -1020,12 +1248,51 @@ export class SubscriptionService {
     return subscription;
   }
 
-  private applyStripeSubscription(
+  private clearSubscriptionPromo(
+    subscription: SubscriptionEntity,
+    plan: PlanEntity,
+  ): void {
+    const amount = getPlanPrice(plan);
+    subscription.promoCode = null;
+    subscription.stripePromotionCodeId = null;
+    subscription.billingListAmount = amount;
+    subscription.billingDiscountAmount = 0;
+    subscription.billingAmount = amount;
+  }
+
+  private async syncSubscriptionBilling(
+    subscription: SubscriptionEntity,
+    plan: PlanEntity,
+    stripeSub: Stripe.Subscription,
+  ): Promise<void> {
+    const planAmount = getPlanPrice(plan);
+
+    if (!this.stripeService.isConfigured()) {
+      this.clearSubscriptionPromo(subscription, plan);
+      return;
+    }
+
+    try {
+      const billing = await this.stripeService.resolveSubscriptionBilling(
+        stripeSub.id,
+        planAmount,
+      );
+      subscription.billingListAmount = billing.listAmount;
+      subscription.billingDiscountAmount = billing.discountAmount;
+      subscription.billingAmount = billing.billingAmount;
+      subscription.promoCode = billing.promoCode;
+      subscription.stripePromotionCodeId = billing.stripePromotionCodeId;
+    } catch {
+      this.clearSubscriptionPromo(subscription, plan);
+    }
+  }
+
+  private async applyStripeSubscription(
     subscription: SubscriptionEntity,
     plan: PlanEntity,
     stripeSub: Stripe.Subscription,
     billingCycleInput?: BillingCycleSlug,
-  ): void {
+  ): Promise<void> {
     const billingCycle = billingCycleInput ?? resolveBillingCycleFromPlan(plan);
     const periodItem = stripeSub.items.data[0];
 
@@ -1034,7 +1301,7 @@ export class SubscriptionService {
     subscription.stripeSubscriptionId = stripeSub.id;
     subscription.subscriptionStatus = this.mapStripeStatus(stripeSub.status);
     subscription.billingCycle = billingCycle;
-    subscription.billingAmount = getPlanPrice(plan);
+    await this.syncSubscriptionBilling(subscription, plan, stripeSub);
     subscription.currentPeriodStart = periodItem?.current_period_start ?? null;
     subscription.currentPeriodEnd = periodItem?.current_period_end ?? null;
     subscription.canceledAt = stripeSub.canceled_at;
@@ -1088,14 +1355,14 @@ export class SubscriptionService {
         .getClient()
         .subscriptions.retrieve(subscription.stripeSubscriptionId);
       this.clearPendingDowngrade(subscription);
-      this.applyStripeSubscription(subscription, plan, stripeSub);
+      await this.applyStripeSubscription(subscription, plan, stripeSub);
     } else {
       this.clearPendingDowngrade(subscription);
       subscription.planId = plan.id;
       subscription.plan = plan;
       subscription.subscriptionStatus = SubscriptionStatus.ACTIVE;
       subscription.billingCycle = BillingCycleSlug.MONTHLY;
-      subscription.billingAmount = getPlanPrice(plan);
+      this.clearSubscriptionPromo(subscription, plan);
       subscription.startedAt = dayjs().unix();
     }
 
@@ -1136,7 +1403,7 @@ export class SubscriptionService {
         subscription.planId = plan.id;
         subscription.plan = plan;
         subscription.billingCycle = resolveBillingCycleFromPlan(plan);
-        subscription.billingAmount = getPlanPrice(plan);
+        await this.syncSubscriptionBilling(subscription, plan, stripeSub);
       }
     }
 
@@ -1217,7 +1484,7 @@ export class SubscriptionService {
     subscription.stripeSubscriptionId = null;
     subscription.subscriptionStatus = SubscriptionStatus.CANCELED;
     subscription.canceledAt = dayjs().unix();
-    subscription.billingAmount = freePlan.price;
+    this.clearSubscriptionPromo(subscription, freePlan);
     subscription.currentPeriodEnd = null;
     this.clearPendingDowngrade(subscription);
 

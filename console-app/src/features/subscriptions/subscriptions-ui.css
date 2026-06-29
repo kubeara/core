@@ -350,6 +350,15 @@
   font-weight: 500;
 }
 
+.subscription-promo-badge {
+  color: var(--success, #16a34a);
+  font-weight: 500;
+}
+
+.subscription-promo-discount {
+  color: var(--success, #16a34a);
+}
+
 .subscription-section-header {
   margin-bottom: 0.25rem;
 }

@@ -50,6 +50,18 @@ export class SubscriptionEntity extends BaseEntity {
   @Column({ type: "decimal", precision: 10, scale: 2, default: 0 })
   billingAmount!: number;
 
+  @Column({ type: "decimal", precision: 10, scale: 2, nullable: true })
+  billingListAmount!: number | null;
+
+  @Column({ type: "decimal", precision: 10, scale: 2, default: 0 })
+  billingDiscountAmount!: number;
+
+  @Column({ type: "varchar", length: 100, nullable: true })
+  promoCode!: string | null;
+
+  @Column({ type: "varchar", length: 255, nullable: true })
+  stripePromotionCodeId!: string | null;
+
   @Column({
     type: "varchar",
     length: 20,

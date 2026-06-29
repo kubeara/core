@@ -8,6 +8,8 @@ import { ConfigService } from "@nestjs/config";
 import Stripe from "stripe";
 import { PlanSlug } from "../enums/plan-slug.enum";
 import { BillingCycleSlug } from "../enums/billing-cycle.enum";
+import { CheckoutPricing } from "../interfaces/checkout-pricing.interface";
+import { SubscriptionBillingDetails } from "../interfaces/subscription-billing.interface";
 
 type StripeSubscription = Stripe.Subscription;
 type CheckoutPaymentMethodType =
@@ -142,6 +144,19 @@ export class StripeService implements OnModuleInit {
     throw new BadRequestException("Failed to resolve checkout payment methods");
   }
 
+  private throwCheckoutStripeError(
+    error: unknown,
+    fallback = "Checkout failed",
+  ): never {
+    if (error instanceof BadRequestException) {
+      throw error;
+    }
+    const message =
+      (error as Stripe.errors.StripeError).message ??
+      (error instanceof Error ? error.message : fallback);
+    throw new BadRequestException(message);
+  }
+
   async createCustomer(input: {
     email?: string;
     name?: string;
@@ -237,13 +252,191 @@ export class StripeService implements OnModuleInit {
     return resolveCard(methods.data[0] ?? null);
   }
 
+  async resolvePromotionCode(code: string): Promise<{
+    promotionCodeId: string;
+    code: string;
+    label: string;
+  }> {
+    const trimmed = code.trim();
+    if (!trimmed) {
+      throw new BadRequestException("Enter a promo code");
+    }
+
+    const stripe = this.getClient();
+    const result = await stripe.promotionCodes.list({
+      code: trimmed,
+      active: true,
+      limit: 1,
+    });
+    const promo = result.data[0];
+    if (!promo) {
+      throw new BadRequestException("Invalid or expired promo code");
+    }
+
+    const label = promo.code;
+
+    return {
+      promotionCodeId: promo.id,
+      code: promo.code,
+      label,
+    };
+  }
+
+  private formatCheckoutPricing(
+    subtotalCents: number,
+    totalCents: number,
+    promo?: { code: string; label: string },
+    discountCents?: number,
+  ): CheckoutPricing {
+    const subtotal = subtotalCents / 100;
+    const total = totalCents / 100;
+    const discount =
+      discountCents != null
+        ? discountCents / 100
+        : Math.max(0, subtotal - total);
+    return {
+      subtotal,
+      discount,
+      total,
+      promoCode: promo?.code,
+      promoLabel: promo?.label,
+    };
+  }
+
+  private extractInvoicePricing(
+    invoice: Stripe.Invoice,
+    promo?: { code: string; label: string },
+  ): CheckoutPricing {
+    const subtotalCents = invoice.subtotal ?? 0;
+    const amountDueCents = invoice.amount_due ?? invoice.total ?? 0;
+    const discountCents = (invoice.total_discount_amounts ?? []).reduce(
+      (sum, item) => sum + (item.amount ?? 0),
+      0,
+    );
+
+    return this.formatCheckoutPricing(
+      subtotalCents,
+      amountDueCents,
+      promo,
+      discountCents,
+    );
+  }
+
+  async resolveSubscriptionBilling(
+    stripeSubscriptionId: string,
+    planAmount: number,
+  ): Promise<SubscriptionBillingDetails> {
+    const stripe = this.getClient();
+    const stripeSub = await stripe.subscriptions.retrieve(stripeSubscriptionId, {
+      expand: ["discounts.promotion_code", "discounts.source.coupon"],
+    });
+
+    const listAmount = planAmount;
+    let promoCode: string | null = null;
+    let stripePromotionCodeId: string | null = null;
+    let discountAmount = 0;
+
+    const metadataPromo = stripeSub.metadata?.promoCode?.trim();
+    if (metadataPromo) {
+      promoCode = metadataPromo;
+    }
+    const metadataPromoId = stripeSub.metadata?.stripePromotionCodeId?.trim();
+    if (metadataPromoId) {
+      stripePromotionCodeId = metadataPromoId;
+    }
+
+    const discountEntries = (stripeSub.discounts ?? []).filter(
+      (entry): entry is Stripe.Discount =>
+        typeof entry === "object" && entry !== null,
+    );
+
+    for (const entry of discountEntries) {
+      const promotionCode = entry.promotion_code;
+      if (typeof promotionCode === "object" && promotionCode?.code) {
+        promoCode = promotionCode.code;
+        stripePromotionCodeId = promotionCode.id;
+      }
+
+      const coupon = entry.source?.coupon;
+      if (typeof coupon === "object" && coupon) {
+        if (coupon.percent_off) {
+          discountAmount = Math.max(
+            discountAmount,
+            listAmount * (coupon.percent_off / 100),
+          );
+        } else if (coupon.amount_off) {
+          discountAmount = Math.max(discountAmount, coupon.amount_off / 100);
+        }
+      }
+    }
+
+    discountAmount = Math.min(discountAmount, listAmount);
+    const billingAmount = Math.max(0, listAmount - discountAmount);
+
+    return {
+      listAmount,
+      discountAmount,
+      billingAmount,
+      promoCode,
+      stripePromotionCodeId,
+    };
+  }
+
+  async previewSubscriptionPromo(input: {
+    stripeSubscriptionId: string;
+    promotionCodeId: string;
+    promo?: { code: string; label: string };
+  }): Promise<CheckoutPricing> {
+    const stripe = this.getClient();
+    try {
+      const preview = await stripe.invoices.createPreview({
+        subscription: input.stripeSubscriptionId,
+        discounts: [{ promotion_code: input.promotionCodeId }],
+      });
+
+      return this.extractInvoicePricing(preview, input.promo);
+    } catch (error) {
+      this.throwCheckoutStripeError(error, "Failed to preview promo code");
+    }
+  }
+
+  async previewNewSubscriptionCheckout(input: {
+    customerId: string;
+    priceId: string;
+    promotionCodeId?: string;
+    promo?: { code: string; label: string };
+  }): Promise<CheckoutPricing> {
+    const stripe = this.getClient();
+    try {
+      const preview = await stripe.invoices.createPreview({
+        customer: input.customerId,
+        subscription_details: {
+          items: [{ price: input.priceId, quantity: 1 }],
+        },
+        ...(input.promotionCodeId
+          ? { discounts: [{ promotion_code: input.promotionCodeId }] }
+          : {}),
+      });
+
+      return this.extractInvoicePricing(preview, input.promo);
+    } catch (error) {
+      this.throwCheckoutStripeError(error, "Failed to preview checkout");
+    }
+  }
+
   async createSubscriptionPayment(input: {
     customerId: string;
     priceId: string;
     organizationId: string;
     planSlug: PlanSlug;
     billingCycle?: BillingCycleSlug;
-  }): Promise<{ clientSecret: string; subscriptionId: string }> {
+    promotionCodeId?: string;
+    promo?: { code: string; label: string };
+  }): Promise<{
+    clientSecret: string;
+    subscriptionId: string;
+    pricing: CheckoutPricing;
+  }> {
     const stripe = this.getClient();
     const createParams: Stripe.SubscriptionCreateParams = {
       customer: input.customerId,
@@ -254,31 +447,141 @@ export class StripeService implements OnModuleInit {
         organizationId: input.organizationId,
         planSlug: input.planSlug,
         ...(input.billingCycle ? { billingCycle: input.billingCycle } : {}),
+        ...(input.promo?.code ? { promoCode: input.promo.code } : {}),
+        ...(input.promotionCodeId
+          ? { stripePromotionCodeId: input.promotionCodeId }
+          : {}),
       },
+      ...(input.promotionCodeId
+        ? { discounts: [{ promotion_code: input.promotionCodeId }] }
+        : {}),
     };
 
-    const subscription = await this.runWithResolvedPaymentMethodTypes(
-      (paymentMethodTypes) =>
-        stripe.subscriptions.create({
-          ...createParams,
-          payment_settings: {
-            save_default_payment_method: "on_subscription",
-            payment_method_types: paymentMethodTypes,
-          },
-        }),
-    );
+    let subscription: Stripe.Subscription;
+    try {
+      subscription = await this.runWithResolvedPaymentMethodTypes(
+        (paymentMethodTypes) =>
+          stripe.subscriptions.create({
+            ...createParams,
+            payment_settings: {
+              save_default_payment_method: "on_subscription",
+              payment_method_types: paymentMethodTypes,
+            },
+          }),
+      );
+    } catch (error) {
+      this.throwCheckoutStripeError(error, "Failed to create subscription");
+    }
 
     const invoice = subscription.latest_invoice;
     if (!invoice || typeof invoice === "string") {
       throw new BadRequestException("Failed to create subscription invoice");
     }
 
-    const clientSecret = invoice.confirmation_secret?.client_secret;
+    let resolvedInvoice = invoice;
+    if (invoice.id) {
+      resolvedInvoice = await stripe.invoices.retrieve(invoice.id, {
+        expand: ["confirmation_secret", "total_discount_amounts"],
+      });
+    }
+
+    const clientSecret = resolvedInvoice.confirmation_secret?.client_secret;
     if (!clientSecret) {
       throw new BadRequestException("Failed to create payment client secret");
     }
 
-    return { clientSecret, subscriptionId: subscription.id };
+    return {
+      clientSecret,
+      subscriptionId: subscription.id,
+      pricing: this.extractInvoicePricing(resolvedInvoice, input.promo),
+    };
+  }
+
+  async applyPromotionToSubscription(input: {
+    stripeSubscriptionId: string;
+    promotionCodeId: string;
+    promo: { code: string; label: string };
+  }): Promise<{ clientSecret: string | null; pricing: CheckoutPricing }> {
+    const stripe = this.getClient();
+    try {
+      const current = await stripe.subscriptions.retrieve(
+        input.stripeSubscriptionId,
+      );
+      const updated = await stripe.subscriptions.update(
+        input.stripeSubscriptionId,
+        {
+          discounts: [{ promotion_code: input.promotionCodeId }],
+          metadata: {
+            ...current.metadata,
+            promoCode: input.promo.code,
+            stripePromotionCodeId: input.promotionCodeId,
+          },
+          expand: ["latest_invoice.confirmation_secret"],
+        },
+      );
+
+      let invoice = updated.latest_invoice;
+      if (!invoice || typeof invoice === "string") {
+        throw new BadRequestException("Failed to apply promo code");
+      }
+
+      if (invoice.id) {
+        invoice = await stripe.invoices.retrieve(invoice.id, {
+          expand: ["confirmation_secret", "total_discount_amounts"],
+        });
+      }
+
+      const clientSecret = invoice.confirmation_secret?.client_secret ?? null;
+      const pricing = this.extractInvoicePricing(invoice, input.promo);
+      return {
+        clientSecret,
+        pricing,
+      };
+    } catch (error) {
+      this.throwCheckoutStripeError(error, "Failed to apply promo code");
+    }
+  }
+
+  async removePromotionFromSubscription(input: {
+    stripeSubscriptionId: string;
+  }): Promise<{ clientSecret: string | null; pricing: CheckoutPricing }> {
+    const stripe = this.getClient();
+    try {
+      const current = await stripe.subscriptions.retrieve(
+        input.stripeSubscriptionId,
+      );
+      const updated = await stripe.subscriptions.update(
+        input.stripeSubscriptionId,
+        {
+          discounts: "",
+          metadata: {
+            ...current.metadata,
+            promoCode: "",
+            stripePromotionCodeId: "",
+          },
+          expand: ["latest_invoice.confirmation_secret"],
+        },
+      );
+
+      let invoice = updated.latest_invoice;
+      if (!invoice || typeof invoice === "string") {
+        throw new BadRequestException("Failed to remove promo code");
+      }
+
+      if (invoice.id) {
+        invoice = await stripe.invoices.retrieve(invoice.id, {
+          expand: ["confirmation_secret", "total_discount_amounts"],
+        });
+      }
+
+      const clientSecret = invoice.confirmation_secret?.client_secret ?? null;
+      return {
+        clientSecret,
+        pricing: this.extractInvoicePricing(invoice),
+      };
+    } catch (error) {
+      this.throwCheckoutStripeError(error, "Failed to remove promo code");
+    }
   }
 
   async scheduleCancelAtPeriodEnd(
@@ -405,7 +708,9 @@ export class StripeService implements OnModuleInit {
   async previewProratedUpgrade(input: {
     stripeSubscriptionId: string;
     priceId: string;
-  }): Promise<{ amountDue: number }> {
+    promotionCodeId?: string;
+    promo?: { code: string; label: string };
+  }): Promise<CheckoutPricing> {
     const stripe = this.getClient();
     const subscription = await stripe.subscriptions.retrieve(
       input.stripeSubscriptionId,
@@ -416,15 +721,22 @@ export class StripeService implements OnModuleInit {
       throw new BadRequestException("Subscription has no items");
     }
 
-    const preview = await stripe.invoices.createPreview({
-      subscription: input.stripeSubscriptionId,
-      subscription_details: {
-        items: [{ id: itemId, price: input.priceId }],
-        proration_behavior: "always_invoice",
-      },
-    });
+    try {
+      const preview = await stripe.invoices.createPreview({
+        subscription: input.stripeSubscriptionId,
+        subscription_details: {
+          items: [{ id: itemId, price: input.priceId }],
+          proration_behavior: "always_invoice",
+        },
+        ...(input.promotionCodeId
+          ? { discounts: [{ promotion_code: input.promotionCodeId }] }
+          : {}),
+      });
 
-    return { amountDue: preview.amount_due ?? 0 };
+      return this.extractInvoicePricing(preview, input.promo);
+    } catch (error) {
+      this.throwCheckoutStripeError(error, "Failed to preview upgrade");
+    }
   }
 
   private async resolveInvoiceClientSecret(
@@ -495,10 +807,13 @@ export class StripeService implements OnModuleInit {
     organizationId: string;
     planSlug: PlanSlug;
     billingCycle?: BillingCycleSlug;
+    promotionCodeId?: string;
+    promo?: { code: string; label: string };
   }): Promise<{
     clientSecret: string | null;
     amountDue: number;
     invoicePaid: boolean;
+    pricing?: CheckoutPricing;
   }> {
     const stripe = this.getClient();
     const subscription = await stripe.subscriptions.retrieve(
@@ -525,6 +840,9 @@ export class StripeService implements OnModuleInit {
         "latest_invoice.payment_intent",
         "latest_invoice.confirmation_secret",
       ],
+      ...(input.promotionCodeId
+        ? { discounts: [{ promotion_code: input.promotionCodeId }] }
+        : {}),
     };
 
     let updated: Stripe.Subscription;
@@ -550,9 +868,10 @@ export class StripeService implements OnModuleInit {
 
     const amountDue = invoice.amount_due ?? 0;
     const invoicePaid = invoice.status === "paid" || amountDue === 0;
+    const pricing = this.extractInvoicePricing(invoice, input.promo);
 
     if (invoicePaid) {
-      return { clientSecret: null, amountDue: 0, invoicePaid: true };
+      return { clientSecret: null, amountDue: 0, invoicePaid: true, pricing };
     }
 
     if (invoice.id) {
@@ -564,7 +883,12 @@ export class StripeService implements OnModuleInit {
           paidInvoice.status === "paid" ||
           (paidInvoice.amount_due ?? 0) === 0
         ) {
-          return { clientSecret: null, amountDue: 0, invoicePaid: true };
+          return {
+            clientSecret: null,
+            amountDue: 0,
+            invoicePaid: true,
+            pricing: this.extractInvoicePricing(paidInvoice, input.promo),
+          };
         }
       } catch (error) {
         const clientSecret = await this.resolveInvoiceClientSecret(
@@ -572,7 +896,7 @@ export class StripeService implements OnModuleInit {
           invoice,
         );
         if (clientSecret) {
-          return { clientSecret, amountDue, invoicePaid: false };
+          return { clientSecret, amountDue, invoicePaid: false, pricing };
         }
 
         const message =
@@ -586,7 +910,7 @@ export class StripeService implements OnModuleInit {
       throw new BadRequestException("Failed to create payment client secret");
     }
 
-    return { clientSecret, amountDue, invoicePaid: false };
+    return { clientSecret, amountDue, invoicePaid: false, pricing };
   }
 
   async updateSubscriptionPrice(

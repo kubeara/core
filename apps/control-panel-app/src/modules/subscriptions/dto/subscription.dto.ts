@@ -24,6 +24,14 @@ export class CheckoutDto {
   @IsOptional()
   @IsEnum(BillingCycleSlug)
   billingCycle?: BillingCycleSlug;
+
+  @IsOptional()
+  @IsString()
+  promoCode?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  removePromo?: boolean;
 }
 
 export class CancelSubscriptionDto {

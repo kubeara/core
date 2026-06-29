@@ -67,6 +67,9 @@ export type Subscription = {
   currentPeriodEnd: number | null;
   canceledAt: number | null;
   billingAmount: number;
+  billingListAmount: number | null;
+  billingDiscountAmount: number;
+  promoCode: string | null;
   billingCycle: BillingCycleSlug;
   stripeCustomerId: string | null;
 };
@@ -90,6 +93,8 @@ export type CheckoutRequest = {
   planSlug: PlanSlug;
   startPayment?: boolean;
   billingCycle?: BillingCycleSlug;
+  promoCode?: string;
+  removePromo?: boolean;
 };
 
 export type CheckoutPaymentMethod = {
@@ -97,6 +102,14 @@ export type CheckoutPaymentMethod = {
   last4: string;
   expMonth: number;
   expYear: number;
+};
+
+export type CheckoutPricing = {
+  subtotal: number;
+  discount: number;
+  total: number;
+  promoCode?: string;
+  promoLabel?: string;
 };
 
 export type CheckoutResponse = {
@@ -108,4 +121,5 @@ export type CheckoutResponse = {
   immediate?: boolean;
   subscription?: Subscription;
   paymentMethod?: CheckoutPaymentMethod | null;
+  pricing?: CheckoutPricing;
 };

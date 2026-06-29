@@ -23,6 +23,7 @@ import {
 import type {
   BillingCycleSlug,
   CheckoutPaymentMethod,
+  CheckoutPricing,
   CheckoutResponse,
   PlanSlug,
 } from "@/features/subscriptions/types";
@@ -105,6 +106,174 @@ function SavedPaymentMethodPreview({
   );
 }
 
+function CheckoutPricingSummary({
+  pricing,
+  intervalLabel,
+}: {
+  pricing: CheckoutPricing;
+  intervalLabel?: string;
+}) {
+  const hasDiscount = pricing.discount > 0;
+
+  return (
+    <div className="checkout-pricing-card">
+      <div className="checkout-pricing-row">
+        <span>Plan amount{intervalLabel ? ` (${intervalLabel})` : ""}</span>
+        <span>{formatPrice(pricing.subtotal)}</span>
+      </div>
+      {hasDiscount && (
+        <div className="checkout-pricing-row checkout-pricing-discount">
+          <span>
+            Promo discount
+            {pricing.promoLabel ? ` (${pricing.promoLabel})` : ""}
+          </span>
+          <span>-{formatPrice(pricing.discount)}</span>
+        </div>
+      )}
+      <div className="checkout-pricing-row checkout-pricing-total">
+        <span>Total payable today</span>
+        <span>{formatPrice(pricing.total)}</span>
+      </div>
+    </div>
+  );
+}
+
+function PromoChevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={`checkout-promo-chevron${open ? " is-open" : ""}`}
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M4 6l4 4 4-4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CheckoutPromoField({
+  value,
+  appliedCode,
+  savings,
+  isApplied,
+  error,
+  isApplying,
+  isRemoving,
+  onChange,
+  onApply,
+  onRemove,
+}: {
+  value: string;
+  appliedCode?: string;
+  savings: number;
+  isApplied: boolean;
+  error: string | null;
+  isApplying: boolean;
+  isRemoving: boolean;
+  onChange: (value: string) => void;
+  onApply: () => void;
+  onRemove: () => void;
+}) {
+  const [open, setOpen] = useState(isApplied);
+
+  useEffect(() => {
+    if (isApplied || error) {
+      setOpen(true);
+    }
+  }, [isApplied, error]);
+
+  const showBody = open || isApplied;
+
+  return (
+    <div className="checkout-promo-card">
+      <button
+        type="button"
+        className="checkout-promo-toggle"
+        aria-expanded={showBody}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span>Have a promo code?</span>
+        <PromoChevron open={showBody} />
+      </button>
+
+      {showBody && (
+        <div className="checkout-promo-body">
+          {!isApplied && (
+            <div className="checkout-promo-row">
+              <input
+                id="checkout-promo-code"
+                type="text"
+                value={value}
+                placeholder="Enter code"
+                disabled={isApplying || isRemoving}
+                onChange={(event) => onChange(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    onApply();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="checkout-promo-apply"
+                disabled={isApplying || isRemoving || !value.trim()}
+                onClick={onApply}
+              >
+                {isApplying ? "Applying…" : "Apply"}
+              </button>
+            </div>
+          )}
+
+          {isApplied && appliedCode && (
+            <>
+              <div className="checkout-promo-applied-row">
+                <input
+                  type="text"
+                  value={appliedCode}
+                  readOnly
+                  aria-label="Applied promo code"
+                />
+                <button
+                  type="button"
+                  className="checkout-promo-remove"
+                  disabled={isRemoving || isApplying}
+                  onClick={onRemove}
+                >
+                  {isRemoving ? "Removing…" : "Remove"}
+                </button>
+              </div>
+              <p className="checkout-promo-success">
+                <span className="checkout-promo-check" aria-hidden="true">
+                  ✓
+                </span>
+                <span>
+                  Promo applied
+                  {savings > 0 && ` — You saved ${formatPrice(savings)}`}
+                </span>
+              </p>
+            </>
+          )}
+
+          {error && (
+            <p className="checkout-error" role="alert">
+              {error}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function checkoutBillingDefaults(user: {
   email: string;
   name: string;
@@ -121,11 +290,15 @@ function CheckoutPaymentForm({
   name,
   planSlug,
   billingCycle,
+  dueToday,
+  promoSlot,
 }: {
   email: string;
   name: string;
   planSlug: PlanSlug;
   billingCycle: BillingCycleSlug;
+  dueToday: number;
+  promoSlot: React.ReactNode;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -195,6 +368,7 @@ function CheckoutPaymentForm({
           },
         }}
       />
+      {promoSlot}
       {error && (
         <p className="checkout-error" role="alert">
           {error}
@@ -206,7 +380,7 @@ function CheckoutPaymentForm({
           className="checkout-submit"
           disabled={!stripe || !elements || isSubmitting}
         >
-          {isSubmitting ? "Processing…" : "Subscribe"}
+          {isSubmitting ? "Processing…" : `Pay ${formatPrice(dueToday)}`}
         </button>
         <Link to="/plans?checkout=canceled" className="checkout-cancel-link">
           Cancel and return to plans
@@ -228,6 +402,11 @@ export function CheckoutPage() {
   const [startPaymentError, setStartPaymentError] = useState<string | null>(
     null,
   );
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedPromoCode, setAppliedPromoCode] = useState<string | undefined>();
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [isApplyingPromo, setIsApplyingPromo] = useState(false);
+  const [isRemovingPromo, setIsRemovingPromo] = useState(false);
 
   if (!planSlug || !isPaidPlanSlug(planSlug)) {
     return <Navigate to="/plans" replace />;
@@ -310,6 +489,49 @@ export function CheckoutPage() {
     };
   }, [data?.clientSecret, user]);
 
+  async function handleApplyPromo() {
+    if (!planSlug || !promoInput.trim()) return;
+
+    setPromoError(null);
+    setIsApplyingPromo(true);
+
+    try {
+      const result = await createCheckoutPayment({
+        planSlug,
+        billingCycle,
+        promoCode: promoInput.trim(),
+      });
+      setAppliedPromoCode(result.pricing?.promoCode ?? promoInput.trim());
+      setPaymentSetup(result);
+    } catch (err) {
+      setPromoError(getErrorMessage(err));
+    } finally {
+      setIsApplyingPromo(false);
+    }
+  }
+
+  async function handleRemovePromo() {
+    if (!planSlug || !appliedPromoCode) return;
+
+    setPromoError(null);
+    setIsRemovingPromo(true);
+
+    try {
+      const result = await createCheckoutPayment({
+        planSlug,
+        billingCycle,
+        removePromo: true,
+      });
+      setAppliedPromoCode(undefined);
+      setPromoInput("");
+      setPaymentSetup(result);
+    } catch (err) {
+      setPromoError(getErrorMessage(err));
+    } finally {
+      setIsRemovingPromo(false);
+    }
+  }
+
   async function handleProceed() {
     if (!planSlug) return;
 
@@ -321,6 +543,7 @@ export function CheckoutPage() {
         planSlug,
         billingCycle,
         startPayment: true,
+        promoCode: appliedPromoCode,
       });
 
       if (result.immediate) {
@@ -441,9 +664,36 @@ export function CheckoutPage() {
 
   const { plan } = data;
   const billingPrice = getPlanBillingDisplay(plan);
-  const dueToday = data.proratedUpgrade
-    ? data.amountDue ?? 0
-    : billingPrice.display;
+  const intervalLabel = formatBillingInterval(plan.billingCycle).replace("/", "");
+  const pricing =
+    data.pricing ??
+    ({
+      subtotal: data.proratedUpgrade ? (data.amountDue ?? billingPrice.display) : billingPrice.display,
+      discount: 0,
+      total: data.proratedUpgrade
+        ? data.amountDue ?? 0
+        : billingPrice.display,
+    } satisfies CheckoutPricing);
+  const dueToday = pricing.total;
+  const isPromoApplied = Boolean(appliedPromoCode && pricing.discount > 0);
+
+  const promoField = (
+    <CheckoutPromoField
+      value={promoInput}
+      appliedCode={appliedPromoCode}
+      savings={pricing.discount}
+      isApplied={isPromoApplied}
+      error={promoError}
+      isApplying={isApplyingPromo}
+      isRemoving={isRemovingPromo}
+      onChange={(value) => {
+        setPromoInput(value);
+        if (promoError) setPromoError(null);
+      }}
+      onApply={() => void handleApplyPromo()}
+      onRemove={() => void handleRemovePromo()}
+    />
+  );
 
   return (
     <div className="checkout-page">
@@ -467,14 +717,10 @@ export function CheckoutPage() {
               </span>
             </span>
           </div>
-          {/* {data.proratedUpgrade && (
-            <div className="checkout-pricing">
-              <div className="checkout-pricing-row checkout-pricing-total">
-                <span>Total due today</span>
-                <span>{formatPrice(dueToday)}</span>
-              </div>
-            </div>
-          )} */}
+          <CheckoutPricingSummary
+            pricing={pricing}
+            intervalLabel={data.proratedUpgrade ? undefined : intervalLabel}
+          />
           <p className="checkout-features-label">Features</p>
           <ul className="checkout-features">
             {plan.featureRows.map((feature) => (
@@ -503,6 +749,7 @@ export function CheckoutPage() {
                 paymentMethod={data.paymentMethod}
                 dueToday={dueToday}
               />
+              {promoField}
               {startPaymentError && (
                 <p className="checkout-error" role="alert">
                   {startPaymentError}
@@ -530,12 +777,18 @@ export function CheckoutPage() {
           ) : (
             stripePromise &&
             elementsOptions && (
-              <Elements stripe={stripePromise} options={elementsOptions}>
+              <Elements
+                key={data.clientSecret ?? "checkout"}
+                stripe={stripePromise}
+                options={elementsOptions}
+              >
                 <CheckoutPaymentForm
                   email={user.email}
                   name={user.name}
                   planSlug={planSlug}
                   billingCycle={billingCycle}
+                  dueToday={dueToday}
+                  promoSlot={promoField}
                 />
               </Elements>
             )

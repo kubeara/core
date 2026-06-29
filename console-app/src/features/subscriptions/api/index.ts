@@ -62,6 +62,14 @@ function normalizeSubscription(subscription: RawSubscription): Subscription {
       : Number.isFinite(legacyBilling)
         ? legacyBilling / 100
         : resolvePlanPrice(subscription.plan ?? ({} as RawPlan)),
+    billingListAmount:
+      subscription.billingListAmount == null
+        ? Number.isFinite(billing)
+          ? billing
+          : resolvePlanPrice(subscription.plan ?? ({} as RawPlan))
+        : Number(subscription.billingListAmount) || 0,
+    billingDiscountAmount: Number(subscription.billingDiscountAmount) || 0,
+    promoCode: subscription.promoCode ?? null,
     billingCycle: subscription.billingCycle ?? "monthly",
   };
 }
