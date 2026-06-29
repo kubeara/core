@@ -6,8 +6,10 @@ import type {
   DeployTemplateInput,
   DeployTemplateResult,
   DeploymentDetail,
+  DeploymentResourceWarning,
   ServerContainer,
   ServerDeploymentSummary,
+  ValidateDeploymentResourcesResult,
 } from "../types";
 
 function responseBody(response: { data: unknown }): Record<string, unknown> {
@@ -22,6 +24,7 @@ export async function deployTemplate(
     serverId: input.serverId,
     env: input.env ?? {},
     ports: input.ports ?? {},
+    skipResourceValidation: input.skipResourceValidation,
   });
   return unwrapServerApiData<DeployTemplateResult>(
     responseBody(response),
@@ -31,13 +34,23 @@ export async function deployTemplate(
 
 export async function validateDeploymentResources(
   input: DeployTemplateInput,
-): Promise<void> {
-  await apiClient.post("/deployments/resources/check", {
+): Promise<ValidateDeploymentResourcesResult> {
+  const response = await apiClient.post("/deployments/resources/check", {
     templateSlug: input.templateSlug,
     serverId: input.serverId,
     env: input.env ?? {},
     ports: input.ports ?? {},
   });
+  const data = unwrapServerApiData<
+    | { available: true }
+    | { available: false; warning: DeploymentResourceWarning }
+  >(responseBody(response), "Failed to validate deployment resources");
+
+  if (!data.available && data.warning) {
+    return { ok: false, warning: data.warning };
+  }
+
+  return { ok: true };
 }
 
 export async function executeContainerAction(
