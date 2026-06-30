@@ -8,6 +8,7 @@ import { EncryptionModule } from "@shared/common";
 import path from "path";
 
 import { ServerConnectionsModule } from "./modules/server-connections/server-connections.module";
+import { AgentHealthModule } from "./modules/server-connections/agent-health/agent-health.module";
 import { SshModule } from "@shared/ssh";
 import { DeploymentsModule } from "./modules/deployments/deployments.module";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -60,6 +61,7 @@ import { isProductionEnv } from "@control-panel/constants/env.constant";
     ServiceTemplateModule,
     DeploymentsModule,
     ServerConnectionsModule,
+    AgentHealthModule,
     SshModule,
     EncryptionModule,
     WebsocketModule,

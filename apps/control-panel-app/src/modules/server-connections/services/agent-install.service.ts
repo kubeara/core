@@ -23,6 +23,10 @@ import {
   readAgentComposeFile,
   readAgentPrereqScript,
 } from "../utils/agent-deploy-bundle.util";
+import {
+  resolveAgentInstallImage,
+  shouldSkipAgentImagePull,
+} from "../utils/resolve-agent-install-image.util";
 
 export interface RemoteAgentInstallInput {
   connection: SshConnectionOptions;
@@ -68,6 +72,12 @@ export class AgentInstallService {
     return path.join(os.homedir(), ".kubeara", "agent");
   }
 
+  /**
+   * Installs the agent on a local server.
+   * @param input - The input for the installation.
+   * @param options - The options for the installation.
+   * @returns A promise that resolves to the installation result.
+   */
   async installOnLocal(
     input: {
       serverId: string;
@@ -83,6 +93,12 @@ export class AgentInstallService {
     });
   }
 
+  /**
+   * Installs the agent on a remote server.
+   * @param input - The input for the installation.
+   * @param options - The options for the installation.
+   * @returns A promise that resolves to the installation result.
+   */
   async installOnRemote(
     input: RemoteAgentInstallInput,
     options?: AgentInstallOptions,
@@ -262,8 +278,7 @@ export class AgentInstallService {
       }
       this.pushLog(logs, `Wrote ${envPath}`, onLogLine);
 
-      const skipPull =
-        this.configService.get<string>("KUBEARA_AGENT_SKIP_PULL") === "true";
+      const skipPull = shouldSkipAgentImagePull(this.configService);
 
       if (skipPull) {
         this.pushLog(
@@ -370,10 +385,7 @@ export class AgentInstallService {
       };
     }
 
-    const agentImage =
-      this.configService.get<string>(
-        AGENT_INSTALL_ENV_KEYS.KUBEARA_AGENT_IMAGE,
-      ) ?? AGENT_INSTALL.DEFAULT_IMAGE;
+    const agentImage = resolveAgentInstallImage(this.configService);
 
     const content = [
       `KUBEARA_AGENT_IMAGE=${agentImage}`,

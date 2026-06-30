@@ -203,6 +203,45 @@ export class ServerConnectionsService {
     }
   }
 
+  /**
+   * Returns true when an explicit server lifecycle operation owns the server
+   * and the health cron should not start a competing background agent install.
+   *
+   * An open SSH session alone is not treated as busy — agent install reuses SSH
+   * and container discovery may leave connections open without blocking recovery.
+   */
+  async isServerBusyForHealthCronInstall(serverId: string): Promise<{
+    busy: boolean;
+    reason?: string;
+  }> {
+    const server = await this.serverRepository.findOne({
+      where: {
+        id: serverId,
+        status: EntityStatus.ACTIVE,
+        deletedAt: IsNull(),
+      },
+      select: { id: true, metadata: true },
+    });
+
+    if (!server) {
+      return { busy: true, reason: "server not found or inactive" };
+    }
+
+    const { operationStatus } = readServerOperationFromMetadata(
+      server.metadata,
+    );
+
+    if (operationStatus === SERVER_OPERATION_STATUS.REMOVING) {
+      return { busy: true, reason: "server removal in progress" };
+    }
+
+    if (operationStatus === SERVER_OPERATION_STATUS.STARTING) {
+      return { busy: true, reason: "server onboard agent install in progress" };
+    }
+
+    return { busy: false };
+  }
+
   private shouldInstallAgent(installAgent: boolean | undefined): boolean {
     return installAgent !== false;
   }
