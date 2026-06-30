@@ -503,10 +503,7 @@ export class SubscriptionService {
       : undefined;
     const defaultPricing = this.buildPlanPricing(plan, promoMeta);
 
-    const isPaidUpgrade = isPaidPlanUpgrade(
-      subscription.plan.slug,
-      plan.slug,
-    );
+    const isPaidUpgrade = isPaidPlanUpgrade(subscription.plan.slug, plan.slug);
 
     if (isPaidUpgrade && this.stripeService.isConfigured()) {
       const stripeSubscriptionId =
@@ -1154,10 +1151,7 @@ export class SubscriptionService {
       }
     }
 
-    const isPaidUpgrade = isPaidPlanUpgrade(
-      subscription.plan.slug,
-      plan.slug,
-    );
+    const isPaidUpgrade = isPaidPlanUpgrade(subscription.plan.slug, plan.slug);
 
     if (isPaidUpgrade && this.stripeService.isConfigured() && !startPayment) {
       const stripeSubscriptionId =

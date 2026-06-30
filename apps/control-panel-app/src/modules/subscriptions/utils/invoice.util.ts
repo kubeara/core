@@ -108,8 +108,7 @@ export function buildInvoiceRecords(input: {
   customerEmail: string;
   organizationName: string;
 }): InvoiceRecord[] {
-  const { subscription, customerName, customerEmail, organizationName } =
-    input;
+  const { subscription, customerName, customerEmail, organizationName } = input;
   const plan = subscription.plan;
   const subtotal =
     Number(subscription.billingListAmount ?? subscription.billingAmount) || 0;
