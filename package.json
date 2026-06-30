@@ -91,7 +91,7 @@
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "ssh2": "^1.17.0",
-    "stripe": "^22.2.2",
+    "stripe": "^22.3.0",
     "typeorm": "^1.0.0",
     "zod": "^4.4.3"
   },
