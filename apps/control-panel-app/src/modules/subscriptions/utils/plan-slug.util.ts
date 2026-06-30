@@ -61,3 +61,45 @@ export function comparePlanTiers(left: string, right: string): number {
     order.indexOf(getPlanTierSlug(left)) - order.indexOf(getPlanTierSlug(right))
   );
 }
+
+const BILLING_CYCLE_ORDER: BillingCycleSlug[] = [
+  BillingCycleSlug.MONTHLY,
+  BillingCycleSlug.QUARTERLY,
+  BillingCycleSlug.YEARLY,
+];
+
+export function compareBillingCycles(left: string, right: string): number {
+  return (
+    BILLING_CYCLE_ORDER.indexOf(getPlanBillingCycleFromSlug(left)) -
+    BILLING_CYCLE_ORDER.indexOf(getPlanBillingCycleFromSlug(right))
+  );
+}
+
+export function isPaidPlanUpgrade(
+  currentSlug: string,
+  targetSlug: string,
+): boolean {
+  if (getPlanTierSlug(currentSlug) === "free") {
+    return false;
+  }
+  if (comparePlanTiers(targetSlug, currentSlug) > 0) {
+    return true;
+  }
+  return (
+    getPlanTierSlug(targetSlug) === getPlanTierSlug(currentSlug) &&
+    compareBillingCycles(targetSlug, currentSlug) > 0
+  );
+}
+
+export function isScheduledPlanDowngrade(
+  currentSlug: string,
+  targetSlug: string,
+): boolean {
+  if (comparePlanTiers(targetSlug, currentSlug) < 0) {
+    return true;
+  }
+  return (
+    getPlanTierSlug(targetSlug) === getPlanTierSlug(currentSlug) &&
+    compareBillingCycles(targetSlug, currentSlug) < 0
+  );
+}

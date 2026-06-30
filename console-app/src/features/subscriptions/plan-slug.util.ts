@@ -1,4 +1,4 @@
-import type { PlanTierSlug } from "./types";
+import type { BillingCycleSlug, PlanTierSlug } from "./types";
 
 export function getPlanTierSlug(slug: string): PlanTierSlug {
   if (slug === "free" || slug === "enterprise") {
@@ -24,3 +24,22 @@ export const PLAN_TIER_ORDER: PlanTierSlug[] = [
   "max",
   "enterprise",
 ];
+
+export const BILLING_CYCLE_ORDER: BillingCycleSlug[] = [
+  "monthly",
+  "quarterly",
+  "yearly",
+];
+
+export function getPlanBillingCycleFromSlug(slug: string): BillingCycleSlug {
+  if (slug.endsWith("-quarterly")) return "quarterly";
+  if (slug.endsWith("-yearly")) return "yearly";
+  return "monthly";
+}
+
+export function compareBillingCycles(left: string, right: string): number {
+  return (
+    BILLING_CYCLE_ORDER.indexOf(getPlanBillingCycleFromSlug(left)) -
+    BILLING_CYCLE_ORDER.indexOf(getPlanBillingCycleFromSlug(right))
+  );
+}

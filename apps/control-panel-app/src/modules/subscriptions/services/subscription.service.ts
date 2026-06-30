@@ -36,8 +36,9 @@ import {
   resolvePlanStripePriceId,
 } from "../utils/billing.util";
 import {
-  comparePlanTiers,
   getPlanTierSlug,
+  isPaidPlanUpgrade,
+  isScheduledPlanDowngrade,
   resolveCheckoutPlanSlug,
 } from "../utils/plan-slug.util";
 import { buildInvoiceRecords, InvoiceRecord } from "../utils/invoice.util";
@@ -502,10 +503,10 @@ export class SubscriptionService {
       : undefined;
     const defaultPricing = this.buildPlanPricing(plan, promoMeta);
 
-    const isPaidUpgrade =
-      getPlanTierSlug(subscription.plan.slug) !==
-        getPlanTierSlug(PlanSlug.FREE) &&
-      comparePlanTiers(plan.slug, subscription.plan.slug) > 0;
+    const isPaidUpgrade = isPaidPlanUpgrade(
+      subscription.plan.slug,
+      plan.slug,
+    );
 
     if (isPaidUpgrade && this.stripeService.isConfigured()) {
       const stripeSubscriptionId =
@@ -845,7 +846,7 @@ export class SubscriptionService {
       };
     }
 
-    if (comparePlanTiers(targetPlan.slug, subscription.plan.slug) < 0) {
+    if (isScheduledPlanDowngrade(subscription.plan.slug, targetPlan.slug)) {
       if (this.stripeService.isConfigured()) {
         const stripeSubscriptionId =
           await this.resolveStripeSubscriptionId(subscription);
@@ -1153,10 +1154,10 @@ export class SubscriptionService {
       }
     }
 
-    const isPaidUpgrade =
-      getPlanTierSlug(subscription.plan.slug) !==
-        getPlanTierSlug(PlanSlug.FREE) &&
-      comparePlanTiers(plan.slug, subscription.plan.slug) > 0;
+    const isPaidUpgrade = isPaidPlanUpgrade(
+      subscription.plan.slug,
+      plan.slug,
+    );
 
     if (isPaidUpgrade && this.stripeService.isConfigured() && !startPayment) {
       const stripeSubscriptionId =

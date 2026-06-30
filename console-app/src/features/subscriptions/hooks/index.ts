@@ -11,7 +11,11 @@ import {
   fetchPlans,
 } from "../api";
 import type { BillingCycleSlug, ChangePlanRequest, PlanSlug, Subscription } from "../types";
-import { getPlanTierSlug, PLAN_TIER_ORDER } from "../plan-slug.util";
+import {
+  compareBillingCycles,
+  getPlanTierSlug,
+  PLAN_TIER_ORDER,
+} from "../plan-slug.util";
 
 function withSubscriptionError<TData, TVariables>(
   mutationFn: (variables: TVariables) => Promise<TData>,
@@ -137,7 +141,12 @@ export function getPlanAction(
   const targetTier = getPlanTierSlug(targetSlug);
   const currentIdx = PLAN_TIER_ORDER.indexOf(currentTier);
   const targetIdx = PLAN_TIER_ORDER.indexOf(targetTier);
-  return targetIdx > currentIdx ? "upgrade" : "downgrade";
+  if (currentIdx !== targetIdx) {
+    return targetIdx > currentIdx ? "upgrade" : "downgrade";
+  }
+  const cycleCompare = compareBillingCycles(currentSlug ?? "free", targetSlug);
+  if (cycleCompare === 0) return "current";
+  return cycleCompare < 0 ? "upgrade" : "downgrade";
 }
 
 export function formatBillingInterval(cycle: BillingCycleSlug): string {
