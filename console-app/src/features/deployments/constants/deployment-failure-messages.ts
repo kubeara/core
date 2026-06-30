@@ -1,3 +1,20 @@
+export const DEPLOYMENT_SERVER_VALIDATION_UNAVAILABLE_MESSAGE =
+  "Unable to validate server resources. The server may be offline or unreachable. Please try again.";
+
+function isServerConnectivityValidationError(text: string): boolean {
+  const normalized = text.toLowerCase();
+
+  return (
+    normalized.includes("no connected agent") ||
+    normalized.includes("agent disconnected") ||
+    normalized.includes("agent for server") ||
+    normalized.includes("agent is installed") ||
+    normalized.includes("agent is not connected") ||
+    normalized.includes("cannot validate deployment resources") ||
+    normalized.includes("deployment validation timed out")
+  );
+}
+
 function formatDeploymentPortInUseMessage(port?: number | null): string {
   if (
     typeof port === "number" &&
@@ -60,6 +77,10 @@ export function mapDeploymentFailureMessage(
   const combined = [error, statusMessage, logText]
     .filter((value): value is string => Boolean(value?.trim()))
     .join("\n");
+
+  if (isServerConnectivityValidationError(combined)) {
+    return DEPLOYMENT_SERVER_VALIDATION_UNAVAILABLE_MESSAGE;
+  }
 
   if (isDeploymentPortConflict(combined)) {
     return formatDeploymentPortInUseMessage(

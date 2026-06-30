@@ -49,7 +49,10 @@ import {
   ResolveDeploymentServerInput,
   ResolvedDeploymentTarget,
 } from "./dto/deployment.types";
-import { DEPLOYMENT_MESSAGES } from "./constants/deployment-messages.constants";
+import {
+  DEPLOYMENT_MESSAGES,
+  isServerConnectivityValidationError,
+} from "./constants/deployment-messages.constants";
 import { normalizeServerHostForUrls } from "./utils/deployment-server.util";
 import type { ContainerActionResponseDto } from "./dto/container-action-response.dto";
 import type { ContainerLogsStartResponseDto } from "./dto/container-logs.dto";
@@ -539,7 +542,7 @@ export class DeploymentsService {
 
       if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
         throw new ConflictException(
-          `Agent is installed on server '${serverId}' but is not connected. Cannot validate deployment resources.`,
+          DEPLOYMENT_MESSAGES.SERVER_RESOURCE_VALIDATION_UNAVAILABLE,
         );
       }
     }
@@ -572,19 +575,30 @@ export class DeploymentsService {
       JSON.stringify(prepared.mergedPorts),
     );
 
-    const result = await this.deploymentGateway.requestDeploymentValidate(
-      serverId,
-      {
-        requestId: randomUUID(),
-        templateSlug: prepared.templateSlug,
-        compose: encryptedCompose,
-        env: encryptedEnv,
-        ports: encryptedPorts,
-        schema: prepared.schema,
-        composeOnly: prepared.composeOnly,
-        useTraefik: prepared.useTraefik,
-      },
-    );
+    let result;
+    try {
+      result = await this.deploymentGateway.requestDeploymentValidate(
+        serverId,
+        {
+          requestId: randomUUID(),
+          templateSlug: prepared.templateSlug,
+          compose: encryptedCompose,
+          env: encryptedEnv,
+          ports: encryptedPorts,
+          schema: prepared.schema,
+          composeOnly: prepared.composeOnly,
+          useTraefik: prepared.useTraefik,
+        },
+      );
+    } catch (error) {
+      const message = toErrorMessage(error);
+      if (isServerConnectivityValidationError(message)) {
+        throw new ConflictException(
+          DEPLOYMENT_MESSAGES.SERVER_RESOURCE_VALIDATION_UNAVAILABLE,
+        );
+      }
+      throw error;
+    }
 
     if (!result.available) {
       if (result.warning) {
