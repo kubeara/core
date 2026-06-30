@@ -8,6 +8,9 @@ import {
   OTP_RESEND_COOLDOWN_SECONDS,
   OTP_RESEND_MAX_ATTEMPTS,
   OTP_RESEND_WINDOW_MS,
+  AUTH_ERROR_MESSAGES,
+  AUTH_UI_MESSAGES,
+  getOtpResendLimitNote,
 } from "@/features/auth/constants";
 import {
   clearOtpResendLimitState,
@@ -40,7 +43,7 @@ export function VerifyEmailPage() {
 
   const [otp, setOtp] = useState("");
   const [error, setError] = useState<string | null>(
-    email ? null : "Missing email parameter.",
+    email ? null : AUTH_ERROR_MESSAGES.MISSING_EMAIL_PARAMETER,
   );
   const [cooldown, setCooldown] = useState(OTP_RESEND_COOLDOWN_SECONDS);
   const [resendLimitState, setResendLimitState] = useState(() =>
@@ -54,12 +57,16 @@ export function VerifyEmailPage() {
 
   const isPending = verifyMutation.isPending || resendMutation.isPending;
 
+  /** Opens a resend-limit window when the user lands on this page with an email. */
   useEffect(() => {
     if (email) {
       setResendLimitState(startOtpWindow(email, OTP_RESEND_FLOW));
     }
   }, [email]);
 
+  /**
+   * Clears expired resend-limit state when the rolling window elapses.
+   */
   useEffect(() => {
     if (!email || resendLimitState.startedAt <= 0) {
       return;
@@ -82,6 +89,9 @@ export function VerifyEmailPage() {
     return () => window.clearTimeout(timer);
   }, [email, resendLimitState.startedAt]);
 
+  /**
+   * Counts down remaining retry time while the resend limit is active.
+   */
   useEffect(() => {
     if (!isResendLimitReached || resendLimitState.startedAt <= 0) {
       setRetryAfterSeconds(0);
@@ -99,6 +109,7 @@ export function VerifyEmailPage() {
     return () => window.clearInterval(interval);
   }, [isResendLimitReached, resendLimitState.startedAt]);
 
+  /** Ticks down the per-resend cooldown timer. */
   useEffect(() => {
     if (cooldown <= 0) {
       return;
@@ -114,7 +125,7 @@ export function VerifyEmailPage() {
   async function handleVerify(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!email || otp.length !== 6) {
-      setError("Enter the 6-digit verification code.");
+      setError(AUTH_ERROR_MESSAGES.OTP_REQUIRED);
       return;
     }
 
@@ -173,7 +184,7 @@ export function VerifyEmailPage() {
         email ? (
           <>
             <p className="verify-email-address">{email}</p>
-            <p>Enter the 6-digit code sent to your email address.</p>
+            <p>{AUTH_UI_MESSAGES.OTP_INSTRUCTION}</p>
           </>
         ) : undefined
       }
@@ -213,15 +224,14 @@ export function VerifyEmailPage() {
             {resendMutation.isPending
               ? "Please wait…"
               : isResendLimitReached
-                ? "Resend limit reached"
+                ? AUTH_UI_MESSAGES.RESEND_LIMIT_REACHED
                 : cooldown > 0
                   ? `Resend code in ${cooldown}s`
-                  : "Resend code"}
+                  : AUTH_UI_MESSAGES.RESEND_CODE}
           </button>
           {isResendLimitReached && retryAfterSeconds > 0 && (
             <p className="auth-form-note">
-              You have reached the resend limit. Try again after{" "}
-              {retryAfterMinutes} minute{retryAfterMinutes === 1 ? "" : "s"}.
+              {getOtpResendLimitNote(retryAfterMinutes)}
             </p>
           )}
         </form>

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { getErrorMessage, GENERIC_ERROR_MESSAGE } from "@/api/api-error";
+import { API_ERROR_MESSAGES } from "@/constants/error-messages";
+import { getErrorMessage } from "@/api/api-error";
 import { FilterClearButton } from "@/components/shared/filter-clear-button";
 import { McpKeysTableSkeleton } from "@/components/shared/skeleton";
 import "@/components/servers-table.css";
@@ -189,7 +190,7 @@ export function McpKeysSection() {
     <div className="servers-table-wrap">
       {listErrorMessage ? (
         <div className="servers-feedback-message" role="alert">
-          <span>{listErrorMessage || GENERIC_ERROR_MESSAGE}</span>
+          <span>{listErrorMessage || API_ERROR_MESSAGES.GENERIC}</span>
           <button
             type="button"
             className="servers-feedback-retry"

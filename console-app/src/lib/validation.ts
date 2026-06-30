@@ -1,5 +1,7 @@
 export const INVALID_EMAIL_MESSAGE = "Invalid email address";
 
+export const PASSWORDS_DO_NOT_MATCH_MESSAGE = "Passwords do not match.";
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function isValidEmail(value: string): boolean {

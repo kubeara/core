@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 
 const OTP_LENGTH = 6;
+const OTP_AUTOCOMPLETE = "one-time-code";
+const OTP_AUTOCOMPLETE_OFF = "off";
 
 type OtpInputProps = {
   value: string;
@@ -9,6 +11,9 @@ type OtpInputProps = {
   autoFocus?: boolean;
 };
 
+/**
+ * Six-digit OTP input with auto-advance, backspace navigation, and paste support.
+ */
 export function OtpInput({
   value,
   onChange,
@@ -68,7 +73,7 @@ export function OtpInput({
           }}
           type="text"
           inputMode="numeric"
-          autoComplete={index === 0 ? "one-time-code" : "off"}
+          autoComplete={index === 0 ? OTP_AUTOCOMPLETE : OTP_AUTOCOMPLETE_OFF}
           maxLength={1}
           value={value[index] ?? ""}
           onChange={(e) => handleChange(index, e.target.value)}

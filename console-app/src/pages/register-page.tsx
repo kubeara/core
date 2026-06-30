@@ -7,6 +7,7 @@ import { PasswordField } from "@/components/shared/password-field";
 import { useSignupMutation } from "@/features/auth/hooks";
 import { getErrorMessage } from "@/api/api-error";
 import {
+    PASSWORDS_DO_NOT_MATCH_MESSAGE,
     validateEmail,
     validatePassword,
     validateRequired,
@@ -54,7 +55,7 @@ export function RegisterPage() {
         if (confirmPasswordError) {
             nextFieldErrors.confirmPassword = confirmPasswordError;
         } else if (password !== confirmPassword) {
-            nextFieldErrors.confirmPassword = "Passwords do not match.";
+            nextFieldErrors.confirmPassword = PASSWORDS_DO_NOT_MATCH_MESSAGE;
         }
 
         if (Object.keys(nextFieldErrors).length > 0) {

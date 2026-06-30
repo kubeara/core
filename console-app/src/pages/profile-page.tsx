@@ -11,7 +11,7 @@ import { PasswordField } from "@/components/shared/password-field";
 import { PasswordInput } from "@/components/shared/password-input";
 import { FormFieldLabel } from "@/components/shared/form-field-label";
 import { getErrorMessage } from "@/api/api-error";
-import { validatePassword, validateRequired } from "@/lib/validation";
+import { PASSWORDS_DO_NOT_MATCH_MESSAGE, validatePassword, validateRequired } from "@/lib/validation";
 import "@/components/profile-page.css";
 
 function GeneralDetailsCard() {
@@ -202,7 +202,7 @@ function ChangePasswordCard() {
     if (confirmPasswordError) {
       nextFieldErrors.confirmPassword = confirmPasswordError;
     } else if (newPassword !== confirmPassword) {
-      nextFieldErrors.confirmPassword = "Passwords do not match.";
+      nextFieldErrors.confirmPassword = PASSWORDS_DO_NOT_MATCH_MESSAGE;
     }
 
     if (Object.keys(nextFieldErrors).length > 0) {

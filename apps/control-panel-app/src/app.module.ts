@@ -44,7 +44,7 @@ import { isProductionEnv } from "@control-panel/constants/env.constant";
             database: configService.get<string>("DB_DATABASE"),
             synchronize: false,
             migrationsRun: false,
-            entities: [__dirname + "/modules/**/entities/*{.ts,.js}"],
+            entities: [__dirname + "/modules/**/entities/*.entity{.ts,.js}"],
             migrations: [path.join(__dirname, "../../migrations/*{.js,.ts}")],
             ...(isProduction ? { ssl: { rejectUnauthorized: false } } : {}),
           };

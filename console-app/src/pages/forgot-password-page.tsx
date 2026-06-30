@@ -35,6 +35,7 @@ export function ForgotPasswordPage() {
     }
     setFieldErrors({});
 
+    // Skip API call when client-side resend limit is already reached.
     if (isOtpResendLimitReached(email, "forgot-password")) {
       navigate(`/forgot-password/verify?email=${encodeURIComponent(email)}`, {
         replace: true,

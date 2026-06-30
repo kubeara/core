@@ -41,6 +41,12 @@ export function loadOtpResendLimitState(
     return EMPTY_STATE;
   }
 
+    /**
+   * Example: localStorage entry for email-verification flow for resent limit
+   *   key   → otp-resend-limit:email-verification:user@example.com
+   *   value → {"count":2,"startedAt":1719150000000}
+   */
+
   const storageKey = getResendLimitStorageKey(email, flow);
 
   try {
@@ -59,12 +65,20 @@ export function loadOtpResendLimitState(
       count < 0 ||
       startedAt <= 0
     ) {
-      window.localStorage.removeItem(storageKey);
+      try {
+        window.localStorage.removeItem(storageKey);
+      } catch {
+        // localStorage may be unavailable; ignore cleanup failure.
+      }
       return EMPTY_STATE;
     }
 
     if (Date.now() - startedAt >= OTP_RESEND_WINDOW_MS) {
-      window.localStorage.removeItem(storageKey);
+      try {
+        window.localStorage.removeItem(storageKey);
+      } catch {
+        // localStorage may be unavailable; ignore cleanup failure.
+      }
       return EMPTY_STATE;
     }
 

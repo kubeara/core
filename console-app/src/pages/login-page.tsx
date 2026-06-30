@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AuthCard } from "@/features/auth/components/auth-card";
 import { AuthForm } from "@/features/auth/components/auth-form";
 import { useLoginMutation } from "@/features/auth/hooks";
+import { AUTH_ERROR_MESSAGES } from "@/features/auth/constants";
 import { getErrorMessage, toApiError } from "@/api/api-error";
 import { validateEmail, validateRequired } from "@/lib/validation";
 
@@ -53,7 +54,11 @@ export function LoginPage() {
             navigate(from, { replace: true });
         } catch (err) {
             const apiError = toApiError(err);
-            if (apiError.message.toLowerCase().includes("email not verified")) {
+            if (
+                apiError.message
+                    .toLowerCase()
+                    .includes(AUTH_ERROR_MESSAGES.EMAIL_NOT_VERIFIED.toLowerCase())
+            ) {
                 navigate(
                     `/verify-email?email=${encodeURIComponent(email.trim())}`,
                     { replace: true },

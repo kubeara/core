@@ -4,8 +4,9 @@ import { AuthCard } from "@/features/auth/components/auth-card";
 import { PasswordField } from "@/components/shared/password-field";
 import { FormErrorsSummary } from "@/components/shared/form-errors-summary";
 import { useResetPasswordMutation } from "@/features/auth/hooks";
+import { AUTH_ERROR_MESSAGES } from "@/features/auth/constants";
 import { getErrorMessage } from "@/api/api-error";
-import { validatePassword } from "@/lib/validation";
+import { PASSWORDS_DO_NOT_MATCH_MESSAGE, validatePassword } from "@/lib/validation";
 import { showSuccessToast } from "@/lib/toast";
 
 export function ResetPasswordPage() {
@@ -15,7 +16,7 @@ export function ResetPasswordPage() {
     const resetMutation = useResetPasswordMutation();
 
     const [error, setError] = useState<string | null>(
-        email ? null : "Missing email parameter.",
+        email ? null : AUTH_ERROR_MESSAGES.MISSING_EMAIL_PARAMETER,
     );
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -32,7 +33,7 @@ export function ResetPasswordPage() {
         if (passwordError) nextFieldErrors.password = passwordError;
 
         if (password !== confirmPassword) {
-            nextFieldErrors.confirmPassword = "Passwords do not match.";
+            nextFieldErrors.confirmPassword = PASSWORDS_DO_NOT_MATCH_MESSAGE;
         }
 
         if (Object.keys(nextFieldErrors).length > 0) {
