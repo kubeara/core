@@ -9,7 +9,7 @@ module.exports = {
       2,
       'always',
       [
-        'feature',
+        'feat',
         'fix',
         'docs',
         'refactor',
@@ -17,6 +17,7 @@ module.exports = {
         'test',
         'build',
         'ci',
+        'style',
         'chore',
         'revert',
       ],
