@@ -1,7 +1,7 @@
 {
-  "name": "template-service",
+  "name": "kubeara",
   "version": "0.0.1",
-  "description": "NestJS monorepo for template service with control panel and deployment agents",
+  "description": "Open-source platform to deploy and manage services on your own servers",
   "author": "",
   "private": true,
   "license": "UNLICENSED",
