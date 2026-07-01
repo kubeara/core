@@ -3,6 +3,7 @@ import * as Sentry from "@sentry/react";
 import { AppLayout } from "../layouts/app-layout";
 import { AuthLayout } from "../layouts/auth-layout";
 import { GuestRoute, HomeRedirect, ProtectedRoute } from "@/features/auth/routes/auth-routes";
+import { McpOAuthAuthorizeRoute } from "@/features/mcp-oauth/routes/mcp-oauth-authorize-route";
 import { DeployConfigurePage } from "@/pages/deploy-configure-page";
 import { DeployLogsPage } from "@/pages/deploy-logs-page";
 import { ContainerLogsPage } from "@/pages/container-logs-page";
@@ -14,6 +15,7 @@ import { RegisterPage } from "@/pages/register-page";
 import { ResetPasswordPage } from "@/pages/reset-password-page";
 import { ServerDetailPage } from "@/pages/server-detail-page";
 import { McpServersPage } from "@/pages/mcp-servers-page";
+import { OAuthAuthorizePage } from "@/pages/oauth-authorize-page";
 import { ServersPage } from "@/pages/servers-page";
 import { TemplatesPage } from "@/pages/templates-page";
 
@@ -27,6 +29,12 @@ export function AppRoutes() {
     <SentryRoutes>
       <Route path="/" element={<HomeRedirect />} />
       <Route path="/dashboard" element={<Navigate to="/servers" replace />} />
+
+      <Route element={<McpOAuthAuthorizeRoute />}>
+        <Route element={<AuthLayout />}>
+          <Route path="/oauth/authorize" element={<OAuthAuthorizePage />} />
+        </Route>
+      </Route>
 
       <Route element={<GuestRoute />}>
         <Route element={<AuthLayout />}>
