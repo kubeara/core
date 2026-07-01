@@ -199,7 +199,11 @@ export class ServerConnectionsService {
       this.logger.error(
         `Ensure agent installed failed for server '${serverId}': ${toErrorMessage(error)}`,
       );
-      throw error;
+      return {
+        success: false,
+        logs: [],
+        error: toErrorMessage(error),
+      };
     }
   }
 
@@ -214,32 +218,39 @@ export class ServerConnectionsService {
     busy: boolean;
     reason?: string;
   }> {
-    const server = await this.serverRepository.findOne({
-      where: {
-        id: serverId,
-        status: EntityStatus.ACTIVE,
-        deletedAt: IsNull(),
-      },
-      select: { id: true, metadata: true },
-    });
+    try {
+      const server = await this.serverRepository.findOne({
+        where: {
+          id: serverId,
+          status: EntityStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
+        select: { id: true, metadata: true },
+      });
 
-    if (!server) {
-      return { busy: true, reason: "server not found or inactive" };
+      if (!server) {
+        return { busy: true, reason: "server not found or inactive" };
+      }
+
+      const { operationStatus } = readServerOperationFromMetadata(
+        server.metadata,
+      );
+
+      if (operationStatus === SERVER_OPERATION_STATUS.REMOVING) {
+        return { busy: true, reason: "server removal in progress" };
+      }
+
+      if (operationStatus === SERVER_OPERATION_STATUS.STARTING) {
+        return { busy: true, reason: "server onboard agent install in progress" };
+      }
+
+      return { busy: false };
+    } catch (error) {
+      this.logger.error(
+        `Health cron busy check failed for server '${serverId}': ${toErrorMessage(error)}`,
+      );
+      return { busy: true, reason: "server busy check failed" };
     }
-
-    const { operationStatus } = readServerOperationFromMetadata(
-      server.metadata,
-    );
-
-    if (operationStatus === SERVER_OPERATION_STATUS.REMOVING) {
-      return { busy: true, reason: "server removal in progress" };
-    }
-
-    if (operationStatus === SERVER_OPERATION_STATUS.STARTING) {
-      return { busy: true, reason: "server onboard agent install in progress" };
-    }
-
-    return { busy: false };
   }
 
   private shouldInstallAgent(installAgent: boolean | undefined): boolean {
@@ -512,68 +523,74 @@ export class ServerConnectionsService {
    * Ensures the connected agent removes itself from the remote host (last step of server deletion).
    */
   private async removeAgentFromRemoteServer(serverId: string): Promise<void> {
-    const agentImage =
-      this.configService.get<string>(
-        AGENT_INSTALL_ENV_KEYS.KUBEARA_AGENT_IMAGE,
-      ) ?? AGENT_INSTALL.DEFAULT_IMAGE;
-
-    let imageRefs: string[] = [];
-
     try {
-      if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
-        await this.deploymentsService.ensureAgentConnectedForServer(serverId);
-      }
-    } catch (error) {
-      this.logger.warn(
-        `Server delete: could not connect agent for removal on server '${serverId}': ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-      await this.removeLeftoverAgentResourcesOnHost(
-        serverId,
-        imageRefs,
-        agentImage,
-      );
-      return;
-    }
+      const agentImage =
+        this.configService.get<string>(
+          AGENT_INSTALL_ENV_KEYS.KUBEARA_AGENT_IMAGE,
+        ) ?? AGENT_INSTALL.DEFAULT_IMAGE;
 
-    if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
-      this.logger.warn(
-        `Server delete: skipping agent socket removal — no connected agent for server '${serverId}'`,
-      );
-      await this.removeLeftoverAgentResourcesOnHost(
-        serverId,
-        imageRefs,
-        agentImage,
-      );
-      return;
-    }
+      let imageRefs: string[] = [];
 
-    try {
-      const removal = await this.deploymentGateway.requestAgentRemove(
-        serverId,
-        {
-          installDir: AGENT_INSTALL.REMOTE_DIR,
+      try {
+        if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+          await this.deploymentsService.ensureAgentConnectedForServer(serverId);
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Server delete: could not connect agent for removal on server '${serverId}': ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+        await this.removeLeftoverAgentResourcesOnHost(
+          serverId,
+          imageRefs,
           agentImage,
-        },
-      );
-      imageRefs = removal.imageRefs;
-      this.logger.log(
-        `Server delete: agent teardown acknowledged for server '${serverId}'`,
+        );
+        return;
+      }
+
+      if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+        this.logger.warn(
+          `Server delete: skipping agent socket removal — no connected agent for server '${serverId}'`,
+        );
+        await this.removeLeftoverAgentResourcesOnHost(
+          serverId,
+          imageRefs,
+          agentImage,
+        );
+        return;
+      }
+
+      try {
+        const removal = await this.deploymentGateway.requestAgentRemove(
+          serverId,
+          {
+            installDir: AGENT_INSTALL.REMOTE_DIR,
+            agentImage,
+          },
+        );
+        imageRefs = removal.imageRefs;
+        this.logger.log(
+          `Server delete: agent teardown acknowledged for server '${serverId}'`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Server delete: agent socket removal failed for server '${serverId}': ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+
+      await this.removeLeftoverAgentResourcesOnHost(
+        serverId,
+        imageRefs,
+        agentImage,
       );
     } catch (error) {
-      this.logger.warn(
-        `Server delete: agent socket removal failed for server '${serverId}': ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+      this.logger.error(
+        `Server delete: agent removal failed for server '${serverId}': ${toErrorMessage(error)}`,
       );
     }
-
-    await this.removeLeftoverAgentResourcesOnHost(
-      serverId,
-      imageRefs,
-      agentImage,
-    );
   }
 
   /**
@@ -585,24 +602,24 @@ export class ServerConnectionsService {
     imageRefs: string[],
     configuredImage: string,
   ): Promise<void> {
-    const server = await this.serverRepository.findOne({
-      where: { id: serverId, deletedAt: IsNull() },
-    });
-
-    if (!server) {
-      return;
-    }
-
-    await new Promise((resolve) =>
-      setTimeout(resolve, SERVER_CONNECTIONS.AGENT_TEARDOWN_SETTLE_MS),
-    );
-
-    const command = buildAgentHostCleanupShellCommand(imageRefs, {
-      installDir: AGENT_INSTALL.REMOTE_DIR,
-      configuredImage,
-    });
-
     try {
+      const server = await this.serverRepository.findOne({
+        where: { id: serverId, deletedAt: IsNull() },
+      });
+
+      if (!server) {
+        return;
+      }
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, SERVER_CONNECTIONS.AGENT_TEARDOWN_SETTLE_MS),
+      );
+
+      const command = buildAgentHostCleanupShellCommand(imageRefs, {
+        installDir: AGENT_INSTALL.REMOTE_DIR,
+        configuredImage,
+      });
+
       if (server.serverType === ServerType.LOCAL) {
         const host = new LocalAgentHostAdapter();
         const result = await host.executeCommand(
@@ -880,6 +897,11 @@ export class ServerConnectionsService {
       });
       params.logs.push(...result.logs);
       return result;
+    } catch (error) {
+      this.logger.error(
+        `Agent install after onboard failed for server '${params.server.id}': ${toErrorMessage(error)}`,
+      );
+      throw error;
     } finally {
       this.sshManager.disconnect(params.server.id);
     }
@@ -1039,6 +1061,9 @@ export class ServerConnectionsService {
       await queryRunner.commitTransaction();
     } catch (error) {
       await queryRunner.rollbackTransaction();
+      this.logger.error(
+        `Finalize server deletion failed for server '${serverId}': ${toErrorMessage(error)}`,
+      );
       throw error;
     } finally {
       await queryRunner.release();
@@ -1088,43 +1113,57 @@ export class ServerConnectionsService {
     userId: string,
     id: string,
   ): Promise<ServerEntity> {
-    const server = await this.serverRepository.findOne({
-      where: {
-        id,
-        userId,
-        status: EntityStatus.ACTIVE,
-        deletedAt: IsNull(),
-      },
-    });
+    try {
+      const server = await this.serverRepository.findOne({
+        where: {
+          id,
+          userId,
+          status: EntityStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
+      });
 
-    if (!server) {
-      throw new NotFoundException(ERROR_MESSAGES.SERVER.NOT_FOUND);
+      if (!server) {
+        throw new NotFoundException(ERROR_MESSAGES.SERVER.NOT_FOUND);
+      }
+
+      return server;
+    } catch (error) {
+      this.logger.error(
+        `Get owned server '${id}' failed: ${toErrorMessage(error)}`,
+      );
+      throw error;
     }
-
-    return server;
   }
 
   private async getServerConnectionOptions(userId: string, id: string) {
-    const server = await this.getOwnedServer(userId, id);
+    try {
+      const server = await this.getOwnedServer(userId, id);
 
-    const credential = await this.credentialRepository.findOne({
-      where: { serverId: id },
-    });
+      const credential = await this.credentialRepository.findOne({
+        where: { serverId: id },
+      });
 
-    if (!credential) {
-      throw new NotFoundException(ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND);
+      if (!credential) {
+        throw new NotFoundException(ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND);
+      }
+
+      return {
+        serverId: id,
+        host: server.host,
+        port: server.port,
+        username: server.username,
+        authType: credential.authType,
+        encryptedPassword: credential.encryptedPassword,
+        encryptedPrivateKey: credential.encryptedPrivateKey,
+        privateKeyPassphrase: credential.privateKeyPassphrase,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Get server connection options for '${id}' failed: ${toErrorMessage(error)}`,
+      );
+      throw error;
     }
-
-    return {
-      serverId: id,
-      host: server.host,
-      port: server.port,
-      username: server.username,
-      authType: credential.authType,
-      encryptedPassword: credential.encryptedPassword,
-      encryptedPrivateKey: credential.encryptedPrivateKey,
-      privateKeyPassphrase: credential.privateKeyPassphrase,
-    };
   }
 
   /**
@@ -1135,13 +1174,20 @@ export class ServerConnectionsService {
   private async findExistingServer(
     input: ExistingServerCheck,
   ): Promise<ServerEntity | null> {
-    return this.serverRepository.findOne({
-      where: {
-        host: input.host,
-        username: input.username,
-        userId: input.userId,
-      },
-    });
+    try {
+      return this.serverRepository.findOne({
+        where: {
+          host: input.host,
+          username: input.username,
+          userId: input.userId,
+        },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Find existing server failed for host '${input.host}': ${toErrorMessage(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -1153,51 +1199,65 @@ export class ServerConnectionsService {
     serverId: string,
     updates?: { name?: string },
   ): Promise<ServerSshCredentialEntity | null> {
-    const patch: {
-      status: EntityStatus;
-      deletedAt: null;
-      name?: string;
-    } = {
-      status: EntityStatus.ACTIVE,
-      deletedAt: null,
-    };
-
-    const trimmedName = updates?.name?.trim();
-    if (trimmedName) {
-      patch.name = trimmedName;
-    }
-
-    await this.serverRepository.update({ id: serverId }, patch);
-
-    await this.credentialRepository.update(
-      { serverId },
-      {
+    try {
+      const patch: {
+        status: EntityStatus;
+        deletedAt: null;
+        name?: string;
+      } = {
         status: EntityStatus.ACTIVE,
         deletedAt: null,
-      },
-    );
+      };
 
-    return this.credentialRepository.findOne({
-      where: { serverId, status: EntityStatus.ACTIVE },
-    });
+      const trimmedName = updates?.name?.trim();
+      if (trimmedName) {
+        patch.name = trimmedName;
+      }
+
+      await this.serverRepository.update({ id: serverId }, patch);
+
+      await this.credentialRepository.update(
+        { serverId },
+        {
+          status: EntityStatus.ACTIVE,
+          deletedAt: null,
+        },
+      );
+
+      return this.credentialRepository.findOne({
+        where: { serverId, status: EntityStatus.ACTIVE },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Restore server '${serverId}' failed: ${toErrorMessage(error)}`,
+      );
+      throw error;
+    }
   }
 
   private async updateInactiveCredentialFromInput(
     credentialId: string,
     ssh: CreateServerSshCredentialRequestDto,
   ): Promise<void> {
-    const encrypted = encryptCredentialFields(this.encryptionService, ssh);
+    try {
+      const encrypted = encryptCredentialFields(this.encryptionService, ssh);
 
-    await this.credentialRepository.update(
-      { id: credentialId },
-      {
-        authType: ssh.authType,
-        encryptedPassword: encrypted.encryptedPassword,
-        encryptedPrivateKey: encrypted.encryptedPrivateKey,
-        privateKeyPassphrase: encrypted.encryptedPassphrase,
-        sshFingerprint: ssh.sshFingerprint ?? null,
-      },
-    );
+      await this.credentialRepository.update(
+        { id: credentialId },
+        {
+          authType: ssh.authType,
+          encryptedPassword: encrypted.encryptedPassword,
+          encryptedPrivateKey: encrypted.encryptedPrivateKey,
+          privateKeyPassphrase: encrypted.encryptedPassphrase,
+          sshFingerprint: ssh.sshFingerprint ?? null,
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Update inactive credential '${credentialId}' failed: ${toErrorMessage(error)}`,
+      );
+      throw error;
+    }
   }
 
   private throwOnboardFailure(params: OnboardFailureParams): never {
@@ -1214,22 +1274,29 @@ export class ServerConnectionsService {
     ssh: CreateServerSshCredentialRequestDto,
     options?: { releaseConnectionAfterSuccess?: boolean },
   ): Promise<void> {
-    const result = await runSshHealthTestWithTimeout(
-      this.health,
-      buildOnboardSshTestOptions(this.encryptionService, server, ssh),
-    );
+    try {
+      const result = await runSshHealthTestWithTimeout(
+        this.health,
+        buildOnboardSshTestOptions(this.encryptionService, server, ssh),
+      );
 
-    if (!result.success) {
-      this.sshManager.disconnect(server.id);
-      this.throwOnboardFailure({
-        message: ERROR_MESSAGES.SERVER.SSH_CONNECTION_FAILED,
-        error: result.message || ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
-        code: result.code ?? mapSshTestErrorCode(result.message),
-      });
-    }
+      if (!result.success) {
+        this.sshManager.disconnect(server.id);
+        this.throwOnboardFailure({
+          message: ERROR_MESSAGES.SERVER.SSH_CONNECTION_FAILED,
+          error: result.message || ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
+          code: result.code ?? mapSshTestErrorCode(result.message),
+        });
+      }
 
-    if (options?.releaseConnectionAfterSuccess) {
-      this.sshManager.disconnect(server.id);
+      if (options?.releaseConnectionAfterSuccess) {
+        this.sshManager.disconnect(server.id);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Onboard SSH connection check failed for server '${server.id}': ${toErrorMessage(error)}`,
+      );
+      throw error;
     }
   }
 
@@ -1247,66 +1314,77 @@ export class ServerConnectionsService {
     existingServer: ServerEntity,
     input: CreateServerOnboardRequestDto,
   ): Promise<ServiceResponse<OnboardSuccessData>> {
-    const credential = await this.credentialRepository.findOne({
-      where: {
-        serverId: existingServer.id,
-        status: EntityStatus.INACTIVE,
-      },
-    });
-
-    if (!credential) {
-      this.throwOnboardFailure({
-        message: ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
-        error: ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
-        code: ServerErrorCode.CREDENTIALS_NOT_FOUND,
+    try {
+      const credential = await this.credentialRepository.findOne({
+        where: {
+          serverId: existingServer.id,
+          status: EntityStatus.INACTIVE,
+        },
       });
-    }
 
-    const ssh = this.requireOnboardSshPayload(input.ssh);
-    assertOnboardSshInput(ssh);
+      if (!credential) {
+        this.throwOnboardFailure({
+          message: ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
+          error: ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
+          code: ServerErrorCode.CREDENTIALS_NOT_FOUND,
+        });
+      }
 
-    await this.assertOnboardSshConnection(existingServer, ssh);
+      const ssh = this.requireOnboardSshPayload(input.ssh);
+      assertOnboardSshInput(ssh);
 
-    await this.updateInactiveCredentialFromInput(credential.id, ssh);
+      await this.assertOnboardSshConnection(existingServer, ssh);
 
-    const restoredCredential = await this.restoreServer(existingServer.id, {
-      name: input.server.name,
-    });
+      await this.updateInactiveCredentialFromInput(credential.id, ssh);
 
-    if (!restoredCredential) {
-      this.throwOnboardFailure({
-        message: ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
-        error: ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
-        code: ServerErrorCode.CREDENTIALS_NOT_FOUND,
+      const restoredCredential = await this.restoreServer(existingServer.id, {
+        name: input.server.name,
       });
-    }
 
-    const restoreLogs: string[] = [SERVER_ONBOARD_LOGS.DELETED_SERVER_RESTORED];
+      if (!restoredCredential) {
+        this.throwOnboardFailure({
+          message: ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
+          error: ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
+          code: ServerErrorCode.CREDENTIALS_NOT_FOUND,
+        });
+      }
 
-    if (this.shouldInstallAgent(input.installAgent)) {
-      await this.setServerOperationStatus(
-        existingServer.id,
-        SERVER_OPERATION_STATUS.STARTING,
+      const restoreLogs: string[] = [
+        SERVER_ONBOARD_LOGS.DELETED_SERVER_RESTORED,
+      ];
+
+      if (this.shouldInstallAgent(input.installAgent)) {
+        await this.setServerOperationStatus(
+          existingServer.id,
+          SERVER_OPERATION_STATUS.STARTING,
+        );
+      }
+
+      this.runAgentInstallAfterOnboardAsync({
+        installAgent: input.installAgent,
+        server: existingServer,
+        credential: restoredCredential,
+        plainPrivateKey: ssh.privateKey,
+        logs: restoreLogs,
+      });
+
+      return {
+        message: SUCCESS_MESSAGES.SERVER.RESTORED,
+        data: {
+          serverId: existingServer.id,
+          sshCredentialId: restoredCredential.id,
+          sshTest: { success: true },
+          agentInstall: this.buildPendingAgentInstallResponse(
+            input.installAgent,
+          ),
+        },
+      };
+    } catch (error) {
+      this.logger.error(
+        `Restore deleted server '${existingServer.id}' failed: ${toErrorMessage(error)}`,
       );
+      throw error;
     }
-
-    this.runAgentInstallAfterOnboardAsync({
-      installAgent: input.installAgent,
-      server: existingServer,
-      credential: restoredCredential,
-      plainPrivateKey: ssh.privateKey,
-      logs: restoreLogs,
-    });
-
-    return {
-      message: SUCCESS_MESSAGES.SERVER.RESTORED,
-      data: {
-        serverId: existingServer.id,
-        sshCredentialId: restoredCredential.id,
-        sshTest: { success: true },
-        agentInstall: this.buildPendingAgentInstallResponse(input.installAgent),
-      },
-    };
   }
 
   /**
@@ -1318,53 +1396,54 @@ export class ServerConnectionsService {
     userId: string,
     input: CreateServerOnboardRequestDto,
   ): Promise<ServiceResponse<OnboardSuccessData>> {
-    const existingServer = await this.findExistingServer({
-      host: input.server.host,
-      username: input.server.username,
-      userId,
-    });
-
-    if (existingServer) {
-      // Active server already exists
-      if (
-        existingServer.status === EntityStatus.ACTIVE &&
-        !existingServer.deletedAt
-      ) {
-        throw new ConflictException(ERROR_MESSAGES.SERVER.ALREADY_EXIST);
-      }
-
-      // Previously deleted -> restore it
-      if (
-        existingServer.status === EntityStatus.INACTIVE &&
-        existingServer.deletedAt
-      ) {
-        return this.restoreDeletedServer(existingServer, input);
-      }
-    }
-
-    const logs: string[] = [];
-
-    const ssh = this.requireOnboardSshPayload(input.ssh);
-    assertOnboardSshInput(ssh);
-
-    await this.assertOnboardSshConnection(
-      buildOnboardServerConnectionInfo(
-        input.server,
-        ONBOARD_SSH_TEST_SERVER_ID,
-      ),
-      ssh,
-      { releaseConnectionAfterSuccess: true },
-    );
-
-    logs.push(SERVER_ONBOARD_LOGS.SSH_CONNECTION_SUCCESS);
-    logs.push(SERVER_ONBOARD_LOGS.VALIDATION_EXECUTED);
-
-    const queryRunner = this.dataSource.createQueryRunner();
-
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
     try {
+      const existingServer = await this.findExistingServer({
+        host: input.server.host,
+        username: input.server.username,
+        userId,
+      });
+
+      if (existingServer) {
+        // Active server already exists
+        if (
+          existingServer.status === EntityStatus.ACTIVE &&
+          !existingServer.deletedAt
+        ) {
+          throw new ConflictException(ERROR_MESSAGES.SERVER.ALREADY_EXIST);
+        }
+
+        // Previously deleted -> restore it
+        if (
+          existingServer.status === EntityStatus.INACTIVE &&
+          existingServer.deletedAt
+        ) {
+          return this.restoreDeletedServer(existingServer, input);
+        }
+      }
+
+      const logs: string[] = [];
+
+      const ssh = this.requireOnboardSshPayload(input.ssh);
+      assertOnboardSshInput(ssh);
+
+      await this.assertOnboardSshConnection(
+        buildOnboardServerConnectionInfo(
+          input.server,
+          ONBOARD_SSH_TEST_SERVER_ID,
+        ),
+        ssh,
+        { releaseConnectionAfterSuccess: true },
+      );
+
+      logs.push(SERVER_ONBOARD_LOGS.SSH_CONNECTION_SUCCESS);
+      logs.push(SERVER_ONBOARD_LOGS.VALIDATION_EXECUTED);
+
+      const queryRunner = this.dataSource.createQueryRunner();
+
+      await queryRunner.connect();
+      await queryRunner.startTransaction();
+
+      try {
       const serverRepo = queryRunner.manager.getRepository(ServerEntity);
 
       const credentialRepo = queryRunner.manager.getRepository(
@@ -1474,6 +1553,10 @@ export class ServerConnectionsService {
       );
     } finally {
       await queryRunner.release();
+    }
+    } catch (error) {
+      this.logger.error(`Onboard server failed: ${toErrorMessage(error)}`);
+      throw error;
     }
   }
 

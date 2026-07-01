@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { IsNull, Repository } from "typeorm";
 
@@ -13,6 +13,7 @@ export type ServerHealthSnapshot = Pick<
 
 @Injectable()
 export class ServerHealthRepository {
+  private readonly logger = new Logger(ServerHealthRepository.name);
   constructor(
     @InjectRepository(ServerEntity)
     private readonly serverRepository: Repository<ServerEntity>,
@@ -23,16 +24,23 @@ export class ServerHealthRepository {
    * @returns A promise that resolves to an array of server IDs.
    */
   async findActiveServerIds(): Promise<string[]> {
-    const servers = await this.serverRepository.find({
-      where: {
-        status: EntityStatus.ACTIVE,
-        deletedAt: IsNull(),
-      },
-      select: { id: true },
-      order: { createdAt: "ASC" },
-    });
-
-    return servers.map((server) => server.id);
+    try {
+      const servers = await this.serverRepository.find({
+        where: {
+          status: EntityStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
+        select: { id: true },
+        order: { createdAt: "ASC" },
+      });
+  
+      return servers.map((server) => server.id);
+    } catch (error) {
+      this.logger.error(
+        `Failed to find active server IDs: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return [];
+    }
   }
 
   /**
@@ -43,14 +51,21 @@ export class ServerHealthRepository {
   async findServerHealthSnapshot(
     serverId: string,
   ): Promise<ServerHealthSnapshot | null> {
-    return this.serverRepository.findOne({
-      where: {
-        id: serverId,
-        status: EntityStatus.ACTIVE,
-        deletedAt: IsNull(),
-      },
-      select: { id: true, metadata: true, retryCount: true },
-    });
+    try {
+      return this.serverRepository.findOne({
+        where: {
+          id: serverId,
+          status: EntityStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
+        select: { id: true, metadata: true, retryCount: true },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to find server health snapshot for server ${serverId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
   }
 
   /**
@@ -63,13 +78,20 @@ export class ServerHealthRepository {
     serverId: string,
     agentError: ServerHealthError,
   ): Promise<void> {
-    await this.serverRepository.update(
-      { id: serverId },
-      {
-        isServerUp: false,
-        agentError: { ...agentError },
-      },
-    );
+    try {
+      await this.serverRepository.update(
+        { id: serverId },
+        {
+          isServerUp: false,
+          agentError: { ...agentError },
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to record agent unreachable error for server ${serverId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -78,7 +100,14 @@ export class ServerHealthRepository {
    * @returns A promise that resolves when the retry count is incremented.
    */
   async incrementRetryCount(serverId: string): Promise<void> {
-    await this.serverRepository.increment({ id: serverId }, "retryCount", 1);
+    try {
+      await this.serverRepository.increment({ id: serverId }, "retryCount", 1);
+    } catch (error) {
+      this.logger.error(
+        `Failed to increment retry count for server ${serverId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -88,15 +117,22 @@ export class ServerHealthRepository {
    * @returns A promise that resolves when the server is marked as connected.
    */
   async markAgentConnected(serverId: string, checkedAt: number): Promise<void> {
-    await this.serverRepository.update(
-      { id: serverId },
-      {
-        isServerUp: true,
-        lastAgentCheckedAt: checkedAt,
-        retryCount: 0,
-        agentError: null,
-      },
-    );
+    try {
+      await this.serverRepository.update(
+        { id: serverId },
+        {
+          isServerUp: true,
+          lastAgentCheckedAt: checkedAt,
+          retryCount: 0,
+          agentError: null,
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to mark agent connected for server ${serverId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -109,8 +145,15 @@ export class ServerHealthRepository {
     serverId: string,
     agentError: ServerHealthError,
   ): Promise<void> {
-    await this.incrementRetryCount(serverId);
-    await this.recordAgentUnreachable(serverId, agentError);
+    try {
+      await this.incrementRetryCount(serverId);
+      await this.recordAgentUnreachable(serverId, agentError);
+    } catch (error) {
+      this.logger.error(
+        `Failed to mark agent disconnected for server ${serverId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -123,10 +166,17 @@ export class ServerHealthRepository {
     serverId: string,
     agentError: ServerHealthError,
   ): Promise<void> {
-    await this.serverRepository.update(
-      { id: serverId },
-      { agentError: { ...agentError } },
-    );
+    try {
+      await this.serverRepository.update(
+        { id: serverId },
+        { agentError: { ...agentError } },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to update agent error for server ${serverId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -139,9 +189,16 @@ export class ServerHealthRepository {
     serverId: string,
     serverError: ServerHealthError,
   ): Promise<void> {
-    await this.serverRepository.update(
-      { id: serverId },
-      { serverError: { ...serverError } },
-    );
+    try {
+      await this.serverRepository.update(
+        { id: serverId },
+        { serverError: { ...serverError } },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Failed to update server error for server ${serverId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 }

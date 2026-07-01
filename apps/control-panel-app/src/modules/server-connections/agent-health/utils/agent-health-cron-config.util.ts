@@ -1,11 +1,14 @@
+import { Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
+import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import {
   AGENT_HEALTH,
   AGENT_HEALTH_ENV_KEYS,
 } from "../constants/agent-health.constants";
 
 const DISABLED_VALUES = new Set(["false", "0", "no", "off"]);
+const logger = new Logger("AgentHealthCronConfig");
 
 /**
  * Checks if the agent health cron is enabled.
@@ -15,16 +18,23 @@ const DISABLED_VALUES = new Set(["false", "0", "no", "off"]);
 export function isAgentHealthCronEnabled(
   configService: ConfigService,
 ): boolean {
-  const raw = configService
-    .get<string>(AGENT_HEALTH_ENV_KEYS.CRON_ENABLED)
-    ?.trim()
-    .toLowerCase();
+  try {
+    const raw = configService
+      .get<string>(AGENT_HEALTH_ENV_KEYS.CRON_ENABLED)
+      ?.trim()
+      .toLowerCase();
 
-  if (!raw) {
+    if (!raw) {
+      return true;
+    }
+
+    return !DISABLED_VALUES.has(raw);
+  } catch (error) {
+    logger.error(
+      `${AGENT_HEALTH.LOG_PREFIX} Failed to resolve ${AGENT_HEALTH_ENV_KEYS.CRON_ENABLED}: ${toErrorMessage(error)}`,
+    );
     return true;
   }
-
-  return !DISABLED_VALUES.has(raw);
 }
 
 /**
@@ -35,18 +45,25 @@ export function isAgentHealthCronEnabled(
 export function resolveAgentHealthCronIntervalMs(
   configService: ConfigService,
 ): number {
-  const raw = configService
-    .get<string>(AGENT_HEALTH_ENV_KEYS.CRON_INTERVAL_MS)
-    ?.trim();
+  try {
+    const raw = configService
+      .get<string>(AGENT_HEALTH_ENV_KEYS.CRON_INTERVAL_MS)
+      ?.trim();
 
-  if (!raw) {
+    if (!raw) {
+      return AGENT_HEALTH.CRON_INTERVAL_MS;
+    }
+
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      return AGENT_HEALTH.CRON_INTERVAL_MS;
+    }
+
+    return parsed;
+  } catch (error) {
+    logger.error(
+      `${AGENT_HEALTH.LOG_PREFIX} Failed to resolve ${AGENT_HEALTH_ENV_KEYS.CRON_INTERVAL_MS}: ${toErrorMessage(error)}`,
+    );
     return AGENT_HEALTH.CRON_INTERVAL_MS;
   }
-
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed < 1) {
-    return AGENT_HEALTH.CRON_INTERVAL_MS;
-  }
-
-  return parsed;
 }

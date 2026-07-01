@@ -44,34 +44,38 @@ export class AgentHealthService {
    * @returns A promise that resolves when the server is processed.
    */
   async processNextServer(): Promise<void> {
-    const activeServerIds =
-      await this.serverHealthRepository.findActiveServerIds();
-
-    if (activeServerIds.length === 0) {
-      return;
-    }
-
-    const serverId =
-      activeServerIds[this.currentServerIndex % activeServerIds.length];
-    this.currentServerIndex =
-      (this.currentServerIndex + 1) % Number.MAX_SAFE_INTEGER;
+    let serverId: string | undefined;
 
     try {
+      const activeServerIds =
+        await this.serverHealthRepository.findActiveServerIds();
+
+      if (activeServerIds.length === 0) {
+        return;
+      }
+
+      serverId =
+        activeServerIds[this.currentServerIndex % activeServerIds.length];
+      this.currentServerIndex =
+        (this.currentServerIndex + 1) % Number.MAX_SAFE_INTEGER;
+
       await this.checkServer(serverId);
     } catch (error) {
       this.logger.error(
-        `${AGENT_HEALTH.LOG_PREFIX} Failed checking server: ${serverId} — ${toErrorMessage(error)}`,
+        `${AGENT_HEALTH.LOG_PREFIX} Failed checking server${serverId ? `: ${serverId}` : ""} — ${toErrorMessage(error)}`,
       );
 
-      try {
-        await this.serverHealthRepository.updateServerError(serverId, {
-          message: toErrorMessage(error),
-          timestamp: Date.now(),
-        });
-      } catch (updateError) {
-        this.logger.error(
-          `${AGENT_HEALTH.LOG_PREFIX} Failed to persist server error for '${serverId}': ${toErrorMessage(updateError)}`,
-        );
+      if (serverId) {
+        try {
+          await this.serverHealthRepository.updateServerError(serverId, {
+            message: toErrorMessage(error),
+            timestamp: Date.now(),
+          });
+        } catch (updateError) {
+          this.logger.error(
+            `${AGENT_HEALTH.LOG_PREFIX} Failed to persist server error for '${serverId}': ${toErrorMessage(updateError)}`,
+          );
+        }
       }
     }
   }
@@ -82,51 +86,60 @@ export class AgentHealthService {
    * @returns A promise that resolves when the server is checked.
    */
   async checkServer(serverId: string): Promise<void> {
-    this.logger.log(`${AGENT_HEALTH.LOG_PREFIX} Checking server: ${serverId}`);
-
-    if (!this.isConnectionCheckerAvailable()) {
-      this.logger.error(
-        `${AGENT_HEALTH.LOG_PREFIX} Agent connection checker unavailable, skipping server: ${serverId}`,
-      );
-      return;
-    }
-
-    if (this.deploymentGateway!.isAgentConnectedForServer(serverId)) {
-      await this.serverHealthRepository.markAgentConnected(
-        serverId,
-        Date.now(),
-      );
+    try {
       this.logger.log(
-        `${AGENT_HEALTH.LOG_PREFIX} Agent connected: ${serverId}`,
+        `${AGENT_HEALTH.LOG_PREFIX} Checking server: ${serverId}`,
       );
-      return;
-    }
 
-    const agentError: ServerHealthError = {
-      message: AGENT_HEALTH.AGENT_DISCONNECTED_MESSAGE,
-      timestamp: Date.now(),
-    };
-
-    await this.serverHealthRepository.recordAgentUnreachable(
-      serverId,
-      agentError,
-    );
-
-    const shouldInstall = await this.shouldAttemptCronInstall(serverId);
-    if (!shouldInstall.attempt) {
-      if (shouldInstall.reason) {
-        this.logger.log(
-          `${AGENT_HEALTH.LOG_PREFIX} Skipping installation for ${serverId}: ${shouldInstall.reason}`,
+      if (!this.isConnectionCheckerAvailable()) {
+        this.logger.error(
+          `${AGENT_HEALTH.LOG_PREFIX} Agent connection checker unavailable, skipping server: ${serverId}`,
         );
+        return;
       }
-      return;
+
+      if (this.deploymentGateway!.isAgentConnectedForServer(serverId)) {
+        await this.serverHealthRepository.markAgentConnected(
+          serverId,
+          Date.now(),
+        );
+        this.logger.log(
+          `${AGENT_HEALTH.LOG_PREFIX} Agent connected: ${serverId}`,
+        );
+        return;
+      }
+
+      const agentError: ServerHealthError = {
+        message: AGENT_HEALTH.AGENT_DISCONNECTED_MESSAGE,
+        timestamp: Date.now(),
+      };
+
+      await this.serverHealthRepository.recordAgentUnreachable(
+        serverId,
+        agentError,
+      );
+
+      const shouldInstall = await this.shouldAttemptCronInstall(serverId);
+      if (!shouldInstall.attempt) {
+        if (shouldInstall.reason) {
+          this.logger.log(
+            `${AGENT_HEALTH.LOG_PREFIX} Skipping installation for ${serverId}: ${shouldInstall.reason}`,
+          );
+        }
+        return;
+      }
+
+      this.logger.log(
+        `${AGENT_HEALTH.LOG_PREFIX} Agent disconnected, starting installation: ${serverId}`,
+      );
+
+      this.triggerAgentInstallation(serverId);
+    } catch (error) {
+      this.logger.error(
+        `${AGENT_HEALTH.LOG_PREFIX} Failed checking server ${serverId}: ${toErrorMessage(error)}`,
+      );
+      throw error;
     }
-
-    this.logger.log(
-      `${AGENT_HEALTH.LOG_PREFIX} Agent disconnected, starting installation: ${serverId}`,
-    );
-
-    this.triggerAgentInstallation(serverId);
   }
 
   /**
@@ -166,34 +179,41 @@ export class AgentHealthService {
   private async shouldAttemptCronInstall(
     serverId: string,
   ): Promise<{ attempt: boolean; reason?: string }> {
-    if (this.runningAgentInstallations.has(serverId)) {
-      return { attempt: false, reason: "installation already running" };
-    }
+    try {
+      if (this.runningAgentInstallations.has(serverId)) {
+        return { attempt: false, reason: "installation already running" };
+      }
 
-    const lastAttempt = this.lastInstallAttemptAt.get(serverId);
-    if (
-      lastAttempt != null &&
-      Date.now() - lastAttempt < AGENT_HEALTH.INSTALL_RETRY_INTERVAL_MS
-    ) {
-      return { attempt: false, reason: "install retry interval not elapsed" };
-    }
+      const lastAttempt = this.lastInstallAttemptAt.get(serverId);
+      if (
+        lastAttempt != null &&
+        Date.now() - lastAttempt < AGENT_HEALTH.INSTALL_RETRY_INTERVAL_MS
+      ) {
+        return { attempt: false, reason: "install retry interval not elapsed" };
+      }
 
-    if (!this.isInstallServiceAvailable()) {
-      return { attempt: false, reason: "install service unavailable" };
-    }
+      if (!this.isInstallServiceAvailable()) {
+        return { attempt: false, reason: "install service unavailable" };
+      }
 
-    const busyCheck =
-      await this.serverConnectionsService!.isServerBusyForHealthCronInstall(
-        serverId,
+      const busyCheck =
+        await this.serverConnectionsService!.isServerBusyForHealthCronInstall(
+          serverId,
+        );
+      if (busyCheck.busy) {
+        return {
+          attempt: false,
+          reason: busyCheck.reason ?? "server operation in progress",
+        };
+      }
+
+      return { attempt: true };
+    } catch (error) {
+      this.logger.error(
+        `${AGENT_HEALTH.LOG_PREFIX} Failed to evaluate cron install for server ${serverId}: ${toErrorMessage(error)}`,
       );
-    if (busyCheck.busy) {
-      return {
-        attempt: false,
-        reason: busyCheck.reason ?? "server operation in progress",
-      };
+      return { attempt: false, reason: "install eligibility check failed" };
     }
-
-    return { attempt: true };
   }
 
   /**
@@ -234,21 +254,37 @@ export class AgentHealthService {
         );
 
       if (!result.success) {
-        await this.serverHealthRepository.incrementRetryCount(serverId);
-        await this.serverHealthRepository.updateAgentError(serverId, {
+        await this.persistAgentInstallFailure(serverId, {
           message: result.error ?? "Agent installation failed",
           timestamp: Date.now(),
           details: { logs: result.logs },
         });
       }
     } catch (error) {
-      await this.serverHealthRepository.incrementRetryCount(serverId);
-      await this.serverHealthRepository.updateAgentError(serverId, {
+      this.logger.error(
+        `${AGENT_HEALTH.LOG_PREFIX} Agent installation failed for server ${serverId}: ${toErrorMessage(error)}`,
+      );
+
+      await this.persistAgentInstallFailure(serverId, {
         message: toErrorMessage(error),
         timestamp: Date.now(),
       });
     } finally {
       this.runningAgentInstallations.delete(serverId);
+    }
+  }
+
+  private async persistAgentInstallFailure(
+    serverId: string,
+    agentError: ServerHealthError,
+  ): Promise<void> {
+    try {
+      await this.serverHealthRepository.incrementRetryCount(serverId);
+      await this.serverHealthRepository.updateAgentError(serverId, agentError);
+    } catch (error) {
+      this.logger.error(
+        `${AGENT_HEALTH.LOG_PREFIX} Failed to persist agent install failure for server ${serverId}: ${toErrorMessage(error)}`,
+      );
     }
   }
 }
