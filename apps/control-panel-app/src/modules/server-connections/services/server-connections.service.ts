@@ -241,7 +241,10 @@ export class ServerConnectionsService {
       }
 
       if (operationStatus === SERVER_OPERATION_STATUS.STARTING) {
-        return { busy: true, reason: "server onboard agent install in progress" };
+        return {
+          busy: true,
+          reason: "server onboard agent install in progress",
+        };
       }
 
       return { busy: false };
@@ -1145,7 +1148,9 @@ export class ServerConnectionsService {
       });
 
       if (!credential) {
-        throw new NotFoundException(ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND);
+        throw new NotFoundException(
+          ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
+        );
       }
 
       return {
@@ -1444,116 +1449,118 @@ export class ServerConnectionsService {
       await queryRunner.startTransaction();
 
       try {
-      const serverRepo = queryRunner.manager.getRepository(ServerEntity);
+        const serverRepo = queryRunner.manager.getRepository(ServerEntity);
 
-      const credentialRepo = queryRunner.manager.getRepository(
-        ServerSshCredentialEntity,
-      );
-
-      const serverPayload: CreateServerDto = input.server;
-
-      const serverEntity = serverRepo.create({
-        userId,
-        name: serverPayload.name,
-        host: serverPayload.host,
-        port: serverPayload.port ?? DEFAULT_SSH_PORT,
-        username: serverPayload.username,
-        provider: serverPayload.provider ?? undefined,
-        region: serverPayload.region ?? null,
-        operatingSystem: serverPayload.operatingSystem ?? null,
-        serverType: serverPayload.serverType ?? undefined,
-        status: serverPayload.status ?? undefined,
-        metadata: serverPayload.metadata ?? null,
-      });
-
-      const savedServer = await serverRepo.save(serverEntity);
-
-      logs.push(SERVER_ONBOARD_LOGS.SERVER_CREATED);
-
-      const { encryptedPassword, encryptedPrivateKey, encryptedPassphrase } =
-        encryptCredentialFields(this.encryptionService, ssh);
-
-      const credEntity = credentialRepo.create({
-        userId,
-        serverId: savedServer.id,
-        authType: ssh.authType,
-        encryptedPrivateKey: encryptedPrivateKey ?? null,
-        privateKeyPassphrase: encryptedPassphrase ?? null,
-        encryptedPassword: encryptedPassword ?? null,
-        sshFingerprint: ssh.sshFingerprint ?? null,
-        status: undefined,
-        metadata: undefined,
-      });
-
-      const savedCredential = await credentialRepo.save(credEntity);
-
-      logs.push(SERVER_ONBOARD_LOGS.SSH_CREDENTIALS_CREATED);
-
-      await queryRunner.commitTransaction();
-
-      if (this.shouldInstallAgent(input.installAgent)) {
-        await this.setServerOperationStatus(
-          savedServer.id,
-          SERVER_OPERATION_STATUS.STARTING,
+        const credentialRepo = queryRunner.manager.getRepository(
+          ServerSshCredentialEntity,
         );
-      }
 
-      this.runAgentInstallAfterOnboardAsync({
-        installAgent: input.installAgent,
-        server: savedServer,
-        credential: savedCredential,
-        plainPrivateKey: ssh.privateKey,
-        logs,
-      });
+        const serverPayload: CreateServerDto = input.server;
 
-      return {
-        message: SUCCESS_MESSAGES.SERVER.CREATED,
-        data: {
+        const serverEntity = serverRepo.create({
+          userId,
+          name: serverPayload.name,
+          host: serverPayload.host,
+          port: serverPayload.port ?? DEFAULT_SSH_PORT,
+          username: serverPayload.username,
+          provider: serverPayload.provider ?? undefined,
+          region: serverPayload.region ?? null,
+          operatingSystem: serverPayload.operatingSystem ?? null,
+          serverType: serverPayload.serverType ?? undefined,
+          status: serverPayload.status ?? undefined,
+          metadata: serverPayload.metadata ?? null,
+        });
+
+        const savedServer = await serverRepo.save(serverEntity);
+
+        logs.push(SERVER_ONBOARD_LOGS.SERVER_CREATED);
+
+        const { encryptedPassword, encryptedPrivateKey, encryptedPassphrase } =
+          encryptCredentialFields(this.encryptionService, ssh);
+
+        const credEntity = credentialRepo.create({
+          userId,
           serverId: savedServer.id,
-          sshCredentialId: savedCredential.id,
-          sshTest: { success: true },
-          agentInstall: this.buildPendingAgentInstallResponse(
-            input.installAgent,
-          ),
-        },
-      };
-    } catch (err) {
-      try {
-        await queryRunner.rollbackTransaction();
-      } catch (rollbackErr) {
-        this.logger.warn(
-          `rollback failed: ${rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr)}`,
+          authType: ssh.authType,
+          encryptedPrivateKey: encryptedPrivateKey ?? null,
+          privateKeyPassphrase: encryptedPassphrase ?? null,
+          encryptedPassword: encryptedPassword ?? null,
+          sshFingerprint: ssh.sshFingerprint ?? null,
+          status: undefined,
+          metadata: undefined,
+        });
+
+        const savedCredential = await credentialRepo.save(credEntity);
+
+        logs.push(SERVER_ONBOARD_LOGS.SSH_CREDENTIALS_CREATED);
+
+        await queryRunner.commitTransaction();
+
+        if (this.shouldInstallAgent(input.installAgent)) {
+          await this.setServerOperationStatus(
+            savedServer.id,
+            SERVER_OPERATION_STATUS.STARTING,
+          );
+        }
+
+        this.runAgentInstallAfterOnboardAsync({
+          installAgent: input.installAgent,
+          server: savedServer,
+          credential: savedCredential,
+          plainPrivateKey: ssh.privateKey,
+          logs,
+        });
+
+        return {
+          message: SUCCESS_MESSAGES.SERVER.CREATED,
+          data: {
+            serverId: savedServer.id,
+            sshCredentialId: savedCredential.id,
+            sshTest: { success: true },
+            agentInstall: this.buildPendingAgentInstallResponse(
+              input.installAgent,
+            ),
+          },
+        };
+      } catch (err) {
+        try {
+          await queryRunner.rollbackTransaction();
+        } catch (rollbackErr) {
+          this.logger.warn(
+            `rollback failed: ${rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr)}`,
+          );
+        }
+
+        logs.push(SERVER_ONBOARD_LOGS.TRANSACTION_ROLLED_BACK);
+
+        if (
+          err &&
+          typeof err === "object" &&
+          "code" in err &&
+          (err as { code: string }).code === "23505"
+        ) {
+          throw new ConflictException(
+            ERROR_MESSAGES.SERVER.HOST_ALREADY_EXISTS,
+          );
+        }
+
+        if (err instanceof HttpException) {
+          throw err;
+        }
+
+        throw new OperationFailedException(
+          err instanceof Error
+            ? err.message
+            : ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
+          err instanceof Error
+            ? err.message
+            : ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
+          HttpStatus.BAD_REQUEST,
+          { errorCode: ServerErrorCode.UNKNOWN_ERROR },
         );
+      } finally {
+        await queryRunner.release();
       }
-
-      logs.push(SERVER_ONBOARD_LOGS.TRANSACTION_ROLLED_BACK);
-
-      if (
-        err &&
-        typeof err === "object" &&
-        "code" in err &&
-        (err as { code: string }).code === "23505"
-      ) {
-        throw new ConflictException(ERROR_MESSAGES.SERVER.HOST_ALREADY_EXISTS);
-      }
-
-      if (err instanceof HttpException) {
-        throw err;
-      }
-
-      throw new OperationFailedException(
-        err instanceof Error
-          ? err.message
-          : ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
-        err instanceof Error
-          ? err.message
-          : ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
-        HttpStatus.BAD_REQUEST,
-        { errorCode: ServerErrorCode.UNKNOWN_ERROR },
-      );
-    } finally {
-      await queryRunner.release();
-    }
     } catch (error) {
       this.logger.error(`Onboard server failed: ${toErrorMessage(error)}`);
       throw error;

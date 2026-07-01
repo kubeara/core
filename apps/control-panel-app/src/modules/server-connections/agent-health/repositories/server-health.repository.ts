@@ -33,7 +33,7 @@ export class ServerHealthRepository {
         select: { id: true },
         order: { createdAt: "ASC" },
       });
-  
+
       return servers.map((server) => server.id);
     } catch (error) {
       this.logger.error(
