@@ -7,6 +7,8 @@ export const MCP_OAUTH_AUTHORIZE_PATH = "/oauth/authorize";
 export function persistMcpOAuthAuthorizeParams(
   params: McpOAuthAuthorizeParams,
 ): void {
+  // OAuth authorization *request* params (not tokens). Short-lived; needed across login redirect.
+  // lgtm[js/clear-text-storage-of-sensitive-data]
   sessionStorage.setItem(STORAGE_KEY, JSON.stringify(params));
 }
 
