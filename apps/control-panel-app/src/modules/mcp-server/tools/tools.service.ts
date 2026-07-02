@@ -280,6 +280,9 @@ export class McpToolsService {
       const result = this.deploymentsService.schedulePreparedDeployment(
         prepared,
         false,
+        {
+          skipResourceValidation: true,
+        },
       );
 
       return {
