@@ -3,6 +3,7 @@ import { Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 import { ERROR_MESSAGES } from "@control-panel/constants/error";
 import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import { McpApiKeysService } from "@control-panel/modules/mcp-api-keys/services/mcp-api-keys.service";
+import { McpOAuthJwtService } from "@control-panel/modules/mcp-oauth/services/mcp-oauth-jwt.service";
 
 import { McpAuthUser } from "../interfaces/mcp-auth-user.interface";
 
@@ -10,12 +11,13 @@ import { McpAuthUser } from "../interfaces/mcp-auth-user.interface";
 export class McpAuthService {
   private readonly logger = new Logger(McpAuthService.name);
 
-  constructor(private readonly mcpApiKeysService: McpApiKeysService) {}
+  constructor(
+    private readonly mcpApiKeysService: McpApiKeysService,
+    private readonly mcpOAuthJwtService: McpOAuthJwtService,
+  ) {}
 
   /**
-   * Validate the MCP bearer token against stored API keys and returns the owning user.
-   * @param authHeader
-   * @returns A promise that resolves to the MCP auth user.
+   * Validate MCP bearer credentials — API keys (desktop clients) or OAuth JWTs (ChatGPT).
    */
   async validateToken(authHeader: string | undefined): Promise<McpAuthUser> {
     try {
@@ -42,5 +44,9 @@ export class McpAuthService {
       );
       throw error;
     }
+  }
+
+  private looksLikeJwt(token: string): boolean {
+    return token.split(".").length === 3;
   }
 }
