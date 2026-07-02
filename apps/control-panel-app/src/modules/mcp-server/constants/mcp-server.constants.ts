@@ -22,4 +22,10 @@ export type McpToolName = (typeof MCP_TOOL_NAMES)[keyof typeof MCP_TOOL_NAMES];
 
 export const MCP_JSON_RPC_METHODS = {
   INITIALIZE: "initialize",
+  TOOLS_LIST: "tools/list",
 } as const;
+
+export const MCP_UNAUTHENTICATED_METHODS = new Set<string>([
+  MCP_JSON_RPC_METHODS.INITIALIZE,
+  MCP_JSON_RPC_METHODS.TOOLS_LIST,
+]);

@@ -77,4 +77,21 @@ export const ERROR_MESSAGES = {
     METHOD_NOT_ALLOWED: "Method not allowed.",
     INTERNAL_SERVER_ERROR: "Internal server error",
   },
+
+  MCP_OAUTH: {
+    INVALID_RESPONSE_TYPE: "Unsupported response_type",
+    INVALID_AUTHORIZE_REQUEST: "Invalid OAuth authorization request",
+    UNSUPPORTED_CODE_CHALLENGE: "Only S256 code challenge is supported",
+    INVALID_CLIENT_ID: "Unsupported OAuth client",
+    INVALID_REDIRECT_URI: "Invalid OAuth redirect URI",
+    INVALID_RESOURCE: "Invalid OAuth resource parameter",
+    INVALID_GRANT_TYPE: "Unsupported grant_type",
+    INVALID_TOKEN_REQUEST: "Invalid OAuth token request",
+    INVALID_AUTHORIZATION_CODE: "Invalid authorization code",
+    AUTHORIZATION_CODE_EXPIRED: "Authorization code expired",
+    INVALID_CODE_VERIFIER: "Invalid PKCE code verifier",
+    INVALID_REFRESH_TOKEN: "Invalid refresh token",
+    REFRESH_TOKEN_EXPIRED: "Refresh token expired",
+    INVALID_ACCESS_TOKEN: "Invalid MCP OAuth access token",
+  },
 };

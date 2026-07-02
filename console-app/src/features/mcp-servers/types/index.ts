@@ -31,7 +31,8 @@ export type SetupGuideConfigPreset =
   | "claude-desktop"
   | "vscode"
   | "windsurf"
-  | "antigravity";
+  | "antigravity"
+  | "chatgpt";
 
 export type SetupGuideStep = {
   title: string;
