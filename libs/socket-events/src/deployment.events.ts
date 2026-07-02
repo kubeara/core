@@ -440,7 +440,8 @@ export interface DeploymentValidateRequestPayload {
 }
 
 export type DeploymentResourceWarningCode =
-  "insufficient_ram" | "insufficient_cpu";
+  | "insufficient_ram"
+  | "insufficient_cpu";
 
 export interface DeploymentResourceWarning {
   code: DeploymentResourceWarningCode;
@@ -457,7 +458,10 @@ export interface DeploymentValidateResponsePayload {
 }
 
 export type ServerOperationStatusValue =
-  "starting" | "removing" | "error" | null;
+  | "starting"
+  | "removing"
+  | "error"
+  | null;
 
 /** Control panel → console when a server background operation changes. */
 export interface ServerOperationUpdatedPayload {
