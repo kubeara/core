@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -8,18 +9,29 @@ import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 import { ERROR_MESSAGES } from "@control-panel/constants/error";
 import { AuthService } from "@control-panel/modules/auth/auth.service";
+import { DeploymentsService } from "@control-panel/modules/deployments/deployments.service";
+import type { ServerContainerDto } from "@control-panel/modules/deployments/dto/server-container.dto";
+import { ManagedType } from "@control-panel/modules/deployments/enums/managed-type.enum";
 import { ServerResponseDto } from "@control-panel/modules/server-connections/dto/server-response.dto";
 import { ServerResourcesResponseDto } from "@control-panel/modules/server-connections/dto/server-resources-response.dto";
 import { ServerConnectionsService } from "@control-panel/modules/server-connections/services/server-connections.service";
+import { ServiceTemplateService } from "@control-panel/modules/service-template/services/service-template.service";
 
-import { MCP_SERVER_LIST_LIMIT } from "../constants/mcp-tools.constants";
+import {
+  MCP_SERVER_LIST_LIMIT,
+  MCP_TEMPLATE_LIST_DEFAULT_LIMIT,
+  MCP_TEMPLATE_LIST_MAX_LIMIT,
+} from "../constants/mcp-tools.constants";
 import { MCP_TOOL_NAMES, McpToolName } from "../constants/mcp-server.constants";
+import { resolveServiceNameToTemplateSlug } from "./resolve-mcp-service-template.util";
 
 @Injectable()
 export class McpToolsService {
   constructor(
     private readonly authService: AuthService,
     private readonly serverConnectionsService: ServerConnectionsService,
+    private readonly serviceTemplateService: ServiceTemplateService,
+    private readonly deploymentsService: DeploymentsService,
   ) {}
 
   /**
@@ -42,17 +54,30 @@ export class McpToolsService {
           result = await this.listServers(userId);
           break;
 
+        case MCP_TOOL_NAMES.LIST_SERVICES:
+          result = await this.listServices(userId, args);
+          break;
+
+        case MCP_TOOL_NAMES.DEPLOY_SERVICE:
+          result = await this.deployService(
+            userId,
+            this.requireNamedStringArg(args.serviceName, "serviceName"),
+            this.requireNamedStringArg(args.serverName, "serverName"),
+            this.optionalBooleanArg(args.skipIfDeployed, true),
+          );
+          break;
+
         case MCP_TOOL_NAMES.GET_SERVER_STATUS:
           result = await this.getServerStatus(
             userId,
-            this.requireStringArg(args.serverName, "serverName"),
+            this.requireNamedStringArg(args.serverName, "serverName"),
           );
           break;
 
         case MCP_TOOL_NAMES.GET_GPU_METRICS:
           result = await this.getGpuMetrics(
             userId,
-            this.requireStringArg(args.serverName, "serverName"),
+            this.requireNamedStringArg(args.serverName, "serverName"),
           );
           break;
 
@@ -70,7 +95,8 @@ export class McpToolsService {
     } catch (error) {
       if (
         error instanceof NotFoundException ||
-        error instanceof BadRequestException
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
       ) {
         throw error;
       }
@@ -102,11 +128,6 @@ export class McpToolsService {
     }
   }
 
-  /**
-   * List all servers for the authenticated user.
-   * @param userId - The ID of the user.
-   * @returns A promise that resolves to a list of server summaries.
-   */
   private async listServers(userId: string) {
     try {
       const response = await this.serverConnectionsService.listServers(userId, {
@@ -121,7 +142,8 @@ export class McpToolsService {
         name: server.name,
         host: server.host,
         port: server.port,
-        connected: server.connected,
+        connected: server.agentConnected,
+        agentConnected: server.agentConnected,
         status: server.status,
         serverType: server.serverType,
         provider: server.provider,
@@ -140,6 +162,166 @@ export class McpToolsService {
         `Failed to list servers: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  /**
+   * List deployable services (templates) with optional search and filters.
+   */
+  private async listServices(userId: string, args: Record<string, unknown>) {
+    void userId;
+
+    try {
+      const page = this.optionalPositiveInt(args.page, 1);
+      const limit = this.optionalPositiveInt(
+        args.limit,
+        MCP_TEMPLATE_LIST_DEFAULT_LIMIT,
+        MCP_TEMPLATE_LIST_MAX_LIMIT,
+      );
+      const search =
+        typeof args.search === "string" && args.search.trim()
+          ? args.search.trim()
+          : undefined;
+      const category =
+        typeof args.category === "string" && args.category.trim()
+          ? args.category.trim()
+          : undefined;
+
+      const response = await this.serviceTemplateService.listTemplatesPaginated(
+        {
+          page,
+          limit,
+          search,
+          category,
+        },
+      );
+
+      return {
+        services: response.data.data.map((template) => ({
+          slug: template.slug,
+          name: template.name,
+          description: template.shortDescription,
+          categories: template.category,
+          tags: template.tags,
+          port: template.port,
+        })),
+        pagination: response.data.pagination,
+      };
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Failed to list services: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Deploy a service to a server by name. Skips when already deployed unless
+   * skipIfDeployed is false.
+   */
+  private async deployService(
+    userId: string,
+    serviceName: string,
+    serverName: string,
+    skipIfDeployed: boolean,
+  ) {
+    try {
+      const server = await this.findServerByNameOrId(userId, serverName);
+
+      if (!server.agentConnected) {
+        throw new BadRequestException(
+          `Server '${server.name}' is not connected. Install and connect the Kubeara agent before deploying.`,
+        );
+      }
+
+      const templateSlug = await resolveServiceNameToTemplateSlug(
+        this.serviceTemplateService,
+        serviceName,
+      );
+
+      if (skipIfDeployed) {
+        const existing = await this.findDeployedServiceOnServer(
+          userId,
+          server.id,
+          templateSlug,
+        );
+
+        if (existing) {
+          return {
+            action: "skipped",
+            reason: "Service already deployed on this server",
+            service: templateSlug,
+            server: server.name,
+            serverId: server.id,
+            deploymentId: existing.deploymentId,
+          };
+        }
+      }
+
+      const serverUrlContext =
+        await this.deploymentsService.buildServerUrlContext({
+          userId,
+          serverId: server.id,
+        });
+
+      const prepared = await this.deploymentsService.prepareComposeDeployment({
+        templateSlug,
+        serverId: server.id,
+        userId,
+        requestEnv: {},
+        requestPorts: {},
+        serverUrlContext,
+      });
+
+      const result = this.deploymentsService.schedulePreparedDeployment(
+        prepared,
+        false,
+      );
+
+      return {
+        action: "deploying",
+        service: templateSlug,
+        server: server.name,
+        serverId: server.id,
+        deploymentId: result.deploymentId,
+        message: result.message,
+      };
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Failed to deploy service: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private async findDeployedServiceOnServer(
+    userId: string,
+    serverId: string,
+    templateSlug: string,
+  ): Promise<ServerContainerDto | null> {
+    const containers = await this.deploymentsService.listServerContainers(
+      serverId,
+      userId,
+    );
+
+    return (
+      containers.find(
+        (container) =>
+          container.managedType === ManagedType.KUBEARA_MANAGED &&
+          container.templateId === templateSlug &&
+          container.isOnline,
+      ) ?? null
+    );
   }
 
   /**
@@ -336,13 +518,61 @@ export class McpToolsService {
    * @param name - The argument name used in error messages.
    * @returns The trimmed string value.
    */
-  private requireStringArg(value: unknown, name?: string): string {
+  private requireNamedStringArg(value: unknown, name: string): string {
     if (typeof value !== "string" || value.trim() === "") {
-      throw new BadRequestException(ERROR_MESSAGES.SERVER.NOT_FOUND);
-    }
-    if (name && value.trim() === "") {
       throw new BadRequestException(`${name} is required`);
     }
+
     return value.trim();
+  }
+
+  private optionalBooleanArg(value: unknown, fallback: boolean): boolean {
+    if (value === undefined || value === null) {
+      return fallback;
+    }
+
+    if (typeof value === "boolean") {
+      return value;
+    }
+
+    if (value === "true") {
+      return true;
+    }
+
+    if (value === "false") {
+      return false;
+    }
+
+    throw new BadRequestException("skipIfDeployed must be a boolean");
+  }
+
+  private optionalPositiveInt(
+    value: unknown,
+    fallback: number,
+    max?: number,
+  ): number {
+    if (value === undefined || value === null || value === "") {
+      return fallback;
+    }
+
+    let parsed: number;
+
+    if (typeof value === "number") {
+      parsed = value;
+    } else if (typeof value === "string") {
+      parsed = Number.parseInt(value, 10);
+    } else {
+      throw new BadRequestException("page and limit must be positive integers");
+    }
+
+    if (!Number.isInteger(parsed) || parsed < 1) {
+      throw new BadRequestException("page and limit must be positive integers");
+    }
+
+    if (max !== undefined && parsed > max) {
+      return max;
+    }
+
+    return parsed;
   }
 }

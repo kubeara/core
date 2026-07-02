@@ -51,9 +51,10 @@ export class McpServerController {
       const isPublicMethod = MCP_UNAUTHENTICATED_METHODS.has(method);
 
       if (!method) {
-        this.sendUnauthorizedChallenge(
+        this.sendUnauthorizedResponse(
           res,
           ERROR_MESSAGES.MCP_API_KEYS.MISSING_AUTHORIZATION,
+          authHeader,
         );
         return;
       }
@@ -94,7 +95,7 @@ export class McpServerController {
           this.mapErrorToJsonRpc(error);
 
         if (statusCode === 401) {
-          this.sendUnauthorizedChallenge(res, message);
+          this.sendUnauthorizedResponse(res, message, authHeader);
           return;
         }
 
@@ -108,14 +109,19 @@ export class McpServerController {
   }
 
   /**
-   * Unauthenticated GET — return 401 + WWW-Authenticate so OAuth clients can discover metadata.
+   * MCP streamable HTTP uses POST; avoid OAuth discovery on GET so desktop clients are not
+   * pushed into dynamic client registration when probing the endpoint.
    */
   @Get()
   handleGet(@Res() res: Response): void {
-    this.sendUnauthorizedChallenge(
-      res,
-      ERROR_MESSAGES.MCP_API_KEYS.MISSING_AUTHORIZATION,
-    );
+    res.status(405).json({
+      jsonrpc: MCP_JSON_RPC_VERSION,
+      error: {
+        code: MCP_JSON_RPC_ERROR_CODES.METHOD_NOT_ALLOWED,
+        message: ERROR_MESSAGES.MCP_SERVER.METHOD_NOT_ALLOWED,
+      },
+      id: MCP_JSON_RPC_NULL_ID,
+    });
   }
 
   /**
@@ -134,15 +140,21 @@ export class McpServerController {
   }
 
   /**
-   * Send an unauthorized challenge
-   * @param res
-   * @param message
+   * Return 401 — OAuth discovery for ChatGPT when no bearer token is sent; plain error for
+   * desktop clients that supplied an API key.
    */
-  private sendUnauthorizedChallenge(res: Response, message: string): void {
-    res.setHeader(
-      "WWW-Authenticate",
-      `Bearer resource_metadata="${this.mcpOAuthConfigService.getProtectedResourceMetadataUrl()}", error="invalid_token", error_description="${message}"`,
-    );
+  private sendUnauthorizedResponse(
+    res: Response,
+    message: string,
+    authHeader: string | undefined,
+  ): void {
+    if (this.mcpAuthService.shouldAdvertiseOAuthDiscovery(authHeader)) {
+      res.setHeader(
+        "WWW-Authenticate",
+        `Bearer resource_metadata="${this.mcpOAuthConfigService.getProtectedResourceMetadataUrl()}", error="invalid_token", error_description="${message}"`,
+      );
+    }
+
     res.status(401).json({
       jsonrpc: MCP_JSON_RPC_VERSION,
       error: {
