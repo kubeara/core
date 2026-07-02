@@ -282,7 +282,7 @@ export class McpToolsService {
         false,
         {
           skipResourceValidation: true,
-        }
+        },
       );
 
       return {
