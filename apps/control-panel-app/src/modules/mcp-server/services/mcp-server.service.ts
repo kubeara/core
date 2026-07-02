@@ -43,6 +43,71 @@ export class McpServerService {
       );
 
       server.registerTool(
+        MCP_TOOL_NAMES.LIST_SERVICES,
+        {
+          description:
+            "List deployable services (templates) with optional search and category filters",
+          inputSchema: {
+            search: z
+              .string()
+              .optional()
+              .describe("Search by service name, slug, description, or tags"),
+            category: z
+              .string()
+              .optional()
+              .describe("Filter by category (e.g. database, monitoring)"),
+            page: z
+              .number()
+              .int()
+              .min(1)
+              .optional()
+              .describe("Page number (default 1)"),
+            limit: z
+              .number()
+              .int()
+              .min(1)
+              .max(100)
+              .optional()
+              .describe("Results per page (default 20, max 100)"),
+          },
+        },
+        (args) =>
+          this.mcpToolsService.executeTool(
+            MCP_TOOL_NAMES.LIST_SERVICES,
+            args,
+            userId,
+          ),
+      );
+
+      server.registerTool(
+        MCP_TOOL_NAMES.DEPLOY_SERVICE,
+        {
+          description:
+            "Deploy a service to a server by name. Skips if the service is already running on that server.",
+          inputSchema: {
+            serviceName: z
+              .string()
+              .describe(
+                "Service name or template slug (e.g. postgres, redis, grafana)",
+              ),
+            serverName: z.string().describe("Target server name or ID"),
+            skipIfDeployed: z
+              .boolean()
+              .optional()
+              .describe(
+                "When true (default), skip deploy if the service is already on the server",
+              ),
+          },
+        },
+        (args) =>
+          this.mcpToolsService.executeTool(
+            MCP_TOOL_NAMES.DEPLOY_SERVICE,
+            args,
+            userId,
+          ),
+      );
+
+      server.registerTool(
         MCP_TOOL_NAMES.GET_SERVER_STATUS,
         {
           description: "Server status/metrics",

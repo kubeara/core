@@ -91,7 +91,9 @@ export class AuthCookieService {
     >("COOKIE_SAME_SITE");
 
     const normalizedSameSite = (sameSite?.toLowerCase() ?? "lax") as
-      "strict" | "lax" | "none";
+      | "strict"
+      | "lax"
+      | "none";
 
     return {
       httpOnly: true,
