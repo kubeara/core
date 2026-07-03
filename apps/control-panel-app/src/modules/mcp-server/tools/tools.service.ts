@@ -320,7 +320,10 @@ export class McpToolsService {
     args: Record<string, unknown>,
   ) {
     try {
-      const deploymentId = await this.resolveDeploymentIdForStatus(userId, args);
+      const deploymentId = await this.resolveDeploymentIdForStatus(
+        userId,
+        args,
+      );
       const deployment =
         await this.deploymentsService.getDeployment(deploymentId);
 
