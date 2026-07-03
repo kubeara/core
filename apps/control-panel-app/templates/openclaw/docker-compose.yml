@@ -1,0 +1,138 @@
+# documentation: https://coolify.io/docs/services/openclaw
+# shortDescription: AI coding assistant with multi-provider support and browser automation
+# longDescription: <p>OpenClaw is an <strong>AI coding assistant</strong> with multi-provider LLM support and integrated browser automation.</p><p>Auth uses <code>SERVICE_USER_OPENCLAW</code> and <code>SERVICE_PASSWORD_OPENCLAW</code>. Gateway token uses <code>SERVICE_PASSWORD_64_GATEWAYTOKEN</code>.</p>
+# category: ai,development
+# tags: ai,coding,assistant,llm,anthropic,openai,automation
+# port: 8080
+
+services:
+  openclaw:
+    image: ${OPENCLAW_IMAGE:-coollabsio/openclaw:2026.2.6}
+    restart: ${OPENCLAW_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_OPENCLAW:-8080}:8080'
+
+    environment:
+      - SERVICE_URL_OPENCLAW_8080
+      - AUTH_USERNAME=${SERVICE_USER_OPENCLAW}
+      - AUTH_PASSWORD=${SERVICE_PASSWORD_OPENCLAW}
+      - OPENCLAW_GATEWAY_TOKEN=${SERVICE_PASSWORD_64_GATEWAYTOKEN}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-optional}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-optional}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-optional}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-optional}
+      - XAI_API_KEY=${XAI_API_KEY:-optional}
+      - GROQ_API_KEY=${GROQ_API_KEY:-optional}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-optional}
+      - CEREBRAS_API_KEY=${CEREBRAS_API_KEY:-optional}
+      - VENICE_API_KEY=${VENICE_API_KEY:-optional}
+      - MOONSHOT_API_KEY=${MOONSHOT_API_KEY:-optional}
+      - KIMI_API_KEY=${KIMI_API_KEY:-optional}
+      - MINIMAX_API_KEY=${MINIMAX_API_KEY:-optional}
+      - ZAI_API_KEY=${ZAI_API_KEY:-optional}
+      - AI_GATEWAY_API_KEY=${AI_GATEWAY_API_KEY:-optional}
+      - OPENCODE_API_KEY=${OPENCODE_API_KEY:-optional}
+      - SYNTHETIC_API_KEY=${SYNTHETIC_API_KEY:-optional}
+      - COPILOT_GITHUB_TOKEN=${COPILOT_GITHUB_TOKEN:-optional}
+      - XIAOMI_API_KEY=${XIAOMI_API_KEY:-optional}
+      - OPENCLAW_PRIMARY_MODEL=${OPENCLAW_PRIMARY_MODEL:-optional}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY:-optional}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-optional}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-optional}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:-optional}
+      - BEDROCK_PROVIDER_FILTER=${BEDROCK_PROVIDER_FILTER:-anthropic}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-optional}
+      - PORT=8080
+      - OPENCLAW_GATEWAY_PORT=${OPENCLAW_GATEWAY_PORT:-18789}
+      - OPENCLAW_GATEWAY_BIND=${OPENCLAW_GATEWAY_BIND:-loopback}
+      - OPENCLAW_STATE_DIR=/data/.openclaw
+      - OPENCLAW_WORKSPACE_DIR=/data/workspace
+      - BROWSER_CDP_URL=http://browser:9223
+      - BROWSER_DEFAULT_PROFILE=${BROWSER_DEFAULT_PROFILE:-openclaw}
+      - BROWSER_EVALUATE_ENABLED=${BROWSER_EVALUATE_ENABLED:-true}
+      - BROWSER_SNAPSHOT_MODE=${BROWSER_SNAPSHOT_MODE:-efficient}
+      - BROWSER_REMOTE_TIMEOUT_MS=${BROWSER_REMOTE_TIMEOUT_MS:-1500}
+      - BROWSER_REMOTE_HANDSHAKE_TIMEOUT_MS=${BROWSER_REMOTE_HANDSHAKE_TIMEOUT_MS:-3000}
+      - HOOKS_ENABLED=${HOOKS_ENABLED:-false}
+      - HOOKS_PATH=${HOOKS_PATH:-/hooks}
+      - MOONSHOT_BASE_URL=${MOONSHOT_BASE_URL:-https://api.moonshot.ai/v1}
+      - KIMI_BASE_URL=${KIMI_BASE_URL:-https://api.moonshot.ai/anthropic}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-optional}
+      - DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN:-optional}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-optional}
+      - SLACK_APP_TOKEN=${SLACK_APP_TOKEN:-optional}
+      - WHATSAPP_ENABLED=${WHATSAPP_ENABLED:-false}
+      - OPENCLAW_DOCKER_APT_PACKAGES=${OPENCLAW_DOCKER_APT_PACKAGES:-optional}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - openclaw_data:/data
+
+    depends_on:
+      browser:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8080/healthz || exit 1']
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  browser:
+    image: ${OPENCLAW_BROWSER_IMAGE:-coollabsio/openclaw-browser:latest}
+    restart: ${OPENCLAW_BROWSER_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - PUID=${OPENCLAW_BROWSER_PUID:-1000}
+      - PGID=${OPENCLAW_BROWSER_PGID:-1000}
+      - TZ=${TZ:-UTC}
+      - CHROME_CLI=--remote-debugging-port=9222
+
+    volumes:
+      - browser_data:/config
+
+    shm_size: 2g
+
+    healthcheck:
+      test: ['CMD-SHELL', 'bash -c ":> /dev/tcp/127.0.0.1/9222" || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  openclaw_data:
+  browser_data:

@@ -1,0 +1,143 @@
+# documentation: https://trigger.dev/docs/self-hosting/docker
+# shortDescription: Background jobs and workflow automation platform
+# longDescription: <p>Trigger.dev is an open-source platform for long-running background jobs and workflows in TypeScript.</p><p>This template runs the Trigger webapp with PostgreSQL and Redis for self-hosted orchestration.</p>
+# category: automation,workflows,integration
+# tags: trigger,triggerdev,workflow,automation,jobs,typescript,postgresql,redis
+# port: 3040
+
+services:
+  trigger:
+    image: ${TRIGGER_IMAGE:-ghcr.io/triggerdotdev/trigger.dev:v3}
+    restart: ${TRIGGER_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_TRIGGER:-3040}:3030'
+
+    environment:
+      - SERVICE_URL_TRIGGER_3040
+      - PORT=3030
+      - REMIX_APP_PORT=3030
+      - NODE_ENV=production
+      - RUNTIME_PLATFORM=docker-compose
+      - V3_ENABLED=true
+      - INTERNAL_OTEL_TRACE_DISABLED=1
+      - INTERNAL_OTEL_TRACE_LOGGING_ENABLED=0
+      - DATABASE_HOST=postgres:5432
+      - DATABASE_URL=postgresql://${SERVICE_USER_TRIGGERDB:-postgres}:${SERVICE_PASSWORD_TRIGGERDB:-postgres}@postgres:5432/${TRIGGER_DB_NAME:-postgres}
+      - DIRECT_URL=postgresql://${SERVICE_USER_TRIGGERDB:-postgres}:${SERVICE_PASSWORD_TRIGGERDB:-postgres}@postgres:5432/${TRIGGER_DB_NAME:-postgres}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_TLS_DISABLED=true
+      - MAGIC_LINK_SECRET=${SERVICE_PASSWORD_TRIGGER_MAGIC_LINK:-trigger_magic_link_secret}
+      - SESSION_SECRET=${SERVICE_PASSWORD_TRIGGER_SESSION:-trigger_session_secret}
+      - ENCRYPTION_KEY=${SERVICE_PASSWORD_64_TRIGGER_ENCRYPTION:-ae13021afef0819c3a307ad487071c06}
+      - PROVIDER_SECRET=${SERVICE_PASSWORD_TRIGGER_PROVIDER:-trigger_provider_secret}
+      - COORDINATOR_SECRET=${SERVICE_PASSWORD_TRIGGER_COORDINATOR:-trigger_coordinator_secret}
+      - HTTP_SERVER_PORT=9020
+      - COORDINATOR_HOST=127.0.0.1
+      - COORDINATOR_PORT=9020
+      - LOGIN_ORIGIN=${SERVICE_URL_TRIGGER:-${SERVICE_URL_TRIGGER_3040}}
+      - APP_ORIGIN=${SERVICE_URL_TRIGGER:-${SERVICE_URL_TRIGGER_3040}}
+      - DEV_OTEL_EXPORTER_OTLP_ENDPOINT=${SERVICE_URL_TRIGGER:-${SERVICE_URL_TRIGGER_3040}}/otel
+      - ELECTRIC_ORIGIN=http://electric:3000
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:3030/ || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 45s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1536M
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${TRIGGER_POSTGRES_IMAGE:-postgres:16}
+    restart: ${TRIGGER_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_TRIGGERDB:-postgres}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_TRIGGERDB:-postgres}
+      - POSTGRES_DB=${TRIGGER_DB_NAME:-postgres}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - trigger_postgres_data:/var/lib/postgresql/data
+
+    command:
+      - -c
+      - wal_level=logical
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${SERVICE_USER_TRIGGERDB:-postgres} -d ${TRIGGER_DB_NAME:-postgres}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: ${TRIGGER_REDIS_IMAGE:-redis:7}
+    restart: ${TRIGGER_REDIS_RESTART_POLICY:-unless-stopped}
+
+    volumes:
+      - trigger_redis_data:/data
+
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  trigger_postgres_data:
+  trigger_redis_data:

@@ -1,0 +1,52 @@
+# documentation: https://docs.mage.ai
+# shortDescription: Build and run data pipelines for ETL and transformations
+# longDescription: <p>Mage is a <strong>data pipeline tool</strong> for building, running, and managing ETL workflows and transformations.</p><p>Project files persist under <code>/home/src</code>. Access the UI on port 6789 after deploy.</p>
+# category: ai,automation
+# tags: mage-ai,data,etl,pipelines,dbt,analytics,workflow
+# logo: svgs/mage-ai.svg
+# port: 6789
+
+services:
+  mage-ai:
+    image: ${MAGE_AI_IMAGE:-mageai/mageai:latest}
+    restart: ${MAGE_AI_RESTART_POLICY:-unless-stopped}
+
+    command: ['mage', 'start', '${MAGE_AI_PROJECT_NAME:-default_project}']
+
+    ports:
+      - '${SERVICE_PORT_MAGE_AI:-6789}:6789'
+
+    environment:
+      - SERVICE_URL_MAGE_AI_6789
+      - PROJECT_NAME=${MAGE_AI_PROJECT_NAME:-default_project}
+      - USER_CODE_PATH=/home/src/${MAGE_AI_PROJECT_NAME:-default_project}
+      - ENV=${MAGE_AI_ENV:-production}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - mage_ai_data:/home/src
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:6789/ || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  mage_ai_data:
