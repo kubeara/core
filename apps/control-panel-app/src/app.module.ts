@@ -17,6 +17,7 @@ import { McpApiKeysModule } from "./modules/mcp-api-keys/mcp-api-keys.module";
 import { McpOAuthModule } from "./modules/mcp-oauth/mcp-oauth.module";
 import { McpServerModule } from "./modules/mcp-server/mcp-server.module";
 import { TerminalModule } from "./modules/terminal/terminal.module";
+import { LokiLoggerModule } from "./modules/loki-logger";
 import { AppController } from "./app.controller";
 import { isProductionEnv } from "@control-panel/constants/env.constant";
 
@@ -55,6 +56,7 @@ import { isProductionEnv } from "@control-panel/constants/env.constant";
         }
       },
     }),
+    LokiLoggerModule,
     ServiceTemplateModule,
     DeploymentsModule,
     ServerConnectionsModule,

@@ -21,7 +21,8 @@
     "start:agent-app:dev": "nest start agent-app --watch",
     "start:agent-app:prod": "node dist/apps/agent-app/src/main",
     "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\" \"test/**/*.ts\"",
-    "lint": "eslint \"{apps,libs,test}/**/*.ts\" --fix",
+    "lint": "eslint \"{apps,libs,test}/**/*.ts\"",
+    "lint:fix": "eslint \"{apps,libs,test}/**/*.ts\" --fix",
     "e2e:hetzner": "bash scripts/e2e/validate-on-hetzner.sh",
     "e2e:hetzner:list": "bash scripts/e2e/validate-on-hetzner.sh --list",
     "e2e:hetzner:all": "bash scripts/e2e/validate-all-on-hetzner.sh",
@@ -92,6 +93,8 @@
     "socket.io-client": "^4.8.3",
     "ssh2": "^1.17.0",
     "typeorm": "^1.0.0",
+    "winston": "^3.19.0",
+    "winston-loki": "^6.1.4",
     "zod": "^4.4.3"
   },
   "overrides": {
