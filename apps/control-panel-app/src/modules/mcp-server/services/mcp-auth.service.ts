@@ -21,20 +21,15 @@ export class McpAuthService {
    */
   async validateToken(authHeader: string | undefined): Promise<McpAuthUser> {
     try {
-      if (!authHeader) {
+      const token = this.extractBearerToken(authHeader);
+      if (!token) {
         throw new UnauthorizedException(
           ERROR_MESSAGES.MCP_API_KEYS.MISSING_AUTHORIZATION,
         );
       }
 
-      const token = authHeader.startsWith("Bearer ")
-        ? authHeader.slice(7)
-        : authHeader;
-
-      if (!token.trim()) {
-        throw new UnauthorizedException(
-          ERROR_MESSAGES.MCP_API_KEYS.MISSING_AUTHORIZATION,
-        );
+      if (this.looksLikeJwt(token)) {
+        return await this.mcpOAuthJwtService.verifyAccessToken(token);
       }
 
       return await this.mcpApiKeysService.validateBearerToken(token);
@@ -44,6 +39,32 @@ export class McpAuthService {
       );
       throw error;
     }
+  }
+
+  /**
+   * Whether a 401 should advertise OAuth metadata (ChatGPT) vs a plain API-key error (desktop clients).
+   */
+  shouldAdvertiseOAuthDiscovery(authHeader: string | undefined): boolean {
+    const token = this.extractBearerToken(authHeader);
+    if (!token) {
+      return true;
+    }
+
+    // Desktop clients send opaque API keys; invalid keys should not trigger OAuth registration.
+    return this.looksLikeJwt(token);
+  }
+
+  extractBearerToken(authHeader: string | undefined): string | undefined {
+    if (!authHeader?.trim()) {
+      return undefined;
+    }
+
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : authHeader;
+
+    const trimmed = token.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
   }
 
   private looksLikeJwt(token: string): boolean {
