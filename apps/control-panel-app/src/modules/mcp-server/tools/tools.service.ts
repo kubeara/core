@@ -67,6 +67,10 @@ export class McpToolsService {
           );
           break;
 
+        case MCP_TOOL_NAMES.GET_DEPLOYMENT_STATUS:
+          result = await this.getDeploymentStatus(userId, args);
+          break;
+
         case MCP_TOOL_NAMES.GET_SERVER_STATUS:
           result = await this.getServerStatus(
             userId,
@@ -305,6 +309,106 @@ export class McpToolsService {
         `Failed to deploy service: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  /**
+   * Returns the current deployment status from the database.
+   * Accepts deploymentId directly, or serviceName + serverName to find the latest deployment.
+   */
+  private async getDeploymentStatus(
+    userId: string,
+    args: Record<string, unknown>,
+  ) {
+    try {
+      const deploymentId = await this.resolveDeploymentIdForStatus(
+        userId,
+        args,
+      );
+      const deployment =
+        await this.deploymentsService.getDeployment(deploymentId);
+
+      return this.formatDeploymentStatus(deployment);
+    } catch (error) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Failed to get deployment status: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Resolve the deployment ID for the status.
+   * @param userId - The ID of the user.  Resolve the deployment ID for the status.
+   * @param args - The arguments passed to the tool.
+   * @returns The deployment ID.
+   * @returns The deployment ID. If not found, throw a BadRequestException.
+   */
+  private async resolveDeploymentIdForStatus(
+    userId: string,
+    args: Record<string, unknown>,
+  ): Promise<string> {
+    const deploymentId =
+      typeof args.deploymentId === "string" && args.deploymentId.trim()
+        ? args.deploymentId.trim()
+        : undefined;
+
+    if (deploymentId) {
+      return deploymentId;
+    }
+
+    const serviceName =
+      typeof args.serviceName === "string" && args.serviceName.trim()
+        ? args.serviceName.trim()
+        : undefined;
+    const serverName =
+      typeof args.serverName === "string" && args.serverName.trim()
+        ? args.serverName.trim()
+        : undefined;
+
+    if (serviceName && serverName) {
+      const server = await this.findServerByNameOrId(userId, serverName);
+      const templateSlug = await resolveServiceNameToTemplateSlug(
+        this.serviceTemplateService,
+        serviceName,
+      );
+      const deployment =
+        await this.deploymentsService.getLatestDeploymentForServerAndTemplate({
+          userId,
+          serverId: server.id,
+          templateSlug,
+        });
+
+      return deployment.id;
+    }
+
+    throw new BadRequestException(
+      "Provide deploymentId or both serviceName and serverName",
+    );
+  }
+
+  /**
+   * Format the deployment status into a readable format.
+   * @param deployment - The deployment to format.
+   * @returns The formatted deployment status.
+   */
+  private formatDeploymentStatus(
+    deployment: Awaited<ReturnType<DeploymentsService["getDeployment"]>>,
+  ) {
+    return {
+      deploymentId: deployment.id,
+      templateSlug: deployment.templateSlug,
+      serverId: deployment.serverId,
+      deploymentStatus: deployment.deploymentStatus,
+      statusMessage: deployment.statusMessage,
+      lastError: deployment.lastError,
+      createdAt: deployment.createdAt,
+      updatedAt: deployment.updatedAt,
+    };
   }
 
   private async findDeployedServiceOnServer(
