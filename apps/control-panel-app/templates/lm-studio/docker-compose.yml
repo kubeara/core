@@ -21,20 +21,20 @@ services:
       - lm_studio_data:/root/.lmstudio
 
     healthcheck:
-      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:1234/v1/models || exit 1']
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:1234/lmstudio-greeting | grep -q ''"lmstudio":true'' || exit 1']
       interval: 15s
       timeout: 10s
       retries: 10
-      start_period: 120s
+      start_period: 60s
 
     deploy:
       resources:
         limits:
-          cpus: '4.0'
-          memory: 8G
+          cpus: '2.0'
+          memory: 4G
         reservations:
-          cpus: '1.0'
-          memory: 2G
+          cpus: '0.5'
+          memory: 1G
 
     logging:
       driver: json-file

@@ -27,14 +27,14 @@ services:
       test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:7860/ || exit 1']
       interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 180s
+      retries: 20
+      start_period: 600s
 
     deploy:
       resources:
         limits:
-          cpus: '4.0'
-          memory: 8G
+          cpus: '2.0'
+          memory: 4G
         reservations:
           cpus: '1.0'
           memory: 2G

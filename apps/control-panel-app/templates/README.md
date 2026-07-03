@@ -174,6 +174,12 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `redis/` | In-memory cache on port 6379 |
 | `valkey/` | Redis-compatible cache (Valkey) on port 6379 with AOF persistence |
 | `n8n/` | Compose-only; `SERVICE_URL_N8N_5678` declaration + Traefik-friendly URL vars |
+| `n8n-with-postgresql/` | n8n with PostgreSQL backend storage on port 5678 |
+| `n8n-with-postgres-and-worker/` | n8n queue-mode with PostgreSQL, Redis, and dedicated worker on port 5678 |
+| `hatchet/` | Workflow/job orchestration platform with PostgreSQL on port 8080 |
+| `prefect/` | Workflow orchestration platform with Prefect Server on port 4200 |
+| `trigger/` | Trigger.dev workflow automation with PostgreSQL and Redis on port 3040 |
+| `evolution-api/` | WhatsApp automation API with PostgreSQL and Redis on port 8080 |
 | `uptime-kuma/` | Self-hosted uptime monitoring on port 3001 |
 | `grafana/` | Dashboards; `SERVICE_URL_GRAFANA_3000` + admin credentials |
 | `prometheus/` | Metrics collection on port 9090 with default scrape config |
@@ -237,6 +243,10 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `dify/` | LLM app platform with API, worker, web, PostgreSQL, Redis, Weaviate, and sandbox on ports 3000 and 5001 |
 | `zep/` | Long-term memory for AI agents with PostgreSQL and NLP server on port 8000; web UI at `/admin` |
 | `unstructured/` | Document parsing and preprocessing API on port 8000 |
+| `semgrep/` | Static analysis MCP server on port 8000 |
+| `trivy/` | Vulnerability scanner server on port 4954 |
+| `checkov/` | IaC static analysis scanner on port 8080 |
+| `gitleaks/` | Secret scanner on port 8080 |
 
 ---
 

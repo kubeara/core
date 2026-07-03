@@ -1,0 +1,54 @@
+# documentation: https://docs.prefect.io
+# shortDescription: Workflow orchestration and scheduling platform
+# longDescription: <p>Prefect is a Python-native workflow orchestration platform for scheduling, observing, and automating data and application workflows.</p><p>This template starts Prefect Server with local persistent storage for quick self-hosted deployments.</p>
+# category: automation,workflows,integration
+# tags: prefect,workflow,orchestration,automation,scheduler
+# port: 4200
+
+services:
+  prefect:
+    image: ${PREFECT_IMAGE:-prefecthq/prefect:3-latest}
+    restart: ${PREFECT_RESTART_POLICY:-unless-stopped}
+    command: prefect server start --host 0.0.0.0 --port 4200
+
+    ports:
+      - '${SERVICE_PORT_PREFECT:-4200}:4200'
+
+    environment:
+      - SERVICE_URL_PREFECT_4200
+      - PREFECT_UI_API_URL=${SERVICE_URL_PREFECT:-${SERVICE_URL_PREFECT_4200}}/api
+      - PREFECT_SERVER_API_HOST=0.0.0.0
+      - PREFECT_SERVER_API_PORT=4200
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - prefect_data:/root/.prefect
+
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'python3 -c "import urllib.request; urllib.request.urlopen(''http://127.0.0.1:4200/api/health'').read()" || exit 1',
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 45s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  prefect_data:

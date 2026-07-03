@@ -96,6 +96,30 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "n8n",
     version: "2.10.2",
   },
+  "n8n-with-postgresql": {
+    name: "n8n with PostgreSQL",
+    version: "2.10.2",
+  },
+  "n8n-with-postgres-and-worker": {
+    name: "n8n with Postgres and Worker",
+    version: "2.10.2",
+  },
+  hatchet: {
+    name: "Hatchet",
+    version: "latest",
+  },
+  prefect: {
+    name: "Prefect",
+    version: "3",
+  },
+  trigger: {
+    name: "Trigger.dev",
+    version: "v3",
+  },
+  "evolution-api": {
+    name: "Evolution API",
+    version: "latest",
+  },
   "uptime-kuma": {
     name: "Uptime Kuma",
     version: "2",
@@ -346,6 +370,22 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
   },
   unstructured: {
     name: "Unstructured",
+    version: "latest",
+  },
+  semgrep: {
+    name: "Semgrep",
+    version: "latest",
+  },
+  trivy: {
+    name: "Trivy",
+    version: "latest",
+  },
+  checkov: {
+    name: "Checkov",
+    version: "latest",
+  },
+  gitleaks: {
+    name: "Gitleaks",
     version: "latest",
   },
 };

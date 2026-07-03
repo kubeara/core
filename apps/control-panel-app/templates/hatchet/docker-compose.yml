@@ -1,0 +1,91 @@
+# documentation: https://docs.hatchet.run
+# shortDescription: Background jobs and workflow orchestration platform
+# longDescription: <p>Hatchet provides durable background jobs and workflow orchestration with retries, scheduling, and queue-based execution.</p><p>This template deploys Hatchet with PostgreSQL for persistent state.</p>
+# category: automation,workflows,integration
+# tags: hatchet,workflow,automation,queue,jobs,postgresql
+# port: 8080
+
+services:
+  hatchet:
+    image: ${HATCHET_IMAGE:-ghcr.io/hatchet-dev/hatchet/hatchet-lite:latest}
+    restart: ${HATCHET_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_HATCHET:-8080}:8888'
+
+    environment:
+      - SERVICE_URL_HATCHET_8080
+      - DATABASE_URL=postgres://${SERVICE_USER_HATCHETDB:-hatchet}:${SERVICE_PASSWORD_HATCHETDB:-hatchet_password}@postgres:5432/${HATCHET_DB_NAME:-hatchet}
+      - HATCHET_LOG_LEVEL=${HATCHET_LOG_LEVEL:-info}
+      - SERVER_AUTH_COOKIE_DOMAIN=${SERVER_AUTH_COOKIE_DOMAIN:-localhost}
+      - SERVER_AUTH_COOKIE_INSECURE=${SERVER_AUTH_COOKIE_INSECURE:-true}
+      - SERVER_AUTH_COOKIE_SECRETS=${SERVER_AUTH_COOKIE_SECRETS:-hatchet_cookie_secret_1 hatchet_cookie_secret_2}
+      - SERVER_URL=${SERVICE_URL_HATCHET:-${SERVICE_URL_HATCHET_8080}}
+      - SERVER_GRPC_INSECURE=${SERVER_GRPC_INSECURE:-t}
+      - SERVER_GRPC_BROADCAST_ADDRESS=${SERVER_GRPC_BROADCAST_ADDRESS:-localhost:7070}
+      - SERVER_AUTH_SET_EMAIL_VERIFIED=${SERVER_AUTH_SET_EMAIL_VERIFIED:-t}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8888/health || exit 1']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${HATCHET_POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${HATCHET_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_HATCHETDB:-hatchet}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_HATCHETDB:-hatchet_password}
+      - POSTGRES_DB=${HATCHET_DB_NAME:-hatchet}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - hatchet_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${SERVICE_USER_HATCHETDB:-hatchet} -d ${HATCHET_DB_NAME:-hatchet}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  hatchet_postgres_data:
