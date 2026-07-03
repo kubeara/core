@@ -1,0 +1,92 @@
+# documentation: https://github.com/metatool-ai/metamcp
+# shortDescription: MCP aggregator, orchestrator, middleware, and gateway
+# longDescription: <p>MetaMCP unifies <strong>Model Context Protocol</strong> servers behind one app with PostgreSQL persistence.</p><p>Database credentials use <code>SERVICE_USER_POSTGRES</code> and <code>SERVICE_PASSWORD_POSTGRES</code>. Auth secret uses <code>SERVICE_PASSWORD_AUTH</code>.</p>
+# category: ai,mcp
+# tags: mcp,ai,sse,aggregator,orchestrator,middleware,gateway
+# port: 12008
+
+services:
+  app:
+    image: ${METAMCP_IMAGE:-ghcr.io/metatool-ai/metamcp:2.4}
+    restart: ${METAMCP_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_METAMCP:-12008}:12008'
+
+    environment:
+      - SERVICE_URL_METAMCP_12008
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - POSTGRES_PORT=${POSTGRES_PORT:-5432}
+      - POSTGRES_USER=${SERVICE_USER_POSTGRES}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+      - POSTGRES_DB=${POSTGRES_DB:-metamcp_db}
+      - DATABASE_URL=postgresql://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@${POSTGRES_HOST:-postgres}:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-metamcp_db}
+      - APP_URL=${SERVICE_URL_METAMCP:-${SERVICE_URL_METAMCP_12008:-http://localhost:12008}}
+      - NEXT_PUBLIC_APP_URL=${SERVICE_URL_METAMCP:-${SERVICE_URL_METAMCP_12008:-http://localhost:12008}}
+      - BETTER_AUTH_SECRET=${SERVICE_PASSWORD_AUTH}
+      - TRANSFORM_LOCALHOST_TO_DOCKER_INTERNAL=${TRANSFORM_LOCALHOST_TO_DOCKER_INTERNAL:-true}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:12008/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${METAMCP_POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${METAMCP_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-metamcp_db}
+      POSTGRES_USER: ${SERVICE_USER_POSTGRES}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - metamcp_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  metamcp_postgres_data:

@@ -4,7 +4,7 @@ Utility scripts for the SelfHost / Kubeara core monorepo. These are **not used i
 
 ## E2E: Hetzner template validation
 
-`e2e/validate-on-hetzner.sh` provisions a temporary Hetzner Cloud VM, installs Docker, deploys a service template (`postgresql` or `redis`), verifies the stack is healthy, then tears everything down.
+`e2e/validate-on-hetzner.sh` provisions a temporary Hetzner Cloud VM, installs Docker, deploys a service template (for example `postgresql`, `redis`, or `n8n-with-postgresql`), verifies it is healthy, then tears everything down.
 
 Use this to confirm that:
 
@@ -107,7 +107,7 @@ Optional:
 | `HCLOUD_SERVER_TYPE`  | `cx22`                                              | Server plan                                                       |
 | `HCLOUD_IMAGE`        | `ubuntu-22.04`                                      | OS image                                                          |
 | `ENV_FILE`            | *(auto)*                                            | Path to a custom `.env` file                                      |
-| `SCENARIOS`           | `default,user_input`                                | Comma-separated scenarios to run                                  |
+| `SCENARIOS`           | `default`                                           | Comma-separated scenarios to run (`default`, `user_input`)        |
 | `USER_INPUT_ENV_FILE` | `apps/control-panel-app/templates/<slug>/.env.user` | Env file path for `user_input` scenario                           |
 | `VERIFY_TIMEOUT_SEC`  | `180`                                               | Max seconds to wait for health checks                             |
 | `SKIP_DESTROY`        | `false`                                             | Set to `true` to keep the server on exit (debugging)              |
@@ -142,6 +142,12 @@ npm run e2e:hetzner:list
 
 # Run one template (note the `--` before slug)
 npm run e2e:hetzner -- n8n
+npm run e2e:hetzner -- n8n-with-postgresql
+npm run e2e:hetzner -- n8n-with-postgres-and-worker
+npm run e2e:hetzner -- hatchet
+npm run e2e:hetzner -- prefect
+npm run e2e:hetzner -- trigger
+npm run e2e:hetzner -- evolution-api
 npm run e2e:hetzner -- postgresql
 npm run e2e:hetzner -- mongodb
 ```

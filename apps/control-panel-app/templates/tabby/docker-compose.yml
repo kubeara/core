@@ -1,0 +1,56 @@
+# documentation: https://tabby.tabbyml.com/docs/quick-start/installation/docker-compose/
+# shortDescription: Self-hosted AI coding assistant and completion server
+# longDescription: <p>Tabby is a <strong>self-hosted coding assistant</strong> alternative to GitHub Copilot with IDE extensions.</p><p>JWT signing uses <code>SERVICE_HEX_64_TABBY</code>. Default runs CPU inference; set <code>TABBY_DEVICE=cuda</code> with NVIDIA Container Toolkit for GPU.</p>
+# category: ai,development
+# tags: tabby,ai,coding,copilot,completion,ide
+# port: 8080
+
+services:
+  tabby:
+    image: ${TABBY_IMAGE:-tabbyml/tabby:latest}
+    restart: ${TABBY_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_TABBY:-8080}:8080'
+
+    environment:
+      - SERVICE_URL_TABBY_8080
+      - TABBY_WEBSERVER_JWT_TOKEN_SECRET=${SERVICE_HEX_64_TABBY}
+      - TZ=${TZ:-UTC}
+
+    command:
+      - serve
+      - --model
+      - ${TABBY_MODEL:-StarCoder-1B}
+      - --chat-model
+      - ${TABBY_CHAT_MODEL:-Qwen2-1.5B-Instruct}
+      - --device
+      - ${TABBY_DEVICE:-cpu}
+
+    volumes:
+      - tabby_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8080/v1/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  tabby_data:
