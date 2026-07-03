@@ -1184,6 +1184,46 @@ export class DeploymentsService {
     }
   }
 
+  /**
+   * Returns the most recently updated deployment for a service on a server.
+   * @param input - The input object containing the user ID, server ID, and template slug.
+   * @returns The latest deployment for the server and template.
+   */
+  async getLatestDeploymentForServerAndTemplate(input: {
+    userId: string;
+    serverId: string;
+    templateSlug: string;
+  }): Promise<ServiceDeploymentEntity> {
+    try {
+      const [deployment] = await this.deploymentRepository.find({
+        where: {
+          userId: input.userId,
+          serverId: input.serverId,
+          templateSlug: input.templateSlug,
+          deletedAt: IsNull(),
+        },
+        order: { updatedAt: "DESC" },
+        take: 1,
+      });
+
+      if (!deployment) {
+        throw new NotFoundException(
+          `No deployment found for '${input.templateSlug}' on server '${input.serverId}'`,
+        );
+      }
+
+      return deployment;
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      this.logger.error(
+        `Get latest deployment for '${input.templateSlug}' on server '${input.serverId}' failed: ${toErrorMessage(error)}`,
+      );
+      throw error;
+    }
+  }
+
   async listEnvironmentVariables(
     deploymentId: string,
     options: { maskSecrets?: boolean } = {},

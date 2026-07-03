@@ -704,12 +704,12 @@ export class DeployTemplateExecutor {
           opts.resolvedConfig,
         );
 
-        await this.resourceAvailabilityService.assertRamAvailable(
-          requirements.memoryBytes,
-        );
-
         await this.resourceAvailabilityService.assertCpuAvailable(
           requirements.cpuCores,
+        );
+
+        await this.resourceAvailabilityService.assertRamAvailable(
+          requirements.memoryBytes,
         );
       } else {
         this.logger.warn(

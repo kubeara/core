@@ -43,6 +43,105 @@ export class McpServerService {
       );
 
       server.registerTool(
+        MCP_TOOL_NAMES.LIST_SERVICES,
+        {
+          description:
+            "List deployable services (templates) with optional search and category filters",
+          inputSchema: {
+            search: z
+              .string()
+              .optional()
+              .describe("Search by service name, slug, description, or tags"),
+            category: z
+              .string()
+              .optional()
+              .describe("Filter by category (e.g. database, monitoring)"),
+            page: z
+              .number()
+              .int()
+              .min(1)
+              .optional()
+              .describe("Page number (default 1)"),
+            limit: z
+              .number()
+              .int()
+              .min(1)
+              .max(100)
+              .optional()
+              .describe("Results per page (default 20, max 100)"),
+          },
+        },
+        (args) =>
+          this.mcpToolsService.executeTool(
+            MCP_TOOL_NAMES.LIST_SERVICES,
+            args,
+            userId,
+          ),
+      );
+
+      server.registerTool(
+        MCP_TOOL_NAMES.DEPLOY_SERVICE,
+        {
+          description:
+            "Deploy a service to a server by name. Skips if the service is already running on that server.",
+          inputSchema: {
+            serviceName: z
+              .string()
+              .describe(
+                "Service name or template slug (e.g. postgres, redis, grafana)",
+              ),
+            serverName: z.string().describe("Target server name or ID"),
+            skipIfDeployed: z
+              .boolean()
+              .optional()
+              .describe(
+                "When true (default), skip deploy if the service is already on the server",
+              ),
+          },
+        },
+        (args) =>
+          this.mcpToolsService.executeTool(
+            MCP_TOOL_NAMES.DEPLOY_SERVICE,
+            args,
+            userId,
+          ),
+      );
+
+      server.registerTool(
+        MCP_TOOL_NAMES.GET_DEPLOYMENT_STATUS,
+        {
+          description:
+            "Get the current deployment status (success, failed, deploying, etc.). Provide deploymentId from deploy_service, or serviceName + serverName to look up the latest deployment.",
+          inputSchema: {
+            deploymentId: z
+              .string()
+              .optional()
+              .describe(
+                "Deployment ID returned by deploy_service (preferred when available)",
+              ),
+            serviceName: z
+              .string()
+              .optional()
+              .describe(
+                "Service name or template slug — use with serverName when deploymentId is unknown",
+              ),
+            serverName: z
+              .string()
+              .optional()
+              .describe(
+                "Server name or ID — use with serviceName when deploymentId is unknown",
+              ),
+          },
+        },
+        (args) =>
+          this.mcpToolsService.executeTool(
+            MCP_TOOL_NAMES.GET_DEPLOYMENT_STATUS,
+            args,
+            userId,
+          ),
+      );
+
+      server.registerTool(
         MCP_TOOL_NAMES.GET_SERVER_STATUS,
         {
           description: "Server status/metrics",

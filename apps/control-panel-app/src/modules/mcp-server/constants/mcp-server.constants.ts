@@ -13,6 +13,9 @@ export const MCP_JSON_RPC_ERROR_CODES = {
 
 export const MCP_TOOL_NAMES = {
   LIST_SERVERS: "list_servers",
+  LIST_SERVICES: "list_services",
+  DEPLOY_SERVICE: "deploy_service",
+  GET_DEPLOYMENT_STATUS: "get_deployment_status",
   GET_SERVER_STATUS: "get_server_status",
   GET_GPU_METRICS: "get_gpu_metrics",
   GET_CURRENT_USER: "get_current_user",
@@ -22,4 +25,10 @@ export type McpToolName = (typeof MCP_TOOL_NAMES)[keyof typeof MCP_TOOL_NAMES];
 
 export const MCP_JSON_RPC_METHODS = {
   INITIALIZE: "initialize",
+  TOOLS_LIST: "tools/list",
 } as const;
+
+export const MCP_UNAUTHENTICATED_METHODS = new Set<string>([
+  MCP_JSON_RPC_METHODS.INITIALIZE,
+  MCP_JSON_RPC_METHODS.TOOLS_LIST,
+]);
