@@ -12,6 +12,8 @@ import {
   ContainerActionResponsePayload,
   ContainerDiscoverRequestPayload,
   ContainerDiscoverResponsePayload,
+  DeploymentValidateRequestPayload,
+  DeploymentValidateResponsePayload,
   ServerGetResourcesRequestPayload,
   ServerGetResourcesResponsePayload,
   TerminalConnectRequestPayload,
@@ -25,6 +27,8 @@ import {
   ContainerLogsStopPayload,
   ContainerLogsDataPayload,
   ContainerLogsErrorPayload,
+  AgentRemoveRequestPayload,
+  AgentRemoveResponsePayload,
 } from "@shared/socket-events";
 import { ContainerService } from "../container/container.service";
 import { ServerResourcesService } from "../server-resources/server-resources.service";
@@ -35,6 +39,9 @@ import {
   EncryptionService,
   TemplatePayloadService,
   SUCCESS_MESSAGES,
+  DEFAULT_TERMINAL_COLS,
+  DEFAULT_TERMINAL_ROWS,
+  SOCKET_ERROR_MESSAGES,
 } from "@shared/common";
 import * as yaml from "js-yaml";
 import * as os from "os";
@@ -43,6 +50,11 @@ import {
   detectOutboundPublicIp,
   localLoopbackHost,
 } from "./agent-public-ip.util";
+import {
+  InsufficientCpuError,
+  InsufficientRamError,
+  PortUnavailableError,
+} from "../resource-availability/resource-availability.service";
 
 @Injectable()
 export class SocketClientService {
@@ -194,12 +206,14 @@ export class SocketClientService {
     this.socket.off(DeploymentEvents.CONTAINER_ACTION);
     this.socket.off(DeploymentEvents.CONTAINER_DISCOVER);
     this.socket.off(DeploymentEvents.SERVER_GET_RESOURCES);
+    this.socket.off(DeploymentEvents.DEPLOYMENT_VALIDATE);
     this.socket.off(DeploymentEvents.TERMINAL_CONNECT);
     this.socket.off(DeploymentEvents.TERMINAL_INPUT);
     this.socket.off(DeploymentEvents.TERMINAL_RESIZE);
     this.socket.off(DeploymentEvents.TERMINAL_DISCONNECT);
     this.socket.off(DeploymentEvents.CONTAINER_LOGS_START);
     this.socket.off(DeploymentEvents.CONTAINER_LOGS_STOP);
+    this.socket.off(DeploymentEvents.AGENT_REMOVE);
 
     this.socket.on(DeploymentEvents.DEPLOY, (message: SocketDeployMessage) => {
       void this.handleDeployAction(message);
@@ -236,6 +250,16 @@ export class SocketClientService {
           `[SERVER_RESOURCES] socket event received payload=${JSON.stringify(payload)}`,
         );
         void this.handleServerGetResources(payload);
+      },
+    );
+
+    this.socket.on(
+      DeploymentEvents.DEPLOYMENT_VALIDATE,
+      (payload: DeploymentValidateRequestPayload) => {
+        this.logger.log(
+          `[DEPLOYMENT_VALIDATE] socket event received requestId=${payload?.requestId ?? "unknown"} template=${payload?.templateSlug ?? "unknown"}`,
+        );
+        void this.handleDeploymentValidate(payload);
       },
     );
 
@@ -281,8 +305,15 @@ export class SocketClientService {
       },
     );
 
+    this.socket.on(
+      DeploymentEvents.AGENT_REMOVE,
+      (payload: AgentRemoveRequestPayload) => {
+        void this.handleAgentRemove(payload);
+      },
+    );
+
     this.logger.log(
-      `[AgentCapabilities] inbound handlers registered: deploy, remove, ${DeploymentEvents.CONTAINER_ACTION}, ${DeploymentEvents.CONTAINER_DISCOVER}, ${DeploymentEvents.SERVER_GET_RESOURCES}, ${DeploymentEvents.TERMINAL_CONNECT}, ${DeploymentEvents.CONTAINER_LOGS_START}`,
+      `[AgentCapabilities] inbound handlers registered: deploy, remove, ${DeploymentEvents.CONTAINER_ACTION}, ${DeploymentEvents.CONTAINER_DISCOVER}, ${DeploymentEvents.SERVER_GET_RESOURCES}, ${DeploymentEvents.TERMINAL_CONNECT}, ${DeploymentEvents.CONTAINER_LOGS_START}, ${DeploymentEvents.AGENT_REMOVE}`,
     );
   }
 
@@ -304,8 +335,10 @@ export class SocketClientService {
         DeploymentEvents.CONTAINER_DISCOVER,
         DeploymentEvents.CONTAINER_ACTION,
         DeploymentEvents.SERVER_GET_RESOURCES,
+        DeploymentEvents.DEPLOYMENT_VALIDATE,
         DeploymentEvents.TERMINAL_CONNECT,
         DeploymentEvents.CONTAINER_LOGS_START,
+        DeploymentEvents.AGENT_REMOVE,
       ],
       version,
       timestamp: new Date().toISOString(),
@@ -329,6 +362,7 @@ export class SocketClientService {
       schema,
       composeOnly,
       useTraefik,
+      skipResourceValidation,
     } = message.payload;
     const deploymentId = providedId || this.generateDeploymentId();
 
@@ -382,7 +416,7 @@ export class SocketClientService {
 
       // 3. Schema required for legacy deploy path only
       if (!composeOnly && !schema) {
-        throw new Error(`Missing deployment schema for template ${name}`);
+        throw new Error(SOCKET_ERROR_MESSAGES.MISSING_DEPLOYMENT_SCHEMA(name));
       }
 
       this.logger.log(
@@ -396,6 +430,7 @@ export class SocketClientService {
         schema,
         composeOnly,
         useTraefik,
+        skipResourceValidation,
         notifier: this,
       });
     } catch (err) {
@@ -440,7 +475,7 @@ export class SocketClientService {
         ? await this.serverResourcesService.collectResources(requestId)
         : {
             requestId: "",
-            error: "Missing requestId",
+            error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID,
           };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -458,6 +493,120 @@ export class SocketClientService {
     this.socket.emit(DeploymentEvents.SERVER_GET_RESOURCES_RESULT, response);
     this.logger.log(
       `Server get-resources result sent requestId=${requestId}${response.error ? ` error=${response.error}` : ""}`,
+    );
+  }
+
+  /**
+   * Handles pre-deploy validation (RAM, ports, CPU) from the control panel.
+   */
+  private async handleDeploymentValidate(
+    payload: DeploymentValidateRequestPayload,
+  ): Promise<void> {
+    const requestId = payload?.requestId?.trim() ?? "";
+    const templateSlug = payload?.templateSlug?.trim() ?? "";
+
+    let response: DeploymentValidateResponsePayload = {
+      requestId,
+      available: false,
+      error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID,
+    };
+
+    try {
+      if (!requestId || !templateSlug || !payload.compose) {
+        response = {
+          requestId,
+          available: false,
+          error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID_TEMPLATE_COMPOSE,
+        };
+      } else {
+        const decryptedEncodedCompose = this.encryptionService.decrypt(
+          payload.compose,
+        );
+        const composeObj = this.templatePayloadService.decodeBase64ToObject(
+          decryptedEncodedCompose,
+        );
+        const composeYaml = yaml.dump(composeObj, {
+          lineWidth: -1,
+          noRefs: true,
+        });
+
+        const envValues: EnvFileInput = payload.env
+          ? (this.decryptAndParse(payload.env) as EnvFileInput)
+          : {};
+        const portValues: PortFileInput = payload.ports
+          ? (this.decryptAndParse(payload.ports) as PortFileInput)
+          : {};
+
+        if (!payload.composeOnly && !payload.schema) {
+          throw new Error(
+            SOCKET_ERROR_MESSAGES.MISSING_DEPLOYMENT_SCHEMA(templateSlug),
+          );
+        }
+
+        await this.executor.validateBeforeDeploy({
+          name: templateSlug,
+          compose: composeYaml,
+          env: { env: envValues, ports: portValues },
+          schema: payload.schema,
+          composeOnly: payload.composeOnly,
+          useTraefik: payload.useTraefik,
+        });
+
+        response = { requestId, available: true };
+      }
+    } catch (error) {
+      if (error instanceof InsufficientRamError) {
+        this.logger.warn(
+          `Deployment validation resource warning requestId=${requestId}: ${error.message}`,
+        );
+        response = {
+          requestId,
+          available: false,
+          warning: {
+            code: "insufficient_ram",
+            message: error.message,
+          },
+        };
+      } else if (error instanceof InsufficientCpuError) {
+        this.logger.warn(
+          `Deployment validation resource warning requestId=${requestId}: ${error.message}`,
+        );
+        response = {
+          requestId,
+          available: false,
+          warning: {
+            code: "insufficient_cpu",
+            message: error.message,
+          },
+        };
+      } else {
+        const message =
+          error instanceof PortUnavailableError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : String(error);
+        this.logger.warn(
+          `Deployment validation failed requestId=${requestId}: ${message}`,
+        );
+        response = {
+          requestId,
+          available: false,
+          error: message,
+        };
+      }
+    }
+
+    if (!this.socket?.connected) {
+      this.logger.warn(
+        "Cannot send deployment validation result: socket disconnected",
+      );
+      return;
+    }
+
+    this.socket.emit(DeploymentEvents.DEPLOYMENT_VALIDATE_RESULT, response);
+    this.logger.log(
+      `Deployment validation result sent requestId=${requestId} available=${response.available}`,
     );
   }
 
@@ -486,7 +635,7 @@ export class SocketClientService {
           stdout: "",
           stderr: "",
           exitCode: 1,
-          error: "Missing requestId, containerId, or action",
+          error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID_CONTAINER_ACTION,
         };
       } else {
         response = await this.containerService.executeAction(
@@ -524,18 +673,21 @@ export class SocketClientService {
   }
 
   /**
-   * Handles remove requests from control panel and tears down deployment resources.
+   * Handles terminal connect requests from the control panel.
    */
   private handleTerminalConnect(payload: TerminalConnectRequestPayload): void {
     const requestId = payload?.requestId?.trim() ?? "";
-    const cols = payload?.cols ?? 80;
-    const rows = payload?.rows ?? 24;
+    const cols = payload?.cols ?? DEFAULT_TERMINAL_COLS;
+    const rows = payload?.rows ?? DEFAULT_TERMINAL_ROWS;
 
     let response: TerminalConnectResponsePayload;
 
     try {
       if (!requestId) {
-        response = { requestId: "", error: "Missing requestId" };
+        response = {
+          requestId: "",
+          error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID,
+        };
       } else {
         const sessionId = this.terminalService.createSession(cols, rows);
         response = { requestId, sessionId };
@@ -548,7 +700,7 @@ export class SocketClientService {
 
     if (!this.socket?.connected) {
       this.logger.warn(
-        "Cannot send terminal connect result: socket disconnected",
+        SOCKET_ERROR_MESSAGES.CANNOT_SEND_TERMINAL_CONNECT_RESULT,
       );
       return;
     }
@@ -603,7 +755,7 @@ export class SocketClientService {
         response = {
           requestId,
           sessionId,
-          error: "Missing requestId, sessionId, or containerId",
+          error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID_CONTAINER_LOGS_START,
         };
       } else {
         const startError = await this.containerService.startLogStream(
@@ -726,7 +878,7 @@ export class SocketClientService {
         : {
             requestId: "",
             containers: [],
-            error: "Missing requestId",
+            error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID,
           };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -774,6 +926,72 @@ export class SocketClientService {
         error: msg,
       });
     }
+  }
+
+  /**
+   * Handles agent removal requests from the control panel.
+   */
+  private async handleAgentRemove(
+    payload: AgentRemoveRequestPayload,
+  ): Promise<void> {
+    const requestId = payload?.requestId?.trim() ?? "";
+    const installDir = payload?.installDir?.trim() || "/opt/kubeara/agent";
+    const agentImage = payload?.agentImage?.trim();
+
+    let response: AgentRemoveResponsePayload;
+
+    try {
+      if (!requestId) {
+        response = {
+          requestId: "",
+          success: false,
+          error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID,
+        };
+      } else {
+        const imageRefs = await this.executor.collectAgentRemovalTargets({
+          agentImage,
+        });
+        response = { requestId, success: true, imageRefs };
+
+        if (!this.socket?.connected) {
+          this.logger.warn(
+            "Cannot send agent remove result: socket disconnected",
+          );
+          return;
+        }
+
+        this.socket.emit(DeploymentEvents.AGENT_REMOVE_RESULT, response);
+        this.logger.log(
+          `Agent remove result sent requestId=${requestId} success=true imageRefs=${imageRefs.join(", ") || "none"}`,
+        );
+
+        void this.executor
+          .runAgentRemovalAfterAck({
+            installDir,
+            imageRefs,
+          })
+          .catch((err) => {
+            this.logger.error(
+              `Post-ack agent removal failed: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
+        return;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Agent remove handler failed: ${message}`);
+      response = { requestId, success: false, error: message };
+    }
+
+    if (!this.socket?.connected) {
+      this.logger.warn("Cannot send agent remove result: socket disconnected");
+      return;
+    }
+
+    this.socket.emit(DeploymentEvents.AGENT_REMOVE_RESULT, response);
+    this.logger.log(
+      `Agent remove result sent requestId=${requestId} success=${response.success}${response.error ? ` error=${response.error}` : ""}`,
+    );
   }
 
   /**

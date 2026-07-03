@@ -1,7 +1,9 @@
 import { useParams } from "react-router-dom";
 import { BackLink } from "@/components/shared/back-link";
+import { CopyButton } from "@/components/shared/copy-button";
 import { ServerDetailTabs } from "@/components/server-detail-tabs";
 import { useServerQuery } from "@/features/servers/hooks";
+import { isServerOperationBusy } from "@/features/servers/types";
 import { ApiError, getErrorMessage } from "@/api/api-error";
 import { ServerFeedbackMessage } from "@/features/servers/components/server-feedback-message";
 import { ServerDetailPageSkeleton } from "@/components/shared/skeleton";
@@ -46,20 +48,54 @@ export function ServerDetailPage() {
     return <NotFoundPage />;
   }
 
+  const busy = isServerOperationBusy(server.operationStatus);
+  const operationLabel =
+    server.operationStatus === "starting"
+      ? "Starting…"
+      : server.operationStatus === "removing"
+        ? "Removing…"
+        : null;
+
   return (
     <div className="dashboard server-detail">
-      <BackLink to="/servers" label="Back" />
-
-      <header className="dashboard-header">
-        <div>
+      <header className="server-detail-header">
+        <BackLink to="/servers" label="Back" />
+        <div className="server-detail-header-main">
           <h1>{server.name}</h1>
           <p>
-            <code>{server.host}</code> · {server.username}
+            <span className="server-detail-host-row">
+              <CopyButton text={server.host} label="Copy host" />
+              <code>{server.host}</code>
+            </span>{" "}
+            · {server.username}
           </p>
+          {operationLabel && (
+            <span
+              className={`server-tag-pill ${
+                server.operationStatus === "starting"
+                  ? "starting"
+                  : server.operationStatus === "removing"
+                    ? "removing"
+                    : server.operationStatus === "error"
+                      ? "error"
+                      : "pending"
+              }`}
+            >
+              {operationLabel}
+            </span>
+          )}
         </div>
       </header>
 
-      <ServerDetailTabs server={server} />
+      {busy ? (
+        <p className="server-detail-operation-notice" role="status">
+          {server.operationStatus === "starting"
+            ? "Agent installation is in progress. Server features will be available when setup completes."
+            : "Server removal is in progress."}
+        </p>
+      ) : (
+        <ServerDetailTabs server={server} />
+      )}
     </div>
   );
 }

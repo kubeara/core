@@ -1,7 +1,12 @@
-import { Injectable, InternalServerErrorException } from "@nestjs/common";
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { CookieOptions, Response } from "express";
 import ms, { StringValue } from "ms";
+import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import { isJwtToken } from "../utils/cookie-extractor.util";
 
 /** Canonical path for all auth cookies — must match on set and clear. */
@@ -14,6 +19,8 @@ export interface AuthCookieTokens {
 
 @Injectable()
 export class AuthCookieService {
+  private readonly logger = new Logger(AuthCookieService.name);
+
   constructor(private readonly configService: ConfigService) {}
 
   getAccessTokenCookieName(): string {
@@ -28,29 +35,39 @@ export class AuthCookieService {
    * Set the authentication cookies
    */
   setAuthCookies(res: Response, tokens: AuthCookieTokens): void {
-    this.assertJwtTokens(tokens);
+    try {
+      this.assertJwtTokens(tokens);
 
-    res.cookie(
-      this.getAccessTokenCookieName(),
-      tokens.accessToken,
-      this.buildOptions(this.getAccessTokenMaxAgeMs()),
-    );
+      res.cookie(
+        this.getAccessTokenCookieName(),
+        tokens.accessToken,
+        this.buildOptions(this.getAccessTokenMaxAgeMs()),
+      );
 
-    res.cookie(
-      this.getRefreshTokenCookieName(),
-      tokens.refreshToken,
-      this.buildOptions(this.getRefreshTokenMaxAgeMs()),
-    );
+      res.cookie(
+        this.getRefreshTokenCookieName(),
+        tokens.refreshToken,
+        this.buildOptions(this.getRefreshTokenMaxAgeMs()),
+      );
+    } catch (error) {
+      this.logger.error(`Set auth cookies failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**
    * Clear the authentication cookies
    */
   clearAuthCookies(res: Response): void {
-    const clearOptions = this.buildOptions(0);
+    try {
+      const clearOptions = this.buildOptions(0);
 
-    res.clearCookie(this.getAccessTokenCookieName(), clearOptions);
-    res.clearCookie(this.getRefreshTokenCookieName(), clearOptions);
+      res.clearCookie(this.getAccessTokenCookieName(), clearOptions);
+      res.clearCookie(this.getRefreshTokenCookieName(), clearOptions);
+    } catch (error) {
+      this.logger.error(`Clear auth cookies failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   private assertJwtTokens(tokens: AuthCookieTokens): void {
@@ -74,9 +91,7 @@ export class AuthCookieService {
     >("COOKIE_SAME_SITE");
 
     const normalizedSameSite = (sameSite?.toLowerCase() ?? "lax") as
-      | "strict"
-      | "lax"
-      | "none";
+      "strict" | "lax" | "none";
 
     return {
       httpOnly: true,

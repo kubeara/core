@@ -91,6 +91,7 @@ export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
         {activeTab === "overview" && (
           <ServerOverviewTab
             serverId={server.id}
+            serverHost={server.host}
             containers={overviewContainers}
             isLoading={containersLoading}
             isError={containersError}
@@ -105,12 +106,7 @@ export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
         {activeTab === "insights" && (
           <ServerInsightsTab serverId={server.id} isActive />
         )}
-        {activeTab === "activity" && (
-          <ServerActivityTab
-            serverId={server.id}
-            serverName={server.name}
-          />
-        )}
+        {activeTab === "activity" && <ServerActivityTab />}
         <ServerTerminalTab
           serverId={server.id}
           serverName={server.name}

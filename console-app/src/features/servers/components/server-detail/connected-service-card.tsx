@@ -7,14 +7,17 @@ import type {
 import {
   containerStatusClass,
   getContainerCardHeadline,
-  getContainerCardSubtitle,
   getContainerDockerName,
+  getContainerHostPorts,
   getContainerServiceName,
-  managedTypeLabel,
+  getManagedTypeLabel,
+  getContainerStatusLabel,
+  shouldShowDeployedBadge,
 } from "./utils/container-display";
 
 type ConnectedServiceCardProps = {
   container: ServerContainer;
+  serverHost: string;
   logo?: string | null;
   pendingAction: {
     containerId: string | null;
@@ -26,6 +29,7 @@ type ConnectedServiceCardProps = {
 
 export function ConnectedServiceCard({
   container,
+  serverHost,
   logo,
   pendingAction,
   onAction,
@@ -42,15 +46,20 @@ export function ConnectedServiceCard({
 
   const serviceName = getContainerServiceName(container);
   const headline = getContainerCardHeadline(container);
-  const subtitle = getContainerCardSubtitle(container);
   const dockerName = getContainerDockerName(container);
   const showDockerName =
     Boolean(serviceName) &&
     dockerName !== serviceName &&
     dockerName !== headline;
 
-  const statusLabel = container.isOnline ? container.status : "Offline";
-  const portsDisplay = container.ports?.match(/:(\d+)->/)?.[1] ?? "N/A";
+  const statusLabel = getContainerStatusLabel(container);
+  const hostPorts = getContainerHostPorts(container.ports ?? "");
+  const portsDisplay =
+    hostPorts.length > 0
+      ? hostPorts.join(", ")
+      : container.ports?.trim()
+        ? container.ports
+        : "N/A";
 
   return (
     <article
@@ -73,7 +82,7 @@ export function ConnectedServiceCard({
         />
         <div className="marketplace-card-headline">
           <p className="marketplace-card-category">
-            {managedTypeLabel(container.managedType)}
+            {getManagedTypeLabel(container)}
           </p>
           <h3 className="marketplace-card-name" title={headline}>
             {headline}
@@ -81,15 +90,10 @@ export function ConnectedServiceCard({
               <span className="marketplace-card-status-badge is-offline">
                 Offline
               </span>
-            ) : container.managedType === "KUBEARA_MANAGED" ? (
+            ) : shouldShowDeployedBadge(container) ? (
               <span className="marketplace-card-deployed-badge">Deployed</span>
             ) : null}
           </h3>
-          {subtitle && subtitle !== headline ? (
-            <p className="marketplace-card-slug">
-              <code>{subtitle}</code>
-            </p>
-          ) : null}
         </div>
       </div>
 
@@ -128,13 +132,29 @@ export function ConnectedServiceCard({
           </div>
           <div className="marketplace-card-meta-item">
             <dt>Ports</dt>
-            <dd>
-              <code title={container.ports || undefined}>{portsDisplay}</code>
+            <dd title={container.ports || undefined}>
+              {hostPorts.length > 0 && serverHost ? (
+                hostPorts.map((port, index) => (
+                  <span key={port}>
+                    {index > 0 ? ", " : null}
+                    <a
+                      href={`http://${serverHost}:${port}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="container-port-link"
+                    >
+                      {port}
+                    </a>
+                  </span>
+                ))
+              ) : (
+                <code>{portsDisplay}</code>
+              )}
             </dd>
           </div>
           {container.runningSince ? (
             <div className="marketplace-card-meta-item">
-              <dt>Running</dt>
+              <dt>Created</dt>
               <dd>{container.runningSince}</dd>
             </div>
           ) : null}

@@ -87,6 +87,102 @@ export function SkeletonGrid({
   );
 }
 
+export function SkeletonInsightCard() {
+  return (
+    <article className="skeleton-insight-card" aria-hidden>
+      <div className="skeleton-insight-accent" />
+      <div className="skeleton-insight-body">
+        <div className="skeleton-insight-header">
+          <SkeletonText width="5rem" />
+          <SkeletonText width="4.5rem" />
+        </div>
+        <Skeleton className="skeleton-insight-progress" />
+        <div className="skeleton-insight-stats">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="skeleton-insight-stat">
+              <SkeletonText width="3.5rem" size="sm" />
+              <SkeletonText width="4.5rem" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export function SkeletonInsightStack({
+  count = 5,
+  label = "Loading…",
+  className,
+}: {
+  count?: number;
+  label?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn("skeleton-insight-stack", className)}
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <span className="skeleton-visually-hidden">{label}</span>
+      {Array.from({ length: count }).map((_, index) => (
+        <SkeletonInsightCard key={index} />
+      ))}
+    </div>
+  );
+}
+
+export function SkeletonMarketplaceCard() {
+  return (
+    <article className="skeleton-marketplace-card" aria-hidden>
+      <div className="skeleton-marketplace-accent" />
+      <div className="skeleton-marketplace-header">
+        <SkeletonCircle size={48} />
+        <div className="skeleton-marketplace-headline">
+          <SkeletonText width="45%" />
+          <SkeletonText width="35%" size="sm" />
+        </div>
+      </div>
+      <div className="skeleton-marketplace-body">
+        <SkeletonText width="92%" />
+        <SkeletonText width="78%" />
+        <div className="skeleton-marketplace-meta">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="skeleton-marketplace-meta-item">
+              <SkeletonText width="3rem" size="sm" />
+              <SkeletonText width="4rem" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export function SkeletonMarketplaceGrid({
+  count = 3,
+  label = "Loading…",
+  className,
+}: {
+  count?: number;
+  label?: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn("skeleton-marketplace-grid", className)}
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <span className="skeleton-visually-hidden">{label}</span>
+      {Array.from({ length: count }).map((_, index) => (
+        <SkeletonMarketplaceCard key={index} />
+      ))}
+    </div>
+  );
+}
+
 export function SkeletonStack({
   children,
   className,
@@ -154,11 +250,11 @@ export function ServerDetailPageSkeleton() {
   return (
     <div className="dashboard server-detail skeleton-page" aria-live="polite" aria-busy="true">
       <span className="skeleton-visually-hidden">Loading server…</span>
-      <SkeletonText width="7rem" size="sm" />
-      <header className="dashboard-header">
-        <div className="skeleton-stack" style={{ gap: "0.5rem" }}>
-          <SkeletonText width="14rem" size="lg" style={{ height: "1.75rem" }} />
-          <SkeletonText width="18rem" size="sm" />
+      <header className="server-detail-header">
+        <Skeleton className="skeleton-server-detail-back" />
+        <div className="server-detail-header-main">
+          <SkeletonText width="12rem" size="lg" style={{ height: "1.875rem" }} />
+          <SkeletonText width="16rem" size="sm" />
         </div>
       </header>
       <div className="skeleton-tabs" aria-hidden>
@@ -166,7 +262,7 @@ export function ServerDetailPageSkeleton() {
           <Skeleton key={index} className="skeleton-tab" />
         ))}
       </div>
-      <SkeletonGrid count={3} cardHeight={200} />
+      <SkeletonMarketplaceGrid count={3} label="Loading overview…" />
     </div>
   );
 }
@@ -210,17 +306,14 @@ export function DeployLogsPageSkeleton() {
   );
 }
 
-export function McpKeysTableSkeleton({ rows = 4 }: { rows?: number }) {
+export function McpKeysTableSkeleton({ rows = 8 }: { rows?: number }) {
   return (
     <>
       <span className="skeleton-visually-hidden">Loading tokens…</span>
       {Array.from({ length: rows }).map((_, index) => (
         <tr key={index} className="skeleton-table-row" aria-hidden>
           <td>
-            <SkeletonText width="60%" />
-          </td>
-          <td>
-            <Skeleton className="skeleton-table-cell" style={{ maxWidth: "7rem" }} />
+            <SkeletonText width="70%" />
           </td>
           <td>
             <Skeleton className="skeleton-table-cell" style={{ maxWidth: "7rem" }} />
@@ -228,8 +321,10 @@ export function McpKeysTableSkeleton({ rows = 4 }: { rows?: number }) {
           <td>
             <Skeleton
               className="skeleton-table-cell skeleton-table-cell-short"
-              style={{ maxWidth: "4.5rem", height: "1.5rem", borderRadius: "999px" }}
             />
+          </td>
+          <td>
+            <Skeleton className="skeleton-table-cell" style={{ maxWidth: "7rem" }} />
           </td>
           <td>
             <Skeleton className="skeleton-table-cell skeleton-table-cell-actions" />

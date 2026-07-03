@@ -3,6 +3,7 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
+  Logger,
   Param,
   Post,
   Req,
@@ -23,6 +24,8 @@ import {
 @UseGuards(AccessTokenGuard)
 @Controller("servers/:serverId/terminal")
 export class TerminalController {
+  private readonly logger = new Logger(TerminalController.name);
+
   constructor(private readonly terminalService: TerminalService) {}
 
   /**
@@ -31,12 +34,23 @@ export class TerminalController {
   @Post("connect")
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-  connect(
+  async connect(
     @Req() req: AuthenticatedRequest,
     @Param("serverId") serverId: string,
     @Body() body: TerminalConnectDto,
   ): Promise<ServiceResponse<TerminalConnectResponseDto>> {
-    return this.terminalService.connectTerminal(req.user.id, serverId, body);
+    try {
+      return await this.terminalService.connectTerminal(
+        req.user.id,
+        serverId,
+        body,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Terminal connect failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -45,11 +59,22 @@ export class TerminalController {
   @Post("disconnect")
   @HttpCode(HttpStatus.OK)
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-  disconnect(
+  async disconnect(
     @Req() req: AuthenticatedRequest,
     @Param("serverId") serverId: string,
     @Body() body: TerminalDisconnectDto,
   ): Promise<ServiceResponse<{ disconnected: true }>> {
-    return this.terminalService.disconnectTerminal(req.user.id, serverId, body);
+    try {
+      return await this.terminalService.disconnectTerminal(
+        req.user.id,
+        serverId,
+        body,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Terminal disconnect failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 }

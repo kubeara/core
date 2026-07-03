@@ -1,6 +1,7 @@
 .server-terminal-shell {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   margin-top: 1.25rem;
 }
 
@@ -11,6 +12,7 @@
 .server-terminal-card {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
@@ -23,10 +25,26 @@
 }
 
 .server-terminal-shell.is-fullscreen {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
   min-height: 100%;
+  height: 100vh;
   margin: 0;
   padding: 1rem;
   background: #0b1220;
+}
+
+.server-terminal-shell.is-fullscreen .server-terminal-card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.server-terminal-shell.is-fullscreen .server-terminal-window {
+  flex: 1;
+  min-height: 0;
 }
 
 .server-terminal-shell.is-collapsed .server-terminal-window {
@@ -57,7 +75,11 @@
 }
 
 .server-terminal-intro .server-detail-section-title {
-  margin-bottom: 0;
+  margin: 0 0 0.25rem;
+}
+
+.server-terminal-intro .server-detail-section-desc {
+  margin: 0;
 }
 
 .server-terminal-session-host {
@@ -348,8 +370,21 @@
   position: relative;
   flex: 1;
   min-height: 28rem;
+  min-width: 0;
   overflow: hidden;
   background: #0f1b2a;
+}
+
+.server-terminal-window > .terminal-viewer-frame,
+.server-terminal-window > .server-terminal-log-viewer {
+  height: 100%;
+  min-width: 0;
+}
+
+.server-terminal-log-viewer > .terminal-viewer-frame {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
 }
 
 .server-terminal-card .server-terminal-window {
@@ -385,10 +420,6 @@
   to {
     transform: rotate(360deg);
   }
-}
-
-.server-terminal-shell.is-fullscreen .server-terminal-window {
-  min-height: calc(100vh - 6rem);
 }
 
 .server-terminal-log-viewer {
@@ -432,14 +463,13 @@
 }
 
 .server-terminal-xterm-host {
-  width: 100%;
   height: 100%;
   min-height: 28rem;
   padding: 0.65rem 0.8rem 0.8rem;
 }
 
 .server-terminal-shell.is-fullscreen .server-terminal-xterm-host {
-  min-height: calc(100vh - 6rem);
+  min-height: 0;
 }
 
 .server-terminal-xterm-host .xterm {
@@ -448,11 +478,44 @@
 
 .server-terminal-xterm-host .xterm-viewport {
   scrollbar-color: rgb(255 153 0 / 45%) transparent;
+  overscroll-behavior: contain;
 }
 
 @media (max-width: 720px) {
+  .server-terminal-intro {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .server-terminal-intro-copy {
+    max-width: none;
+  }
+
+  .server-terminal-intro-headline {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.625rem;
+  }
+
+  .server-terminal-session-host {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .server-terminal-intro-actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
   .server-terminal-toolbar {
     flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0.625rem 0.75rem;
   }
 
   .server-terminal-toolbar-main {

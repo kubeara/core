@@ -12,7 +12,10 @@ import "@/features/templates/templates-ui.css";
  */
 export function TemplatesPage() {
   const { user } = useAuth();
-  const { data: templates, isPending, isError, error } = useTemplatesQuery();
+  const { data: templatesResponse, isPending, isError, error } =
+    useTemplatesQuery();
+
+  const templates = templatesResponse?.data ?? [];
 
   return (
     <div className="dashboard templates-catalog">

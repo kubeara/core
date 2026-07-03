@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { spawn, type ChildProcess } from "child_process";
+import { randomUUID } from "node:crypto";
 import * as fs from "fs/promises";
-import * as net from "net";
 import * as path from "path";
 import { FilesystemService } from "../filesystem/filesystem.service";
 import {
@@ -17,6 +17,10 @@ import {
   APP_CONFIG,
   discoverTraefikRoutes,
   applyTraefikRoutingToCompose,
+  extractOccupiedPortFromError,
+  formatDeploymentPortInUseMessage,
+  maskEnvContents,
+  sumComposeResourceLimitsFromYaml,
 } from "@shared/common";
 import {
   EnvFileInput,
@@ -24,6 +28,12 @@ import {
   PortFileInput,
 } from "./env-file.util";
 import { TraefikProxyService } from "../proxy/traefik-proxy.service";
+import {
+  InsufficientCpuError,
+  InsufficientRamError,
+  PortUnavailableError,
+  ResourceAvailabilityService,
+} from "../resource-availability/resource-availability.service";
 import * as yaml from "js-yaml";
 
 export interface ExecutionNotifier {
@@ -60,6 +70,7 @@ export class DeployTemplateExecutor {
     private readonly templateConfigService: TemplateConfigService,
     private readonly composeParserService: ComposeParserService,
     private readonly traefikProxy: TraefikProxyService,
+    private readonly resourceAvailabilityService: ResourceAvailabilityService,
   ) {}
 
   async execute(opts: {
@@ -75,6 +86,7 @@ export class DeployTemplateExecutor {
     schema?: TemplateSchema;
     composeOnly?: boolean;
     useTraefik?: boolean;
+    skipResourceValidation?: boolean;
     notifier: ExecutionNotifier;
   }): Promise<void> {
     const {
@@ -85,6 +97,7 @@ export class DeployTemplateExecutor {
       schema,
       composeOnly,
       useTraefik: useTraefikPayload,
+      skipResourceValidation,
       notifier,
     } = opts;
     const useTraefik = Boolean(
@@ -123,13 +136,136 @@ export class DeployTemplateExecutor {
         schema,
         composeOnly,
         useTraefik,
+        skipResourceValidation,
         notifier,
         startedAt,
         projectName,
       });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `Unexpected deployment error deploymentId=${deploymentId}: ${msg}`,
+      );
+      notifier.sendStatus({
+        deploymentId,
+        templateSlug: name,
+        status: "failed",
+        message: ERROR_MESSAGES.DEPLOYMENT_FAILED,
+        error: msg,
+        completedAt: new Date().toISOString(),
+      });
     } finally {
       this.activeDeployments.delete(deploymentId);
       this.clearDeploymentStreamLineBuffers(deploymentId);
+    }
+  }
+
+  /**
+   * Validates RAM, ports, and CPU using the same resolution path as deployment,
+   * without starting containers.
+   */
+  async validateBeforeDeploy(opts: {
+    name: string;
+    compose: string;
+    env?:
+      | {
+          env?: EnvFileInput;
+          ports?: PortFileInput;
+        }
+      | EnvFileInput;
+    schema?: TemplateSchema;
+    composeOnly?: boolean;
+    useTraefik?: boolean;
+  }): Promise<void> {
+    const deploymentId = `validate-${randomUUID()}`;
+    const projectName = this.fsService.sanitizeName(deploymentId);
+    const noopNotifier: ExecutionNotifier = {
+      sendStatus: () => undefined,
+      sendLog: () => undefined,
+    };
+    const useTraefik = Boolean(
+      opts.useTraefik ?? this.traefikProxy.isEnabled(),
+    );
+
+    try {
+      const dir = await this.fsService.ensureDeploymentDir(deploymentId);
+      const { envValues: rawEnv, portValues: rawPorts } =
+        this.normalizeEnvPayload(opts.env);
+
+      const resolved = this.resolveEnv(
+        opts.compose,
+        opts.schema,
+        { envValues: rawEnv, portValues: rawPorts },
+        noopNotifier,
+        opts.name,
+        deploymentId,
+        opts.composeOnly,
+      );
+
+      if (useTraefik && this.traefikProxy.isHttpsEnabled()) {
+        resolved.envValues.N8N_PROTOCOL = "https";
+        resolved.envValues.N8N_SECURE_COOKIE = "true";
+      }
+
+      const composeYaml = this.normalizeComposeForDeployment(opts.compose);
+
+      const traefikRoutes = useTraefik
+        ? discoverTraefikRoutes(
+            opts.compose,
+            this.stringifyEnvValues(resolved.envValues),
+            deploymentId,
+          )
+        : [];
+      const applyTraefikRouting = useTraefik && traefikRoutes.length > 0;
+
+      await this.fsService.writeFile(dir, "docker-compose.yml", composeYaml);
+
+      const generatedEnv = generateEnvFileDetails(
+        resolved.envValues,
+        resolved.portValues,
+      );
+      await this.fsService.writeFile(
+        dir,
+        ".env",
+        `${generatedEnv.content || ""}\n`,
+      );
+
+      const validation = await this.execCapture(
+        "docker",
+        [
+          "compose",
+          "--env-file",
+          ".env",
+          "-f",
+          "docker-compose.yml",
+          "-p",
+          projectName,
+          "config",
+        ],
+        dir,
+      );
+
+      if (validation.exitCode !== 0) {
+        const errorText =
+          validation.stderr ||
+          validation.stdout ||
+          `Exit code ${validation.exitCode}`;
+        throw new Error(errorText);
+      }
+
+      await this.validateResolvedComposeBeforeDeploy({
+        resolvedConfig: validation.stdout,
+        applyTraefikRouting,
+        portValues: resolved.portValues,
+      });
+    } finally {
+      await this.fsService.removeDeploymentDir(deploymentId).catch((error) => {
+        this.logger.warn(
+          `Failed to remove temporary validation directory for ${deploymentId}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      });
     }
   }
 
@@ -147,6 +283,7 @@ export class DeployTemplateExecutor {
       schema?: TemplateSchema;
       composeOnly?: boolean;
       useTraefik: boolean;
+      skipResourceValidation?: boolean;
       notifier: ExecutionNotifier;
       startedAt: string;
       projectName: string;
@@ -159,6 +296,7 @@ export class DeployTemplateExecutor {
       schema,
       composeOnly,
       useTraefik,
+      skipResourceValidation,
       notifier,
       startedAt,
       projectName,
@@ -267,10 +405,6 @@ export class DeployTemplateExecutor {
         source: "deployment",
       });
 
-      if (!applyTraefikRouting && Object.keys(generatedEnv.ports).length > 0) {
-        await this.assertPortsAvailable(generatedEnv.ports);
-      }
-
       notifier.sendStatus({
         deploymentId,
         templateSlug: name,
@@ -307,8 +441,33 @@ export class DeployTemplateExecutor {
         return;
       }
 
-      if (!applyTraefikRouting) {
-        this.validateResolvedConfig(validation.stdout, generatedEnv.ports);
+      // Validate RAM, ports, and CPU before starting containers.
+      try {
+        await this.validateResolvedComposeBeforeDeploy({
+          resolvedConfig: validation.stdout,
+          applyTraefikRouting,
+          portValues: resolved.portValues,
+          expectedPorts: generatedEnv.ports,
+          skipResourceChecks: skipResourceValidation,
+        });
+      } catch (err) {
+        if (err instanceof PortUnavailableError) {
+          this.handlePortUnavailableFailure(deploymentId, name, notifier, err);
+          return;
+        }
+        if (
+          err instanceof InsufficientRamError ||
+          err instanceof InsufficientCpuError
+        ) {
+          this.handleResourceUnavailableFailure(
+            deploymentId,
+            name,
+            notifier,
+            err,
+          );
+          return;
+        }
+        throw err;
       }
 
       notifier.sendStatus({
@@ -354,6 +513,24 @@ export class DeployTemplateExecutor {
         completedAt: new Date().toISOString(),
       });
     } catch (err) {
+      if (err instanceof PortUnavailableError) {
+        this.handlePortUnavailableFailure(deploymentId, name, notifier, err);
+        return;
+      }
+
+      if (
+        err instanceof InsufficientRamError ||
+        err instanceof InsufficientCpuError
+      ) {
+        this.handleResourceUnavailableFailure(
+          deploymentId,
+          name,
+          notifier,
+          err,
+        );
+        return;
+      }
+
       const msg = err instanceof Error ? err.message : String(err);
       await this.handleDeploymentFailure(
         deploymentId,
@@ -457,6 +634,125 @@ export class DeployTemplateExecutor {
     }
   }
 
+  /**
+   * Handles a port unavailable failure.
+   */
+  private handlePortUnavailableFailure(
+    deploymentId: string,
+    name: string,
+    notifier: ExecutionNotifier,
+    err: PortUnavailableError,
+  ): void {
+    const message = err.message;
+    this.logger.error(message);
+    notifier.sendLog({
+      deployment: name,
+      deploymentId,
+      type: "stderr",
+      message,
+      timestamp: new Date().toISOString(),
+      source: "deployment",
+    });
+    notifier.sendStatus({
+      deploymentId,
+      templateSlug: name,
+      status: "failed",
+      message,
+      error: message,
+      completedAt: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Validates the resolved compose before deploying.
+   */
+  private async validateResolvedComposeBeforeDeploy(opts: {
+    resolvedConfig: string;
+    applyTraefikRouting: boolean;
+    portValues: PortFileInput;
+    expectedPorts?: Record<string, number>;
+    skipResourceChecks?: boolean;
+  }): Promise<void> {
+    try {
+      if (!opts.applyTraefikRouting) {
+        if (Object.keys(opts.portValues).length > 0) {
+          await this.resourceAvailabilityService.assertPortsAvailable(
+            opts.portValues,
+          );
+        }
+
+        const hostPorts = this.extractHostPortsFromComposeConfig(
+          opts.resolvedConfig,
+        );
+        if (hostPorts.length > 0) {
+          await this.resourceAvailabilityService.assertHostPortsAvailable(
+            hostPorts,
+          );
+        }
+
+        if (opts.expectedPorts) {
+          this.validateResolvedConfig(opts.resolvedConfig, opts.expectedPorts);
+        }
+      } else {
+        this.logger.log(
+          "Port availability check skipped: Traefik routing enabled",
+        );
+      }
+
+      if (!opts.skipResourceChecks) {
+        const requirements = sumComposeResourceLimitsFromYaml(
+          opts.resolvedConfig,
+        );
+
+        await this.resourceAvailabilityService.assertCpuAvailable(
+          requirements.cpuCores,
+        );
+
+        await this.resourceAvailabilityService.assertRamAvailable(
+          requirements.memoryBytes,
+        );
+      } else {
+        this.logger.warn(
+          "RAM and CPU availability checks skipped: user confirmed resource override",
+        );
+      }
+    } catch (error) {
+      this.logger.error(
+        `Validation before deploy failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Handles a RAM or CPU resource unavailable failure.
+   */
+  private handleResourceUnavailableFailure(
+    deploymentId: string,
+    name: string,
+    notifier: ExecutionNotifier,
+    err: InsufficientRamError | InsufficientCpuError,
+  ): void {
+    const message = err.message;
+    this.logger.error(message);
+    notifier.sendLog({
+      deployment: name,
+      deploymentId,
+      type: "stderr",
+      message,
+      timestamp: new Date().toISOString(),
+      source: "deployment",
+    });
+    notifier.sendStatus({
+      deploymentId,
+      templateSlug: name,
+      status: "failed",
+      message,
+      error: message,
+      completedAt: new Date().toISOString(),
+    });
+  }
+
   private async handleDeploymentFailure(
     deploymentId: string,
     name: string,
@@ -467,28 +763,65 @@ export class DeployTemplateExecutor {
     notifier: ExecutionNotifier,
   ): Promise<void> {
     this.stopContainerLogStreaming(deploymentId);
-    this.logger.error(`${message}: ${error}`);
+    const resolved = this.resolvePortConflictFailure(message, error);
+    this.logger.error(
+      `${resolved.message}: ${this.sanitizeDockerOutput(resolved.error)}`,
+    );
     if (dir && projectName) {
-      await this.cleanupDeployment(projectName, dir, name, notifier);
+      try {
+        await this.cleanupDeployment(projectName, dir, name, notifier);
+      } catch (cleanupErr) {
+        this.logger.warn(
+          `Cleanup after failure failed deploymentId=${deploymentId}: ${
+            cleanupErr instanceof Error
+              ? cleanupErr.message
+              : String(cleanupErr)
+          }`,
+        );
+      }
     }
 
     notifier.sendStatus({
       deploymentId,
       templateSlug: name,
       status: "failed",
-      message,
-      error,
+      message: resolved.message,
+      error: resolved.error,
       completedAt: new Date().toISOString(),
     });
   }
 
-  private validateResolvedConfig(
-    resolvedConfig: string,
-    expectedPorts: Record<string, number>,
-  ): void {
+  /**
+   * Resolves a port conflict failure by extracting the occupied port and formatting the message.
+   */
+  private resolvePortConflictFailure(
+    message: string,
+    error: string,
+  ): { message: string; error: string } {
+    if (!this.isPortAllocationError(`${message}\n${error}`)) {
+      return { message, error };
+    }
+
+    const port = extractOccupiedPortFromError(`${message}\n${error}`);
+    const portMessage = formatDeploymentPortInUseMessage(port);
+    return { message: portMessage, error: portMessage };
+  }
+
+  private isPortAllocationError(text: string): boolean {
+    const normalized = text.toLowerCase();
+
+    return (
+      normalized.includes("port is already allocated") ||
+      normalized.includes("port is already in use") ||
+      normalized.includes("already running on this port") ||
+      normalized.includes("address already in use") ||
+      (normalized.includes("bind for") && normalized.includes("failed"))
+    );
+  }
+
+  private extractHostPortsFromComposeConfig(resolvedConfig: string): number[] {
     try {
       const parsed = yaml.load(resolvedConfig) as ComposeFile | undefined;
-
       const hostPortsFound = new Set<number>();
 
       if (parsed?.services) {
@@ -528,6 +861,24 @@ export class DeployTemplateExecutor {
           }
         }
       }
+
+      return [...hostPortsFound];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Validates a resolved config by checking if the expected ports are exposed.
+   */
+  private validateResolvedConfig(
+    resolvedConfig: string,
+    expectedPorts: Record<string, number>,
+  ): void {
+    try {
+      const hostPortsFound = new Set(
+        this.extractHostPortsFromComposeConfig(resolvedConfig),
+      );
 
       for (const expectedPort of Object.values(expectedPorts)) {
         if (!hostPortsFound.has(expectedPort)) {
@@ -701,26 +1052,6 @@ export class DeployTemplateExecutor {
     return { envValues: mergedEnv, portValues: mergedPorts };
   }
 
-  private async assertPortsAvailable(
-    ports: Record<string, number>,
-  ): Promise<void> {
-    for (const port of Object.values(ports)) {
-      const available = await this.isPortAvailable(port);
-      if (!available) {
-        throw new Error(ERROR_MESSAGES.PORT_OCCUPIED(port));
-      }
-    }
-  }
-
-  private isPortAvailable(port: number): Promise<boolean> {
-    return new Promise((resolve) => {
-      const server = net.createServer();
-      server.once("error", () => resolve(false));
-      server.once("listening", () => server.close(() => resolve(true)));
-      server.listen(port, "0.0.0.0");
-    });
-  }
-
   private async cleanupDeployment(
     projectName: string,
     cwd: string,
@@ -787,6 +1118,9 @@ export class DeployTemplateExecutor {
       source: "deployment",
     });
 
+    const containerIds = await this.listProjectContainerIds(projectName);
+    const collectedImages = await this.collectContainerImageRefs(containerIds);
+
     const envPath = path.join(cwd, ".env");
     const hasEnv = await this.exists(envPath);
     const downArgs = hasEnv
@@ -800,6 +1134,8 @@ export class DeployTemplateExecutor {
           projectName,
           "down",
           "--volumes",
+          "--rmi",
+          "all",
           "--remove-orphans",
         ]
       : [
@@ -810,6 +1146,8 @@ export class DeployTemplateExecutor {
           projectName,
           "down",
           "--volumes",
+          "--rmi",
+          "all",
           "--remove-orphans",
         ];
 
@@ -828,6 +1166,14 @@ export class DeployTemplateExecutor {
       return;
     }
 
+    await this.removeCollectedImages(
+      projectName,
+      collectedImages.imageRefs,
+      collectedImages.imageIds,
+    );
+
+    await this.removeProjectNetworks(projectName, name, notifier);
+
     notifier.sendLog({
       deployment: name,
       type: "stdout",
@@ -836,6 +1182,145 @@ export class DeployTemplateExecutor {
       source: "deployment",
     });
   }
+
+  /**
+   * Parses Docker output lines.
+   */
+  private parseDockerOutputLines(stdout: string): string[] {
+    return stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }
+
+  /**
+   * Lists container IDs by project label.
+   */
+  private async listProjectContainerIds(
+    projectName: string,
+  ): Promise<string[]> {
+    try {
+      const containerIds = await this.execCapture(
+        "docker",
+        [
+          "ps",
+          "-aq",
+          "--filter",
+          `label=com.docker.compose.project=${projectName}`,
+        ],
+        process.cwd(),
+      );
+
+      return this.parseDockerOutputLines(containerIds.stdout);
+    } catch (error) {
+      this.logger.error(
+        `Failed to list project container IDs for ${projectName}: ${String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Collects container image references and IDs.
+   */
+  private async collectContainerImageRefs(containerIds: string[]): Promise<{
+    imageRefs: Set<string>;
+    imageIds: Set<string>;
+  }> {
+    try {
+      const imageRefs = new Set<string>();
+      const imageIds = new Set<string>();
+
+      for (const id of containerIds) {
+        const refResult = await this.execCapture(
+          "docker",
+          ["inspect", "-f", "{{.Config.Image}}", id],
+          process.cwd(),
+        );
+        const idResult = await this.execCapture(
+          "docker",
+          ["inspect", "-f", "{{.Image}}", id],
+          process.cwd(),
+        );
+
+        const imageRef = refResult.stdout.trim();
+        const imageId = idResult.stdout.trim();
+        if (imageRef) {
+          imageRefs.add(imageRef);
+        }
+        if (imageId) {
+          imageIds.add(imageId);
+        }
+      }
+
+      return { imageRefs, imageIds };
+    } catch (error) {
+      this.logger.error(
+        `Failed to collect container image refs: ${String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Removes collected container images.
+   */
+  private async removeCollectedImages(
+    projectName: string,
+    imageRefs: Set<string>,
+    imageIds: Set<string>,
+  ): Promise<void> {
+    for (const imageRef of imageRefs) {
+      const removeImage = await this.execCapture(
+        "docker",
+        ["rmi", "-f", imageRef],
+        process.cwd(),
+      );
+      if (removeImage.exitCode !== 0) {
+        this.logger.warn(
+          `Image ref removal for ${projectName} (${imageRef}): ${removeImage.stderr || removeImage.stdout}`,
+        );
+      }
+    }
+
+    for (const imageId of imageIds) {
+      const removeImage = await this.execCapture(
+        "docker",
+        ["rmi", "-f", imageId],
+        process.cwd(),
+      );
+      if (removeImage.exitCode !== 0) {
+        this.logger.warn(
+          `Image ID removal for ${projectName} (${imageId}): ${removeImage.stderr || removeImage.stdout}`,
+        );
+      }
+    }
+
+    const labeledImages = await this.execCapture(
+      "docker",
+      [
+        "images",
+        "-q",
+        "--filter",
+        `label=com.docker.compose.project=${projectName}`,
+      ],
+      process.cwd(),
+    );
+
+    for (const imageId of this.parseDockerOutputLines(labeledImages.stdout)) {
+      const removeImage = await this.execCapture(
+        "docker",
+        ["rmi", "-f", imageId],
+        process.cwd(),
+      );
+      if (removeImage.exitCode !== 0) {
+        this.logger.warn(
+          `Labeled image removal for ${projectName} reported: ${removeImage.stderr || removeImage.stdout}`,
+        );
+      }
+    }
+  }
+
   /**
    * Removes compose-managed containers, volumes, and networks by project label
    * when compose files are unavailable.
@@ -845,103 +1330,140 @@ export class DeployTemplateExecutor {
     name: string,
     notifier: ExecutionNotifier,
   ): Promise<void> {
-    notifier.sendLog({
-      deployment: name,
-      type: "stdout",
-      message: `Force-removing Docker resources for project ${projectName}`,
-      timestamp: new Date().toISOString(),
-      source: "deployment",
-    });
+    try {
+      notifier.sendLog({
+        deployment: name,
+        type: "stdout",
+        message: `Force-removing Docker resources for project ${projectName}`,
+        timestamp: new Date().toISOString(),
+        source: "deployment",
+      });
 
-    const containerIds = await this.execCapture(
-      "docker",
-      [
-        "ps",
-        "-aq",
-        "--filter",
-        `label=com.docker.compose.project=${projectName}`,
-      ],
-      process.cwd(),
-    );
+      const ids = await this.listProjectContainerIds(projectName);
+      const { imageRefs, imageIds } = await this.collectContainerImageRefs(ids);
 
-    const ids = containerIds.stdout
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
+      if (ids.length > 0) {
+        const removeContainers = await this.execCapture(
+          "docker",
+          ["rm", "-f", ...ids],
+          process.cwd(),
+        );
+        if (removeContainers.exitCode !== 0) {
+          throw new Error(
+            removeContainers.stderr ||
+              removeContainers.stdout ||
+              "Failed to remove containers",
+          );
+        }
+      }
 
-    if (ids.length > 0) {
-      const removeContainers = await this.execCapture(
+      const volumeIds = await this.execCapture(
         "docker",
-        ["rm", "-f", ...ids],
+        [
+          "volume",
+          "ls",
+          "-q",
+          "--filter",
+          `label=com.docker.compose.project=${projectName}`,
+        ],
         process.cwd(),
       );
-      if (removeContainers.exitCode !== 0) {
-        throw new Error(
-          removeContainers.stderr ||
-            removeContainers.stdout ||
-            "Failed to remove containers",
+
+      const volumes = volumeIds.stdout
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      if (volumes.length > 0) {
+        const removeVolumes = await this.execCapture(
+          "docker",
+          ["volume", "rm", "-f", ...volumes],
+          process.cwd(),
         );
+        if (removeVolumes.exitCode !== 0) {
+          this.logger.warn(
+            `Volume removal for ${projectName} reported: ${removeVolumes.stderr || removeVolumes.stdout}`,
+          );
+        }
       }
+
+      await this.removeProjectNetworks(projectName, name, notifier);
+
+      await this.removeCollectedImages(projectName, imageRefs, imageIds);
+    } catch (error) {
+      this.logger.error(
+        `Failed to force remove compose project ${projectName}: ${String(error)}`,
+      );
+      throw error;
     }
+  }
 
-    const volumeIds = await this.execCapture(
-      "docker",
-      [
-        "volume",
-        "ls",
-        "-q",
-        "--filter",
-        `label=com.docker.compose.project=${projectName}`,
-      ],
-      process.cwd(),
-    );
-
-    const volumes = volumeIds.stdout
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    if (volumes.length > 0) {
-      const removeVolumes = await this.execCapture(
+  /**
+   * Removes compose project networks by label and common default naming.
+   */
+  private async removeProjectNetworks(
+    projectName: string,
+    name: string,
+    notifier: ExecutionNotifier,
+  ): Promise<void> {
+    try {
+      const networkIds = await this.execCapture(
         "docker",
-        ["volume", "rm", "-f", ...volumes],
+        [
+          "network",
+          "ls",
+          "-q",
+          "--filter",
+          `label=com.docker.compose.project=${projectName}`,
+        ],
         process.cwd(),
       );
-      if (removeVolumes.exitCode !== 0) {
-        this.logger.warn(
-          `Volume removal for ${projectName} reported: ${removeVolumes.stderr || removeVolumes.stdout}`,
-        );
-      }
-    }
 
-    const networkIds = await this.execCapture(
-      "docker",
-      [
-        "network",
-        "ls",
-        "-q",
-        "--filter",
-        `label=com.docker.compose.project=${projectName}`,
-      ],
-      process.cwd(),
-    );
+      const networks = new Set(this.parseDockerOutputLines(networkIds.stdout));
 
-    const networks = networkIds.stdout
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    for (const networkId of networks) {
-      const removeNetwork = await this.execCapture(
+      const defaultNetwork = `${projectName}_default`;
+      const defaultInspect = await this.execCapture(
         "docker",
-        ["network", "rm", networkId],
+        ["network", "inspect", "-f", "{{.Id}}", defaultNetwork],
         process.cwd(),
       );
-      if (removeNetwork.exitCode !== 0) {
-        this.logger.warn(
-          `Network removal for ${projectName} reported: ${removeNetwork.stderr || removeNetwork.stdout}`,
-        );
+      if (defaultInspect.exitCode === 0) {
+        const defaultId = defaultInspect.stdout.trim();
+        if (defaultId) {
+          networks.add(defaultId);
+        }
       }
+
+      if (networks.size === 0) {
+        return;
+      }
+
+      for (const networkId of networks) {
+        const removeNetwork = await this.execCapture(
+          "docker",
+          ["network", "rm", networkId],
+          process.cwd(),
+        );
+        if (removeNetwork.exitCode !== 0) {
+          this.logger.warn(
+            `Network removal for ${projectName} reported: ${removeNetwork.stderr || removeNetwork.stdout}`,
+          );
+          continue;
+        }
+
+        notifier.sendLog({
+          deployment: name,
+          type: "stdout",
+          message: `Network removed for ${projectName}`,
+          timestamp: new Date().toISOString(),
+          source: "deployment",
+        });
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to remove project networks for ${projectName}: ${String(error)}`,
+      );
+      throw error;
     }
   }
 
@@ -966,17 +1488,28 @@ export class DeployTemplateExecutor {
       const child = spawn(cmd, args.filter(Boolean), { cwd });
       let stdout = "";
       let stderr = "";
+      let settled = false;
+
+      const finish = (exitCode: number) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        resolve({ exitCode, stdout, stderr });
+      };
 
       child.stdout.on("data", (chunk) => (stdout += String(chunk)));
       child.stderr.on("data", (chunk) => (stderr += String(chunk)));
-      child.on(
-        "error",
-        (err) => (stderr += `Failed to start process: ${err.message}`),
-      );
-      child.on("close", (code) =>
-        resolve({ exitCode: code ?? 1, stdout, stderr }),
-      );
+      child.on("error", (err) => {
+        stderr += `Failed to start process: ${err.message}`;
+        finish(1);
+      });
+      child.on("close", (code) => finish(code ?? 1));
     });
+  }
+
+  private sanitizeDockerOutput(text: string, maxLen = 500): string {
+    return maskEnvContents(text).slice(0, maxLen);
   }
 
   private clearDeploymentStreamLineBuffers(deploymentId: string): void {
@@ -1397,8 +1930,13 @@ export class DeployTemplateExecutor {
 
       let settled = false;
       const debugLabel = "compose-up";
+      let composeStderr = "";
 
       const handleChunk = (chunk: Buffer, streamType: "stdout" | "stderr") => {
+        if (streamType === "stderr") {
+          composeStderr += chunk.toString("utf8");
+        }
+
         this.emitRawChunk(
           chunk,
           streamType,
@@ -1485,7 +2023,9 @@ export class DeployTemplateExecutor {
           notifier,
         );
 
-        const error = new Error(`docker compose exited with code ${code}`);
+        const error = new Error(
+          composeStderr.trim() || `docker compose exited with code ${code}`,
+        );
         notifier.sendLog({
           deployment: templateSlug,
           deploymentId,
@@ -1547,5 +2087,230 @@ export class DeployTemplateExecutor {
         );
       },
     );
+  }
+
+  /**
+   * Collects agent container image refs before teardown (used in the socket ack payload).
+   */
+  async collectAgentRemovalTargets(opts: {
+    agentImage?: string;
+  }): Promise<string[]> {
+    try {
+      const containerName = "kubeara-agent";
+      const configuredImage =
+        opts.agentImage?.trim() ||
+        process.env.KUBEARA_AGENT_IMAGE?.trim() ||
+        "kubeara/agent:prod";
+
+      const imageRefs: string[] = [];
+
+      const refResult = await this.execCapture(
+        "docker",
+        ["inspect", "-f", "{{.Config.Image}}", containerName],
+        process.cwd(),
+      );
+      if (refResult.exitCode === 0 && refResult.stdout.trim()) {
+        imageRefs.push(refResult.stdout.trim());
+      }
+
+      const idResult = await this.execCapture(
+        "docker",
+        ["inspect", "-f", "{{.Image}}", containerName],
+        process.cwd(),
+      );
+      if (idResult.exitCode === 0 && idResult.stdout.trim()) {
+        imageRefs.push(idResult.stdout.trim());
+      }
+
+      if (configuredImage) {
+        imageRefs.push(configuredImage);
+      }
+
+      return [...new Set(imageRefs)];
+    } catch (error) {
+      this.logger.error(
+        `Failed to collect agent removal targets: ${String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Tears down the Kubeara agent on the host using existing Docker CLI (no extra images).
+   * Must run after the socket ack is sent — compose down stops this container.
+   */
+  async runAgentRemovalAfterAck(opts: {
+    installDir: string;
+    imageRefs: string[];
+  }): Promise<void> {
+    try {
+      const installMount = "/opt/kubeara/agent-install";
+      const composePath = `${installMount}/docker-compose.agent.yml`;
+      const envPath = `${installMount}/.env.agent`;
+      const projectName = this.resolveAgentComposeProjectName(opts.installDir);
+
+      this.logger.log(
+        `[AGENT_REMOVE] starting host teardown installMount=${installMount} project=${projectName}`,
+      );
+
+      const composeAvailable =
+        (await this.exists(composePath)) && (await this.exists(envPath));
+
+      if (composeAvailable) {
+        const composeDown = await this.execCapture(
+          "docker",
+          [
+            "compose",
+            "-f",
+            composePath,
+            "--env-file",
+            envPath,
+            "-p",
+            projectName,
+            "down",
+            "--volumes",
+            "--rmi",
+            "all",
+            "--remove-orphans",
+          ],
+          installMount,
+        );
+
+        if (composeDown.exitCode !== 0) {
+          this.logger.warn(
+            `[AGENT_REMOVE] compose down reported: ${composeDown.stderr.trim() || composeDown.stdout.trim()}`,
+          );
+        }
+      } else {
+        this.logger.warn(
+          `[AGENT_REMOVE] install mount unavailable at ${installMount}; using direct docker cleanup`,
+        );
+      }
+
+      await this.forceRemoveAgentHostArtifacts({
+        imageRefs: opts.imageRefs,
+        projectName,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to run agent removal after ack: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private resolveAgentComposeProjectName(installDir: string): string {
+    const base = installDir
+      .replace(/\/+$/, "")
+      .split("/")
+      .filter(Boolean)
+      .pop();
+    const normalized = (base ?? "agent")
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, "");
+    return normalized || "agent";
+  }
+
+  /**
+   * Forces removal of agent host artifacts.
+   */
+  private async forceRemoveAgentHostArtifacts(opts: {
+    imageRefs: string[];
+    projectName: string;
+  }): Promise<void> {
+    try {
+      const containerName = "kubeara-agent";
+      const { projectName, imageRefs } = opts;
+
+      await this.execCapture(
+        "docker",
+        ["update", "--restart=no", containerName],
+        process.cwd(),
+      );
+
+      await this.execCapture(
+        "docker",
+        ["rm", "-f", containerName],
+        process.cwd(),
+      );
+
+      const projectContainers = await this.execCapture(
+        "docker",
+        [
+          "ps",
+          "-aq",
+          "--filter",
+          `label=com.docker.compose.project=${projectName}`,
+        ],
+        process.cwd(),
+      );
+      const containerIds = this.parseDockerOutputLines(
+        projectContainers.stdout,
+      );
+      if (containerIds.length > 0) {
+        await this.execCapture(
+          "docker",
+          ["rm", "-f", ...containerIds],
+          process.cwd(),
+        );
+      }
+
+      const volumes = await this.execCapture(
+        "docker",
+        ["volume", "ls", "-q", "--filter", "name=agent_deployments"],
+        process.cwd(),
+      );
+      const volumeIds = this.parseDockerOutputLines(volumes.stdout);
+      if (volumeIds.length > 0) {
+        await this.execCapture(
+          "docker",
+          ["volume", "rm", "-f", ...volumeIds],
+          process.cwd(),
+        );
+      }
+
+      const networks = await this.execCapture(
+        "docker",
+        [
+          "network",
+          "ls",
+          "-q",
+          "--filter",
+          `label=com.docker.compose.project=${projectName}`,
+        ],
+        process.cwd(),
+      );
+      for (const networkId of this.parseDockerOutputLines(networks.stdout)) {
+        await this.execCapture(
+          "docker",
+          ["network", "rm", networkId],
+          process.cwd(),
+        );
+      }
+
+      const imagesToRemove = [...new Set(imageRefs.filter(Boolean))];
+      for (const imageRef of imagesToRemove) {
+        await this.execCapture(
+          "docker",
+          ["rmi", "-f", imageRef],
+          process.cwd(),
+        );
+      }
+
+      const taggedImages = await this.execCapture(
+        "docker",
+        ["images", "kubeara/agent", "-q"],
+        process.cwd(),
+      );
+      for (const imageId of this.parseDockerOutputLines(taggedImages.stdout)) {
+        await this.execCapture("docker", ["rmi", "-f", imageId], process.cwd());
+      }
+
+      this.logger.log("[AGENT_REMOVE] force host cleanup finished");
+    } catch (error) {
+      this.logger.error(
+        `Failed to force remove agent host artifacts: ${String(error)}`,
+      );
+      throw error;
+    }
   }
 }

@@ -1,6 +1,7 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
 
+import { EXEC_DEFAULTS, SHELL_PATHS } from "@shared/common";
 import { ExecuteResult } from "@shared/ssh";
 
 import { AgentHostAdapter } from "../interfaces/agent-host.adapter";
@@ -19,8 +20,8 @@ export class LocalAgentHostAdapter implements AgentHostAdapter {
     try {
       const { stdout, stderr } = await execAsync(command, {
         timeout: timeoutMs,
-        maxBuffer: 16 * 1024 * 1024,
-        shell: "/bin/bash",
+        maxBuffer: EXEC_DEFAULTS.MAX_BUFFER_BYTES,
+        shell: SHELL_PATHS.BASH,
         env: process.env,
       });
       return {

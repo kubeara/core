@@ -1,8 +1,8 @@
-name: CI/CD
+name: CI
 
 on:
-  push:
   pull_request:
+  push:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

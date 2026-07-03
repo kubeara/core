@@ -1,12 +1,6 @@
 import { BackLink } from "@/components/shared/back-link";
 import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeploymentTerminalViewer } from "@/components/deployment-terminal-viewer";
 import "@/components/shared/kubeara-terminal-shell.css";
 import {
@@ -20,6 +14,7 @@ import {
   hasContainerDeploymentLogs,
   type DeploymentLogView,
 } from "@/features/deployments/utils/deployment-log-filters";
+import { mapDeploymentFailureMessage } from "@/features/deployments/constants/deployment-failure-messages";
 import type { DeploymentStatus } from "@/constants/deployment-events";
 import type { Template } from "@/types";
 import "./deployment-logs.css";
@@ -59,6 +54,7 @@ type DeploymentLogsProps = {
   backHref: string;
   isStarting?: boolean;
   startError?: string | null;
+  onDeploymentFailed?: (message: string) => void;
 };
 
 function DeploymentLogsIntro({
@@ -162,23 +158,68 @@ export function DeploymentLogs({
   backHref,
   isStarting = false,
   startError = null,
+  onDeploymentFailed,
 }: DeploymentLogsProps) {
   const terminalRef = useRef<HTMLElement>(null);
+  const failureHandledRef = useRef(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [logView, setLogView] = useState<DeploymentLogView>("installation");
 
   const deploymentQuery = useDeploymentQuery(deploymentId);
-  const { logs, status, deploymentStatus, hasReceivedStatus, isSocketConnected } =
-    useDeploymentLogStream({
-      deploymentId,
-      serverId,
-      enabled: Boolean(serverId && deploymentId),
-    });
+  const {
+    logs,
+    status,
+    deploymentStatus,
+    deploymentStatusMessage,
+    deploymentError,
+    hasReceivedStatus,
+    isSocketConnected,
+  } = useDeploymentLogStream({
+    deploymentId,
+    serverId,
+    enabled: Boolean(serverId && deploymentId),
+  });
 
   const liveDeploymentStatus =
     hasReceivedStatus && deploymentStatus
       ? deploymentStatus
       : (deploymentQuery.data?.deploymentStatus ?? deploymentStatus ?? null);
+
+  const liveDeploymentError =
+    deploymentError ?? deploymentQuery.data?.lastError ?? null;
+
+  const liveDeploymentStatusMessage =
+    deploymentStatusMessage ?? deploymentQuery.data?.statusMessage ?? null;
+
+  useEffect(() => {
+    failureHandledRef.current = false;
+  }, [deploymentId]);
+
+  useEffect(() => {
+    if (!onDeploymentFailed || failureHandledRef.current) {
+      return;
+    }
+
+    if (liveDeploymentStatus !== "failed") {
+      return;
+    }
+
+    const logText = logs.map((line) => line.message).join("\n");
+    const message = mapDeploymentFailureMessage(
+      liveDeploymentError,
+      liveDeploymentStatusMessage,
+      logText,
+    );
+
+    failureHandledRef.current = true;
+    onDeploymentFailed(message);
+  }, [
+    liveDeploymentError,
+    liveDeploymentStatus,
+    liveDeploymentStatusMessage,
+    logs,
+    onDeploymentFailed,
+  ]);
 
   const containerLogsAvailable = useMemo(() => {
     if (hasContainerDeploymentLogs(logs)) {
@@ -310,7 +351,11 @@ export function DeploymentLogs({
                       : null) ??
                     deploymentQuery.data?.statusMessage ??
                     resolvedStatus ??
-                    deploymentStateLabel(status, isStarting, liveDeploymentStatus)}
+                    deploymentStateLabel(
+                      status,
+                      isStarting,
+                      liveDeploymentStatus,
+                    )}
                 </dd>
               </div>
             </dl>
@@ -339,7 +384,10 @@ export function DeploymentLogs({
 
           <div className="server-terminal-window">
             {isStreaming && filteredLineCount === 0 && (
-              <div className="server-terminal-connecting-overlay" aria-live="polite">
+              <div
+                className="server-terminal-connecting-overlay"
+                aria-live="polite"
+              >
                 <span
                   className="server-terminal-connecting-spinner"
                   aria-hidden
@@ -399,7 +447,9 @@ function statusLabel(
   }
 }
 
-function formatDeploymentStatus(status: DeploymentStatus | null): string | null {
+function formatDeploymentStatus(
+  status: DeploymentStatus | null,
+): string | null {
   if (!status) return null;
   switch (status) {
     case "pending":

@@ -5,6 +5,7 @@ export type McpApiKeyListItem = {
   name: string;
   lastUsedAt: number | null;
   createdAt: number;
+  revokedAt: number | null;
   status: EntityStatus;
 };
 
@@ -28,8 +29,10 @@ export type McpApiKeysApiResponse<T = unknown> = {
 export type SetupGuideConfigPreset =
   | "cursor"
   | "claude-desktop"
+  | "vscode"
   | "windsurf"
-  | "antigravity";
+  | "antigravity"
+  | "chatgpt";
 
 export type SetupGuideStep = {
   title: string;

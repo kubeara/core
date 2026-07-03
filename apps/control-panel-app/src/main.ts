@@ -6,11 +6,13 @@ import cookieParser from "cookie-parser";
 import { NestFactory } from "@nestjs/core";
 import { ConfigService } from "@nestjs/config";
 import { ValidationPipe } from "@nestjs/common";
+import express from "express";
 
 import { AppModule } from "./app.module";
 import { buildCorsOptions } from "./common/config/cors.util";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
+import { MCP_OAUTH_GLOBAL_PREFIX_EXCLUDES } from "./modules/mcp-oauth/constants/mcp-oauth-routes.constants";
 
 const APP_NAME = "control-panel-app";
 
@@ -149,7 +151,11 @@ async function bootstrap(): Promise<void> {
 
   const port = Number(configService.get<string>("PORT"));
 
-  app.setGlobalPrefix("api");
+  app.setGlobalPrefix("api", {
+    exclude: [...MCP_OAUTH_GLOBAL_PREFIX_EXCLUDES],
+  });
+
+  app.use("/oauth/token", express.urlencoded({ extended: true }));
 
   app.use(cookieParser());
 

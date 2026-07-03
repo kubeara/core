@@ -186,7 +186,33 @@ export function parseNetDev(content: string): ServerNetworkMetrics {
 }
 
 /**
- * Builds a full resource snapshot from raw Linux command/file output.
+ * Computes the available CPU cores from the server resources.
+ * @param input - The input object containing the server resources metrics.
+ * @returns The available CPU cores.
+ */
+export function computeAvailableCpuCores(input: {
+  cores: number;
+  usagePercent: number;
+}): number {
+  try {
+    const cores =
+      Number.isFinite(input.cores) && input.cores > 0 ? input.cores : 0;
+    const usagePercent = Number.isFinite(input.usagePercent)
+      ? Math.min(Math.max(input.usagePercent, 0), 100)
+      : 0;
+
+    return Math.round(cores * (1 - usagePercent / 100) * 1000) / 1000;
+  } catch (error) {
+    throw new Error(
+      `Failed to compute available CPU cores: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+/**
+ * Builds the server resources metrics from the input.
+ * @param input - The input object containing the server resources metrics.
+ * @returns The server resources metrics.
  */
 export function buildServerResourcesMetrics(input: {
   cpuStatFirstLine: string;
@@ -202,30 +228,36 @@ export function buildServerResourcesMetrics(input: {
   architecture: string;
   timestamp?: string;
 }): ServerResourcesMetricsPayload {
-  const start = parseCpuStatLine(input.cpuStatFirstLine);
-  const end = parseCpuStatLine(input.cpuStatSecondLine);
-  const usagePercent = computeCpuUsagePercent(start, end);
+  try {
+    const start = parseCpuStatLine(input.cpuStatFirstLine);
+    const end = parseCpuStatLine(input.cpuStatSecondLine);
+    const usagePercent = computeCpuUsagePercent(start, end);
 
-  const cpu: ServerCpuMetrics = {
-    usagePercent,
-    cores: input.cpuCores,
-    loadAverage: parseLoadAverage(input.loadAverageContent),
-  };
+    const cpu: ServerCpuMetrics = {
+      usagePercent,
+      cores: input.cpuCores,
+      loadAverage: parseLoadAverage(input.loadAverageContent),
+    };
 
-  const uptimeSeconds = Number(input.uptimeContent.trim().split(/\s+/)[0]);
-  const system: ServerSystemMetrics = {
-    uptime: Number.isFinite(uptimeSeconds) ? uptimeSeconds : 0,
-    hostname: input.hostname.trim(),
-    platform: input.platform.trim(),
-    architecture: input.architecture.trim(),
-    timestamp: input.timestamp ?? new Date().toISOString(),
-  };
+    const uptimeSeconds = Number(input.uptimeContent.trim().split(/\s+/)[0]);
+    const system: ServerSystemMetrics = {
+      uptime: Number.isFinite(uptimeSeconds) ? uptimeSeconds : 0,
+      hostname: input.hostname.trim(),
+      platform: input.platform.trim(),
+      architecture: input.architecture.trim(),
+      timestamp: input.timestamp ?? new Date().toISOString(),
+    };
 
-  return {
-    cpu,
-    memory: parseMeminfo(input.meminfo),
-    disk: parseDfOutput(input.dfStdout),
-    network: parseNetDev(input.netDev),
-    system,
-  };
+    return {
+      cpu,
+      memory: parseMeminfo(input.meminfo),
+      disk: parseDfOutput(input.dfStdout),
+      network: parseNetDev(input.netDev),
+      system,
+    };
+  } catch (error) {
+    throw new Error(
+      `Failed to build server resources metrics: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 }

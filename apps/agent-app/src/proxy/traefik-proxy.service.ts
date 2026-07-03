@@ -160,6 +160,13 @@ export class TraefikProxyService {
         childProcess.stderr.on("data", (chunk: Buffer) => {
           standardError += chunk.toString();
         });
+        childProcess.on("error", (err) => {
+          resolve({
+            exitCode: 1,
+            stdout: standardOutput,
+            stderr: err.message,
+          });
+        });
         childProcess.on("close", (code) => {
           resolve({
             exitCode: code ?? 1,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Navigate,
   useLocation,
@@ -15,15 +15,17 @@ import {
   subscribeDeploymentLogs,
 } from "@/lib/socket/deployment-socket-client";
 import { getTemplateAccentColor } from "@/features/templates/utils/deploy-form-schema";
+import { formatTemplateCategory } from "@/features/templates/utils/format-template-category";
 import type { DeployTemplateRequest } from "@/features/templates/types";
 import { DeployLogsPageSkeleton } from "@/components/shared/skeleton";
 import { buildServerDetailHref } from "@/features/servers/components/server-detail/utils/server-detail-tab-url";
+import { showErrorToast } from "@/lib/toast";
 import { NotFoundPage } from "./not-found-page";
 
 type PendingDeployLocationState = {
   deployRequest?: Pick<
     DeployTemplateRequest,
-    "env" | "ports" | "templateSlug" | "serverId"
+    "env" | "ports" | "templateSlug" | "serverId" | "acknowledgeResourceWarning"
   >;
 };
 
@@ -48,6 +50,17 @@ export function DeployLogsPage() {
   const [isStarting, setIsStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const templateQuery = useTemplateDetailsQuery(templateSlug);
+  const backHref = serverId
+    ? buildServerDetailHref(serverId, "templates")
+    : "/servers";
+
+  const handleDeploymentFailed = useCallback(
+    (message: string) => {
+      showErrorToast(message);
+      navigate(backHref, { replace: true });
+    },
+    [backHref, navigate],
+  );
 
   const pendingDeploy = (location.state as PendingDeployLocationState | null)
     ?.deployRequest;
@@ -96,6 +109,7 @@ export function DeployLogsPage() {
       serverId,
       env: pendingDeploy.env,
       ports: pendingDeploy.ports,
+      acknowledgeResourceWarning: pendingDeploy.acknowledgeResourceWarning,
     })
       .then((result) => {
         if (cancelled) return;
@@ -145,15 +159,16 @@ export function DeployLogsPage() {
         id: template.slug,
         name: template.name,
         description: template.shortDescription ?? "",
-        category: template.category ?? "",
+        category: formatTemplateCategory(template.category) ?? "",
         color: getTemplateAccentColor(template.slug),
         logo: template.logo ?? null,
       }}
       deploymentId={deploymentId}
       serverId={serverId}
-      backHref={buildServerDetailHref(serverId, "templates")}
+      backHref={backHref}
       isStarting={isStarting || Boolean(pendingDeploy && !deploymentId)}
       startError={startError}
+      onDeploymentFailed={handleDeploymentFailed}
     />
   );
 }

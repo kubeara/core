@@ -1,46 +1,31 @@
-.mcp-servers-page-body {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  width: 100%;
+.mcp-setup-guides-section {
   margin-top: 1.5rem;
-}
-
-.mcp-keys-content {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.mcp-keys-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.mcp-keys-toolbar-desc {
-  margin: 0;
-  flex: 1;
-  min-width: 0;
-  font-size: 0.875rem;
-  color: var(--muted);
-  line-height: 1.45;
-}
-
-.mcp-keys-generate-btn {
-  flex-shrink: 0;
-  white-space: nowrap;
 }
 
 .mcp-generate-token-modal-body {
   padding: 1rem 1.25rem 1.25rem;
 }
 
-.mcp-generate-token-modal-form .modal-actions {
-  padding-left: 0;
-  padding-right: 0;
-  padding-bottom: 0;
+.mcp-revoke-btn {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid #f5c2c2;
+  border-radius: 6px;
+  background: var(--surface);
+  color: #cb1212;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mcp-revoke-btn:hover:not(:disabled) {
+  border-color: #cb1212;
+  background: #fff5f5;
+}
+
+.mcp-revoke-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .mcp-token-notice {
@@ -98,55 +83,6 @@
 
 .mcp-token-field-copy.is-copied {
   color: var(--success);
-}
-
-.mcp-keys-empty {
-  padding: 1.5rem 1rem;
-  text-align: center;
-  font-size: 0.875rem;
-  color: var(--muted);
-}
-
-.mcp-keys-updating {
-  margin: 0;
-  font-size: 0.8125rem;
-  color: var(--muted);
-}
-
-.mcp-keys-table-card {
-  overflow-x: auto;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-}
-
-.mcp-keys-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
-}
-
-.mcp-keys-table th,
-.mcp-keys-table td {
-  padding: 0.75rem 1rem;
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-}
-
-.mcp-keys-table th {
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-  background: color-mix(in srgb, var(--foreground) 3%, var(--surface));
-}
-
-.mcp-keys-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.mcp-keys-revoked-label {
-  color: var(--muted);
 }
 
 .mcp-setup-guides-grid {
@@ -558,18 +494,8 @@
 }
 
 @media (max-width: 768px) {
-  .mcp-servers-page-body {
-    gap: 1rem;
+  .mcp-setup-guides-section {
     margin-top: 1rem;
-  }
-
-  .mcp-keys-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .mcp-keys-generate-btn {
-    align-self: flex-start;
   }
 
   .mcp-setup-guide-troubleshooting li {

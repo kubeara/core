@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Dropdown } from "@/components/shared/dropdown";
+import { FilterClearButton } from "@/components/shared/filter-clear-button";
 import { ContainerActionConfirmModal } from "@/features/deployments/components/container-action-confirm-modal";
 import { useContainerActionMutation } from "@/features/deployments/hooks";
 import { useTemplatesQuery } from "@/features/templates/hooks";
@@ -7,12 +9,22 @@ import type {
   ContainerActionType,
   ServerContainer,
 } from "@/features/deployments/types";
-import { SkeletonGrid } from "@/components/shared/skeleton";
+import { SkeletonMarketplaceGrid } from "@/components/shared/skeleton";
+import { ServerDetailSectionHeader } from "../server-detail-section-header";
 import { ConnectedServiceCard } from "../connected-service-card";
-import { getContainerDisplayName, getContainerServiceName } from "../utils/container-display";
+import {
+  CONTAINER_STATUS_FILTER_OPTIONS,
+  getContainerDisplayName,
+  getContainerServiceName,
+  isKubearaAgentContainer,
+  isKubearaManagedContainer,
+  matchesContainerStatusFilter,
+  type ContainerStatusFilter,
+} from "../utils/container-display";
 
 type ServerOverviewTabProps = {
   serverId: string;
+  serverHost: string;
   containers: ServerContainer[];
   isLoading: boolean;
   isError: boolean;
@@ -20,21 +32,26 @@ type ServerOverviewTabProps = {
 
 export function ServerOverviewTab({
   serverId,
+  serverHost,
   containers,
   isLoading,
   isError,
 }: ServerOverviewTabProps) {
-  const { data: templates = [] } = useTemplatesQuery(serverId);
+  const { data: templatesResponse } = useTemplatesQuery(undefined, serverId);
   const templateLogos = useMemo(
     () =>
       new Map(
-        templates.map((template) => [template.slug, template.logo ?? null]),
+        (templatesResponse?.data ?? []).map((template) => [
+          template.slug,
+          template.logo ?? null,
+        ]),
       ),
-    [templates],
+    [templatesResponse?.data],
   );
 
   const containerActionMutation = useContainerActionMutation();
   const navigate = useNavigate();
+  const [statusFilter, setStatusFilter] = useState<ContainerStatusFilter>("");
   const [pendingAction, setPendingAction] = useState<{
     containerId: string | null;
     action: ContainerActionType;
@@ -46,9 +63,39 @@ export function ServerOverviewTab({
 
   const isConfirmPending = Boolean(
     confirmAction &&
-      pendingAction?.containerId === confirmAction.container.containerId &&
-      pendingAction.action === confirmAction.action,
+    pendingAction?.containerId === confirmAction.container.containerId &&
+    pendingAction.action === confirmAction.action,
   );
+
+  const filteredContainers = useMemo(
+    () =>
+      containers.filter((container) =>
+        matchesContainerStatusFilter(container, statusFilter),
+      ),
+    [containers, statusFilter],
+  );
+
+  const kubearaManagedContainers = filteredContainers
+    .filter((container) => isKubearaManagedContainer(container))
+    .sort((left, right) => {
+      const leftIsAgent = isKubearaAgentContainer(left);
+      const rightIsAgent = isKubearaAgentContainer(right);
+      if (leftIsAgent && !rightIsAgent) {
+        return -1;
+      }
+      if (!leftIsAgent && rightIsAgent) {
+        return 1;
+      }
+      return getContainerDisplayName(left).localeCompare(
+        getContainerDisplayName(right),
+      );
+    });
+
+  const selfManagedContainers = filteredContainers.filter(
+    (container) => !isKubearaManagedContainer(container),
+  );
+
+  const hasActiveFilter = statusFilter !== "";
 
   function handleContainerActionRequest(
     container: ServerContainer,
@@ -95,13 +142,26 @@ export function ServerOverviewTab({
     );
   }
 
-  const kubearaManagedContainers = containers.filter(
-    (container) => container.managedType === "KUBEARA_MANAGED",
-  );
-
-  const selfManagedContainers = containers.filter(
-    (container) => container.managedType !== "KUBEARA_MANAGED",
-  );
+  function renderContainerCard(container: ServerContainer) {
+    return (
+      <ConnectedServiceCard
+        key={
+          container.containerId ??
+          `${container.deploymentId ?? "offline"}-${container.containerName}`
+        }
+        container={container}
+        serverHost={serverHost}
+        logo={
+          container.templateId
+            ? (templateLogos.get(container.templateId) ?? null)
+            : null
+        }
+        pendingAction={pendingAction}
+        onAction={handleContainerActionRequest}
+        onViewLogs={handleViewLogs}
+      />
+    );
+  }
 
   return (
     <div className="server-detail-panel">
@@ -119,41 +179,51 @@ export function ServerOverviewTab({
         />
       ) : null}
 
-      <h2 className="server-detail-section-title">Connected services</h2>
+      <ServerDetailSectionHeader
+        title="Connected services"
+        description="Containers discovered on this server, including Kubeara deployments and self-managed workloads."
+      />
 
-      <p className="server-detail-section-desc">
-        Containers discovered on this server, including Kubeara deployments and
-        self-managed workloads.
-      </p>
+      {!isLoading && !isError && containers.length > 0 ? (
+        <div className="server-templates-toolbar connected-services-toolbar">
+          <div className="server-templates-filters">
+            <div className="server-templates-filter-row">
+              <Dropdown
+                id="connected-services-status"
+                className="server-templates-category-dropdown"
+                value={statusFilter}
+                options={CONTAINER_STATUS_FILTER_OPTIONS}
+                onChange={setStatusFilter}
+                ariaLabel="Filter by status"
+                searchable
+                searchPlaceholder="Search statuses…"
+                noResultsLabel="No statuses found"
+                pinnedOptionValue=""
+              />
+              {hasActiveFilter ? (
+                <FilterClearButton onClick={() => setStatusFilter("")} />
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {isLoading ? (
-        <SkeletonGrid count={3} cardHeight={200} label="Loading containers…" />
+        <SkeletonMarketplaceGrid count={3} label="Loading containers…" />
       ) : isError ? (
         <p className="server-detail-empty">
           Could not load containers. Check that this server is online.
         </p>
       ) : containers.length === 0 ? (
         <p className="server-detail-empty">No services connected yet.</p>
+      ) : filteredContainers.length === 0 ? (
+        <p className="server-detail-empty">
+          No services match the selected status filters.
+        </p>
       ) : (
         <>
           <div className="server-templates-grid">
-            {kubearaManagedContainers.map((container) => (
-              <ConnectedServiceCard
-                key={
-                  container.containerId ??
-                  `${container.deploymentId ?? "offline"}-${container.containerName}`
-                }
-                container={container}
-                logo={
-                  container.templateId
-                    ? (templateLogos.get(container.templateId) ?? null)
-                    : null
-                }
-                pendingAction={pendingAction}
-                onAction={handleContainerActionRequest}
-                onViewLogs={handleViewLogs}
-              />
-            ))}
+            {kubearaManagedContainers.map(renderContainerCard)}
           </div>
 
           {selfManagedContainers.length > 0 && (
@@ -161,23 +231,7 @@ export function ServerOverviewTab({
               <h3 className="connected-services-section-title">Self Managed</h3>
 
               <div className="server-templates-grid">
-                {selfManagedContainers.map((container) => (
-                  <ConnectedServiceCard
-                    key={
-                      container.containerId ??
-                      `${container.deploymentId ?? "offline"}-${container.containerName}`
-                    }
-                    container={container}
-                    logo={
-                      container.templateId
-                        ? (templateLogos.get(container.templateId) ?? null)
-                        : null
-                    }
-                    pendingAction={pendingAction}
-                    onAction={handleContainerActionRequest}
-                    onViewLogs={handleViewLogs}
-                  />
-                ))}
+                {selfManagedContainers.map(renderContainerCard)}
               </div>
             </>
           )}

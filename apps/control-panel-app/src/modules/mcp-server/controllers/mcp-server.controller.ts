@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
@@ -15,12 +14,13 @@ import { Request, Response } from "express";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 import { ERROR_MESSAGES } from "@control-panel/constants/error";
+import { McpOAuthConfigService } from "@control-panel/modules/mcp-oauth/services/mcp-oauth-config.service";
 
 import {
   MCP_JSON_RPC_ERROR_CODES,
-  MCP_JSON_RPC_METHODS,
   MCP_JSON_RPC_NULL_ID,
   MCP_JSON_RPC_VERSION,
+  MCP_UNAUTHENTICATED_METHODS,
 } from "../constants/mcp-server.constants";
 import { JsonRpcRequest } from "../interfaces/json-rpc-request.interface";
 import { McpAuthService } from "../services/mcp-auth.service";
@@ -33,37 +33,51 @@ export class McpServerController {
   constructor(
     private readonly mcpAuthService: McpAuthService,
     private readonly mcpServerService: McpServerService,
+    private readonly mcpOAuthConfigService: McpOAuthConfigService,
   ) {}
 
   /**
    * Handle a MCP request.
-   * @param req - The request object.
-   * @param res - The response object.
-   * @param body - The body of the request.
-   * @param authHeader - The authorization header.
-   * @returns A promise that resolves to void.
    */
   @Post()
   async handlePost(
     @Req() req: Request,
     @Res() res: Response,
-    @Body() body: JsonRpcRequest,
     @Headers("authorization") authHeader: string,
   ): Promise<void> {
     try {
-      let userId: string;
-      if (body.method !== MCP_JSON_RPC_METHODS.INITIALIZE) {
-        const user = await this.mcpAuthService.validateToken(authHeader);
-        userId = user.id;
+      const body = (req.body ?? {}) as JsonRpcRequest;
+      const method = body.method ?? "";
+      const isPublicMethod = MCP_UNAUTHENTICATED_METHODS.has(method);
+
+      if (!method) {
+        this.sendUnauthorizedResponse(
+          res,
+          ERROR_MESSAGES.MCP_API_KEYS.MISSING_AUTHORIZATION,
+          authHeader,
+        );
+        return;
       }
 
-      const server = this.mcpServerService.createServer(userId!);
+      let userId: string | undefined;
+
+      try {
+        const user = await this.mcpAuthService.validateToken(authHeader);
+        userId = user.id;
+      } catch (authError) {
+        if (!isPublicMethod) {
+          throw authError;
+        }
+      }
+
+      const server = this.mcpServerService.createServer(userId ?? "");
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
         enableJsonResponse: true,
       });
 
       await server.connect(transport);
+      req.headers.accept = "application/json, text/event-stream";
       await transport.handleRequest(req, res, req.body);
 
       res.on("close", () => {
@@ -80,6 +94,11 @@ export class McpServerController {
         const { statusCode, errorCode, message } =
           this.mapErrorToJsonRpc(error);
 
+        if (statusCode === 401) {
+          this.sendUnauthorizedResponse(res, message, authHeader);
+          return;
+        }
+
         res.status(statusCode).json({
           jsonrpc: MCP_JSON_RPC_VERSION,
           error: { code: errorCode, message },
@@ -90,9 +109,8 @@ export class McpServerController {
   }
 
   /**
-   * Handle a MCP GET request.
-   * @param res - The response object.
-   * @returns A promise that resolves to void.
+   * MCP streamable HTTP uses POST; avoid OAuth discovery on GET so desktop clients are not
+   * pushed into dynamic client registration when probing the endpoint.
    */
   @Get()
   handleGet(@Res() res: Response): void {
@@ -105,10 +123,9 @@ export class McpServerController {
       id: MCP_JSON_RPC_NULL_ID,
     });
   }
+
   /**
    * Handle a MCP DELETE request.
-   * @param res - The response object.
-   * @returns A promise that resolves to void.
    */
   @Delete()
   handleDelete(@Res() res: Response): void {
@@ -123,9 +140,35 @@ export class McpServerController {
   }
 
   /**
-   * Map an error to a JSON-RPC error.
-   * @param error - The error to map.
-   * @returns A JSON-RPC error.
+   * Return 401 — OAuth discovery for ChatGPT when no bearer token is sent; plain error for
+   * desktop clients that supplied an API key.
+   */
+  private sendUnauthorizedResponse(
+    res: Response,
+    message: string,
+    authHeader: string | undefined,
+  ): void {
+    if (this.mcpAuthService.shouldAdvertiseOAuthDiscovery(authHeader)) {
+      res.setHeader(
+        "WWW-Authenticate",
+        `Bearer resource_metadata="${this.mcpOAuthConfigService.getProtectedResourceMetadataUrl()}", error="invalid_token", error_description="${message}"`,
+      );
+    }
+
+    res.status(401).json({
+      jsonrpc: MCP_JSON_RPC_VERSION,
+      error: {
+        code: MCP_JSON_RPC_ERROR_CODES.UNAUTHORIZED,
+        message,
+      },
+      id: MCP_JSON_RPC_NULL_ID,
+    });
+  }
+
+  /**
+   * Map an error to a JSON-RPC error
+   * @param error
+   * @returns The JSON-RPC error
    */
   private mapErrorToJsonRpc(error: unknown): {
     statusCode: number;

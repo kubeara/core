@@ -1,5 +1,8 @@
 export const MCP_SERVER_LIST_LIMIT = 100;
 
+export const MCP_TEMPLATE_LIST_DEFAULT_LIMIT = 20;
+export const MCP_TEMPLATE_LIST_MAX_LIMIT = 100;
+
 export const SERVICE_NAME_TO_TEMPLATE_SLUG: Record<string, string> = {
   redis: "redis",
   postgresql: "postgres",

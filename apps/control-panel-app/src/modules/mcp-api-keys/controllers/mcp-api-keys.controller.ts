@@ -5,12 +5,14 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Logger,
   Param,
   Post,
   Req,
   UseGuards,
 } from "@nestjs/common";
 
+import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import { AuthenticatedRequest } from "@control-panel/common/interfaces/authenticated-request.interface";
 import { ServiceResponse } from "@control-panel/common/interfaces/success-response.interface";
 import { AccessTokenGuard } from "@control-panel/modules/auth/guards/auth.guards";
@@ -23,46 +25,55 @@ import { McpApiKeysService } from "../services/mcp-api-keys.service";
 @UseGuards(AccessTokenGuard)
 @Controller("mcp-api-keys")
 export class McpApiKeysController {
+  private readonly logger = new Logger(McpApiKeysController.name);
+
   constructor(private readonly mcpApiKeysService: McpApiKeysService) {}
 
   /**
    * Create a new MCP API key for the authenticated user.
-   * @param req
-   * @param body
-   * @returns
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  createKey(
+  async createKey(
     @Req() req: AuthenticatedRequest,
     @Body() body: CreateMcpApiKeyDto,
   ): Promise<ServiceResponse<CreateMcpApiKeyResult>> {
-    return this.mcpApiKeysService.createKey(req.user.id, body);
+    try {
+      return await this.mcpApiKeysService.createKey(req.user.id, body);
+    } catch (error) {
+      this.logger.error(`Create MCP API key failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**
    * List MCP API keys for the authenticated user.
-   * @param req
-   * @returns
    */
   @Get()
-  listKeys(
+  async listKeys(
     @Req() req: AuthenticatedRequest,
   ): Promise<ServiceResponse<McpApiKeyListItem[]>> {
-    return this.mcpApiKeysService.listKeys(req.user.id);
+    try {
+      return await this.mcpApiKeysService.listKeys(req.user.id);
+    } catch (error) {
+      this.logger.error(`List MCP API keys failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**
    * Revoke an MCP API key owned by the authenticated user.
-   * @param req
-   * @param keyId
-   * @returns
    */
   @Delete(":id")
-  revokeKey(
+  async revokeKey(
     @Req() req: AuthenticatedRequest,
     @Param("id") keyId: string,
   ): Promise<ServiceResponse<null>> {
-    return this.mcpApiKeysService.revokeKey(req.user.id, keyId);
+    try {
+      return await this.mcpApiKeysService.revokeKey(req.user.id, keyId);
+    } catch (error) {
+      this.logger.error(`Revoke MCP API key failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 }

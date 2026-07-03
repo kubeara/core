@@ -2,6 +2,8 @@ import { EntityStatus } from "../../../common/entity/base.entity";
 import { ServerProvider } from "../enums/server-provider.enum";
 import { ServerType } from "../enums/server-type.enum";
 
+export type ServerOperationStatusDto = "starting" | "removing" | "error";
+
 export interface ServerResponseDto {
   id: string;
   status: EntityStatus;
@@ -16,6 +18,9 @@ export interface ServerResponseDto {
   serverType: ServerType;
   lastConnectedAt: number | null;
   connected: boolean;
+  agentConnected: boolean;
+  operationStatus: ServerOperationStatusDto | null;
+  operationError: string | null;
   createdAt: number;
   updatedAt: number;
   deletedAt: number | null;

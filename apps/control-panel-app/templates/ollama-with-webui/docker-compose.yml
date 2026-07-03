@@ -1,0 +1,136 @@
+# documentation: https://docs.openwebui.com/getting-started/quick-start/
+# shortDescription: Ollama LLM runtime with Open WebUI chat interface
+# longDescription: <p>Deploy <strong>Ollama</strong> and <strong>Open WebUI</strong> together in one stack. Open WebUI connects to Ollama over the internal Docker network—no extra configuration required.</p><p>On first deploy, a one-shot init job pulls <code>llama3.2</code> automatically. Models persist under <code>/root/.ollama</code>; chat data under Open WebUI's data volume. Override with <code>OLLAMA_MODEL</code> if needed.</p>
+# category: ai,llm
+# tags: ollama,open-webui,ai,llm,chat,local,inference,models,ui
+# logo: svgs/openwebui.svg
+# port: 8080
+
+services:
+  ollama:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    restart: ${OLLAMA_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_OLLAMA:-11434}:11434'
+
+    environment:
+      - OLLAMA_HOST=${OLLAMA_HOST:-0.0.0.0:11434}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - ollama_data:/root/.ollama
+
+    healthcheck:
+      test: ['CMD', 'ollama', 'list']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  ollama-model-init:
+    image: ${OLLAMA_IMAGE:-ollama/ollama:latest}
+    restart: ${OLLAMA_MODEL_INIT_RESTART_POLICY:-no}
+
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+    network_mode: service:ollama
+
+    environment:
+      - OLLAMA_HOST=127.0.0.1:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - ollama_data:/root/.ollama
+
+    # Image ENTRYPOINT is already "ollama" — command is only subcommand + model name.
+    command: ['pull', '${OLLAMA_MODEL:-llama3.2}']
+
+    healthcheck:
+      test: ['CMD-SHELL', 'exit 0']
+      interval: 5s
+      timeout: 3s
+      retries: 1
+      start_period: 5s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  open-webui:
+    image: ${OPEN_WEBUI_IMAGE:-ghcr.io/open-webui/open-webui:main}
+    restart: ${OPEN_WEBUI_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_OPEN_WEBUI:-8080}:8080'
+
+    environment:
+      - SERVICE_URL_OPEN_WEBUI_8080
+      - WEBUI_SECRET_KEY=${SERVICE_HEX_64_OPENWEBUI}
+      - OLLAMA_BASE_URL=${OPEN_WEBUI_OLLAMA_BASE_URL:-http://ollama:11434}
+      - ENABLE_PERSISTENT_CONFIG=${OPEN_WEBUI_ENABLE_PERSISTENT_CONFIG:-true}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - open_webui_data:/app/backend/data
+
+    depends_on:
+      ollama:
+        condition: service_healthy
+      ollama-model-init:
+        condition: service_completed_successfully
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8080/health | grep -q ''"status":true'' || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  ollama_data:
+  open_webui_data:

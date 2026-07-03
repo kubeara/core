@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   useCreateServerMutation,
   useUpdateServerMutation,
@@ -164,7 +164,8 @@ function ServerFormContent({
         </button>
       </header>
       <form onSubmit={handleSubmit} className="modal-form" noValidate>
-        <FormErrorsSummary formError={formError} />
+        <div className="modal-form-scroll">
+          <FormErrorsSummary formError={formError} />
         <div className="form-field">
           <FormFieldLabel htmlFor="server-name" required>
             Name
@@ -306,6 +307,7 @@ function ServerFormContent({
                 </FormFieldLabel>
                 <textarea
                   id="server-private-key"
+                  className="server-private-key-input"
                   value={addForm.privateKey}
                   onChange={(e) => {
                     setAddForm((prev) => ({
@@ -315,8 +317,11 @@ function ServerFormContent({
                     clearFieldError("private-key");
                   }}
                   disabled={loading}
-                  rows={3}
-                  placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
+                  rows={8}
+                  placeholder={
+                    "-----BEGIN OPENSSH PRIVATE KEY-----\n...\n-----END OPENSSH PRIVATE KEY-----"
+                  }
+                  spellCheck={false}
                   aria-invalid={fieldErrors["private-key"] ? true : undefined}
                   aria-describedby={
                     fieldErrors["private-key"]
@@ -401,6 +406,8 @@ function ServerFormContent({
           )
         )}
 
+        </div>
+
         <div className="modal-actions">
           <button
             type="button"
@@ -431,6 +438,19 @@ export function ServerFormModal({
   onClose,
   onSaved,
 }: ServerFormModalProps) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
   if (!open) return null;
 
   const formKey = mode === "edit" && server ? server.id : "new";
@@ -438,7 +458,7 @@ export function ServerFormModal({
   return (
     <div className="modal-overlay" role="presentation" onClick={onClose}>
       <div
-        className="modal-dialog modal-dialog-wide"
+        className="modal-dialog modal-dialog-server"
         role="dialog"
         aria-modal="true"
         aria-labelledby="server-modal-title"

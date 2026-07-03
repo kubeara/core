@@ -1,20 +1,29 @@
 import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
 import type { ApiTemplate } from "../types";
 import { getTemplateAccentColor } from "../utils/deploy-form-schema";
+import { formatTemplateCategory } from "../utils/format-template-category";
+
+export type DeployServiceSummaryStatus = {
+  type: "validating";
+  message: string;
+};
 
 type DeployServiceSummaryCardProps = {
   template: ApiTemplate;
   serverName?: string;
   serverId: string;
   variableCount: number | "loading";
+  status?: DeployServiceSummaryStatus | null;
 };
 
 export function DeployServiceSummaryCard({
   template,
   serverName,
   serverId,
+  status,
 }: DeployServiceSummaryCardProps) {
   const accent = getTemplateAccentColor(template.slug);
+  const categoryLabel = formatTemplateCategory(template.category);
 
   return (
     <article className="deploy-service-card">
@@ -32,9 +41,18 @@ export function DeployServiceSummaryCard({
         <div className="deploy-service-content">
           <div className="deploy-service-headline">
             <h1>{template.name}</h1>
+            {status?.type === "validating" ? (
+              <span
+                className="deploy-service-status deploy-service-status-validating"
+                role="status"
+                aria-live="polite"
+              >
+                {status.message}
+              </span>
+            ) : null}
           </div>
-          {template.category ? (
-            <p className="deploy-service-category">{template.category}</p>
+          {categoryLabel ? (
+            <p className="deploy-service-category">{categoryLabel}</p>
           ) : null}
           {template.shortDescription ? (
             <p className="deploy-service-description">{template.shortDescription}</p>
