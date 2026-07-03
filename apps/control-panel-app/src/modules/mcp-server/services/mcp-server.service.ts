@@ -108,6 +108,40 @@ export class McpServerService {
       );
 
       server.registerTool(
+        MCP_TOOL_NAMES.GET_DEPLOYMENT_STATUS,
+        {
+          description:
+            "Get the current deployment status (success, failed, deploying, etc.). Provide deploymentId from deploy_service, or serviceName + serverName to look up the latest deployment.",
+          inputSchema: {
+            deploymentId: z
+              .string()
+              .optional()
+              .describe(
+                "Deployment ID returned by deploy_service (preferred when available)",
+              ),
+            serviceName: z
+              .string()
+              .optional()
+              .describe(
+                "Service name or template slug — use with serverName when deploymentId is unknown",
+              ),
+            serverName: z
+              .string()
+              .optional()
+              .describe(
+                "Server name or ID — use with serviceName when deploymentId is unknown",
+              ),
+          },
+        },
+        (args) =>
+          this.mcpToolsService.executeTool(
+            MCP_TOOL_NAMES.GET_DEPLOYMENT_STATUS,
+            args,
+            userId,
+          ),
+      );
+
+      server.registerTool(
         MCP_TOOL_NAMES.GET_SERVER_STATUS,
         {
           description: "Server status/metrics",
