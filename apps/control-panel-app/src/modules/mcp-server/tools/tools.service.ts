@@ -394,9 +394,7 @@ export class McpToolsService {
    * @returns The formatted deployment status.
    */
   private formatDeploymentStatus(
-    deployment: Awaited<
-      ReturnType<DeploymentsService["getDeployment"]>
-    >,
+    deployment: Awaited<ReturnType<DeploymentsService["getDeployment"]>>,
   ) {
     return {
       deploymentId: deployment.id,
