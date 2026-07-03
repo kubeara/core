@@ -1,0 +1,99 @@
+# documentation: https://docs.n8n.io/hosting/installation/server-setups/docker-compose/
+# shortDescription: n8n automation with PostgreSQL storage
+# longDescription: <p>n8n with a dedicated <strong>PostgreSQL</strong> database for production-ready workflow persistence.</p><p>Includes Traefik-friendly URL variables and stores workflow data in Postgres instead of SQLite.</p>
+# category: automation,workflows,integration
+# tags: n8n,automation,workflow,integration,postgresql,database
+# port: 5678
+
+services:
+  n8n:
+    image: ${N8N_WITH_POSTGRESQL_IMAGE:-n8nio/n8n:2.10.2}
+    restart: ${N8N_WITH_POSTGRESQL_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_N8N_WITH_POSTGRESQL:-5678}:5678'
+
+    environment:
+      - SERVICE_URL_N8N_WITH_POSTGRESQL_5678
+      - N8N_EDITOR_BASE_URL=${SERVICE_URL_N8N_WITH_POSTGRESQL:-${SERVICE_URL_N8N_WITH_POSTGRESQL_5678}}
+      - WEBHOOK_URL=${SERVICE_URL_N8N_WITH_POSTGRESQL:-${SERVICE_URL_N8N_WITH_POSTGRESQL_5678}}
+      - N8N_HOST=${SERVICE_FQDN_N8N_WITH_POSTGRESQL:-${SERVICE_FQDN_N8N_WITH_POSTGRESQL_5678}}
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
+      - N8N_SECURE_COOKIE=${N8N_SECURE_COOKIE:-false}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=${N8N_WITH_POSTGRESQL_DB_NAME:-n8n}
+      - DB_POSTGRESDB_USER=${SERVICE_USER_N8NPG:-n8n}
+      - DB_POSTGRESDB_PASSWORD=${SERVICE_PASSWORD_N8NPG:-n8n_password}
+      - N8N_ENCRYPTION_KEY=${SERVICE_PASSWORD_64_N8NPG:-n8n_encryption_key_change_me}
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-UTC}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - n8n_with_postgresql_data:/home/node/.n8n
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:5678/healthz || exit 1']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1536M
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${N8N_WITH_POSTGRESQL_POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${N8N_WITH_POSTGRESQL_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_N8NPG:-n8n}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_N8NPG:-n8n_password}
+      - POSTGRES_DB=${N8N_WITH_POSTGRESQL_DB_NAME:-n8n}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - n8n_with_postgresql_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${SERVICE_USER_N8NPG:-n8n} -d ${N8N_WITH_POSTGRESQL_DB_NAME:-n8n}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  n8n_with_postgresql_data:
+  n8n_with_postgresql_postgres_data:

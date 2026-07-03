@@ -1,0 +1,44 @@
+# documentation: https://github.com/lobehub/lobe-chat?tab=readme-ov-file#b-deploying-with-docker
+# shortDescription: Open-source modern AI chat framework
+# longDescription: <p>LobeChat is an <strong>open-source AI chat UI</strong> with a modern design for OpenAI and compatible APIs.</p><p>Set <code>OPENAI_API_KEY</code> after deploy or via <code>LOBE_CHAT_OPENAI_API_KEY</code>. Optional access protection uses <code>SERVICE_PASSWORD_ACCESSCODE</code>.</p>
+# category: ai,llm
+# tags: lobe-chat,ai,chat,openai,llm,chatbot,ui
+# logo: svgs/lobe-chat.png
+# port: 3210
+
+services:
+  lobe-chat:
+    image: ${LOBE_CHAT_IMAGE:-lobehub/lobe-chat:latest}
+    restart: ${LOBE_CHAT_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_LOBE_CHAT:-3210}:3210'
+
+    environment:
+      - SERVICE_URL_LOBE_CHAT_3210
+      - OPENAI_API_KEY=${LOBE_CHAT_OPENAI_API_KEY:-user_provided}
+      - OPENAI_PROXY_URL=${LOBE_CHAT_OPENAI_PROXY_URL:-https://api.openai.com/v1}
+      - ACCESS_CODE=${SERVICE_PASSWORD_ACCESSCODE:-}
+      - TZ=${TZ:-UTC}
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3210/ || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 45s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
