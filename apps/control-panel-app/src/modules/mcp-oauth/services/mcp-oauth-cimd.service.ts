@@ -5,7 +5,10 @@ import { ERROR_MESSAGES } from "@control-panel/constants/error";
 
 import { MCP_OAUTH_CIMD_CACHE_TTL_SECONDS } from "../constants/mcp-oauth.constants";
 import { McpOAuthCimdMetadata } from "../interfaces/mcp-oauth-cimd-metadata.interface";
-import { parseCimdClientIdUrl } from "../utils/parse-cimd-client-id-url.util";
+import {
+  buildTrustedCimdMetadataUrl,
+  resolveTrustedCimdFetchTarget,
+} from "../utils/parse-cimd-client-id-url.util";
 
 type CachedCimdMetadata = {
   redirectUris: string[];
@@ -19,9 +22,6 @@ export class McpOAuthCimdService {
 
   /**
    * Validates the client ID and redirect URI against the CIMD metadata.
-   * @param clientId - The client ID to validate.
-   * @param redirectUri - The redirect URI to validate.
-   * @returns void
    */
   async validate(clientId: string, redirectUri: string): Promise<void> {
     const cached = this.cache.get(clientId);
@@ -40,26 +40,20 @@ export class McpOAuthCimdService {
     });
   }
 
-  /**
-   * Fetches the CIMD metadata for the given client ID.
-   * @param clientId - The client ID to fetch the metadata for.
-   * @returns The CIMD metadata.
-   */
   private async fetchMetadata(clientId: string): Promise<McpOAuthCimdMetadata> {
-    const validatedClientIdUrl = parseCimdClientIdUrl(clientId);
+    const metadataUrl = buildTrustedCimdMetadataUrl(
+      resolveTrustedCimdFetchTarget(clientId),
+    );
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
 
     try {
-      // Host is rebuilt from an allowlist in parseCimdClientIdUrl (see parse-cimd-client-id-url.util.ts).
-      const response = await fetch(
-        validatedClientIdUrl, // codeql[js/request-forgery]
-        {
-          signal: controller.signal,
-          redirect: "error",
-          headers: { Accept: "application/json" },
-        },
-      );
+      // codeql[js/request-forgery]: metadataUrl uses allowlisted ChatGPT hosts only (buildTrustedCimdMetadataUrl).
+      const response = await fetch(metadataUrl, {
+        signal: controller.signal,
+        redirect: "error",
+        headers: { Accept: "application/json" },
+      });
 
       if (!response.ok) {
         throw new BadRequestException(
@@ -94,12 +88,6 @@ export class McpOAuthCimdService {
     }
   }
 
-  /**
-   * Asserts that the metadata matches the client ID.
-   * @param clientId - The client ID to assert.
-   * @param metadata - The metadata to assert.
-   * @returns void
-   */
   private assertMetadataMatchesClientId(
     clientId: string,
     metadata: McpOAuthCimdMetadata,
@@ -111,12 +99,6 @@ export class McpOAuthCimdService {
     }
   }
 
-  /**
-   * Asserts that the redirect URI is allowed.
-   * @param redirectUri - The redirect URI to assert.
-   * @param allowedRedirectUris - The allowed redirect URIs.
-   * @returns void
-   */
   private assertRedirectUriAllowed(
     redirectUri: string,
     allowedRedirectUris: string[],

@@ -8,6 +8,11 @@ const allowedCimdHosts = new Set<string>(MCP_OAUTH_CIMD_ALLOWED_HOSTS);
 
 const CIMD_PATH_PATTERN = /^\/[A-Za-z0-9._~/-]+$/;
 
+export type TrustedCimdFetchTarget = {
+  host: (typeof MCP_OAUTH_CIMD_ALLOWED_HOSTS)[number];
+  pathname: string;
+};
+
 function invalidCimdClientId(): never {
   throw new BadRequestException(
     ERROR_MESSAGES.MCP_OAUTH.INVALID_CIMD_CLIENT_ID,
@@ -15,9 +20,11 @@ function invalidCimdClientId(): never {
 }
 
 /**
- * Parse a ChatGPT CIMD client_id URL and rebuild it from trusted host literals (SSRF guard).
+ * Parse and validate a ChatGPT CIMD client_id URL; return a server-trusted fetch target.
  */
-export function parseCimdClientIdUrl(clientId: string): URL {
+export function resolveTrustedCimdFetchTarget(
+  clientId: string,
+): TrustedCimdFetchTarget {
   let parsed: URL;
 
   try {
@@ -42,10 +49,24 @@ export function parseCimdClientIdUrl(clientId: string): URL {
 
   switch (parsed.hostname) {
     case "chatgpt.com":
-      return new URL(parsed.pathname, "https://chatgpt.com/");
+      return { host: "chatgpt.com", pathname: parsed.pathname };
     case "chat.openai.com":
-      return new URL(parsed.pathname, "https://chat.openai.com/");
+      return { host: "chat.openai.com", pathname: parsed.pathname };
     default:
       return invalidCimdClientId();
+  }
+}
+
+/**
+ * Build a metadata fetch URL using only trusted host literals (SSRF guard).
+ */
+export function buildTrustedCimdMetadataUrl(
+  target: TrustedCimdFetchTarget,
+): string {
+  switch (target.host) {
+    case "chatgpt.com":
+      return `https://chatgpt.com${target.pathname}`;
+    case "chat.openai.com":
+      return `https://chat.openai.com${target.pathname}`;
   }
 }
