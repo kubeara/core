@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import axios from "axios";
 import dayjs from "dayjs";
 
 import { ERROR_MESSAGES } from "@control-panel/constants/error";
@@ -44,26 +45,16 @@ export class McpOAuthCimdService {
     const metadataUrl = buildTrustedCimdMetadataUrl(
       resolveTrustedCimdFetchTarget(clientId),
     );
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
 
     try {
-      const response = await fetch(
-        metadataUrl, // codeql[js/request-forgery] host rebuilt from literal allowlist; pathname validated by CIMD_PATH_PATTERN
+      const { data: metadata } = await axios.get<McpOAuthCimdMetadata>(
+        metadataUrl.toString(),
         {
-          signal: controller.signal,
-          redirect: "error",
+          timeout: 10_000,
+          maxRedirects: 0,
           headers: { Accept: "application/json" },
         },
       );
-
-      if (!response.ok) {
-        throw new BadRequestException(
-          ERROR_MESSAGES.MCP_OAUTH.CIMD_FETCH_FAILED,
-        );
-      }
-
-      const metadata = (await response.json()) as McpOAuthCimdMetadata;
 
       if (
         typeof metadata.client_id !== "string" ||
@@ -85,8 +76,6 @@ export class McpOAuthCimdService {
         `Failed to fetch CIMD metadata for ${clientId}: ${error instanceof Error ? error.message : "unknown error"}`,
       );
       throw new BadRequestException(ERROR_MESSAGES.MCP_OAUTH.CIMD_FETCH_FAILED);
-    } finally {
-      clearTimeout(timeout);
     }
   }
 
