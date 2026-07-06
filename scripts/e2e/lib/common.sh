@@ -67,3 +67,34 @@ scp_to_server() {
     -o BatchMode=yes \
     "${src}" "root@${ip}:${dest}"
 }
+
+# Hetzner server names must be valid hostnames (max 63 characters).
+e2e_make_server_name() {
+  local prefix="${1:-selfhost-e2e}"
+  local slug="$2"
+  local scenario="$3"
+  local ts="${4:-$(date +%s)}"
+
+  local suffix="-${scenario}-${ts}"
+  local head="${prefix}-"
+  local max_len=63
+  local name="${head}${slug}${suffix}"
+
+  if ((${#name} <= max_len)); then
+    printf '%s\n' "${name}"
+    return 0
+  fi
+
+  local hash
+  hash="$(printf '%s' "${slug}" | shasum -a 256 2>/dev/null | cut -c1-6)"
+  if [[ -z "${hash}" ]]; then
+    hash="$(printf '%s' "${slug}" | cksum | awk '{printf "%06d", $1 % 1000000}')"
+  fi
+
+  local budget=$((max_len - ${#head} - ${#suffix}))
+  local keep=$((budget - 7))
+  ((keep > 0)) || die "Cannot fit e2e server name within ${max_len} characters"
+
+  local short_slug="${slug:0:${keep}}-${hash}"
+  printf '%s\n' "${head}${short_slug}${suffix}"
+}

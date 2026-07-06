@@ -66,7 +66,7 @@ configure_scenario() {
   case "${scenario}" in
     default)
       unset ENV_FILE
-      SERVER_NAME="${SERVER_NAME_PREFIX:-selfhost-e2e}-${slug}-default-${ts}"
+      SERVER_NAME="$(e2e_make_server_name "${SERVER_NAME_PREFIX:-selfhost-e2e}" "${slug}" default "${ts}")"
       log "Scenario '${scenario}' env source: ${TEMPLATES_DIR}/${slug}/.env.example (or fallback)"
       ;;
     user_input)
@@ -75,7 +75,7 @@ configure_scenario() {
         log "Scenario '${scenario}' skipped (missing env file: ${ENV_FILE})"
         return 1
       fi
-      SERVER_NAME="${SERVER_NAME_PREFIX:-selfhost-e2e}-${slug}-user-${ts}"
+      SERVER_NAME="$(e2e_make_server_name "${SERVER_NAME_PREFIX:-selfhost-e2e}" "${slug}" user "${ts}")"
       log "Scenario '${scenario}' env source: ${ENV_FILE}"
       ;;
     *)

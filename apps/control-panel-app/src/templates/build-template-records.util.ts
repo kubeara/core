@@ -136,6 +136,22 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Gitea",
     version: "1.26.2",
   },
+  forgejo: {
+    name: "Forgejo",
+    version: "12",
+  },
+  "forgejo-with-runner-dind": {
+    name: "Forgejo with Runner (DinD)",
+    version: "12",
+  },
+  "forgejo-with-runner-docker-socket": {
+    name: "Forgejo with Runner (Docker Socket)",
+    version: "12",
+  },
+  onedev: {
+    name: "OneDev",
+    version: "16.0",
+  },
   "gitlab-ce": {
     name: "GitLab CE",
     version: "latest",

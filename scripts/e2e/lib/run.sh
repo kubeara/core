@@ -62,7 +62,7 @@ run_template_e2e() {
   trap 'e2e_cleanup_template_run' RETURN EXIT
 
   TEMPLATE_SLUG="${slug}"
-  SERVER_NAME="${SERVER_NAME:-selfhost-e2e-${slug}-$(date +%s)}"
+  SERVER_NAME="${SERVER_NAME:-$(e2e_make_server_name selfhost-e2e "${slug}" run "$(date +%s)")}"
   SERVER_IP=""
 
   require_template_slug "${slug}"
