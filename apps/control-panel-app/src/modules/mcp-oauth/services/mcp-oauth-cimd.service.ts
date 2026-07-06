@@ -48,7 +48,8 @@ export class McpOAuthCimdService {
     const timeout = setTimeout(() => controller.abort(), 10_000);
 
     try {
-      const response = await fetch(metadataUrl, { // codeql[js/request-forgery]
+      const response = await fetch(metadataUrl, {
+        // codeql[js/request-forgery]
         signal: controller.signal,
         redirect: "error",
         headers: { Accept: "application/json" },
