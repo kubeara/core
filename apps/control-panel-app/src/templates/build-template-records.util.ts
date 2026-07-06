@@ -424,6 +424,34 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "RabbitMQ",
     version: "3",
   },
+  chroma: {
+    name: "Chroma",
+    version: "1.0",
+  },
+  "deno-kv": {
+    name: "Deno KV",
+    version: "latest",
+  },
+  edgedb: {
+    name: "EdgeDB",
+    version: "6",
+  },
+  electricsql: {
+    name: "ElectricSQL",
+    version: "latest",
+  },
+  elasticsearch: {
+    name: "Elasticsearch",
+    version: "8.19",
+  },
+  "elasticsearch-with-kibana": {
+    name: "Elasticsearch with Kibana",
+    version: "8.19",
+  },
+  meilisearch: {
+    name: "Meilisearch",
+    version: "1.22",
+  },
 };
 
 /**
