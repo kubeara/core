@@ -83,6 +83,10 @@ export const ERROR_MESSAGES = {
     INVALID_AUTHORIZE_REQUEST: "Invalid OAuth authorization request",
     UNSUPPORTED_CODE_CHALLENGE: "Only S256 code challenge is supported",
     INVALID_CLIENT_ID: "Unsupported OAuth client",
+    INVALID_CIMD_CLIENT_ID: "Invalid ChatGPT client metadata document",
+    CIMD_FETCH_FAILED: "Failed to fetch ChatGPT client metadata document",
+    CIMD_REDIRECT_URI_MISMATCH:
+      "OAuth redirect URI is not allowed for this ChatGPT client",
     INVALID_REDIRECT_URI: "Invalid OAuth redirect URI",
     INVALID_RESOURCE: "Invalid OAuth resource parameter",
     INVALID_GRANT_TYPE: "Unsupported grant_type",

@@ -85,13 +85,13 @@ export class McpOAuthController {
    * Redirect ChatGPT OAuth requests to the console SPA authorize page.
    */
   @Get("authorize")
-  handleAuthorizeGet(
+  async handleAuthorizeGet(
     @Query() query: Record<string, string | undefined>,
     @Res() res: Response,
-  ): void {
+  ): Promise<void> {
     try {
       const redirectUrl =
-        this.authorizeService.buildConsoleAuthorizeRedirectUrl(query);
+        await this.authorizeService.buildConsoleAuthorizeRedirectUrl(query);
       res.redirect(302, redirectUrl);
     } catch (error) {
       const message =

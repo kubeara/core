@@ -21,3 +21,7 @@ export const MCP_OAUTH_CHATGPT_REDIRECT_PREFIX =
   "https://chatgpt.com/connector/oauth/";
 
 export const MCP_OAUTH_CHATGPT_CLIENT_ID_PREFIX = "https://chatgpt.com/";
+
+export const MCP_OAUTH_CHATGPT_HOST = "chatgpt.com";
+
+export const MCP_OAUTH_CIMD_CACHE_TTL_SECONDS = 3600;
