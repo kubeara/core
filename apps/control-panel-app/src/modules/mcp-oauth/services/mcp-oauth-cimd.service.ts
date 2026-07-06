@@ -48,8 +48,7 @@ export class McpOAuthCimdService {
     const timeout = setTimeout(() => controller.abort(), 10_000);
 
     try {
-      // codeql[js/request-forgery]: metadataUrl uses allowlisted ChatGPT hosts only (buildTrustedCimdMetadataUrl).
-      const response = await fetch(metadataUrl, {
+      const response = await fetch(metadataUrl, { // codeql[js/request-forgery]
         signal: controller.signal,
         redirect: "error",
         headers: { Accept: "application/json" },
