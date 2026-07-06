@@ -1,0 +1,91 @@
+# documentation: https://www.edgedb.com/docs
+# shortDescription: Graph-relational database powered by PostgreSQL
+# longDescription: <p>EdgeDB is an open-source <strong>graph-relational database</strong> with a modern type system, backed by PostgreSQL.</p><p>Server on port 5656. Credentials use <code>SERVICE_PASSWORD_EDGEDB</code> with a dedicated Postgres backend.</p>
+# category: database,postgresql
+# tags: edgedb,database,sql,graph-relational,postgres
+# logo: svgs/postgresql-logo-svgrepo-com.svg
+# port: 5656
+
+services:
+  edgedb:
+    image: ${EDGEDB_IMAGE:-edgedb/edgedb:6}
+    restart: ${EDGEDB_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_EDGEDB:-5656}:5656'
+
+    environment:
+      - SERVICE_URL_EDGEDB_5656
+      - EDGEDB_SERVER_ADMIN_UI=${EDGEDB_SERVER_ADMIN_UI:-enabled}
+      - EDGEDB_SERVER_BACKEND_DSN=postgres://${SERVICE_USER_EDGEDBPG}:${SERVICE_PASSWORD_EDGEDBPG}@edgedb-postgres:5432/${EDGEDB_DB:-edgedb}
+      - EDGEDB_SERVER_SECURITY=${EDGEDB_SERVER_SECURITY:-strict}
+      - EDGEDB_SERVER_PASSWORD=${SERVICE_PASSWORD_EDGEDB}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - edgedb_data:/dbschema
+
+    depends_on:
+      edgedb-postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://127.0.0.1:5656/server/status/alive']
+      interval: 10s
+      timeout: 20s
+      retries: 10
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  edgedb-postgres:
+    image: ${EDGEDB_POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${EDGEDB_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_EDGEDBPG}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_EDGEDBPG}
+      - POSTGRES_DB=${EDGEDB_DB:-edgedb}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - edgedb_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 20s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  edgedb_data:
+  edgedb_postgres_data:

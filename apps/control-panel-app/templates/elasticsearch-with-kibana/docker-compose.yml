@@ -1,0 +1,98 @@
+# documentation: https://www.elastic.co/guide/en/elastic-stack/current/docker.html
+# shortDescription: Elasticsearch with Kibana dashboards
+# longDescription: <p>Single-node <strong>Elasticsearch</strong> stack with Kibana for search, analytics, and visualization.</p><p>Elasticsearch on <code>SERVICE_PORT_ELASTICSEARCH</code> (9200) and Kibana on <code>SERVICE_PORT_ELASTICSEARCH_KIBANA</code> (5601).</p>
+# category: database,search
+# tags: elasticsearch,kibana,search,analytics,dashboards,observability
+# logo: svgs/elasticsearch.svg
+# port: 5601
+
+services:
+  elasticsearch:
+    image: ${ELASTICSEARCH_WITH_KIBANA_ES_IMAGE:-docker.elastic.co/elasticsearch/elasticsearch-wolfi:8.19.0}
+    restart: ${ELASTICSEARCH_WITH_KIBANA_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_ELASTICSEARCH:-9200}:9200'
+
+    environment:
+      - SERVICE_URL_ELASTICSEARCH_9200
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=${ELASTICSEARCH_WITH_KIBANA_JAVA_OPTS:--Xms512m -Xmx512m}
+      - TZ=${TZ:-UTC}
+
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+
+    volumes:
+      - elasticsearch_with_kibana_data:/usr/share/elasticsearch/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:9200 | grep -q tagline || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  kibana:
+    image: ${ELASTICSEARCH_WITH_KIBANA_KIBANA_IMAGE:-docker.elastic.co/kibana/kibana-wolfi:8.19.0}
+    restart: ${ELASTICSEARCH_WITH_KIBANA_KIBANA_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_ELASTICSEARCH_KIBANA:-5601}:5601'
+
+    environment:
+      - SERVICE_URL_ELASTICSEARCH_KIBANA_5601
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          "curl -s -I http://127.0.0.1:5601 | grep -q 'HTTP/1.1 302 Found' || exit 1",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  elasticsearch_with_kibana_data:
