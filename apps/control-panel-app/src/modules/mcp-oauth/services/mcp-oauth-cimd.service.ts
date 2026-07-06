@@ -51,11 +51,15 @@ export class McpOAuthCimdService {
     const timeout = setTimeout(() => controller.abort(), 10_000);
 
     try {
-      const response = await fetch(validatedClientIdUrl, {
-        signal: controller.signal,
-        redirect: "error",
-        headers: { Accept: "application/json" },
-      });
+      // Host is rebuilt from an allowlist in parseCimdClientIdUrl (see parse-cimd-client-id-url.util.ts).
+      const response = await fetch(
+        validatedClientIdUrl, // codeql[js/request-forgery]
+        {
+          signal: controller.signal,
+          redirect: "error",
+          headers: { Accept: "application/json" },
+        },
+      );
 
       if (!response.ok) {
         throw new BadRequestException(
