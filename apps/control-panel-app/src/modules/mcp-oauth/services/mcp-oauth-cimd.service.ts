@@ -48,12 +48,14 @@ export class McpOAuthCimdService {
     const timeout = setTimeout(() => controller.abort(), 10_000);
 
     try {
-      const response = await fetch(metadataUrl, {
-        // codeql[js/request-forgery]
-        signal: controller.signal,
-        redirect: "error",
-        headers: { Accept: "application/json" },
-      });
+      const response = await fetch(
+        metadataUrl, // codeql[js/request-forgery] host rebuilt from literal allowlist; pathname validated by CIMD_PATH_PATTERN
+        {
+          signal: controller.signal,
+          redirect: "error",
+          headers: { Accept: "application/json" },
+        },
+      );
 
       if (!response.ok) {
         throw new BadRequestException(

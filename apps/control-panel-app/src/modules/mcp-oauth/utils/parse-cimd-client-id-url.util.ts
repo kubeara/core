@@ -59,14 +59,15 @@ export function resolveTrustedCimdFetchTarget(
 
 /**
  * Build a metadata fetch URL using only trusted host literals (SSRF guard).
+ * Pathname was already validated in resolveTrustedCimdFetchTarget.
  */
 export function buildTrustedCimdMetadataUrl(
   target: TrustedCimdFetchTarget,
-): string {
-  switch (target.host) {
-    case "chatgpt.com":
-      return `https://chatgpt.com${target.pathname}`;
-    case "chat.openai.com":
-      return `https://chat.openai.com${target.pathname}`;
-  }
+): URL {
+  const base =
+    target.host === "chatgpt.com"
+      ? "https://chatgpt.com"
+      : "https://chat.openai.com";
+
+  return new URL(target.pathname, base);
 }
