@@ -392,6 +392,38 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Gitleaks",
     version: "latest",
   },
+  "neon-ws-proxy": {
+    name: "Neon WS Proxy",
+    version: "latest",
+  },
+  kuzzle: {
+    name: "Kuzzle",
+    version: "2.56",
+  },
+  autobase: {
+    name: "Autobase",
+    version: "2.5",
+  },
+  convex: {
+    name: "Convex",
+    version: "latest",
+  },
+  typesense: {
+    name: "Typesense",
+    version: "28.0",
+  },
+  trailbase: {
+    name: "TrailBase",
+    version: "latest",
+  },
+  supabase: {
+    name: "Supabase",
+    version: "2026.06",
+  },
+  rabbitmq: {
+    name: "RabbitMQ",
+    version: "3",
+  },
 };
 
 /**
