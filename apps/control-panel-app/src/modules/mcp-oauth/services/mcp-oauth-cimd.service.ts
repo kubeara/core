@@ -5,6 +5,7 @@ import { ERROR_MESSAGES } from "@control-panel/constants/error";
 
 import { MCP_OAUTH_CIMD_CACHE_TTL_SECONDS } from "../constants/mcp-oauth.constants";
 import { McpOAuthCimdMetadata } from "../interfaces/mcp-oauth-cimd-metadata.interface";
+import { parseCimdClientIdUrl } from "../utils/parse-cimd-client-id-url.util";
 
 type CachedCimdMetadata = {
   redirectUris: string[];
@@ -45,12 +46,14 @@ export class McpOAuthCimdService {
    * @returns The CIMD metadata.
    */
   private async fetchMetadata(clientId: string): Promise<McpOAuthCimdMetadata> {
+    const validatedClientIdUrl = parseCimdClientIdUrl(clientId);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
 
     try {
-      const response = await fetch(clientId, {
+      const response = await fetch(validatedClientIdUrl, {
         signal: controller.signal,
+        redirect: "error",
         headers: { Accept: "application/json" },
       });
 

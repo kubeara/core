@@ -1,17 +1,12 @@
-import { MCP_OAUTH_CHATGPT_HOST } from "../constants/mcp-oauth.constants";
+import { parseCimdClientIdUrl } from "./parse-cimd-client-id-url.util";
 
 /**
  * Whether client_id is a ChatGPT Client ID Metadata Document URL (not the legacy static value).
  */
 export function isCimdClientId(clientId: string): boolean {
   try {
-    const url = new URL(clientId);
-
-    return (
-      url.protocol === "https:" &&
-      url.hostname === MCP_OAUTH_CHATGPT_HOST &&
-      url.pathname.length > 1
-    );
+    parseCimdClientIdUrl(clientId);
+    return true;
   } catch {
     return false;
   }

@@ -24,4 +24,9 @@ export const MCP_OAUTH_CHATGPT_CLIENT_ID_PREFIX = "https://chatgpt.com/";
 
 export const MCP_OAUTH_CHATGPT_HOST = "chatgpt.com";
 
+export const MCP_OAUTH_CIMD_ALLOWED_HOSTS = [
+  "chatgpt.com",
+  "chat.openai.com",
+] as const;
+
 export const MCP_OAUTH_CIMD_CACHE_TTL_SECONDS = 3600;
