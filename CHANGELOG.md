@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.0.3](https://github.com/kubeara/core/compare/v0.0.2...v0.0.3) (2026-07-07)
+
+
+### Features
+
+* add axios for improved HTTP requests in McpOAuthCimdService ([17cdab4](https://github.com/kubeara/core/commit/17cdab4d27a8625e35d6fa6be492e36d3b999fe7))
+* enhance ChatGPT OAuth integration with CIMD support ([c59d0c0](https://github.com/kubeara/core/commit/c59d0c0d32019096dd44433444006cc3c128ed04))
+* enhance CIMD client ID handling and validation ([9d7a992](https://github.com/kubeara/core/commit/9d7a992cdb33d0bf0aeabf0f73e2c52bfc3710ca))
+
+
+### Refactoring
+
+* enhance metadata URL construction and fetch handling ([156504e](https://github.com/kubeara/core/commit/156504ec701a8c7a731036b7bcfc2c608f638849))
+* improve CIMD client ID URL parsing and validation ([f7d00f7](https://github.com/kubeara/core/commit/f7d00f73f77c5974cee8662be51b202d7e258664))
+* improve metadata fetching in McpOAuthCimdService ([8a1fbff](https://github.com/kubeara/core/commit/8a1fbfffdd60b221c4a9d1bb1656664eb9a91e8a))
+* standardize formatting and improve readability in McpOAuthCimdService ([322aab1](https://github.com/kubeara/core/commit/322aab16d5dd9752f13c00c08bd91ac0ba1ab8a2))
+* streamline CIMD client ID handling and metadata fetching ([e7a83be](https://github.com/kubeara/core/commit/e7a83beaa999ff6a670b40bcf3f69266935e7222))
+
 ## [0.0.2](https://github.com/kubeara/core/compare/v0.0.1...v0.0.2) (2026-07-03)
 
 
