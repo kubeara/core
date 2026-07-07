@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
+
+import { waitMs } from "@/lib/async-delay";
+
 import { subscribeToasts } from "./toast-store";
 import { ToastIcon } from "./toast-icons";
 import type { ToastItem, ToastVariant } from "./types";
@@ -18,23 +21,23 @@ export function ToastContainer() {
   const dismissToast = useCallback((id: string) => {
     setLeavingIds((current) => new Set(current).add(id));
 
-    window.setTimeout(() => {
+    void waitMs(TOAST_EXIT_MS).then(() => {
       setToasts((current) => current.filter((toast) => toast.id !== id));
       setLeavingIds((current) => {
         const next = new Set(current);
         next.delete(id);
         return next;
       });
-    }, TOAST_EXIT_MS);
+    });
   }, []);
 
   useEffect(() => {
     return subscribeToasts((toast) => {
       setToasts((current) => [...current, toast]);
 
-      window.setTimeout(() => {
+      void waitMs(TOAST_DURATION_MS).then(() => {
         dismissToast(toast.id);
-      }, TOAST_DURATION_MS);
+      });
     });
   }, [dismissToast]);
 

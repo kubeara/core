@@ -1,5 +1,6 @@
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
+import { waitMs } from "@/lib/async-delay";
 import { AuthCard } from "@/features/auth/components/auth-card";
 import { PasswordField } from "@/components/shared/password-field";
 import { useResetPasswordMutation } from "@/features/auth/hooks";
@@ -47,9 +48,9 @@ export function ResetPasswordPage() {
             });
             setSuccess(data.message);
 
-            setTimeout(() => {
+            void waitMs(1500).then(() => {
                 navigate("/login", { replace: true });
-            }, 1500);
+            });
         } catch (err) {
             setError(getErrorMessage(err));
         }

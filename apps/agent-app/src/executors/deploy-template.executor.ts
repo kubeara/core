@@ -15,6 +15,7 @@ import {
   ERROR_MESSAGES,
   SUCCESS_MESSAGES,
   APP_CONFIG,
+  delayMs as waitMs,
   discoverTraefikRoutes,
   applyTraefikRoutingToCompose,
   extractOccupiedPortFromError,
@@ -1762,7 +1763,7 @@ export class DeployTemplateExecutor {
       }
 
       if (attempt < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        await waitMs(delayMs);
       }
     }
 
@@ -1886,7 +1887,8 @@ export class DeployTemplateExecutor {
         projectName,
       );
       if (!abortSignal.aborted) {
-        setTimeout(() => {
+        void (async () => {
+          await waitMs(2000);
           if (!abortSignal.aborted) {
             this.followComposeProjectLogs(
               cwd,
@@ -1898,7 +1900,7 @@ export class DeployTemplateExecutor {
               trackedChildren,
             );
           }
-        }, 2000);
+        })();
       }
     });
   }

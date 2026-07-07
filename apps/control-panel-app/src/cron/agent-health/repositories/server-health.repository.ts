@@ -3,7 +3,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { IsNull, Repository } from "typeorm";
 
 import { EntityStatus } from "@control-panel/common/entity/base.entity";
-import { ServerEntity } from "../../entities/server.entity";
+import { ServerEntity } from "@control-panel/modules/server-connections/entities/server.entity";
+
 import { ServerHealthError } from "../interfaces/server-health-error.interface";
 
 export type ServerHealthSnapshot = Pick<
@@ -21,7 +22,6 @@ export class ServerHealthRepository {
 
   /**
    * Finds all active server IDs.
-   * @returns A promise that resolves to an array of server IDs.
    */
   async findActiveServerIds(): Promise<string[]> {
     try {
@@ -45,8 +45,6 @@ export class ServerHealthRepository {
 
   /**
    * Finds a server health snapshot by server ID.
-   * @param serverId - The ID of the server to find.
-   * @returns A promise that resolves to a server health snapshot or null if not found.
    */
   async findServerHealthSnapshot(
     serverId: string,
@@ -70,9 +68,6 @@ export class ServerHealthRepository {
 
   /**
    * Records an agent unreachable error for a server.
-   * @param serverId - The ID of the server to record the error for.
-   * @param agentError - The error to record.
-   * @returns A promise that resolves when the error is recorded.
    */
   async recordAgentUnreachable(
     serverId: string,
@@ -96,8 +91,6 @@ export class ServerHealthRepository {
 
   /**
    * Increments the retry count for a server.
-   * @param serverId - The ID of the server to increment the retry count for.
-   * @returns A promise that resolves when the retry count is incremented.
    */
   async incrementRetryCount(serverId: string): Promise<void> {
     try {
@@ -112,9 +105,6 @@ export class ServerHealthRepository {
 
   /**
    * Marks a server as agent connected.
-   * @param serverId - The ID of the server to mark as connected.
-   * @param checkedAt - The timestamp of the check.
-   * @returns A promise that resolves when the server is marked as connected.
    */
   async markAgentConnected(serverId: string, checkedAt: number): Promise<void> {
     try {
@@ -137,9 +127,6 @@ export class ServerHealthRepository {
 
   /**
    * Marks a server as agent disconnected.
-   * @param serverId - The ID of the server to mark as disconnected.
-   * @param agentError - The error to record.
-   * @returns A promise that resolves when the server is marked as disconnected.
    */
   async markAgentDisconnected(
     serverId: string,
@@ -158,9 +145,6 @@ export class ServerHealthRepository {
 
   /**
    * Updates the agent error for a server.
-   * @param serverId - The ID of the server to update the agent error for.
-   * @param agentError - The error to update.
-   * @returns A promise that resolves when the agent error is updated.
    */
   async updateAgentError(
     serverId: string,
@@ -181,9 +165,6 @@ export class ServerHealthRepository {
 
   /**
    * Updates the server error for a server.
-   * @param serverId - The ID of the server to update the server error for.
-   * @param serverError - The error to update.
-   * @returns A promise that resolves when the server error is updated.
    */
   async updateServerError(
     serverId: string,

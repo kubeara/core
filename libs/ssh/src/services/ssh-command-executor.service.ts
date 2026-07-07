@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { createTimeoutRejection } from "@shared/common";
 import { SshConnectionManager } from "../managers/ssh-connection-manager.service";
 import { ExecuteResult } from "../types/execute-result.interface";
 import { Client } from "ssh2";
@@ -34,19 +35,27 @@ export class SshCommandExecutorService {
           reject(new SshCommandError(err.message));
         };
 
-        const timer = setTimeout(() => {
-          reject(new SshCommandError("Command timed out"));
-        }, timeoutMs);
+        const timeout = createTimeoutRejection(
+          timeoutMs,
+          "Command timed out",
+        );
+        void timeout.promise.catch((error: unknown) => {
+          reject(
+            new SshCommandError(
+              error instanceof Error ? error.message : "Command timed out",
+            ),
+          );
+        });
 
         client.exec(command, (err, stream) => {
           if (err) {
-            clearTimeout(timer);
+            timeout.cancel();
             return onError(err);
           }
 
           stream
             .on("close", (code: number) => {
-              clearTimeout(timer);
+              timeout.cancel();
               exitCode = code;
               resolve({
                 success: code === 0,
@@ -105,19 +114,27 @@ export class SshCommandExecutorService {
           reject(new SshCommandError(err.message));
         };
 
-        const timer = setTimeout(() => {
-          reject(new SshCommandError("Command timed out"));
-        }, timeoutMs);
+        const timeout = createTimeoutRejection(
+          timeoutMs,
+          "Command timed out",
+        );
+        void timeout.promise.catch((error: unknown) => {
+          reject(
+            new SshCommandError(
+              error instanceof Error ? error.message : "Command timed out",
+            ),
+          );
+        });
 
         client.exec(command, (err, stream) => {
           if (err) {
-            clearTimeout(timer);
+            timeout.cancel();
             return onError(err);
           }
 
           stream
             .on("close", (code: number) => {
-              clearTimeout(timer);
+              timeout.cancel();
               exitCode = code;
               resolve({
                 success: code === 0,

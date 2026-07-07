@@ -19,6 +19,7 @@ import {
   SUCCESS_MESSAGES,
   TemplateConfigService,
   TemplatePayloadService,
+  delayMs,
   maskEnvMap,
 } from "@shared/common";
 import {
@@ -322,9 +323,7 @@ export class DeploymentsService {
       if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
         return;
       }
-      await new Promise((resolve) =>
-        setTimeout(resolve, AGENT_INSTALL.CONNECT_POLL_MS),
-      );
+      await delayMs(AGENT_INSTALL.CONNECT_POLL_MS);
     }
   }
 
@@ -485,15 +484,16 @@ export class DeploymentsService {
     // Defer so the HTTP 202 + deploymentId reach the console and logs:subscribe runs
     // before install/deploy output (setImmediate was too early vs browser subscribe).
     const subscribeGraceMs = 300;
-    setTimeout(() => {
-      void this.emitPreparedDeployment(prepared, isRedeploy, options).catch(
+    void (async () => {
+      await delayMs(subscribeGraceMs);
+      await this.emitPreparedDeployment(prepared, isRedeploy, options).catch(
         (error: unknown) => {
           this.logger.error(
             `Background deployment ${prepared.deploymentId} failed: ${error instanceof Error ? error.message : String(error)}`,
           );
         },
       );
-    }, subscribeGraceMs);
+    })();
 
     return {
       message: isRedeploy ? "Redeployment started" : "Deployment started",

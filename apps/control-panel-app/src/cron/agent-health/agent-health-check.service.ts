@@ -6,19 +6,19 @@ import {
   Optional,
 } from "@nestjs/common";
 
-import { DeploymentGateway } from "@control-panel/websocket/websocket.gateway";
 import { toErrorMessage } from "@control-panel/common/utils/error.util";
-import { ServerConnectionsService } from "../../services/server-connections.service";
-import { AGENT_HEALTH } from "../constants/agent-health.constants";
-import { ServerHealthError } from "../interfaces/server-health-error.interface";
-import { ServerHealthRepository } from "../repositories/server-health.repository";
+import { ServerConnectionsService } from "@control-panel/modules/server-connections/services/server-connections.service";
+import { DeploymentGateway } from "@control-panel/websocket/websocket.gateway";
+
+import { AGENT_HEALTH } from "./constants/agent-health.constants";
+import { ServerHealthError } from "./interfaces/server-health-error.interface";
+import { ServerHealthRepository } from "./repositories/server-health.repository";
 
 @Injectable()
-export class AgentHealthService {
-  private readonly logger = new Logger(AgentHealthService.name);
+export class AgentHealthCheckService {
+  private readonly logger = new Logger(AgentHealthCheckService.name);
   private readonly runningAgentInstallations = new Set<string>();
   private readonly lastInstallAttemptAt = new Map<string, number>();
-  private currentServerIndex = 0;
 
   constructor(
     private readonly serverHealthRepository: ServerHealthRepository,
@@ -32,58 +32,13 @@ export class AgentHealthService {
 
   /**
    * Checks if an installation is running for a server.
-   * @param serverId - The ID of the server to check.
-   * @returns True if an installation is running, false otherwise.
    */
   isInstallationRunning(serverId: string): boolean {
     return this.runningAgentInstallations.has(serverId);
   }
 
   /**
-   * Processes the next server in the list of active servers.
-   * @returns A promise that resolves when the server is processed.
-   */
-  async processNextServer(): Promise<void> {
-    let serverId: string | undefined;
-
-    try {
-      const activeServerIds =
-        await this.serverHealthRepository.findActiveServerIds();
-
-      if (activeServerIds.length === 0) {
-        return;
-      }
-
-      serverId =
-        activeServerIds[this.currentServerIndex % activeServerIds.length];
-      this.currentServerIndex =
-        (this.currentServerIndex + 1) % Number.MAX_SAFE_INTEGER;
-
-      await this.checkServer(serverId);
-    } catch (error) {
-      this.logger.error(
-        `${AGENT_HEALTH.LOG_PREFIX} Failed checking server${serverId ? `: ${serverId}` : ""} — ${toErrorMessage(error)}`,
-      );
-
-      if (serverId) {
-        try {
-          await this.serverHealthRepository.updateServerError(serverId, {
-            message: toErrorMessage(error),
-            timestamp: Date.now(),
-          });
-        } catch (updateError) {
-          this.logger.error(
-            `${AGENT_HEALTH.LOG_PREFIX} Failed to persist server error for '${serverId}': ${toErrorMessage(updateError)}`,
-          );
-        }
-      }
-    }
-  }
-
-  /**
    * Checks the health of a server.
-   * @param serverId - The ID of the server to check.
-   * @returns A promise that resolves when the server is checked.
    */
   async checkServer(serverId: string): Promise<void> {
     try {
@@ -144,7 +99,6 @@ export class AgentHealthService {
 
   /**
    * Triggers an agent installation for a server.
-   * @param serverId - The ID of the server to install the agent for.
    */
   triggerAgentInstallation(serverId: string): void {
     if (!this.isInstallServiceAvailable()) {
@@ -172,9 +126,7 @@ export class AgentHealthService {
   }
 
   /**
-   * Checks if a cron install should be attempted for a server.
-   * @param serverId - The ID of the server to check.
-   * @returns A promise that resolves to an object with the attempt and reason.
+   * Checks if an agent installation should be attempted for a server.
    */
   private async shouldAttemptCronInstall(
     serverId: string,
@@ -218,7 +170,6 @@ export class AgentHealthService {
 
   /**
    * Checks if the connection checker is available.
-   * @returns True if the connection checker is available, false otherwise.
    */
   private isConnectionCheckerAvailable(): boolean {
     return (
@@ -229,7 +180,6 @@ export class AgentHealthService {
 
   /**
    * Checks if the install service is available.
-   * @returns True if the install service is available, false otherwise.
    */
   private isInstallServiceAvailable(): boolean {
     return (
@@ -243,8 +193,6 @@ export class AgentHealthService {
 
   /**
    * Runs an agent installation for a server.
-   * @param serverId - The ID of the server to install the agent for.
-   * @returns A promise that resolves when the installation is run.
    */
   private async runAgentInstallation(serverId: string): Promise<void> {
     try {
@@ -274,6 +222,9 @@ export class AgentHealthService {
     }
   }
 
+  /**
+   * Persists an agent installation failure.
+   */
   private async persistAgentInstallFailure(
     serverId: string,
     agentError: ServerHealthError,

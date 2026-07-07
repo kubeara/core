@@ -6,8 +6,11 @@ import * as os from "node:os";
 import path from "node:path";
 import {
   buildServerResourcesMetrics,
+  delayMs,
   parseCpuCoresFromCpuinfo,
   parseHostnameFromProc,
+  scheduleTimeoutAction,
+  withTimeout as raceWithTimeout,
 } from "@shared/common";
 import type { ServerGetResourcesResponsePayload } from "@shared/socket-events";
 
@@ -232,20 +235,22 @@ export class ServerResourcesService {
       let stderr = "";
       let settled = false;
 
+      let cancelTimeout: () => void = () => {};
+
       const finish = (exitCode: number) => {
         if (settled) {
           return;
         }
         settled = true;
-        clearTimeout(timer);
+        cancelTimeout();
         resolve({ exitCode, stdout, stderr });
       };
 
-      const timer = setTimeout(() => {
+      cancelTimeout = scheduleTimeoutAction(timeoutMs, () => {
         stderr += `\nCommand timed out after ${timeoutMs}ms`;
         child.kill("SIGKILL");
         finish(124);
-      }, timeoutMs);
+      });
 
       child.stdout.on("data", (chunk) => {
         stdout += String(chunk);
@@ -270,23 +275,10 @@ export class ServerResourcesService {
     timeoutMs: number,
     message: string,
   ): Promise<T> {
-    let timer: NodeJS.Timeout | undefined;
-
-    try {
-      return await Promise.race([
-        promise,
-        new Promise<T>((_, reject) => {
-          timer = setTimeout(() => reject(new Error(message)), timeoutMs);
-        }),
-      ]);
-    } finally {
-      if (timer) {
-        clearTimeout(timer);
-      }
-    }
+    return raceWithTimeout(promise, timeoutMs, message);
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    return delayMs(ms);
   }
 }

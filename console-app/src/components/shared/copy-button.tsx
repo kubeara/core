@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { waitMs } from "@/lib/async-delay";
 import "./copy-button.css";
 
 function CopyIcon() {
@@ -48,7 +49,7 @@ export function CopyButton({ text, label = "Copy" }: CopyButtonProps) {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      void waitMs(2000).then(() => setCopied(false));
     } catch {
       /* clipboard unavailable */
     }

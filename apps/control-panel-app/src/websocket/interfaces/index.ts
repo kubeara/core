@@ -9,21 +9,21 @@ export interface PendingDeploymentValidate {
   serverId: string;
   resolve: (result: DeploymentValidateResponsePayload) => void;
   reject: (error: Error) => void;
-  timer: NodeJS.Timeout;
+  cancelTimeout: () => void;
 }
 
 export interface PendingContainerDiscovery {
   serverId: string;
   resolve: (containers: DiscoveredContainerPayload[]) => void;
   reject: (error: Error) => void;
-  timer: NodeJS.Timeout;
+  cancelTimeout: () => void;
 }
 
 export interface PendingServerResources {
   serverId: string;
   resolve: (resources: ServerResourcesMetricsPayload) => void;
   reject: (error: Error) => void;
-  timer: NodeJS.Timeout;
+  cancelTimeout: () => void;
 }
 
 /**
@@ -33,21 +33,21 @@ export interface PendingContainerAction {
   serverId: string;
   resolve: (result: ContainerActionResponsePayload) => void;
   reject: (error: Error) => void;
-  timer: NodeJS.Timeout;
+  cancelTimeout: () => void;
 }
 
 export interface PendingDeploymentRemove {
   serverId: string;
   resolve: () => void;
   reject: (error: Error) => void;
-  timer: NodeJS.Timeout;
+  cancelTimeout: () => void;
 }
 
 export interface PendingAgentRemove {
   serverId: string;
   resolve: (result: { imageRefs: string[] }) => void;
   reject: (error: Error) => void;
-  timer: NodeJS.Timeout;
+  cancelTimeout: () => void;
 }
 
 export interface PendingTerminalConnect {
@@ -55,7 +55,7 @@ export interface PendingTerminalConnect {
   userId: string;
   resolve: (sessionId: string) => void;
   reject: (error: Error) => void;
-  timer: NodeJS.Timeout;
+  cancelTimeout: () => void;
 }
 
 export interface PendingContainerLogsStart {
@@ -65,7 +65,7 @@ export interface PendingContainerLogsStart {
   sessionId: string;
   resolve: (sessionId: string) => void;
   reject: (error: Error) => void;
-  timer: NodeJS.Timeout;
+  cancelTimeout: () => void;
 }
 
 import { TerminalTransport } from "@control-panel/modules/terminal/enums/terminal-transport.enum";

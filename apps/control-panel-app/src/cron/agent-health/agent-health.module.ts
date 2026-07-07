@@ -1,12 +1,14 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 
+import { ServerEntity } from "@control-panel/modules/server-connections/entities/server.entity";
+import { ServerConnectionsModule } from "@control-panel/modules/server-connections/server-connections.module";
 import { WebsocketModule } from "@control-panel/websocket/websocket.module";
-import { ServerConnectionsModule } from "../server-connections.module";
-import { ServerEntity } from "../entities/server.entity";
+
+import { AgentHealthCheckService } from "./agent-health-check.service";
+import { AgentHealthCron } from "./agent-health.cron";
+import { AgentHealthService } from "./agent-health.service";
 import { ServerHealthRepository } from "./repositories/server-health.repository";
-import { AgentHealthService } from "./services/agent-health.service";
-import { AgentHealthCronService } from "./services/agent-health-cron.service";
 
 @Module({
   imports: [
@@ -16,9 +18,9 @@ import { AgentHealthCronService } from "./services/agent-health-cron.service";
   ],
   providers: [
     ServerHealthRepository,
+    AgentHealthCheckService,
     AgentHealthService,
-    AgentHealthCronService,
+    AgentHealthCron,
   ],
-  exports: [AgentHealthService],
 })
 export class AgentHealthModule {}

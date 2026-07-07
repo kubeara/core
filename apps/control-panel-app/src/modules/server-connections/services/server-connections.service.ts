@@ -67,7 +67,7 @@ import { ERROR_MESSAGES } from "@control-panel/constants/error";
 import { SUCCESS_MESSAGES } from "@control-panel/constants/success";
 import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import { ServiceResponse } from "@control-panel/common/interfaces/success-response.interface";
-import { PaginatedResponse, parseDockerPsStdout } from "@shared/common";
+import { PaginatedResponse, parseDockerPsStdout, delayMs } from "@shared/common";
 import {
   DeploymentEvents,
   type ContainerActionResponsePayload,
@@ -614,9 +614,7 @@ export class ServerConnectionsService {
         return;
       }
 
-      await new Promise((resolve) =>
-        setTimeout(resolve, SERVER_CONNECTIONS.AGENT_TEARDOWN_SETTLE_MS),
-      );
+      await delayMs(SERVER_CONNECTIONS.AGENT_TEARDOWN_SETTLE_MS);
 
       const command = buildAgentHostCleanupShellCommand(imageRefs, {
         installDir: AGENT_INSTALL.REMOTE_DIR,

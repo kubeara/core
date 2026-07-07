@@ -5,15 +5,13 @@ import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import {
   AGENT_HEALTH,
   AGENT_HEALTH_ENV_KEYS,
-} from "../constants/agent-health.constants";
+} from "./constants/agent-health.constants";
 
 const DISABLED_VALUES = new Set(["false", "0", "no", "off"]);
 const logger = new Logger("AgentHealthCronConfig");
 
 /**
  * Checks if the agent health cron is enabled.
- * @param configService - The config service to use.
- * @returns True if the agent health cron is enabled, false otherwise.
  */
 export function isAgentHealthCronEnabled(
   configService: ConfigService,
@@ -39,8 +37,6 @@ export function isAgentHealthCronEnabled(
 
 /**
  * Resolves the agent health cron interval in milliseconds.
- * @param configService - The config service to use.
- * @returns The agent health cron interval in milliseconds.
  */
 export function resolveAgentHealthCronIntervalMs(
   configService: ConfigService,

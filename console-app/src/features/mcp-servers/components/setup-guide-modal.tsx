@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { waitMs } from "@/lib/async-delay";
 import {
   getMcpConfigForPreset,
   getMcpConfigLabel,
@@ -59,7 +60,7 @@ function CodeBlock({
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      void waitMs(2000).then(() => setCopied(false));
     } catch {
       /* clipboard unavailable */
     }

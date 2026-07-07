@@ -48,6 +48,7 @@ import {
   ContainerLogsSubscribePayload,
   ServerOperationUpdatedPayload,
 } from "@shared/socket-events";
+import { scheduleTimeoutAction } from "@shared/common";
 import { randomUUID } from "node:crypto";
 import { DeploymentsService } from "@control-panel/modules/deployments/deployments.service";
 import { AgentServerBindingService } from "@control-panel/modules/server-connections/services/agent-server-binding.service";
@@ -428,7 +429,7 @@ export class DeploymentGateway
         return;
       }
 
-      clearTimeout(pending.timer);
+      pending.cancelTimeout();
       this.pendingServerResources.delete(requestId);
 
       if (payload.error) {
@@ -480,7 +481,7 @@ export class DeploymentGateway
         return;
       }
 
-      clearTimeout(pending.timer);
+      pending.cancelTimeout();
       this.pendingDeploymentValidations.delete(requestId);
       pending.resolve(payload);
     } catch (error) {
@@ -517,7 +518,7 @@ export class DeploymentGateway
         return;
       }
 
-      clearTimeout(pending.timer);
+      pending.cancelTimeout();
       this.pendingAgentRemoves.delete(requestId);
 
       if (!payload.success) {
@@ -565,7 +566,7 @@ export class DeploymentGateway
         return;
       }
 
-      clearTimeout(pending.timer);
+      pending.cancelTimeout();
       this.pendingContainerActions.delete(requestId);
       pending.resolve(payload);
     } catch (error) {
@@ -602,7 +603,7 @@ export class DeploymentGateway
         return;
       }
 
-      clearTimeout(pending.timer);
+      pending.cancelTimeout();
       this.pendingContainerDiscovery.delete(requestId);
 
       if (payload.error) {
@@ -962,11 +963,11 @@ export class DeploymentGateway
         );
         if (pendingRemove) {
           if (payload.status === "removed") {
-            clearTimeout(pendingRemove.timer);
+            pendingRemove.cancelTimeout();
             this.pendingDeploymentRemoves.delete(payload.deploymentId);
             pendingRemove.resolve();
           } else if (payload.status === "failed") {
-            clearTimeout(pendingRemove.timer);
+            pendingRemove.cancelTimeout();
             this.pendingDeploymentRemoves.delete(payload.deploymentId);
             pendingRemove.reject(
               new Error(
@@ -1258,7 +1259,7 @@ export class DeploymentGateway
           return;
         }
 
-        const timer = setTimeout(() => {
+        const cancelTimeout = scheduleTimeoutAction(timeoutMs, () => {
           this.pendingDeploymentRemoves.delete(deploymentId);
           reject(
             new Error(
@@ -1268,13 +1269,13 @@ export class DeploymentGateway
               ),
             ),
           );
-        }, timeoutMs);
+        });
 
         this.pendingDeploymentRemoves.set(deploymentId, {
           serverId,
           resolve,
           reject,
-          timer,
+          cancelTimeout,
         });
 
         /**
@@ -1330,7 +1331,7 @@ export class DeploymentGateway
           agentImage: options?.agentImage?.trim() || undefined,
         };
 
-        const timer = setTimeout(() => {
+        const cancelTimeout = scheduleTimeoutAction(timeoutMs, () => {
           this.pendingAgentRemoves.delete(requestId);
           reject(
             new Error(
@@ -1340,13 +1341,13 @@ export class DeploymentGateway
               ),
             ),
           );
-        }, timeoutMs);
+        });
 
         this.pendingAgentRemoves.set(requestId, {
           serverId,
           resolve,
           reject,
-          timer,
+          cancelTimeout,
         });
 
         this.logEmitEvent(
@@ -1417,7 +1418,7 @@ export class DeploymentGateway
         const requestId = randomUUID();
         const payload: ServerGetResourcesRequestPayload = { requestId };
 
-        const timer = setTimeout(() => {
+        const cancelTimeout = scheduleTimeoutAction(timeoutMs, () => {
           this.pendingServerResources.delete(requestId);
           reject(
             new Error(
@@ -1427,13 +1428,13 @@ export class DeploymentGateway
               ),
             ),
           );
-        }, timeoutMs);
+        });
 
         this.pendingServerResources.set(requestId, {
           serverId,
           resolve,
           reject,
-          timer,
+          cancelTimeout,
         });
 
         this.logEmitEvent(
@@ -1476,7 +1477,7 @@ export class DeploymentGateway
           return;
         }
 
-        const timer = setTimeout(() => {
+        const cancelTimeout = scheduleTimeoutAction(timeoutMs, () => {
           this.pendingDeploymentValidations.delete(requestId);
           reject(
             new Error(
@@ -1486,13 +1487,13 @@ export class DeploymentGateway
               ),
             ),
           );
-        }, timeoutMs);
+        });
 
         this.pendingDeploymentValidations.set(requestId, {
           serverId,
           resolve,
           reject,
-          timer,
+          cancelTimeout,
         });
 
         this.logEmitEvent(
@@ -1533,7 +1534,7 @@ export class DeploymentGateway
           action,
         };
 
-        const timer = setTimeout(() => {
+        const cancelTimeout = scheduleTimeoutAction(timeoutMs, () => {
           this.pendingContainerActions.delete(requestId);
           reject(
             new Error(
@@ -1543,13 +1544,13 @@ export class DeploymentGateway
               ),
             ),
           );
-        }, timeoutMs);
+        });
 
         this.pendingContainerActions.set(requestId, {
           serverId,
           resolve,
           reject,
-          timer,
+          cancelTimeout,
         });
 
         this.logEmitEvent(
@@ -1591,7 +1592,7 @@ export class DeploymentGateway
           rows,
         };
 
-        const timer = setTimeout(() => {
+        const cancelTimeout = scheduleTimeoutAction(timeoutMs, () => {
           this.pendingTerminalConnects.delete(requestId);
           reject(
             new Error(
@@ -1601,14 +1602,14 @@ export class DeploymentGateway
               ),
             ),
           );
-        }, timeoutMs);
+        });
 
         this.pendingTerminalConnects.set(requestId, {
           serverId,
           userId,
           resolve,
           reject,
-          timer,
+          cancelTimeout,
         });
 
         this.logEmitEvent(
@@ -1717,7 +1718,7 @@ export class DeploymentGateway
           containerId,
         };
 
-        const timer = setTimeout(() => {
+        const cancelTimeout = scheduleTimeoutAction(timeoutMs, () => {
           this.pendingContainerLogsStarts.delete(requestId);
           this.containerLogsSessionsById.delete(sessionId);
           reject(
@@ -1728,7 +1729,7 @@ export class DeploymentGateway
               ),
             ),
           );
-        }, timeoutMs);
+        });
 
         this.pendingContainerLogsStarts.set(requestId, {
           serverId,
@@ -1742,7 +1743,7 @@ export class DeploymentGateway
             this.containerLogsSessionsById.delete(sessionId);
             reject(error);
           },
-          timer,
+          cancelTimeout,
         });
 
         this.registerContainerLogsSession(
@@ -1973,7 +1974,7 @@ export class DeploymentGateway
         const requestId = randomUUID();
         const payload: ContainerDiscoverRequestPayload = { requestId };
 
-        const timer = setTimeout(() => {
+        const cancelTimeout = scheduleTimeoutAction(timeoutMs, () => {
           this.pendingContainerDiscovery.delete(requestId);
           reject(
             new Error(
@@ -1983,13 +1984,13 @@ export class DeploymentGateway
               ),
             ),
           );
-        }, timeoutMs);
+        });
 
         this.pendingContainerDiscovery.set(requestId, {
           serverId,
           resolve,
           reject,
-          timer,
+          cancelTimeout,
         });
 
         this.logEmitEvent(
@@ -2143,7 +2144,7 @@ export class DeploymentGateway
         return;
       }
 
-      clearTimeout(pending.timer);
+      pending.cancelTimeout();
       this.pendingTerminalConnects.delete(requestId);
 
       if (payload.error) {
@@ -2274,7 +2275,7 @@ export class DeploymentGateway
         if (pending.serverId !== serverId) {
           continue;
         }
-        clearTimeout(pending.timer);
+        pending.cancelTimeout();
         this.pendingTerminalConnects.delete(requestId);
         pending.reject(new Error(reason));
       }
@@ -2317,7 +2318,7 @@ export class DeploymentGateway
         if (pending.serverId !== serverId) {
           continue;
         }
-        clearTimeout(pending.timer);
+        pending.cancelTimeout();
         this.pendingContainerLogsStarts.delete(requestId);
         this.containerLogsSessionsById.delete(pending.sessionId);
         pending.reject(new Error(reason));
@@ -2370,7 +2371,7 @@ export class DeploymentGateway
         return;
       }
 
-      clearTimeout(pending.timer);
+      pending.cancelTimeout();
       this.pendingContainerLogsStarts.delete(requestId);
 
       if (payload.error) {
@@ -2519,7 +2520,7 @@ export class DeploymentGateway
         if (pending.serverId !== serverId) {
           continue;
         }
-        clearTimeout(pending.timer);
+        pending.cancelTimeout();
         this.pendingContainerDiscovery.delete(requestId);
         pending.reject(new Error(reason));
       }
@@ -2542,7 +2543,7 @@ export class DeploymentGateway
         if (pending.serverId !== serverId) {
           continue;
         }
-        clearTimeout(pending.timer);
+        pending.cancelTimeout();
         this.pendingDeploymentValidations.delete(requestId);
         pending.reject(new Error(reason));
       }
@@ -2565,7 +2566,7 @@ export class DeploymentGateway
         if (pending.serverId !== serverId) {
           continue;
         }
-        clearTimeout(pending.timer);
+        pending.cancelTimeout();
         this.pendingServerResources.delete(requestId);
         pending.reject(new Error(reason));
       }
@@ -2588,7 +2589,7 @@ export class DeploymentGateway
         if (pending.serverId !== serverId) {
           continue;
         }
-        clearTimeout(pending.timer);
+        pending.cancelTimeout();
         this.pendingContainerActions.delete(requestId);
         pending.reject(new Error(reason));
       }
@@ -2611,7 +2612,7 @@ export class DeploymentGateway
         if (pending.serverId !== serverId) {
           continue;
         }
-        clearTimeout(pending.timer);
+        pending.cancelTimeout();
         this.pendingDeploymentRemoves.delete(deploymentId);
         pending.reject(new Error(reason));
       }
@@ -2634,7 +2635,7 @@ export class DeploymentGateway
         if (pending.serverId !== serverId) {
           continue;
         }
-        clearTimeout(pending.timer);
+        pending.cancelTimeout();
         this.pendingAgentRemoves.delete(requestId);
         pending.reject(new Error(reason));
       }

@@ -1,3 +1,4 @@
+import { waitMs } from "@/lib/async-delay";
 import { useCallback, useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -200,8 +201,17 @@ export function ServerTerminalViewer({
       }
     };
 
-    const timer = window.setTimeout(fit, 50);
-    return () => window.clearTimeout(timer);
+    const controller = new AbortController();
+
+    void waitMs(50, controller.signal)
+      .then(() => {
+        fit();
+      })
+      .catch(() => {});
+
+    return () => {
+      controller.abort();
+    };
   }, [isVisible, refitToken]);
 
   const scrollToBottom = useCallback(() => {

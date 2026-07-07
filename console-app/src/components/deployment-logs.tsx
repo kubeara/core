@@ -1,3 +1,4 @@
+import { waitMs } from "@/lib/async-delay";
 import { BackLink } from "@/components/shared/back-link";
 import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -298,10 +299,17 @@ export function DeploymentLogs({
   }, []);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      window.dispatchEvent(new Event("resize"));
-    }, 50);
-    return () => window.clearTimeout(timer);
+    const controller = new AbortController();
+
+    void waitMs(50, controller.signal)
+      .then(() => {
+        window.dispatchEvent(new Event("resize"));
+      })
+      .catch(() => {});
+
+    return () => {
+      controller.abort();
+    };
   }, [isFullscreen, logView]);
 
   const resolvedStatus = liveDeploymentStatus;

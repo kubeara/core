@@ -1,3 +1,4 @@
+import { waitMs } from "@/lib/async-delay";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -127,8 +128,17 @@ export function DeploymentTerminalViewer({
       }
     };
 
-    const timer = window.setTimeout(fit, 0);
-    return () => window.clearTimeout(timer);
+    const controller = new AbortController();
+
+    void waitMs(0, controller.signal)
+      .then(() => {
+        fit();
+      })
+      .catch(() => {});
+
+    return () => {
+      controller.abort();
+    };
   }, [isActive, lines.length]);
 
   useEffect(() => {

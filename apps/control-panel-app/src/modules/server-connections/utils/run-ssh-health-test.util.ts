@@ -1,3 +1,4 @@
+import { withTimeout } from "@shared/common";
 import { SshHealthCheckService, SshConnectionOptions } from "@shared/ssh";
 import { ServerErrorCode } from "../enums/server-error-code.enum";
 import { SshHealthTestResult } from "../interfaces/ssh-health-test-result.interface";
@@ -41,10 +42,17 @@ export async function runSshHealthTestWithTimeout(
     .testConnection(options)
     .catch(toSshTestFailureResult);
 
-  return await Promise.race([
+  return await withTimeout(
     testPromise,
-    new Promise<SshHealthTestResult>((resolve) =>
-      setTimeout(() => resolve(createSshTestTimeoutResult()), timeoutMs),
-    ),
-  ]);
+    timeoutMs,
+    ERROR_MESSAGES.SERVER.CONNECTION_TIMEOUT,
+  ).catch((error) => {
+    if (
+      error instanceof Error &&
+      error.message === ERROR_MESSAGES.SERVER.CONNECTION_TIMEOUT
+    ) {
+      return createSshTestTimeoutResult();
+    }
+    throw error;
+  });
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { waitMs } from "@/lib/async-delay";
 import { GENERIC_ERROR_MESSAGE } from "@/api/api-error";
 import { FormFieldLabel } from "@/components/shared/form-field-label";
 import { validateRequired } from "@/lib/validation";
@@ -66,7 +67,7 @@ function GenerateTokenModalContent({ onClose }: GenerateTokenModalContentProps) 
         try {
             await navigator.clipboard.writeText(generatedToken);
             setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
+            void waitMs(2000).then(() => setCopied(false));
         } catch {
             // Clipboard unavailable
         }

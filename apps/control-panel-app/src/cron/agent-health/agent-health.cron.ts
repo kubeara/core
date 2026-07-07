@@ -6,20 +6,23 @@ import {
 } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
+import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import {
   AGENT_HEALTH,
   AGENT_HEALTH_ENV_KEYS,
-} from "../constants/agent-health.constants";
+} from "./constants/agent-health.constants";
+
 import {
   isAgentHealthCronEnabled,
   resolveAgentHealthCronIntervalMs,
-} from "../utils/agent-health-cron-config.util";
+} from "./agent-health-cron-config.util";
 import { AgentHealthService } from "./agent-health.service";
-import { toErrorMessage } from "@control-panel/common/utils/error.util";
+
+const AGENT_HEALTH_CRON_JOB = "agent-health";
 
 @Injectable()
-export class AgentHealthCronService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(AgentHealthCronService.name);
+export class AgentHealthCron implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(AgentHealthCron.name);
   private intervalHandle: ReturnType<typeof setInterval> | null = null;
 
   constructor(
@@ -57,3 +60,5 @@ export class AgentHealthCronService implements OnModuleInit, OnModuleDestroy {
     }
   }
 }
+
+export { AGENT_HEALTH_CRON_JOB };

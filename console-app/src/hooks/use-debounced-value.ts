@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { waitMs } from "@/lib/async-delay";
+
 /**
  * Returns a debounced copy of the value after the specified delay.
  */
@@ -7,12 +9,16 @@ export function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setDebouncedValue(value);
-    }, delayMs);
+    const controller = new AbortController();
+
+    void waitMs(delayMs, controller.signal)
+      .then(() => {
+        setDebouncedValue(value);
+      })
+      .catch(() => {});
 
     return () => {
-      window.clearTimeout(timer);
+      controller.abort();
     };
   }, [value, delayMs]);
 

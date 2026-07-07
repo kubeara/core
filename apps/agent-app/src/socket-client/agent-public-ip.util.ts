@@ -7,13 +7,9 @@ const DETECT_URL = "https://api.ipify.org?format=text";
  */
 export async function detectOutboundPublicIp(): Promise<string> {
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), DETECT_TIMEOUT_MS);
-
     const response = await fetch(DETECT_URL, {
-      signal: controller.signal,
+      signal: AbortSignal.timeout(DETECT_TIMEOUT_MS),
     });
-    clearTimeout(timeout);
 
     if (!response.ok) {
       return "";

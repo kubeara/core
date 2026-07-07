@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { spawn } from "child_process";
-import { parseDockerPsStdout } from "@shared/common";
+import { parseDockerPsStdout, scheduleTimeoutAction } from "@shared/common";
 import type {
   ContainerActionResponsePayload,
   ContainerActionType,
@@ -504,20 +504,22 @@ export class ContainerService {
       let stderr = "";
       let settled = false;
 
+      let cancelTimeout: () => void = () => {};
+
       const finish = (exitCode: number) => {
         if (settled) {
           return;
         }
         settled = true;
-        clearTimeout(timer);
+        cancelTimeout();
         resolve({ exitCode, stdout, stderr });
       };
 
-      const timer = setTimeout(() => {
+      cancelTimeout = scheduleTimeoutAction(timeoutMs, () => {
         stderr += `\nCommand timed out after ${timeoutMs}ms`;
         child.kill("SIGKILL");
         finish(124);
-      }, timeoutMs);
+      });
 
       child.stdout.on("data", (chunk) => {
         stdout += String(chunk);
