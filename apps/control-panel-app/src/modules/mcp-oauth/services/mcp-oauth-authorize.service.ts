@@ -16,12 +16,15 @@ import {
 import { McpOAuthAuthorizationCodeEntity } from "../entities/mcp-oauth-authorization-code.entity";
 import { McpOAuthApproveDto } from "../dto/mcp-oauth-approve.dto";
 import { McpOAuthAuthorizeParams } from "../interfaces/mcp-oauth-authorize-params.interface";
+import { isCimdClientId } from "../utils/is-cimd-client-id.util";
+import { McpOAuthCimdService } from "./mcp-oauth-cimd.service";
 import { McpOAuthConfigService } from "./mcp-oauth-config.service";
 
 @Injectable()
 export class McpOAuthAuthorizeService {
   constructor(
     private readonly config: McpOAuthConfigService,
+    private readonly cimdService: McpOAuthCimdService,
     @InjectRepository(McpOAuthAuthorizationCodeEntity)
     private readonly authorizationCodeRepository: Repository<McpOAuthAuthorizationCodeEntity>,
   ) {}
@@ -31,9 +34,9 @@ export class McpOAuthAuthorizeService {
    * @param query
    * @returns The authorize params
    */
-  parseAuthorizeQuery(
+  async parseAuthorizeQuery(
     query: Record<string, string | undefined>,
-  ): McpOAuthAuthorizeParams {
+  ): Promise<McpOAuthAuthorizeParams> {
     try {
       const responseType = query.response_type?.trim();
       const clientId = query.client_id?.trim();
@@ -62,7 +65,7 @@ export class McpOAuthAuthorizeService {
         );
       }
 
-      this.assertChatGptClient(clientId, redirectUri);
+      await this.assertChatGptClient(clientId, redirectUri);
       this.assertResource(resource);
 
       if (codeChallengeMethod !== MCP_OAUTH_CODE_CHALLENGE_METHOD) {
@@ -93,10 +96,10 @@ export class McpOAuthAuthorizeService {
   /**
    * Build the console authorize URL for redirecting the user to the SPA login/consent flow.
    */
-  buildConsoleAuthorizeRedirectUrl(
+  async buildConsoleAuthorizeRedirectUrl(
     query: Record<string, string | undefined>,
-  ): string {
-    const params = this.parseAuthorizeQuery(query);
+  ): Promise<string> {
+    const params = await this.parseAuthorizeQuery(query);
 
     return this.config.getConsoleAuthorizeUrl({
       response_type: params.responseType,
@@ -117,26 +120,32 @@ export class McpOAuthAuthorizeService {
     userId: string,
     body: McpOAuthApproveDto,
   ): Promise<{ redirectUrl: string }> {
-    const params = this.parseAuthorizeQuery({
+    const params = await this.parseAuthorizeQuery({
       ...body,
     });
     return this.createAuthorizationCode(params, userId);
   }
 
   /**
-   * Assert the chat GPT client
-   * @param clientId
-   * @param redirectUri
+   * Assert the ChatGPT OAuth client (CIMD URL or legacy static client_id).
    */
-  assertChatGptClient(clientId: string, redirectUri: string): void {
-    if (!clientId.startsWith(MCP_OAUTH_CHATGPT_CLIENT_ID_PREFIX)) {
-      throw new BadRequestException(ERROR_MESSAGES.MCP_OAUTH.INVALID_CLIENT_ID);
-    }
-
+  async assertChatGptClient(
+    clientId: string,
+    redirectUri: string,
+  ): Promise<void> {
     if (!redirectUri.startsWith(MCP_OAUTH_CHATGPT_REDIRECT_PREFIX)) {
       throw new BadRequestException(
         ERROR_MESSAGES.MCP_OAUTH.INVALID_REDIRECT_URI,
       );
+    }
+
+    if (isCimdClientId(clientId)) {
+      await this.cimdService.validate(clientId, redirectUri);
+      return;
+    }
+
+    if (!clientId.startsWith(MCP_OAUTH_CHATGPT_CLIENT_ID_PREFIX)) {
+      throw new BadRequestException(ERROR_MESSAGES.MCP_OAUTH.INVALID_CLIENT_ID);
     }
   }
 

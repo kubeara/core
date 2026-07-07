@@ -11,6 +11,7 @@ import {
 import { McpOAuthAuthorizationCodeEntity } from "./entities/mcp-oauth-authorization-code.entity";
 import { McpOAuthRefreshTokenEntity } from "./entities/mcp-oauth-refresh-token.entity";
 import { McpOAuthAuthorizeService } from "./services/mcp-oauth-authorize.service";
+import { McpOAuthCimdService } from "./services/mcp-oauth-cimd.service";
 import { McpOAuthConfigService } from "./services/mcp-oauth-config.service";
 import { McpOAuthJwtService } from "./services/mcp-oauth-jwt.service";
 import { McpOAuthTokenService } from "./services/mcp-oauth-token.service";
@@ -28,6 +29,7 @@ import { McpOAuthTokenService } from "./services/mcp-oauth-token.service";
   providers: [
     McpOAuthConfigService,
     McpOAuthJwtService,
+    McpOAuthCimdService,
     McpOAuthAuthorizeService,
     McpOAuthTokenService,
   ],
