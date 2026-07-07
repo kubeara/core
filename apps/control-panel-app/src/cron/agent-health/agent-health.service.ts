@@ -59,8 +59,9 @@ export class AgentHealthService {
 
     this.logger.debug(`Checking agent health for server ${server.id}`);
 
-    const hostStatus =
-      await this.serverConnectionsService.getAgentHostStatus(server.id);
+    const hostStatus = await this.serverConnectionsService.getAgentHostStatus(
+      server.id,
+    );
 
     switch (hostStatus.presence) {
       case "connected":
@@ -71,7 +72,10 @@ export class AgentHealthService {
         break;
       case "stopped":
         await this.recordAgentStopped(server, hostStatus);
-        this.startAgentContainerInBackground(server.id, hostStatus.containerId!);
+        this.startAgentContainerInBackground(
+          server.id,
+          hostStatus.containerId!,
+        );
         break;
       case "missing":
         await this.recordAgentRemoved(server);
@@ -251,7 +255,9 @@ export class AgentHealthService {
    * Records a removed agent.
    */
   private async recordAgentRemoved(server: ServerEntity): Promise<void> {
-    this.logger.warn(`Agent removed or missing on host for server ${server.id}`);
+    this.logger.warn(
+      `Agent removed or missing on host for server ${server.id}`,
+    );
 
     await this.saveAgentHealthState(server, {
       message: AGENT_REMOVED_MESSAGE,

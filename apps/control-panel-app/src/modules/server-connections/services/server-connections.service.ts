@@ -184,10 +184,7 @@ export class ServerConnectionsService {
       }
 
       if (hostStatus.presence === "stopped" && hostStatus.containerId) {
-        await this.startAgentContainerOnHost(
-          serverId,
-          hostStatus.containerId,
-        );
+        await this.startAgentContainerOnHost(serverId, hostStatus.containerId);
         return {
           success: true,
           logs: ["Started stopped agent container on host"],
@@ -451,7 +448,9 @@ export class ServerConnectionsService {
     );
 
     if (!result.success) {
-      throw new Error(result.error ?? "Failed to start agent container on host");
+      throw new Error(
+        result.error ?? "Failed to start agent container on host",
+      );
     }
   }
 

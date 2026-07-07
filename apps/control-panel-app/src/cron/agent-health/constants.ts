@@ -8,5 +8,4 @@ export const AGENT_PRESENT_NOT_CONNECTED_MESSAGE =
 export const AGENT_STOPPED_MESSAGE =
   "Agent container exists on host but is stopped";
 
-export const AGENT_REMOVED_MESSAGE =
-  "Agent container is not present on host";
+export const AGENT_REMOVED_MESSAGE = "Agent container is not present on host";
