@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import dayjs from "dayjs";
 import { randomBytes } from "crypto";
-import { Repository } from "typeorm";
+import { IsNull, Repository } from "typeorm";
 
 import { ERROR_MESSAGES } from "@control-panel/constants/error";
 import { EntityStatus } from "@control-panel/common/entity/base.entity";
@@ -72,7 +72,7 @@ export class McpOAuthTokenService {
         );
       }
 
-      this.authorizeService.assertChatGptClient(clientId, redirectUri);
+      await this.authorizeService.assertChatGptClient(clientId, redirectUri);
       this.authorizeService.assertResource(resource);
 
       const authCode = await this.authorizationCodeRepository.findOne({
@@ -117,6 +117,7 @@ export class McpOAuthTokenService {
       await this.authorizationCodeRepository.save(authCode);
 
       const scopes = authCode.scopes.split(/\s+/).filter(Boolean);
+      await this.revokeActiveRefreshTokens(authCode.userId, clientId);
       return this.issueTokens(authCode.userId, clientId, resource, scopes);
     } catch (error) {
       throw new BadRequestException(
@@ -179,6 +180,7 @@ export class McpOAuthTokenService {
       }
 
       stored.revokedAt = dayjs().unix();
+      stored.status = EntityStatus.INACTIVE;
       await this.refreshTokenRepository.save(stored);
 
       const scopes = stored.scopes.split(/\s+/).filter(Boolean);
@@ -190,6 +192,27 @@ export class McpOAuthTokenService {
           : ERROR_MESSAGES.MCP_OAUTH.INVALID_TOKEN_REQUEST,
       );
     }
+  }
+
+  /**
+   * Revoke all active refresh tokens for a user and OAuth client (e.g. on reconnect).
+   */
+  private async revokeActiveRefreshTokens(
+    userId: string,
+    clientId: string,
+  ): Promise<void> {
+    await this.refreshTokenRepository.update(
+      {
+        userId,
+        clientId,
+        status: EntityStatus.ACTIVE,
+        revokedAt: IsNull(),
+      },
+      {
+        status: EntityStatus.INACTIVE,
+        revokedAt: dayjs().unix(),
+      },
+    );
   }
 
   /**
