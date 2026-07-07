@@ -50,6 +50,11 @@ export interface PendingAgentRemove {
   timer: NodeJS.Timeout;
 }
 
+export interface PendingAgentConnection {
+  resolve: () => void;
+  timer: NodeJS.Timeout;
+}
+
 export interface PendingTerminalConnect {
   serverId: string;
   userId: string;

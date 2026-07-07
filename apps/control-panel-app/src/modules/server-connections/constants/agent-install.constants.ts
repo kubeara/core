@@ -15,7 +15,6 @@ export const AGENT_INSTALL = {
   PREREQ_TIMEOUT_MS: 900_000,
   /** How long compose deploy waits for agent WebSocket after install. */
   CONNECT_WAIT_MS: 120_000,
-  CONNECT_POLL_MS: 2_000,
 } as const;
 
 export const AGENT_INSTALL_ENV_KEYS = {

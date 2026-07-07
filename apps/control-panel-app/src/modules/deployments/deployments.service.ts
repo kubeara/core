@@ -288,7 +288,10 @@ export class DeploymentsService {
         );
       }
 
-      await this.waitForAgentConnection(serverId);
+      await this.deploymentGateway.waitForAgentConnection(
+        serverId,
+        AGENT_INSTALL.CONNECT_WAIT_MS,
+      );
 
       if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
         throw new ConflictException(
@@ -309,18 +312,6 @@ export class DeploymentsService {
       }
       throw new BadRequestException(
         `Failed to verify agent connection: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  }
-
-  private async waitForAgentConnection(serverId: string): Promise<void> {
-    const deadline = Date.now() + AGENT_INSTALL.CONNECT_WAIT_MS;
-    while (Date.now() < deadline) {
-      if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
-        return;
-      }
-      await new Promise((resolve) =>
-        setTimeout(resolve, AGENT_INSTALL.CONNECT_POLL_MS),
       );
     }
   }
@@ -479,10 +470,7 @@ export class DeploymentsService {
     deploymentId: string;
     serverId: string;
   } {
-    // Defer so the HTTP 202 + deploymentId reach the console and logs:subscribe runs
-    // before install/deploy output (setImmediate was too early vs browser subscribe).
-    const subscribeGraceMs = 300;
-    setTimeout(() => {
+    void Promise.resolve().then(() => {
       void this.emitPreparedDeployment(prepared, isRedeploy, options).catch(
         (error: unknown) => {
           this.logger.error(
@@ -490,7 +478,7 @@ export class DeploymentsService {
           );
         },
       );
-    }, subscribeGraceMs);
+    });
 
     return {
       message: isRedeploy ? "Redeployment started" : "Deployment started",
@@ -535,7 +523,11 @@ export class DeploymentsService {
       this.logger.log(
         `Agent installed on server '${serverId}' but socket disconnected — waiting for connection before validation`,
       );
-      await this.waitForAgentConnection(serverId);
+
+      await this.deploymentGateway.waitForAgentConnection(
+        serverId,
+        AGENT_INSTALL.CONNECT_WAIT_MS,
+      );
 
       if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
         throw new ConflictException(

@@ -59,6 +59,7 @@ import type {
   PendingContainerDiscovery,
   PendingContainerLogsStart,
   PendingDeploymentRemove,
+  PendingAgentConnection,
   PendingAgentRemove,
   PendingDeploymentValidate,
   PendingServerResources,
@@ -152,6 +153,10 @@ export class DeploymentGateway
     PendingDeploymentRemove
   >();
   private readonly pendingAgentRemoves = new Map<string, PendingAgentRemove>();
+  private readonly pendingAgentConnections = new Map<
+    string,
+    PendingAgentConnection[]
+  >();
   private readonly pendingTerminalConnects = new Map<
     string,
     PendingTerminalConnect
@@ -227,6 +232,7 @@ export class DeploymentGateway
           this.clearAgentMetadataForServer(serverId);
           this.agentsByServerId.set(serverId, client);
           this.serverIdBySocketId.set(socketId, serverId);
+          this.resolvePendingAgentConnections(serverId);
         }
 
         this.attachAgentInboundHandlers(client);
@@ -2646,6 +2652,38 @@ export class DeploymentGateway
   }
 
   /**
+   * Waits until an agent connects for a server or the timeout elapses.
+   */
+  waitForAgentConnection(serverId: string, timeoutMs: number): Promise<void> {
+    try {
+      if (this.isAgentConnectedForServer(serverId)) {
+        return Promise.resolve();
+      }
+
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          this.removePendingAgentConnection(serverId, resolve);
+          resolve();
+        }, timeoutMs);
+
+        const pending: PendingAgentConnection = { resolve, timer };
+        const waiters = this.pendingAgentConnections.get(serverId) ?? [];
+        waiters.push(pending);
+        this.pendingAgentConnections.set(serverId, waiters);
+
+        if (this.isAgentConnectedForServer(serverId)) {
+          this.resolvePendingAgentConnections(serverId);
+        }
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to wait for agent connection on server '${serverId}': ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return Promise.resolve();
+    }
+  }
+
+  /**
    * Checks if an agent is connected for a server.
    */
   isAgentConnectedForServer(serverId: string): boolean {
@@ -2657,6 +2695,63 @@ export class DeploymentGateway
         `Failed to check agent for server '${serverId}': ${error instanceof Error ? error.message : String(error)}`,
       );
       return false;
+    }
+  }
+
+  /**
+   * Resolves all pending agent-connection waiters for a server.
+   */
+  private resolvePendingAgentConnections(serverId: string): void {
+    try {
+      const waiters = this.pendingAgentConnections.get(serverId);
+      if (!waiters?.length) {
+        return;
+      }
+
+      this.pendingAgentConnections.delete(serverId);
+
+      for (const pending of waiters) {
+        clearTimeout(pending.timer);
+        pending.resolve();
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to resolve pending agent connections for server '${serverId}': ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Removes one timed-out agent-connection waiter for a server.
+   */
+  private removePendingAgentConnection(
+    serverId: string,
+    targetResolve: () => void,
+  ): void {
+    try {
+      const waiters = this.pendingAgentConnections.get(serverId);
+      if (!waiters?.length) {
+        return;
+      }
+
+      const remaining = waiters.filter((pending) => {
+        if (pending.resolve === targetResolve) {
+          clearTimeout(pending.timer);
+          return false;
+        }
+
+        return true;
+      });
+
+      if (remaining.length > 0) {
+        this.pendingAgentConnections.set(serverId, remaining);
+      } else {
+        this.pendingAgentConnections.delete(serverId);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Failed to remove pending agent connection for server '${serverId}': ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 

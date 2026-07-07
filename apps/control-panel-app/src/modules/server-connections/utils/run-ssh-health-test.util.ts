@@ -41,10 +41,19 @@ export async function runSshHealthTestWithTimeout(
     .testConnection(options)
     .catch(toSshTestFailureResult);
 
-  return await Promise.race([
-    testPromise,
-    new Promise<SshHealthTestResult>((resolve) =>
-      setTimeout(() => resolve(createSshTestTimeoutResult()), timeoutMs),
-    ),
-  ]);
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<SshHealthTestResult>((resolve) => {
+    timeoutId = setTimeout(
+      () => resolve(createSshTestTimeoutResult()),
+      timeoutMs,
+    );
+  });
+
+  try {
+    return await Promise.race([testPromise, timeoutPromise]);
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+  }
 }

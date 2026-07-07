@@ -86,6 +86,7 @@ import { parseHostResourcesOutput } from "../utils/parse-host-resources-output.u
 import { toServerResponseDto } from "../utils/server.mapper";
 import { OperationFailedException } from "@control-panel/common/exceptions/operation-failed.exception";
 import { ExistingServerCheck } from "../interfaces/existing-server-check.interface";
+import { AgentHostPresence } from "../enums/agent-host-presence.enum";
 import { AgentHostStatus } from "../interfaces/agent-host-status.interface";
 import { OnboardFailureParams } from "../interfaces/onboard-failure-params.interface";
 import { RunAgentInstallAfterOnboardParams } from "../interfaces/run-agent-install-after-onboard-params.interface";
@@ -167,7 +168,7 @@ export class ServerConnectionsService {
 
       const hostStatus = await this.getAgentHostStatus(serverId);
 
-      if (hostStatus.presence === "connected") {
+      if (hostStatus.presence === AgentHostPresence.CONNECTED) {
         return {
           success: true,
           logs: [],
@@ -175,7 +176,7 @@ export class ServerConnectionsService {
         };
       }
 
-      if (hostStatus.presence === "running") {
+      if (hostStatus.presence === AgentHostPresence.RUNNING) {
         return {
           success: true,
           logs: [],
@@ -183,7 +184,10 @@ export class ServerConnectionsService {
         };
       }
 
-      if (hostStatus.presence === "stopped" && hostStatus.containerId) {
+      if (
+        hostStatus.presence === AgentHostPresence.STOPPED &&
+        hostStatus.containerId
+      ) {
         await this.startAgentContainerOnHost(serverId, hostStatus.containerId);
         return {
           success: true,
@@ -389,7 +393,7 @@ export class ServerConnectionsService {
    */
   async isAgentInstalledOnServer(serverId: string): Promise<boolean> {
     const status = await this.getAgentHostStatus(serverId);
-    return status.presence !== "missing";
+    return status.presence !== AgentHostPresence.MISSING;
   }
 
   /**
@@ -398,7 +402,7 @@ export class ServerConnectionsService {
    */
   async getAgentHostStatus(serverId: string): Promise<AgentHostStatus> {
     if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
-      return { presence: "connected" };
+      return { presence: AgentHostPresence.CONNECTED };
     }
 
     try {
@@ -410,19 +414,19 @@ export class ServerConnectionsService {
       );
 
       if (!agent) {
-        return { presence: "missing" };
+        return { presence: AgentHostPresence.MISSING };
       }
 
       if (ServerConnectionsService.isDockerContainerRunning(agent.status)) {
         return {
-          presence: "running",
+          presence: AgentHostPresence.RUNNING,
           containerId: agent.containerId,
           containerStatus: agent.status,
         };
       }
 
       return {
-        presence: "stopped",
+        presence: AgentHostPresence.STOPPED,
         containerId: agent.containerId,
         containerStatus: agent.status,
       };
@@ -430,7 +434,7 @@ export class ServerConnectionsService {
       this.logger.warn(
         `Could not determine agent host status for server '${serverId}': ${toErrorMessage(error)}`,
       );
-      return { presence: "missing" };
+      return { presence: AgentHostPresence.MISSING };
     }
   }
 
@@ -629,10 +633,6 @@ export class ServerConnectionsService {
     if (!server) {
       return;
     }
-
-    await new Promise((resolve) =>
-      setTimeout(resolve, SERVER_CONNECTIONS.AGENT_TEARDOWN_SETTLE_MS),
-    );
 
     const command = buildAgentHostCleanupShellCommand(imageRefs, {
       installDir: AGENT_INSTALL.REMOTE_DIR,

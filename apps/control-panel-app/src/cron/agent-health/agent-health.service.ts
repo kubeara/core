@@ -1,286 +1,141 @@
-import { Injectable, Logger } from "@nestjs/common";
-import { Cron } from "@nestjs/schedule";
-import { InjectRepository } from "@nestjs/typeorm";
-import { EntityStatus } from "@control-panel/common/entity/base.entity";
-import { AgentHostStatus } from "@control-panel/modules/server-connections/interfaces/agent-host-status.interface";
-import { ServerEntity } from "@control-panel/modules/server-connections/entities/server.entity";
-import { ServerConnectionsService } from "@control-panel/modules/server-connections/services/server-connections.service";
-import { IsNull, Repository } from "typeorm";
+import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { SchedulerRegistry } from "@nestjs/schedule";
+import axios from "axios";
+
+import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import {
-  AGENT_HEALTH_CRON_INTERVAL,
-  AGENT_PRESENT_NOT_CONNECTED_MESSAGE,
-  AGENT_REMOVED_MESSAGE,
-  AGENT_STOPPED_MESSAGE,
-} from "./constants";
-import { AgentHealthError } from "./types";
+  AGENT_HEALTH_CRON_JOB_NAME,
+  AGENT_HEALTH_DEFAULT_CRON_INTERVAL_MS,
+  AGENT_HEALTH_ENV_KEYS,
+  AGENT_HEALTH_HEADERS,
+  AGENT_HEALTH_ROUTES,
+} from "@control-panel/modules/server-connections/constants/agent-health.constants";
 
 @Injectable()
-export class AgentHealthService {
+export class AgentHealthService implements OnModuleInit {
   private readonly logger = new Logger(AgentHealthService.name);
-
-  private nextServerIndex = 0;
   private isRunning = false;
-  private readonly recoveryInProgress = new Set<string>();
 
   constructor(
-    @InjectRepository(ServerEntity)
-    private readonly serverRepository: Repository<ServerEntity>,
-    private readonly serverConnectionsService: ServerConnectionsService,
+    private readonly configService: ConfigService,
+    private readonly schedulerRegistry: SchedulerRegistry,
   ) {}
 
-  @Cron(AGENT_HEALTH_CRON_INTERVAL)
-  checkNextServerHealth(): void {
+  /**
+   * Registers the agent health interval job using @nestjs/schedule.
+   *
+   * @returns void
+   */
+  onModuleInit(): void {
+    try {
+      if (!this.isCronEnabled()) {
+        this.logger.log("Agent health cron is disabled");
+        return;
+      }
+
+      const intervalMs = this.resolveIntervalMs();
+      const interval = setInterval(() => {
+        void this.checkNextServerHealth();
+      }, intervalMs);
+
+      this.schedulerRegistry.addInterval(AGENT_HEALTH_CRON_JOB_NAME, interval);
+      this.logger.log(`Agent health cron started (every ${intervalMs}ms)`);
+    } catch (error) {
+      this.logger.error(
+        `Failed to start agent health cron: ${toErrorMessage(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
+  /**
+   * Invokes one agent health tick via the internal HTTP endpoint.
+   *
+   * @returns Resolves when the HTTP call completes.
+   */
+  async checkNextServerHealth(): Promise<void> {
     if (this.isRunning) {
       return;
     }
 
     this.isRunning = true;
 
-    void this.runHealthCheckTick()
-      .catch((error) => {
-        this.logger.error(
-          `Unexpected agent health cron failure: ${this.formatErrorMessage(error)}`,
-          error instanceof Error ? error.stack : undefined,
+    try {
+      const url = this.resolveCronTickUrl();
+      const secret = this.configService
+        .get<string>(AGENT_HEALTH_ENV_KEYS.CRON_INTERNAL_SECRET)
+        ?.trim();
+
+      if (!secret) {
+        this.logger.warn(
+          `${AGENT_HEALTH_ENV_KEYS.CRON_INTERNAL_SECRET} is not configured`,
         );
-      })
-      .finally(() => {
-        this.isRunning = false;
-      });
-  }
+        return;
+      }
 
-  /**
-   * Runs a health check tick for the next server.
-   */
-  private async runHealthCheckTick(): Promise<void> {
-    const server = await this.pickNextServerToCheck();
-    if (!server) {
-      return;
-    }
-
-    this.logger.debug(`Checking agent health for server ${server.id}`);
-
-    const hostStatus = await this.serverConnectionsService.getAgentHostStatus(
-      server.id,
-    );
-
-    switch (hostStatus.presence) {
-      case "connected":
-        await this.recordConnectedAgent(server);
-        break;
-      case "running":
-        await this.recordAgentPresentNotConnected(server, hostStatus);
-        break;
-      case "stopped":
-        await this.recordAgentStopped(server, hostStatus);
-        this.startAgentContainerInBackground(
-          server.id,
-          hostStatus.containerId!,
-        );
-        break;
-      case "missing":
-        await this.recordAgentRemoved(server);
-        this.startAgentInstallInBackground(server.id);
-        break;
-    }
-
-    this.nextServerIndex += 1;
-  }
-
-  /**
-   * Picks the next server to check.
-   */
-  private async pickNextServerToCheck(): Promise<ServerEntity | null> {
-    let server = await this.findActiveServerAtIndex(this.nextServerIndex);
-
-    if (!server && this.nextServerIndex > 0) {
-      this.nextServerIndex = 0;
-      server = await this.findActiveServerAtIndex(0);
-    }
-
-    if (!server) {
-      this.nextServerIndex = 0;
-    }
-
-    return server;
-  }
-
-  /**
-   * Finds the active server at the given index.
-   */
-  private async findActiveServerAtIndex(
-    index: number,
-  ): Promise<ServerEntity | null> {
-    const servers = await this.serverRepository.find({
-      where: {
-        status: EntityStatus.ACTIVE,
-        deletedAt: IsNull(),
-      },
-      order: {
-        createdAt: "ASC",
-        id: "ASC",
-      },
-      skip: index,
-      take: 1,
-    });
-
-    return servers[0] ?? null;
-  }
-
-  /**
-   * Starts an agent installation in the background.
-   */
-  private startAgentInstallInBackground(serverId: string): void {
-    if (this.recoveryInProgress.has(serverId)) {
-      this.logger.debug(
-        `Agent recovery already running for server ${serverId}; skipping install`,
+      await axios.post(
+        url,
+        {},
+        { headers: { [AGENT_HEALTH_HEADERS.CRON_SECRET]: secret } },
       );
-      return;
-    }
-
-    this.recoveryInProgress.add(serverId);
-    this.logger.log(`Agent installation triggered for server ${serverId}`);
-
-    void this.serverConnectionsService
-      .ensureAgentInstalledForServer(serverId)
-      .finally(() => {
-        this.recoveryInProgress.delete(serverId);
-      })
-      .catch((error) => {
-        this.logger.error(
-          `Background agent installation failed for server ${serverId}: ${this.formatErrorMessage(error)}`,
-          error instanceof Error ? error.stack : undefined,
-        );
-      });
-  }
-
-  /**
-   * Starts an agent container in the background.
-   */
-  private startAgentContainerInBackground(
-    serverId: string,
-    containerId: string,
-  ): void {
-    if (this.recoveryInProgress.has(serverId)) {
-      this.logger.debug(
-        `Agent recovery already running for server ${serverId}; skipping start`,
+    } catch (error) {
+      this.logger.error(
+        `Agent health cron failed: ${toErrorMessage(error)}`,
+        error instanceof Error ? error.stack : undefined,
       );
-      return;
+    } finally {
+      this.isRunning = false;
     }
-
-    this.recoveryInProgress.add(serverId);
-    this.logger.log(`Agent container start triggered for server ${serverId}`);
-
-    void this.serverConnectionsService
-      .startAgentContainerOnHost(serverId, containerId)
-      .finally(() => {
-        this.recoveryInProgress.delete(serverId);
-      })
-      .catch((error) => {
-        this.logger.error(
-          `Background agent container start failed for server ${serverId}: ${this.formatErrorMessage(error)}`,
-          error instanceof Error ? error.stack : undefined,
-        );
-      });
   }
 
   /**
-   * Records a connected agent.
+   * @returns True when the cron is enabled via env configuration.
    */
-  private async recordConnectedAgent(server: ServerEntity): Promise<void> {
-    this.recoveryInProgress.delete(server.id);
+  private isCronEnabled(): boolean {
+    const flag = this.configService
+      .get<string>(AGENT_HEALTH_ENV_KEYS.CRON_ENABLED)
+      ?.trim()
+      .toLowerCase();
 
-    const now = Date.now();
-    const wasRecovering = server.retryCount > 0 || server.agentError !== null;
-
-    if (wasRecovering) {
-      this.logger.log(`Agent connected for server ${server.id}`);
-    } else {
-      this.logger.debug(`Agent connected for server ${server.id}`);
-    }
-
-    const needsUpdate =
-      server.lastAgentCheckedAt !== now ||
-      server.retryCount !== 0 ||
-      server.agentError !== null;
-
-    if (!needsUpdate) {
-      return;
-    }
-
-    server.lastAgentCheckedAt = now;
-    server.retryCount = 0;
-    server.agentError = null;
-    await this.serverRepository.save(server);
+    return flag !== "false";
   }
 
   /**
-   * Records a present agent that is not connected.
+   * @returns Cron interval in milliseconds from env or the default constant.
    */
-  private async recordAgentPresentNotConnected(
-    server: ServerEntity,
-    hostStatus: AgentHostStatus,
-  ): Promise<void> {
-    this.logger.debug(
-      `Agent present on host for server ${server.id}; skipping install (${hostStatus.containerStatus})`,
+  private resolveIntervalMs(): number {
+    const fromEnv = Number(
+      this.configService.get<string>(AGENT_HEALTH_ENV_KEYS.CRON_INTERVAL_MS),
     );
 
-    await this.saveAgentHealthState(server, {
-      message: AGENT_PRESENT_NOT_CONNECTED_MESSAGE,
-      serverId: server.id,
-      containerId: hostStatus.containerId,
-      containerStatus: hostStatus.containerStatus,
-    });
+    if (Number.isFinite(fromEnv) && fromEnv > 0) {
+      return fromEnv;
+    }
+
+    return AGENT_HEALTH_DEFAULT_CRON_INTERVAL_MS;
   }
 
   /**
-   * Records a stopped agent.
+   * @returns Fully qualified internal cron tick URL.
    */
-  private async recordAgentStopped(
-    server: ServerEntity,
-    hostStatus: AgentHostStatus,
-  ): Promise<void> {
-    this.logger.warn(
-      `Agent stopped on host for server ${server.id} (${hostStatus.containerStatus})`,
-    );
+  private resolveCronTickUrl(): string {
+    const configuredBase = this.configService
+      .get<string>(AGENT_HEALTH_ENV_KEYS.CRON_INTERNAL_BASE_URL)
+      ?.trim()
+      .replace(/\/+$/, "");
 
-    await this.saveAgentHealthState(server, {
-      message: AGENT_STOPPED_MESSAGE,
-      serverId: server.id,
-      containerId: hostStatus.containerId,
-      containerStatus: hostStatus.containerStatus,
-    });
-  }
+    const port = Number(this.configService.get<string>("PORT"));
+    const baseUrl =
+      configuredBase ??
+      (Number.isFinite(port) ? `http://127.0.0.1:${port}` : null);
 
-  /**
-   * Records a removed agent.
-   */
-  private async recordAgentRemoved(server: ServerEntity): Promise<void> {
-    this.logger.warn(
-      `Agent removed or missing on host for server ${server.id}`,
-    );
+    if (!baseUrl) {
+      throw new Error(
+        `Set ${AGENT_HEALTH_ENV_KEYS.CRON_INTERNAL_BASE_URL} or PORT`,
+      );
+    }
 
-    await this.saveAgentHealthState(server, {
-      message: AGENT_REMOVED_MESSAGE,
-      serverId: server.id,
-    });
-  }
-
-  /**
-   * Saves the agent health state.
-   */
-  private async saveAgentHealthState(
-    server: ServerEntity,
-    errorFields: Omit<AgentHealthError, "timestamp">,
-  ): Promise<void> {
-    server.retryCount += 1;
-    server.agentError = {
-      ...errorFields,
-      timestamp: Date.now(),
-    };
-    await this.serverRepository.save(server);
-  }
-
-  private formatErrorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
+    return `${baseUrl}${AGENT_HEALTH_ROUTES.CRON_TICK}`;
   }
 }
