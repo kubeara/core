@@ -29,9 +29,7 @@ export async function updateServerAgentHealthFields(
   };
 
   if (fields.agentError !== undefined) {
-    payload.agentError = fields.agentError
-      ? { ...fields.agentError }
-      : null;
+    payload.agentError = fields.agentError ? { ...fields.agentError } : null;
   }
 
   await repository.update(serverId, payload);
