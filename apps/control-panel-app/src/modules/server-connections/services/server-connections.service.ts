@@ -86,6 +86,7 @@ import { parseHostResourcesOutput } from "../utils/parse-host-resources-output.u
 import { toServerResponseDto } from "../utils/server.mapper";
 import { OperationFailedException } from "@control-panel/common/exceptions/operation-failed.exception";
 import { ExistingServerCheck } from "../interfaces/existing-server-check.interface";
+import { AgentHostStatus } from "../interfaces/agent-host-status.interface";
 import { OnboardFailureParams } from "../interfaces/onboard-failure-params.interface";
 import { RunAgentInstallAfterOnboardParams } from "../interfaces/run-agent-install-after-onboard-params.interface";
 import { ServerErrorCode } from "../enums/server-error-code.enum";
@@ -161,6 +162,35 @@ export class ServerConnectionsService {
           success: false,
           logs: [],
           error: ERROR_MESSAGES.SERVER.INACTIVE_OR_MISSING,
+        };
+      }
+
+      const hostStatus = await this.getAgentHostStatus(serverId);
+
+      if (hostStatus.presence === "connected") {
+        return {
+          success: true,
+          logs: [],
+          skipped: true,
+        };
+      }
+
+      if (hostStatus.presence === "running") {
+        return {
+          success: true,
+          logs: [],
+          skipped: true,
+        };
+      }
+
+      if (hostStatus.presence === "stopped" && hostStatus.containerId) {
+        await this.startAgentContainerOnHost(
+          serverId,
+          hostStatus.containerId,
+        );
+        return {
+          success: true,
+          logs: ["Started stopped agent container on host"],
         };
       }
 
@@ -361,25 +391,72 @@ export class ServerConnectionsService {
    * Returns true when the Kubeara agent container exists on the server host.
    */
   async isAgentInstalledOnServer(serverId: string): Promise<boolean> {
+    const status = await this.getAgentHostStatus(serverId);
+    return status.presence !== "missing";
+  }
+
+  /**
+   * Determines agent state on the host when the WebSocket is down.
+   * Used by health cron to choose between skip, start, or install.
+   */
+  async getAgentHostStatus(serverId: string): Promise<AgentHostStatus> {
     if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
-      return true;
+      return { presence: "connected" };
     }
 
     try {
       const containers = await this.discoverContainersOnHost(serverId);
-      return containers.some(
+      const agent = containers.find(
         (container) =>
           container.containerName.toLowerCase() ===
           AGENT_INSTALL.CONTAINER_NAME.toLowerCase(),
       );
+
+      if (!agent) {
+        return { presence: "missing" };
+      }
+
+      if (ServerConnectionsService.isDockerContainerRunning(agent.status)) {
+        return {
+          presence: "running",
+          containerId: agent.containerId,
+          containerStatus: agent.status,
+        };
+      }
+
+      return {
+        presence: "stopped",
+        containerId: agent.containerId,
+        containerStatus: agent.status,
+      };
     } catch (error) {
       this.logger.warn(
-        `Could not determine whether agent is installed on server '${serverId}': ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `Could not determine agent host status for server '${serverId}': ${toErrorMessage(error)}`,
       );
-      return false;
+      return { presence: "missing" };
     }
+  }
+
+  /**
+   * Starts a stopped agent container on the server host.
+   */
+  async startAgentContainerOnHost(
+    serverId: string,
+    containerId: string,
+  ): Promise<void> {
+    const result = await this.executeContainerActionOnHost(
+      serverId,
+      containerId,
+      "start",
+    );
+
+    if (!result.success) {
+      throw new Error(result.error ?? "Failed to start agent container on host");
+    }
+  }
+
+  private static isDockerContainerRunning(status: string): boolean {
+    return /^Up(\s|$)/i.test(status.trim());
   }
 
   /**

@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDate,
   IsEnum,
   IsInt,
@@ -104,6 +105,27 @@ export class ServerEntity extends BaseEntity {
   @IsDate()
   @Column({ type: "bigint", nullable: true })
   lastConnectedAt!: number | null;
+
+  @IsBoolean()
+  @Column({ type: "boolean", default: false })
+  isServerUp!: boolean;
+
+  @IsOptional()
+  @Column({ type: "bigint", nullable: true })
+  lastAgentCheckedAt!: number | null;
+
+  @IsInt()
+  @Min(0)
+  @Column({ type: "integer", default: 0 })
+  retryCount!: number;
+
+  @IsOptional()
+  @Column({ type: "jsonb", nullable: true })
+  serverError!: Record<string, unknown> | null;
+
+  @IsOptional()
+  @Column({ type: "jsonb", nullable: true })
+  agentError!: Record<string, unknown> | null;
 
   @OneToMany(
     () => ServerSshCredentialEntity,
