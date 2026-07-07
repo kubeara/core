@@ -35,10 +35,7 @@ export class SshCommandExecutorService {
           reject(new SshCommandError(err.message));
         };
 
-        const timeout = createTimeoutRejection(
-          timeoutMs,
-          "Command timed out",
-        );
+        const timeout = createTimeoutRejection(timeoutMs, "Command timed out");
         void timeout.promise.catch((error: unknown) => {
           reject(
             new SshCommandError(
@@ -114,10 +111,7 @@ export class SshCommandExecutorService {
           reject(new SshCommandError(err.message));
         };
 
-        const timeout = createTimeoutRejection(
-          timeoutMs,
-          "Command timed out",
-        );
+        const timeout = createTimeoutRejection(timeoutMs, "Command timed out");
         void timeout.promise.catch((error: unknown) => {
           reject(
             new SshCommandError(

@@ -3,10 +3,7 @@ import { scheduler } from "node:timers/promises";
 /**
  * Waits for the given duration without using setTimeout.
  */
-export async function delayMs(
-  ms: number,
-  signal?: AbortSignal,
-): Promise<void> {
+export async function delayMs(ms: number, signal?: AbortSignal): Promise<void> {
   if (ms <= 0) {
     return;
   }
@@ -55,7 +52,7 @@ export function createTimeoutRejection(
         return new Promise<never>(() => {});
       }
       throw error;
-    }) as Promise<never>;
+    });
 
   return {
     promise,
