@@ -25,6 +25,7 @@ export interface DeployTemplateRequest {
   templateSlug: string;
   env: Record<string, string>;
   ports?: Record<string, string>;
+  acknowledgeResourceWarning?: boolean;
 }
 
 export interface DeployFormField {

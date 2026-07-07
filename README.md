@@ -195,6 +195,70 @@ Both options deploy to servers you connect. We only manage the Kubeara dashboard
 [→ Enterprise pricing](https://kubeara.dev/pricing)  
 [→ Request enterprise trial](mailto:bhushan.lilapra@kubeara.dev)
 
+## Development workflow
+
+Kubeara uses [Conventional Commits](https://www.conventionalcommits.org/) and [Release Please](https://github.com/googleapis/release-please) for automated, semver-based releases.
+
+```
+Feature branch
+      ↓
+Pull request (CI: lint, build, test)
+      ↓
+Merge into main
+      ↓
+Release Please opens/updates a Release PR
+      ↓
+Review Release PR (version + CHANGELOG.md)
+      ↓
+Merge Release PR
+      ↓
+Git tag + GitHub Release published
+      ↓
+Users install the new version
+```
+
+### Branching
+
+1. Create a feature branch from `main` (for example `feature/deployment-logs`).
+2. Open a pull request into `main`.
+3. Ensure CI passes (lint, build, template tests).
+4. Merge after review.
+
+Merging to `main` does **not** publish a release immediately. Release Please accumulates commits and opens a **Release PR** when a version bump is warranted.
+
+### Conventional commits
+
+Use these types in PR titles or squash-merge commit messages:
+
+| Type | Release impact | Example |
+|------|----------------|---------|
+| `feat` | Minor (`1.0.0` → `1.1.0`) | `feat: add deployment log streaming` |
+| `fix` | Patch (`1.0.0` → `1.0.1`) | `fix: resolve docker compose parser error` |
+| `feat!` or `BREAKING CHANGE:` | Major (`1.0.0` → `2.0.0`) | `feat!: redesign deployment API` |
+| `docs` | Changelog only | `docs: update install guide` |
+| `refactor` | Changelog only | `refactor: simplify agent install flow` |
+| `perf` | Performance section | `perf: reduce deployment status polling` |
+| `test` | No release | `test: add template compose validation` |
+| `build` / `ci` / `chore` / `style` | No release | `chore: update dependencies` |
+
+Breaking change examples:
+
+```text
+feat!: remove legacy deploy endpoint
+
+feat: add new deploy API
+
+BREAKING CHANGE: removed /api/v1/deployments/legacy
+```
+
+### Releases
+
+- **Release PR**: created/updated by Release Please on pushes to `main`.
+- **On merge**: bumps `package.json`, updates `CHANGELOG.md`, creates a git tag (for example `v1.2.0`), and publishes a [GitHub Release](https://github.com/kubeara/core/releases).
+- **Tracked version**: [`.release-please-manifest.json`](.release-please-manifest.json).
+
+See also [`release-please-config.json`](release-please-config.json) and [`.github/workflows/release-please.yml`](.github/workflows/release-please.yml).
+
 ## Security
 
 ### Security model

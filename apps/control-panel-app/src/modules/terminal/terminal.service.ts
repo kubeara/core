@@ -47,53 +47,61 @@ export class TerminalService {
     serverId: string,
     body: TerminalConnectDto,
   ): Promise<ServiceResponse<TerminalConnectResponseDto>> {
-    await this.assertActiveServerForUser(serverId, userId);
-
-    const cols = body.cols ?? DEFAULT_TERMINAL_COLS;
-    const rows = body.rows ?? DEFAULT_TERMINAL_ROWS;
-
-    const agentSessionId = await this.tryAgentTerminalConnect(
-      serverId,
-      userId,
-      cols,
-      rows,
-    );
-
-    if (agentSessionId) {
-      return {
-        message: SUCCESS_MESSAGES.TERMINAL.CONNECTED,
-        data: {
-          sessionId: agentSessionId,
-          serverId,
-          transport: TerminalTransport.AGENT,
-        },
-      };
-    }
-
     try {
-      const sessionId = await this.sshTerminalService.createSession(
+      await this.assertActiveServerForUser(serverId, userId);
+
+      const cols = body.cols ?? DEFAULT_TERMINAL_COLS;
+      const rows = body.rows ?? DEFAULT_TERMINAL_ROWS;
+
+      const agentSessionId = await this.tryAgentTerminalConnect(
         serverId,
         userId,
         cols,
         rows,
       );
 
-      return {
-        message: SUCCESS_MESSAGES.TERMINAL.SSH_CONNECTED,
-        data: {
-          sessionId,
+      if (agentSessionId) {
+        return {
+          message: SUCCESS_MESSAGES.TERMINAL.CONNECTED,
+          data: {
+            sessionId: agentSessionId,
+            serverId,
+            transport: TerminalTransport.AGENT,
+          },
+        };
+      }
+
+      try {
+        const sessionId = await this.sshTerminalService.createSession(
           serverId,
-          transport: TerminalTransport.SSH,
-        },
-      };
+          userId,
+          cols,
+          rows,
+        );
+
+        return {
+          message: SUCCESS_MESSAGES.TERMINAL.SSH_CONNECTED,
+          data: {
+            sessionId,
+            serverId,
+            transport: TerminalTransport.SSH,
+          },
+        };
+      } catch (error) {
+        const sshDetail =
+          error instanceof Error ? error.message : String(error);
+        this.logger.warn(
+          `[TERMINAL] SSH fallback failed for server '${serverId}': ${sshDetail}`,
+        );
+        throw new BadRequestException(
+          `${ERROR_MESSAGES.TERMINAL.CONNECT_FAILED}: ${sshDetail}`,
+        );
+      }
     } catch (error) {
-      const sshDetail = error instanceof Error ? error.message : String(error);
-      this.logger.warn(
-        `[TERMINAL] SSH fallback failed for server '${serverId}': ${sshDetail}`,
+      this.logger.error(
+        `Failed to connect terminal for server '${serverId}': ${error instanceof Error ? error.message : String(error)}`,
       );
-      throw new BadRequestException(
-        `${ERROR_MESSAGES.TERMINAL.CONNECT_FAILED}: ${sshDetail}`,
-      );
+      throw error;
     }
   }
 
@@ -105,34 +113,51 @@ export class TerminalService {
     serverId: string,
     body: TerminalDisconnectDto,
   ): Promise<ServiceResponse<{ disconnected: true }>> {
-    await this.assertActiveServerForUser(serverId, userId);
-
-    const sessionId = body.sessionId.trim();
-    const session = this.deploymentGateway.getTerminalSession(sessionId);
-
-    if (
-      !session ||
-      session.serverId !== serverId ||
-      session.userId !== userId
-    ) {
-      throw new NotFoundException(ERROR_MESSAGES.TERMINAL.SESSION_NOT_FOUND);
-    }
-
     try {
-      this.deploymentGateway.closeTerminalSession(sessionId, {
-        notifyAgent: session.transport === TerminalTransport.AGENT,
-      });
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      throw new BadRequestException(
-        `${ERROR_MESSAGES.TERMINAL.DISCONNECT_FAILED}: ${detail}`,
-      );
-    }
+      await this.assertActiveServerForUser(serverId, userId);
 
-    return {
-      message: SUCCESS_MESSAGES.TERMINAL.DISCONNECTED,
-      data: { disconnected: true },
-    };
+      const sessionId = body.sessionId.trim();
+      const session = this.deploymentGateway.getTerminalSession(sessionId);
+
+      if (
+        session &&
+        (session.serverId !== serverId || session.userId !== userId)
+      ) {
+        throw new NotFoundException(ERROR_MESSAGES.TERMINAL.SESSION_NOT_FOUND);
+      }
+
+      if (!session) {
+        this.deploymentGateway.notifyAgentTerminalDisconnect(
+          serverId,
+          sessionId,
+        );
+        return {
+          message: SUCCESS_MESSAGES.TERMINAL.DISCONNECTED,
+          data: { disconnected: true },
+        };
+      }
+
+      try {
+        this.deploymentGateway.closeTerminalSession(sessionId, {
+          notifyAgent: session.transport === TerminalTransport.AGENT,
+        });
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new BadRequestException(
+          `${ERROR_MESSAGES.TERMINAL.DISCONNECT_FAILED}: ${detail}`,
+        );
+      }
+
+      return {
+        message: SUCCESS_MESSAGES.TERMINAL.DISCONNECTED,
+        data: { disconnected: true },
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to disconnect terminal for server '${serverId}': ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -144,28 +169,28 @@ export class TerminalService {
     cols: number,
     rows: number,
   ): Promise<string | null> {
-    if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
-      this.logger.warn(
-        `[TERMINAL] no connected agent for server '${serverId}', trying SSH fallback`,
-      );
-      return null;
-    }
-
-    const agentVersion =
-      this.deploymentGateway.getAgentVersion(serverId) ?? "unknown";
-    const supportsTerminal = this.deploymentGateway.agentSupports(
-      serverId,
-      DeploymentEvents.TERMINAL_CONNECT,
-    );
-
-    if (!supportsTerminal) {
-      this.logger.warn(
-        `[TERMINAL] agent (version ${agentVersion}) does not support terminal for server '${serverId}', trying SSH fallback`,
-      );
-      return null;
-    }
-
     try {
+      if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+        this.logger.warn(
+          `[TERMINAL] no connected agent for server '${serverId}', trying SSH fallback`,
+        );
+        return null;
+      }
+
+      const agentVersion =
+        this.deploymentGateway.getAgentVersion(serverId) ?? "unknown";
+      const supportsTerminal = this.deploymentGateway.agentSupports(
+        serverId,
+        DeploymentEvents.TERMINAL_CONNECT,
+      );
+
+      if (!supportsTerminal) {
+        this.logger.warn(
+          `[TERMINAL] agent (version ${agentVersion}) does not support terminal for server '${serverId}', trying SSH fallback`,
+        );
+        return null;
+      }
+
       return await this.deploymentGateway.requestTerminalConnect(
         serverId,
         userId,
@@ -188,19 +213,26 @@ export class TerminalService {
     serverId: string,
     userId: string,
   ): Promise<ServerEntity> {
-    const server = await this.serverRepository.findOne({
-      where: {
-        id: serverId,
-        userId,
-        status: EntityStatus.ACTIVE,
-        deletedAt: IsNull(),
-      },
-    });
+    try {
+      const server = await this.serverRepository.findOne({
+        where: {
+          id: serverId,
+          userId,
+          status: EntityStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
+      });
 
-    if (!server) {
-      throw new NotFoundException(ERROR_MESSAGES.SERVER.NOT_FOUND);
+      if (!server) {
+        throw new NotFoundException(ERROR_MESSAGES.SERVER.NOT_FOUND);
+      }
+
+      return server;
+    } catch (error) {
+      this.logger.error(
+        `Failed to assert active server '${serverId}': ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
     }
-
-    return server;
   }
 }

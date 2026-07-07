@@ -2,12 +2,14 @@ import {
   Controller,
   Get,
   Header,
+  Logger,
   Param,
   Query,
   UseGuards,
 } from "@nestjs/common";
 
 import { KubearaPublicOriginGuard } from "@control-panel/common/guards/kubeara-public-origin.guard";
+import { toErrorMessage } from "@control-panel/common/utils/error.util";
 
 import type {
   PublicTemplateDetailsDto,
@@ -18,6 +20,8 @@ import { ServiceTemplateService } from "../services/service-template.service";
 @UseGuards(KubearaPublicOriginGuard)
 @Controller("public/templates")
 export class PublicServiceTemplateController {
+  private readonly logger = new Logger(PublicServiceTemplateController.name);
+
   constructor(
     private readonly serviceTemplateService: ServiceTemplateService,
   ) {}
@@ -27,16 +31,30 @@ export class PublicServiceTemplateController {
    */
   @Get()
   @Header("Cache-Control", "public, max-age=300")
-  listTemplates(
+  async listTemplates(
     @Query("category") category?: string,
   ): Promise<PublicTemplateListItemDto[]> {
-    return this.serviceTemplateService.listPublicTemplates(category);
+    try {
+      return await this.serviceTemplateService.listPublicTemplates(category);
+    } catch (error) {
+      this.logger.error(
+        `List public templates failed: ${toErrorMessage(error)}`,
+      );
+      throw error;
+    }
   }
 
   @Get("categories")
   @Header("Cache-Control", "public, max-age=300")
-  listCategories(): Promise<string[]> {
-    return this.serviceTemplateService.listUniqueCategories();
+  async listCategories(): Promise<string[]> {
+    try {
+      return await this.serviceTemplateService.listUniqueCategories();
+    } catch (error) {
+      this.logger.error(
+        `List public template categories failed: ${toErrorMessage(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -44,7 +62,14 @@ export class PublicServiceTemplateController {
    */
   @Get(":slug")
   @Header("Cache-Control", "public, max-age=300")
-  getTemplate(@Param("slug") slug: string): Promise<PublicTemplateDetailsDto> {
-    return this.serviceTemplateService.getPublicTemplateDetails(slug);
+  async getTemplate(
+    @Param("slug") slug: string,
+  ): Promise<PublicTemplateDetailsDto> {
+    try {
+      return await this.serviceTemplateService.getPublicTemplateDetails(slug);
+    } catch (error) {
+      this.logger.error(`Get public template failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 }

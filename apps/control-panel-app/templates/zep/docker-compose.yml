@@ -1,0 +1,152 @@
+# documentation: https://help.getzep.com/concepts
+# shortDescription: Long-term memory for AI agents and assistants
+# longDescription: <p>Zep provides <strong>long-term memory</strong> for AI agents through continuous learning from user interactions.</p><p>Includes PostgreSQL, NLP server, and API on port 8000. Open the web UI at <code>/admin</code>. Auth uses <code>SERVICE_PASSWORD_AUTHSECRET</code>. Set <code>ZEP_OPENAI_API_KEY</code> for OpenAI embeddings.</p>
+# category: ai,llm
+# tags: zep,ai,llm,memory,rag,agents,chatbot,api
+# logo: svgs/zep.png
+# port: 8000
+
+services:
+  zep:
+    image: ${ZEP_IMAGE:-ghcr.io/getzep/zep:latest}
+    restart: ${ZEP_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_ZEP:-8000}:8000'
+
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        cat > /app/config.yaml <<EOF
+        nlp:
+          server_url: http://nlp:5557
+        store:
+          type: postgres
+          postgres:
+            dsn: "postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${POSTGRES_DB:-postgres}?sslmode=disable"
+        server:
+          host: 0.0.0.0
+          port: 8000
+          web_enabled: true
+        auth:
+          required: true
+        EOF
+        exec /app/zep --config /app/config.yaml
+
+    environment:
+      - SERVICE_URL_ZEP_8000
+      - ZEP_STORE=postgres
+      - ZEP_STORE_TYPE=postgres
+      - ZEP_STORE_POSTGRES_DSN=postgres://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${POSTGRES_DB:-postgres}?sslmode=disable
+      - ZEP_NLP_SERVER_URL=http://nlp:5557
+      - ZEP_EXTRACTORS_DOCUMENTS_EMBEDDINGS_SERVICE=${ZEP_EXTRACTORS_DOCUMENTS_EMBEDDINGS_SERVICE:-openai}
+      - ZEP_EXTRACTORS_DOCUMENTS_EMBEDDINGS_DIMENSIONS=${ZEP_EXTRACTORS_DOCUMENTS_EMBEDDINGS_DIMENSIONS:-1536}
+      - ZEP_EXTRACTORS_MESSAGES_EMBEDDINGS_SERVICE=${ZEP_EXTRACTORS_MESSAGES_EMBEDDINGS_SERVICE:-openai}
+      - ZEP_EXTRACTORS_MESSAGES_EMBEDDINGS_DIMENSIONS=${ZEP_EXTRACTORS_MESSAGES_EMBEDDINGS_DIMENSIONS:-1536}
+      - ZEP_EXTRACTORS_MESSAGES_SUMMARIZER_EMBEDDINGS_SERVICE=${ZEP_EXTRACTORS_MESSAGES_SUMMARIZER_EMBEDDINGS_SERVICE:-openai}
+      - ZEP_EXTRACTORS_MESSAGES_SUMMARIZER_EMBEDDINGS_DIMENSIONS=${ZEP_EXTRACTORS_MESSAGES_SUMMARIZER_EMBEDDINGS_DIMENSIONS:-1536}
+      - ZEP_OPENAI_API_KEY=${ZEP_OPENAI_API_KEY:-user_provided}
+      - ZEP_AUTH_SECRET=${SERVICE_PASSWORD_AUTHSECRET}
+      - ZEP_SERVER_WEB_ENABLED=${ZEP_SERVER_WEB_ENABLED:-true}
+      - ZEP_ENABLE_AUTOMIGRATION=${ZEP_ENABLE_AUTOMIGRATION:-true}
+      - ZEP_TELEMETRY_ENABLED=${ZEP_TELEMETRY_ENABLED:-false}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nlp:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8000/healthz || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nlp:
+    image: ${ZEP_NLP_IMAGE:-ghcr.io/getzep/zep-nlp-server:0.4}
+    restart: ${ZEP_NLP_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - ZEP_OPENAI_API_KEY=${ZEP_OPENAI_API_KEY:-user_provided}
+      - ZEP_AUTH_SECRET=${SERVICE_PASSWORD_AUTHSECRET}
+      - ZEP_SERVER_WEB_ENABLED=${ZEP_SERVER_WEB_ENABLED:-true}
+      - TZ=${TZ:-UTC}
+
+    healthcheck:
+      test: ['CMD-SHELL', 'bash -c ":> /dev/tcp/127.0.0.1/5557" || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 45s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${ZEP_POSTGRES_IMAGE:-ghcr.io/getzep/postgres:postgres-15}
+    restart: ${ZEP_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    shm_size: 128mb
+
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_POSTGRES}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - zep_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${SERVICE_USER_POSTGRES} -d ${POSTGRES_DB:-postgres}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  zep_postgres_data:

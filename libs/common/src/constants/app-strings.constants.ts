@@ -1,8 +1,50 @@
+/**
+ * Formats a deployment port in use message.
+ */
+export function formatDeploymentPortInUseMessage(port?: number | null): string {
+  if (
+    typeof port === "number" &&
+    Number.isInteger(port) &&
+    port > 0 &&
+    port <= 65535
+  ) {
+    return `Port ${port} is already in use. Please use another port.`;
+  }
+
+  return "Port is already in use. Please use another port.";
+}
+
+export function extractOccupiedPortFromError(text: string): number | null {
+  const bindMatch = text.match(/bind for(?:\s+[\d.]+)?:\s*(\d{1,5})\b/i);
+  if (bindMatch) {
+    const port = Number(bindMatch[1]);
+    if (port > 0 && port <= 65535) {
+      return port;
+    }
+  }
+
+  const portMatch = text.match(/\bport\s+(\d{1,5})\s+is already\b/i);
+  if (portMatch) {
+    const port = Number(portMatch[1]);
+    if (port > 0 && port <= 65535) {
+      return port;
+    }
+  }
+
+  return null;
+}
+
 export const ERROR_MESSAGES = {
   INVALID_COMPOSE_NAME: "Invalid docker compose project name",
   ENV_GENERATION_FAILED: ".env file was not generated",
   PORT_OCCUPIED: (port: number) => `Port ${port} is already occupied`,
+  DEPLOYMENT_PORT_IN_USE: (port: number) =>
+    formatDeploymentPortInUseMessage(port),
   COMPOSE_VALIDATION_FAILED: "Docker compose validation failed",
+  INSUFFICIENT_RAM:
+    "Not enough RAM available in server to run this service container",
+  INSUFFICIENT_CPU:
+    "Not enough CPU available in server to run this service container",
   DEPLOYMENT_FAILED: "Deployment failed",
   CLEANUP_FAILED: "Deployment cleanup failed",
   REMOVAL_FAILED: "Deployment removal failed",
@@ -30,4 +72,15 @@ export const SUCCESS_MESSAGES = {
 export const SOCKET_ERROR_MESSAGES = {
   MISSING_SOCKET_PAYLOAD: "Missing socket payload",
   INVALID_SOCKET_PAYLOAD: "Invalid socket payload",
+  MISSING_REQUEST_ID: "Missing requestId",
+  MISSING_REQUEST_ID_TEMPLATE_COMPOSE:
+    "Missing requestId, templateSlug, or compose payload",
+  MISSING_REQUEST_ID_CONTAINER_ACTION:
+    "Missing requestId, containerId, or action",
+  MISSING_REQUEST_ID_CONTAINER_LOGS_START:
+    "Missing requestId, sessionId, or containerId",
+  MISSING_DEPLOYMENT_SCHEMA: (templateName: string) =>
+    `Missing deployment schema for template ${templateName}`,
+  CANNOT_SEND_TERMINAL_CONNECT_RESULT:
+    "Cannot send terminal connect result: socket disconnected",
 };

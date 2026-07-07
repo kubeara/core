@@ -6,8 +6,10 @@ import type {
   DeployTemplateInput,
   DeployTemplateResult,
   DeploymentDetail,
+  DeploymentResourceWarning,
   ServerContainer,
   ServerDeploymentSummary,
+  ValidateDeploymentResourcesResult,
 } from "../types";
 
 function responseBody(response: { data: unknown }): Record<string, unknown> {
@@ -17,16 +19,43 @@ function responseBody(response: { data: unknown }): Record<string, unknown> {
 export async function deployTemplate(
   input: DeployTemplateInput,
 ): Promise<DeployTemplateResult> {
-  const response = await apiClient.post("/deployments/compose", {
+  const response = await apiClient.post(
+    "/deployments/compose",
+    {
+      templateSlug: input.templateSlug,
+      serverId: input.serverId,
+      env: input.env ?? {},
+      ports: input.ports ?? {},
+    },
+    input.acknowledgeResourceWarning
+      ? { params: { acknowledgeResourceWarning: "true" } }
+      : undefined,
+  );
+  return unwrapServerApiData<DeployTemplateResult>(
+    responseBody(response),
+    "Failed to start deployment",
+  );
+}
+
+export async function validateDeploymentResources(
+  input: DeployTemplateInput,
+): Promise<ValidateDeploymentResourcesResult> {
+  const response = await apiClient.post("/deployments/resources/check", {
     templateSlug: input.templateSlug,
     serverId: input.serverId,
     env: input.env ?? {},
     ports: input.ports ?? {},
   });
-  return unwrapServerApiData<DeployTemplateResult>(
-    responseBody(response),
-    "Failed to start deployment",
-  );
+  const data = unwrapServerApiData<
+    | { available: true }
+    | { available: false; warning: DeploymentResourceWarning }
+  >(responseBody(response), "Failed to validate deployment resources");
+
+  if (!data.available && data.warning) {
+    return { ok: false, warning: data.warning };
+  }
+
+  return { ok: true };
 }
 
 export async function executeContainerAction(

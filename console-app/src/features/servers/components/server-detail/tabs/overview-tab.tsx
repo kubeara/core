@@ -16,12 +16,15 @@ import {
   CONTAINER_STATUS_FILTER_OPTIONS,
   getContainerDisplayName,
   getContainerServiceName,
+  isKubearaAgentContainer,
+  isKubearaManagedContainer,
   matchesContainerStatusFilter,
   type ContainerStatusFilter,
 } from "../utils/container-display";
 
 type ServerOverviewTabProps = {
   serverId: string;
+  serverHost: string;
   containers: ServerContainer[];
   isLoading: boolean;
   isError: boolean;
@@ -29,6 +32,7 @@ type ServerOverviewTabProps = {
 
 export function ServerOverviewTab({
   serverId,
+  serverHost,
   containers,
   isLoading,
   isError,
@@ -71,12 +75,24 @@ export function ServerOverviewTab({
     [containers, statusFilter],
   );
 
-  const kubearaManagedContainers = filteredContainers.filter(
-    (container) => container.managedType === "KUBEARA_MANAGED",
-  );
+  const kubearaManagedContainers = filteredContainers
+    .filter((container) => isKubearaManagedContainer(container))
+    .sort((left, right) => {
+      const leftIsAgent = isKubearaAgentContainer(left);
+      const rightIsAgent = isKubearaAgentContainer(right);
+      if (leftIsAgent && !rightIsAgent) {
+        return -1;
+      }
+      if (!leftIsAgent && rightIsAgent) {
+        return 1;
+      }
+      return getContainerDisplayName(left).localeCompare(
+        getContainerDisplayName(right),
+      );
+    });
 
   const selfManagedContainers = filteredContainers.filter(
-    (container) => container.managedType !== "KUBEARA_MANAGED",
+    (container) => !isKubearaManagedContainer(container),
   );
 
   const hasActiveFilter = statusFilter !== "";
@@ -134,6 +150,7 @@ export function ServerOverviewTab({
           `${container.deploymentId ?? "offline"}-${container.containerName}`
         }
         container={container}
+        serverHost={serverHost}
         logo={
           container.templateId
             ? (templateLogos.get(container.templateId) ?? null)
@@ -178,6 +195,9 @@ export function ServerOverviewTab({
                 options={CONTAINER_STATUS_FILTER_OPTIONS}
                 onChange={setStatusFilter}
                 ariaLabel="Filter by status"
+                searchable
+                searchPlaceholder="Search statuses…"
+                noResultsLabel="No statuses found"
                 pinnedOptionValue=""
               />
               {hasActiveFilter ? (

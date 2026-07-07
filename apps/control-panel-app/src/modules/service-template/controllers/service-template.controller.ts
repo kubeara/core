@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   Get,
+  Logger,
   Param,
   Query,
   Res,
@@ -9,6 +10,7 @@ import {
 import type { Response } from "express";
 
 import { PaginatedResponse } from "@shared/common";
+import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import { ServiceResponse } from "@control-panel/common/interfaces/success-response.interface";
 
 import { ListTemplatesQueryDto } from "../dto/list-templates-query.dto";
@@ -17,6 +19,8 @@ import { ServiceTemplateService } from "../services/service-template.service";
 
 @Controller("templates")
 export class ServiceTemplateController {
+  private readonly logger = new Logger(ServiceTemplateController.name);
+
   constructor(
     private readonly serviceTemplateService: ServiceTemplateService,
   ) {}
@@ -25,18 +29,30 @@ export class ServiceTemplateController {
    * Lists templates with pagination.
    */
   @Get()
-  listTemplates(
+  async listTemplates(
     @Query() query: ListTemplatesQueryDto,
   ): Promise<ServiceResponse<PaginatedResponse<TemplateListItemDto>>> {
-    return this.serviceTemplateService.listTemplatesPaginated(query);
+    try {
+      return await this.serviceTemplateService.listTemplatesPaginated(query);
+    } catch (error) {
+      this.logger.error(`List templates failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**
    * Lists unique template categories.
    */
   @Get("categories")
-  listCategories(): Promise<ServiceResponse<string[]>> {
-    return this.serviceTemplateService.listTemplateCategories();
+  async listCategories(): Promise<ServiceResponse<string[]>> {
+    try {
+      return await this.serviceTemplateService.listTemplateCategories();
+    } catch (error) {
+      this.logger.error(
+        `List template categories failed: ${toErrorMessage(error)}`,
+      );
+      throw error;
+    }
   }
 
   /**
@@ -48,31 +64,36 @@ export class ServiceTemplateController {
     @Query("format") format = "details",
     @Res({ passthrough: true }) res: Response,
   ) {
-    const normalized = (format || "details").toLowerCase();
+    try {
+      const normalized = (format || "details").toLowerCase();
 
-    if (normalized === "details") {
-      return this.serviceTemplateService.getTemplateDetails(slug);
-    }
+      if (normalized === "details") {
+        return await this.serviceTemplateService.getTemplateDetails(slug);
+      }
 
-    if (normalized === "yml" || normalized === "yaml") {
-      const tpl = await this.serviceTemplateService.getTemplate(slug, format);
-      res.setHeader("Content-Type", "application/x-yaml");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${slug}.yml"`,
+      if (normalized === "yml" || normalized === "yaml") {
+        const tpl = await this.serviceTemplateService.getTemplate(slug, format);
+        res.setHeader("Content-Type", "application/x-yaml");
+        res.setHeader(
+          "Content-Disposition",
+          `attachment; filename="${slug}.yml"`,
+        );
+        res.send((tpl as { compose: string }).compose);
+        return;
+      }
+
+      if (normalized === "json" || normalized === "base64") {
+        const tpl = await this.serviceTemplateService.getTemplate(slug, format);
+        res.json(tpl);
+        return;
+      }
+
+      throw new BadRequestException(
+        `Unsupported format '${format}'. Supported formats: details, yml, yaml, json, base64.`,
       );
-      res.send((tpl as { compose: string }).compose);
-      return;
+    } catch (error) {
+      this.logger.error(`Get template failed: ${toErrorMessage(error)}`);
+      throw error;
     }
-
-    if (normalized === "json" || normalized === "base64") {
-      const tpl = await this.serviceTemplateService.getTemplate(slug, format);
-      res.json(tpl);
-      return;
-    }
-
-    throw new BadRequestException(
-      `Unsupported format '${format}'. Supported formats: details, yml, yaml, json, base64.`,
-    );
   }
 }

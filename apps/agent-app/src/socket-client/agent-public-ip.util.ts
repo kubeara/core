@@ -2,7 +2,7 @@ const DETECT_TIMEOUT_MS = 5000;
 const DETECT_URL = "https://api.ipify.org?format=text";
 
 /**
- * Best-effort outbound public IPv4 for matching control-panel `servers.host`.
+ * Detects the outbound public IPv4 address for matching control-panel `servers.host`.
  * Returns empty string when detection fails (control panel may still bind local server).
  */
 export async function detectOutboundPublicIp(): Promise<string> {

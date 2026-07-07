@@ -14,8 +14,15 @@ import {
 } from "../utils/deploy-form-schema";
 import { groupTemplateVariables } from "../utils/field-utils";
 import { getDeploymentSocket } from "@/lib/socket/deployment-socket-client";
+import { showErrorToast } from "@/lib/toast";
+import { validateDeploymentResources } from "@/features/deployments/api";
+import { DeployResourceWarningConfirmModal } from "@/features/deployments/components/deploy-resource-warning-confirm-modal";
+import { DEPLOYMENT_VALIDATION_IN_PROGRESS_MESSAGE } from "@/features/deployments/constants/deployment-validation-messages";
+import { mapDeploymentFailureMessage } from "@/features/deployments/constants/deployment-failure-messages";
+import type { DeploymentResourceWarningCode } from "@/features/deployments/types";
 import { DynamicDeployFields } from "./dynamic-deploy-fields";
 import { DeployServiceSummaryCard } from "./deploy-service-summary-card";
+import type { DeployServiceSummaryStatus } from "./deploy-service-summary-card";
 
 type DeployConfigurationFormProps = {
   template: ApiTemplate;
@@ -30,6 +37,14 @@ export function DeployConfigurationForm({
 }: DeployConfigurationFormProps) {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resourceWarningCode, setResourceWarningCode] =
+    useState<DeploymentResourceWarningCode | null>(null);
+  const [pendingDeployValues, setPendingDeployValues] = useState<{
+    env: Record<string, string>;
+    ports: Record<string, string>;
+  } | null>(null);
+  const [summaryStatus, setSummaryStatus] =
+    useState<DeployServiceSummaryStatus | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const editSnapshotRef = useRef<Record<string, unknown>>({});
   const detailsQuery = useTemplateDetailsQuery(template.slug);
@@ -63,6 +78,7 @@ export function DeployConfigurationForm({
 
   function handleEdit() {
     editSnapshotRef.current = form.getValues();
+    setSummaryStatus(null);
     setIsEditing(true);
   }
 
@@ -85,10 +101,11 @@ export function DeployConfigurationForm({
     form.handleSubmit(handleSubmit)();
   }
 
-  function handleSubmit(values: Record<string, unknown>) {
-    setIsSubmitting(true);
-    const { env, ports: portValues } = splitDeployFormValues(variables, values);
-
+  function proceedToDeployLogs(
+    env: Record<string, string>,
+    portValues: Record<string, string>,
+    acknowledgeResourceWarning = false,
+  ) {
     navigate(`/servers/${serverId}/deploy/${template.slug}/logs`, {
       state: {
         deployRequest: {
@@ -96,18 +113,78 @@ export function DeployConfigurationForm({
           templateSlug: template.slug,
           env,
           ports: portValues,
+          acknowledgeResourceWarning,
         },
       },
     });
   }
 
+  async function handleSubmit(values: Record<string, unknown>) {
+    setIsSubmitting(true);
+    setSummaryStatus({
+      type: "validating",
+      message: DEPLOYMENT_VALIDATION_IN_PROGRESS_MESSAGE,
+    });
+    const { env, ports: portValues } = splitDeployFormValues(variables, values);
+
+    try {
+      const validation = await validateDeploymentResources({
+        templateSlug: template.slug,
+        serverId,
+        env,
+        ports: portValues,
+      });
+
+      if (!validation.ok) {
+        setPendingDeployValues({ env, ports: portValues });
+        setResourceWarningCode(validation.warning.code);
+        setSummaryStatus(null);
+        setIsSubmitting(false);
+        return;
+      }
+
+      proceedToDeployLogs(env, portValues);
+    } catch (error) {
+      setSummaryStatus(null);
+      showErrorToast(mapDeploymentFailureMessage(getErrorMessage(error)));
+      setIsSubmitting(false);
+    }
+  }
+
+  function handleCancelResourceWarning() {
+    setResourceWarningCode(null);
+    setPendingDeployValues(null);
+    setIsSubmitting(false);
+  }
+
+  function handleConfirmResourceWarning() {
+    if (!pendingDeployValues) {
+      handleCancelResourceWarning();
+      return;
+    }
+
+    const { env, ports: portValues } = pendingDeployValues;
+    setResourceWarningCode(null);
+    setPendingDeployValues(null);
+    proceedToDeployLogs(env, portValues, true);
+  }
+
   return (
     <div className="deploy-configure-layout">
+      {resourceWarningCode ? (
+        <DeployResourceWarningConfirmModal
+          warningCode={resourceWarningCode}
+          isPending={false}
+          onCancel={handleCancelResourceWarning}
+          onConfirm={handleConfirmResourceWarning}
+        />
+      ) : null}
       <DeployServiceSummaryCard
         template={resolvedTemplate}
         serverName={serverName}
         serverId={serverId}
         variableCount={isLoadingFields ? "loading" : fieldCount}
+        status={summaryStatus}
       />
 
       <div className="deploy-configure-main">
@@ -186,7 +263,7 @@ export function DeployConfigurationForm({
                   }
                   aria-busy={isSubmitting}
                 >
-                  {isSubmitting ? "Deploying…" : "Deploy"}
+                  Deploy
                 </button>
               )}
             </footer>

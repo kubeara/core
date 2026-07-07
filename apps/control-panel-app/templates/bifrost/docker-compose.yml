@@ -1,0 +1,46 @@
+# documentation: https://docs.getbifrost.ai
+# shortDescription: High-performance OpenAI-compatible AI gateway
+# longDescription: <p>Bifrost is a <strong>unified AI gateway</strong> exposing 15+ LLM providers through one OpenAI-compatible API.</p><p>Includes a built-in web UI for provider management. Configuration persists under <code>/app/data</code>.</p>
+# category: ai,api
+# tags: bifrost,ai,llm,gateway,proxy,openai,api
+# port: 8080
+
+services:
+  bifrost:
+    image: ${BIFROST_IMAGE:-maximhq/bifrost:latest}
+    restart: ${BIFROST_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_BIFROST:-8080}:8080'
+
+    environment:
+      - SERVICE_URL_BIFROST_8080
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - bifrost_data:/app/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  bifrost_data:

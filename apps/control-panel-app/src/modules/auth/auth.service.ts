@@ -3,11 +3,19 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Logger,
   UnauthorizedException,
   NotFoundException,
 } from "@nestjs/common";
+import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, EntityManager, MoreThan, Repository } from "typeorm";
+import {
+  DataSource,
+  EntityManager,
+  IsNull,
+  MoreThan,
+  Repository,
+} from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import dayjs from "dayjs";
 import * as bcrypt from "bcrypt";
@@ -42,6 +50,8 @@ export interface AuthTokens {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
@@ -378,9 +388,8 @@ export class AuthService {
         },
       };
     } catch (error) {
-      if (queryRunner.isTransactionActive) {
-        await queryRunner.rollbackTransaction();
-      }
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`Signup failed: ${toErrorMessage(error)}`);
       throw error;
     } finally {
       await queryRunner.release();
@@ -402,56 +411,61 @@ export class AuthService {
       tokens: AuthTokens;
     };
   }> {
-    const emailNormalized = loginDto.email.toLowerCase().trim();
+    try {
+      const emailNormalized = loginDto.email.toLowerCase().trim();
 
-    const user = await this.userRepository.findOne({
-      where: { email: emailNormalized },
-      relations: { organization: true },
-    });
+      const user = await this.userRepository.findOne({
+        where: { email: emailNormalized },
+        relations: { organization: true },
+      });
 
-    if (!user) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_CREDENTIALS);
-    }
+      if (!user) {
+        throw new UnauthorizedException(
+          ERROR_MESSAGES.AUTH.INVALID_CREDENTIALS,
+        );
+      }
 
-    const isPasswordValid = await bcrypt.compare(
-      loginDto.password,
-      user.passwordHash,
-    );
-    if (!isPasswordValid) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_CREDENTIALS);
-    }
+      const isPasswordValid = await bcrypt.compare(
+        loginDto.password,
+        user.passwordHash,
+      );
+      if (!isPasswordValid) {
+        throw new UnauthorizedException(
+          ERROR_MESSAGES.AUTH.INVALID_CREDENTIALS,
+        );
+      }
 
-    if (!user.isEmailVerified) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.EMAIL_NOT_VERIFIED);
-    }
+      user.lastLoginAt = dayjs().valueOf();
+      await this.userRepository.save(user);
 
-    user.lastLoginAt = dayjs().valueOf();
-    await this.userRepository.save(user);
+      const tokens = await this.generateTokens(user);
+      const session = this.authSessionRepository.create({
+        userId: user.id,
+        tokenType: "jwt",
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt: this.getRefreshExpiresAt(),
+        status: EntityStatus.ACTIVE,
+      });
 
-    const tokens = await this.generateTokens(user);
-    const session = this.authSessionRepository.create({
-      userId: user.id,
-      tokenType: "jwt",
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresAt: this.getRefreshExpiresAt(),
-      status: EntityStatus.ACTIVE,
-    });
+      await this.persistSessionTokens(session, tokens);
 
-    await this.persistSessionTokens(session, tokens);
-
-    return {
-      message: SUCCESS_MESSAGES.AUTH.LOGIN,
-      data: {
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          organizationId: user.organizationId,
+      return {
+        message: SUCCESS_MESSAGES.AUTH.LOGIN,
+        data: {
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            organizationId: user.organizationId,
+          },
+          tokens,
         },
-        tokens,
-      },
-    };
+      };
+    } catch (error) {
+      this.logger.error(`Login failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**
@@ -461,158 +475,214 @@ export class AuthService {
     userId: string;
     refreshToken: string;
   }): Promise<{ message: string; data: { tokens: AuthTokens } }> {
-    const { userId, refreshToken } = input;
+    try {
+      const { userId, refreshToken } = input;
 
-    if (!isJwtToken(refreshToken)) {
-      throw new UnauthorizedException(
-        ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
-      );
+      if (!isJwtToken(refreshToken)) {
+        throw new UnauthorizedException(
+          ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
+        );
+      }
+
+      const authSession =
+        await this.authSessionLookupService.findSessionByRefreshToken(
+          userId,
+          refreshToken,
+        );
+
+      if (!authSession) {
+        await this.revokeAllUserSessions(userId);
+        throw new UnauthorizedException(
+          ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
+        );
+      }
+
+      if (authSession.status !== EntityStatus.ACTIVE) {
+        await this.revokeAllUserSessions(userId);
+        throw new UnauthorizedException(
+          ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
+        );
+      }
+
+      if (Number(authSession.expiresAt) <= dayjs().unix()) {
+        authSession.status = EntityStatus.INACTIVE;
+        await this.authSessionRepository.save(authSession);
+
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.SESSION_EXPIRED);
+      }
+
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+      });
+
+      if (!user || user.status !== EntityStatus.ACTIVE) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
+      }
+
+      const tokens = await this.generateTokens(user);
+
+      authSession.metadata = {
+        ...(authSession.metadata || {}),
+        refreshedAt: dayjs().unix(),
+      };
+
+      await this.persistSessionTokens(authSession, tokens);
+
+      return {
+        message: SUCCESS_MESSAGES.AUTH.REFRESH,
+        data: { tokens },
+      };
+    } catch (error) {
+      this.logger.error(`Refresh token failed: ${toErrorMessage(error)}`);
+      throw error;
     }
-
-    const authSession =
-      await this.authSessionLookupService.findSessionByRefreshToken(
-        userId,
-        refreshToken,
-      );
-
-    if (!authSession) {
-      await this.revokeAllUserSessions(userId);
-      throw new UnauthorizedException(
-        ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
-      );
-    }
-
-    if (authSession.status !== EntityStatus.ACTIVE) {
-      await this.revokeAllUserSessions(userId);
-      throw new UnauthorizedException(
-        ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
-      );
-    }
-
-    if (Number(authSession.expiresAt) <= dayjs().unix()) {
-      authSession.status = EntityStatus.INACTIVE;
-      await this.authSessionRepository.save(authSession);
-
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.SESSION_EXPIRED);
-    }
-
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-    });
-
-    if (!user || user.status !== EntityStatus.ACTIVE) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
-    }
-
-    const tokens = await this.generateTokens(user);
-
-    authSession.metadata = {
-      ...(authSession.metadata || {}),
-      refreshedAt: dayjs().unix(),
-    };
-
-    await this.persistSessionTokens(authSession, tokens);
-
-    return {
-      message: SUCCESS_MESSAGES.AUTH.REFRESH,
-      data: { tokens },
-    };
   }
 
   /**
    * Logout a user
    */
   async logout(userId: string, accessToken?: string) {
-    if (!accessToken) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
+    try {
+      if (!accessToken) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
+      }
+
+      const authSession =
+        await this.authSessionLookupService.findActiveSessionByAccessToken(
+          userId,
+          accessToken,
+        );
+
+      if (!authSession) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
+      }
+
+      authSession.status = EntityStatus.INACTIVE;
+      await this.authSessionRepository.save(authSession);
+
+      return {
+        message: SUCCESS_MESSAGES.AUTH.LOGOUT,
+        data: null,
+      };
+    } catch (error) {
+      this.logger.error(`Logout failed: ${toErrorMessage(error)}`);
+      throw error;
     }
-
-    const authSession =
-      await this.authSessionLookupService.findActiveSessionByAccessToken(
-        userId,
-        accessToken,
-      );
-
-    if (!authSession) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
-    }
-
-    authSession.status = EntityStatus.INACTIVE;
-    await this.authSessionRepository.save(authSession);
-
-    return {
-      message: SUCCESS_MESSAGES.AUTH.LOGOUT,
-      data: null,
-    };
   }
 
   async logoutAllDevices(userId: string) {
-    await this.revokeAllUserSessions(userId);
+    try {
+      await this.revokeAllUserSessions(userId);
 
-    return {
-      message: SUCCESS_MESSAGES.AUTH.LOGOUT_ALL,
-      data: null,
-    };
+      return {
+        message: SUCCESS_MESSAGES.AUTH.LOGOUT_ALL,
+        data: null,
+      };
+    } catch (error) {
+      this.logger.error(`Logout all devices failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**
    * Get the profile of the authenticated user
    */
   async getProfile(userId: string) {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-      relations: { organization: true },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        organizationId: true,
-        profilePictureUrl: true,
-        dateOfBirth: true,
-        organization: {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        relations: { organization: true },
+        select: {
           id: true,
           name: true,
-          logo: true,
+          email: true,
+          organizationId: true,
+          profilePictureUrl: true,
+          dateOfBirth: true,
+          organization: {
+            id: true,
+            name: true,
+            logo: true,
+          },
         },
-      },
-    });
+      });
 
-    if (!user) {
-      throw new NotFoundException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+      if (!user) {
+        throw new NotFoundException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+      }
+
+      return {
+        message: SUCCESS_MESSAGES.AUTH.PROFILE,
+        data: user,
+      };
+    } catch (error) {
+      this.logger.error(`Get profile failed: ${toErrorMessage(error)}`);
+      throw error;
     }
-
-    return {
-      message: SUCCESS_MESSAGES.AUTH.PROFILE,
-      data: user,
-    };
   }
 
   /**
    * Forgot password
    */
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
-    const email = forgotPasswordDto.email.toLowerCase().trim();
+    try {
+      const email = forgotPasswordDto.email.toLowerCase().trim();
 
-    const user = await this.userRepository.findOne({
-      where: { email },
-    });
+      const user = await this.userRepository.findOne({
+        where: { email },
+      });
 
-    if (!user) {
-      throw new NotFoundException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+      if (!user) {
+        return {
+          message: SUCCESS_MESSAGES.AUTH.OTP_SENT,
+        };
+      }
+
+      await this.userCodeRepository.update(
+        {
+          userId: user.id,
+          codeType: CODE_TYPE.FORGOT_PASSWORD,
+          verifiedAt: IsNull(),
+        },
+        {
+          status: EntityStatus.INACTIVE,
+        },
+      );
+
+      const otp = GenerateOTP();
+
+      const otpHash = await bcrypt.hash(otp, 10);
+
+      await this.userCodeRepository.save(
+        this.userCodeRepository.create({
+          userId: user.id,
+          codeType: CODE_TYPE.FORGOT_PASSWORD,
+          otpHash,
+          expiresAt: dayjs().add(10, "minute").unix(),
+          attempts: 0,
+        }),
+      );
+
+      if (!user) {
+        throw new NotFoundException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+      }
+
+      await this.assertOtpResendAllowed(user.id, CODE_TYPE.FORGOT_PASSWORD);
+
+      // const { otp } = await this.createOtpRecord(
+      //   user.id,
+      //   CODE_TYPE.FORGOT_PASSWORD,
+      // );
+      await this.sendOtpEmail(user, CODE_TYPE.FORGOT_PASSWORD, otp);
+
+      return {
+        message: SUCCESS_MESSAGES.AUTH.OTP_SENT,
+        data: null,
+      };
+    } catch (error) {
+      this.logger.error(`Forgot password failed: ${toErrorMessage(error)}`);
+      throw error;
     }
-
-    await this.assertOtpResendAllowed(user.id, CODE_TYPE.FORGOT_PASSWORD);
-
-    const { otp } = await this.createOtpRecord(
-      user.id,
-      CODE_TYPE.FORGOT_PASSWORD,
-    );
-    await this.sendOtpEmail(user, CODE_TYPE.FORGOT_PASSWORD, otp);
-
-    return {
-      message: SUCCESS_MESSAGES.AUTH.OTP_SENT,
-      data: null,
-    };
   }
 
   async resendOtp(email: string) {
@@ -642,114 +712,125 @@ export class AuthService {
    * Verify OTP
    */
   async verifyOtp(verifyOtpDto: VerifyOtpDto) {
-    const email = verifyOtpDto.email.toLowerCase().trim();
+    try {
+      const email = verifyOtpDto.email.toLowerCase().trim();
 
-    const user = await this.userRepository.findOne({
-      where: { email },
-    });
+      const user = await this.userRepository.findOne({
+        where: { email },
+      });
 
-    if (!user) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
-    }
+      if (!user) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
+      }
 
-    const otpRecord = await this.getLatestActiveOtpRecord(
-      user.id,
-      verifyOtpDto.purpose,
-    );
+      const otpRecord = await this.getLatestActiveOtpRecord(
+        user.id,
+        verifyOtpDto.purpose,
+      );
 
-    if (!otpRecord) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
-    }
+      if (!otpRecord) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
+      }
 
-    if (Number(otpRecord.expiresAt) < dayjs().unix()) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.OTP_EXPIRED);
-    }
+      if (Number(otpRecord.expiresAt) < dayjs().unix()) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.OTP_EXPIRED);
+      }
 
-    if (otpRecord.attempts >= 3) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.MAX_OTP_ATTEMPTS);
-    }
+      if (otpRecord.attempts >= 3) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.MAX_OTP_ATTEMPTS);
+      }
 
-    const isValid = await bcrypt.compare(verifyOtpDto.otp, otpRecord.otpHash);
+      const isValid = await bcrypt.compare(verifyOtpDto.otp, otpRecord.otpHash);
 
-    if (!isValid) {
-      otpRecord.attempts += 1;
+      if (!isValid) {
+        otpRecord.attempts += 1;
+
+        await this.userCodeRepository.save(otpRecord);
+
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
+      }
+
+      otpRecord.verifiedAt = dayjs().unix();
 
       await this.userCodeRepository.save(otpRecord);
 
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
+      if (verifyOtpDto.purpose === CODE_TYPE.EMAIL_VERIFICATION) {
+        user.isEmailVerified = true;
+        user.emailVerifiedAt = dayjs().unix();
+        await this.userRepository.save(user);
+      }
+
+      const message =
+        verifyOtpDto.purpose === CODE_TYPE.EMAIL_VERIFICATION
+          ? SUCCESS_MESSAGES.AUTH.EMAIL_VERIFIED
+          : SUCCESS_MESSAGES.AUTH.RESET_CODE_VERIFIED;
+
+      return {
+        message,
+        data: null,
+      };
+    } catch (error) {
+      this.logger.error(`Verify OTP failed: ${toErrorMessage(error)}`);
+      throw error;
     }
-
-    otpRecord.verifiedAt = dayjs().unix();
-
-    await this.userCodeRepository.save(otpRecord);
-
-    if (verifyOtpDto.purpose === CODE_TYPE.EMAIL_VERIFICATION) {
-      user.isEmailVerified = true;
-      user.emailVerifiedAt = dayjs().unix();
-      await this.userRepository.save(user);
-    }
-
-    const message =
-      verifyOtpDto.purpose === CODE_TYPE.EMAIL_VERIFICATION
-        ? SUCCESS_MESSAGES.AUTH.EMAIL_VERIFIED
-        : SUCCESS_MESSAGES.AUTH.RESET_CODE_VERIFIED;
-
-    return {
-      message,
-      data: null,
-    };
   }
 
   /**
    * Reset password
    */
   async resetPassword(resetPasswordDto: ResetPasswordDto) {
-    const email = resetPasswordDto.email.toLowerCase().trim();
+    try {
+      const email = resetPasswordDto.email.toLowerCase().trim();
 
-    const user = await this.userRepository.findOne({
-      where: { email },
-    });
+      const user = await this.userRepository.findOne({
+        where: { email },
+      });
 
-    if (!user) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+      if (!user) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+      }
+
+      const otpRecord = await this.getLatestActiveOtpRecord(
+        user.id,
+        CODE_TYPE.FORGOT_PASSWORD,
+      );
+
+      if (!otpRecord?.verifiedAt) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.OTP_NOT_VERIFIED);
+      }
+
+      user.passwordHash = await bcrypt.hash(
+        resetPasswordDto.newPassword,
+        SALT_ROUNDS,
+      );
+
+      user.lastPasswordResetAt = dayjs().unix();
+
+      await this.userRepository.save(user);
+
+      otpRecord.status = EntityStatus.INACTIVE;
+
+      await this.userCodeRepository.save(otpRecord);
+
+      await this.userCodeRepository.update(
+        {
+          userId: user.id,
+          codeType: CODE_TYPE.FORGOT_PASSWORD,
+        },
+        {
+          status: EntityStatus.INACTIVE,
+        },
+      );
+
+      await this.revokeAllUserSessions(user.id);
+
+      return {
+        message: SUCCESS_MESSAGES.AUTH.PASSWORD_RESET,
+        data: null,
+      };
+    } catch (error) {
+      this.logger.error(`Reset password failed: ${toErrorMessage(error)}`);
+      throw error;
     }
-
-    const otpRecord = await this.getLatestActiveOtpRecord(
-      user.id,
-      CODE_TYPE.FORGOT_PASSWORD,
-    );
-
-    if (!otpRecord?.verifiedAt) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.OTP_NOT_VERIFIED);
-    }
-
-    user.passwordHash = await bcrypt.hash(
-      resetPasswordDto.newPassword,
-      SALT_ROUNDS,
-    );
-
-    user.lastPasswordResetAt = dayjs().unix();
-
-    await this.userRepository.save(user);
-
-    otpRecord.status = EntityStatus.INACTIVE;
-
-    await this.userCodeRepository.save(otpRecord);
-    await this.userCodeRepository.update(
-      {
-        userId: user.id,
-        codeType: CODE_TYPE.FORGOT_PASSWORD,
-      },
-      {
-        status: EntityStatus.INACTIVE,
-      },
-    );
-
-    await this.revokeAllUserSessions(user.id);
-
-    return {
-      message: SUCCESS_MESSAGES.AUTH.PASSWORD_RESET,
-      data: null,
-    };
   }
 }

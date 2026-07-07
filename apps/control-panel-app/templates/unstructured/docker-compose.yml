@@ -1,0 +1,42 @@
+# documentation: https://github.com/Unstructured-IO/unstructured-api?tab=readme-ov-file#--general-pre-processing-pipeline-for-documents
+# shortDescription: Document ingestion and preprocessing API for RAG pipelines
+# longDescription: <p>Unstructured provides an <strong>API for parsing and preprocessing</strong> documents for RAG and model fine-tuning.</p><p>API key auth uses <code>SERVICE_PASSWORD_APIKEY</code>. Access the health endpoint on port 8000 after deploy.</p>
+# category: ai,data
+# tags: unstructured,ai,document,parsing,ocr,rag,nlp,data-extraction
+# logo: svgs/unstructured.png
+# port: 8000
+
+services:
+  unstructured:
+    image: ${UNSTRUCTURED_IMAGE:-downloads.unstructured.io/unstructured-io/unstructured-api:latest}
+    restart: ${UNSTRUCTURED_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_UNSTRUCTURED:-8000}:8000'
+
+    environment:
+      - SERVICE_URL_UNSTRUCTURED_8000
+      - UNSTRUCTURED_API_KEY=${SERVICE_PASSWORD_APIKEY}
+      - TZ=${TZ:-UTC}
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8000/healthcheck || exit 1']
+      interval: 15s
+      timeout: 30s
+      retries: 8
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

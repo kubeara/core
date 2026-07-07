@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getErrorMessage } from "@/api/api-error";
 import { Dropdown } from "@/components/shared/dropdown";
@@ -10,10 +10,14 @@ import {
 } from "../hooks";
 import { SkeletonMarketplaceGrid } from "@/components/shared/skeleton";
 import { MarketplaceTemplateCard } from "./marketplace-template-card";
+import {
+  buildTemplateCategoryFilterOptions,
+  formatCategoryLabel,
+} from "../utils/format-template-category";
 import type { ApiTemplate, TemplatesListParams } from "../types";
 import "../templates-ui.css";
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 100;
 const SEARCH_DEBOUNCE_MS = 300;
 
 type ServerTemplatesPanelProps = {
@@ -64,6 +68,15 @@ export function ServerTemplatesPanel({
     setPage(1);
   }
 
+  const listParamsKey = useMemo(() => JSON.stringify(listParams), [listParams]);
+  const [settledParamsKey, setSettledParamsKey] = useState(listParamsKey);
+
+  useEffect(() => {
+    if (!templatesQuery.isFetching) {
+      setSettledParamsKey(listParamsKey);
+    }
+  }, [listParamsKey, templatesQuery.isFetching]);
+
   const templates = templatesQuery.data?.data ?? [];
   const pagination = templatesQuery.data?.pagination;
   const total = pagination?.total ?? 0;
@@ -74,14 +87,15 @@ export function ServerTemplatesPanel({
   const hasFilters = searchInput.trim() !== "" || category !== "";
   const categories = categoriesQuery.data ?? [];
   const categoryOptions = useMemo(
-    () => [
-      { value: "", label: "All categories" },
-      ...categories.map((entry) => ({ value: entry, label: entry })),
-    ],
+    () => buildTemplateCategoryFilterOptions(categories),
     [categories],
   );
   const loading = templatesQuery.isPending;
-  const fetching = templatesQuery.isFetching;
+  const hasLoadedOnce = templatesQuery.data !== undefined;
+  const isSearchDebouncing = searchInput.trim() !== debouncedSearch.trim();
+  const isFilterLoading =
+    hasLoadedOnce &&
+    (isSearchDebouncing || listParamsKey !== settledParamsKey);
 
   if (loading && !templatesQuery.data) {
     return <SkeletonMarketplaceGrid count={6} label="Loading templates…" />;
@@ -110,11 +124,14 @@ export function ServerTemplatesPanel({
     : "There are no deployable templates for this server yet.";
 
   return (
-    <div className="server-templates-panel">
+    <div
+      className={`server-templates-panel${isFilterLoading ? " is-filter-loading" : ""}`}
+      aria-busy={isFilterLoading || undefined}
+    >
       <div className="server-templates-toolbar">
         <div className="server-templates-filters">
           <input
-            type="search"
+            type="text"
             className="server-templates-search"
             placeholder="Search by name, slug, or tag…"
             value={searchInput}
@@ -130,6 +147,7 @@ export function ServerTemplatesPanel({
               onChange={handleCategoryChange}
               disabled={categoriesQuery.isPending}
               ariaLabel="Filter by category"
+              formatLabel={(entry) => (entry ? formatCategoryLabel(entry) : "All")}
               searchable
               searchPlaceholder="Search categories…"
               noResultsLabel="No categories found"
@@ -142,16 +160,15 @@ export function ServerTemplatesPanel({
         </div>
       </div>
 
-      {templates.length === 0 ? (
+      {isFilterLoading ? (
+        <SkeletonMarketplaceGrid count={12} label="Loading services…" />
+      ) : templates.length === 0 ? (
         <div className="server-templates-state">
           <p className="server-templates-state-title">No templates found</p>
           <p className="server-templates-state-text">{emptyMessage}</p>
         </div>
       ) : (
-        <div
-          className="server-templates-grid"
-          aria-busy={fetching && !loading ? true : undefined}
-        >
+        <div className="server-templates-grid">
           {templates.map((template) => (
             <MarketplaceTemplateCard
               key={template.slug}
@@ -163,17 +180,16 @@ export function ServerTemplatesPanel({
         </div>
       )}
 
-      {total > 0 && (
+      {total > 0 && !isFilterLoading && (
         <div className="server-templates-pagination">
           <div>
             Showing {rangeStart}–{rangeEnd} of {total}
-            {fetching && !loading ? " · Updating…" : ""}
           </div>
           <div className="server-templates-pagination-controls">
             <button
               type="button"
               className="server-templates-page-btn"
-              disabled={currentPage <= 1 || loading}
+              disabled={currentPage <= 1 || loading || isFilterLoading}
               onClick={() => setPage((current) => Math.max(1, current - 1))}
             >
               Previous
@@ -184,7 +200,7 @@ export function ServerTemplatesPanel({
             <button
               type="button"
               className="server-templates-page-btn"
-              disabled={currentPage >= totalPages || loading}
+              disabled={currentPage >= totalPages || loading || isFilterLoading}
               onClick={() => setPage((current) => current + 1)}
             >
               Next

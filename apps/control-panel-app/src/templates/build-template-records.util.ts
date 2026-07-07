@@ -88,9 +88,37 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "ClickHouse",
     version: "25.3",
   },
+  surrealdb: {
+    name: "SurrealDB",
+    version: "latest",
+  },
   n8n: {
     name: "n8n",
     version: "2.10.2",
+  },
+  "n8n-with-postgresql": {
+    name: "n8n with PostgreSQL",
+    version: "2.10.2",
+  },
+  "n8n-with-postgres-and-worker": {
+    name: "n8n with Postgres and Worker",
+    version: "2.10.2",
+  },
+  hatchet: {
+    name: "Hatchet",
+    version: "latest",
+  },
+  prefect: {
+    name: "Prefect",
+    version: "3",
+  },
+  trigger: {
+    name: "Trigger.dev",
+    version: "v3",
+  },
+  "evolution-api": {
+    name: "Evolution API",
+    version: "latest",
   },
   "uptime-kuma": {
     name: "Uptime Kuma",
@@ -171,6 +199,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
   "open-webui": {
     name: "Open WebUI",
     version: "main",
+  },
+  "ollama-with-webui": {
+    name: "Ollama with Open WebUI",
+    version: "latest",
   },
   qdrant: {
     name: "Qdrant",
@@ -266,6 +298,98 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
   },
   langflow: {
     name: "Langflow",
+    version: "latest",
+  },
+  "label-studio": {
+    name: "Label Studio",
+    version: "latest",
+  },
+  librechat: {
+    name: "LibreChat",
+    version: "latest",
+  },
+  "lobe-chat": {
+    name: "LobeChat",
+    version: "latest",
+  },
+  "mage-ai": {
+    name: "Mage AI",
+    version: "latest",
+  },
+  mindsdb: {
+    name: "MindsDB",
+    version: "latest",
+  },
+  bifrost: {
+    name: "Bifrost",
+    version: "latest",
+  },
+  comfyui: {
+    name: "ComfyUI",
+    version: "latest",
+  },
+  "continue-dev": {
+    name: "Continue (Ollama)",
+    version: "latest",
+  },
+  helicone: {
+    name: "Helicone",
+    version: "latest",
+  },
+  "hermes-agent-with-webui": {
+    name: "Hermes Agent (with Web UI)",
+    version: "latest",
+  },
+  "lm-studio": {
+    name: "LM Studio",
+    version: "latest",
+  },
+  metamcp: {
+    name: "MetaMCP",
+    version: "2.4",
+  },
+  openclaw: {
+    name: "OpenClaw",
+    version: "2026.2.6",
+  },
+  "stable-diffusion-webui": {
+    name: "Stable Diffusion WebUI",
+    version: "latest",
+  },
+  tabby: {
+    name: "Tabby",
+    version: "latest",
+  },
+  argilla: {
+    name: "Argilla",
+    version: "2.2",
+  },
+  dify: {
+    name: "Dify",
+    version: "latest",
+  },
+  zep: {
+    name: "Zep",
+    version: "latest",
+  },
+  unstructured: {
+    name: "Unstructured",
+    version: "latest",
+  },
+  semgrep: {
+    name: "Semgrep",
+    version: "latest",
+  },
+  trivy: {
+    name: "Trivy",
+    version: "latest",
+  },
+  checkov: {
+    name: "Checkov",
+    version: "latest",
+  },
+  gitleaks: {
+    name: "Gitleaks",
     version: "latest",
   },
 };

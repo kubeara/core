@@ -132,11 +132,13 @@ a:hover {
 .kubeara-logo {
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .kubeara-logo-image {
   width: auto;
   display: block;
+  object-fit: contain;
 }
 
 .kubeara-logo-image--dark {
@@ -157,6 +159,8 @@ a:hover {
 
 .top-bar-logo .kubeara-logo-image {
   height: 50px;
+  max-height: 50px;
+  width: auto;
 }
 
 .auth-card-footer {
@@ -575,12 +579,19 @@ a:hover {
   display: flex;
   align-items: center;
   gap: 1rem;
+  min-width: 0;
+}
+
+.top-bar-left {
+  flex: 1;
+  min-width: 0;
 }
 
 .top-bar-logo {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  flex-shrink: 0;
   font-weight: 700;
   color: var(--foreground);
   text-decoration: none;
@@ -653,6 +664,35 @@ a:hover {
 @media (min-width: 640px) {
   .top-bar-profile-text {
     display: inline;
+  }
+}
+
+.top-bar-right {
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .top-bar-inner {
+    gap: 0.5rem;
+    padding: 0 1rem;
+  }
+
+  .top-bar-left {
+    gap: 0.5rem;
+  }
+
+  .top-bar-logo .kubeara-logo-image {
+    height: 50px;
+    max-height: 50px;
+  }
+
+  .top-bar-nav {
+    gap: 0.125rem;
+  }
+
+  .top-bar-link {
+    padding: 0.3125rem 0.5rem;
+    font-size: 0.8125rem;
   }
 }
 
@@ -784,15 +824,20 @@ a:hover {
   justify-content: center;
   padding: 1rem;
   background: rgb(0 0 0 / 45%);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-dialog {
   width: 100%;
   max-width: 440px;
+  max-height: min(92dvh, calc(100dvh - 2rem));
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 20px 50px rgb(0 0 0 / 20%);
+  margin: auto;
 }
 
 .modal-dialog-sm {
@@ -804,8 +849,77 @@ a:hover {
 }
 
 .modal-dialog-server {
+  display: flex;
+  flex-direction: column;
   max-width: 52rem;
   width: min(52rem, calc(100vw - 2rem));
+  max-height: min(92dvh, calc(100dvh - 2rem));
+  overflow: hidden;
+}
+
+.modal-dialog-server .modal-header {
+  flex-shrink: 0;
+}
+
+.modal-dialog-server .modal-form {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.modal-dialog-server .modal-form-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.modal-dialog-server .modal-actions {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.875rem 1.25rem 1.25rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+@media (min-width: 641px) {
+  .modal-dialog-server {
+    height: auto;
+    max-height: none;
+  }
+
+  .modal-dialog-server .modal-header {
+    padding: 1.25rem 2rem 0;
+  }
+
+  .modal-dialog-server .modal-form {
+    flex: 0 1 auto;
+    overflow: visible;
+  }
+
+  .modal-dialog-server .modal-form-scroll {
+    flex: 0 1 auto;
+    min-height: auto;
+    overflow: visible;
+    padding: 1rem 2rem;
+  }
+
+  .modal-dialog-server .modal-actions .btn-primary,
+  .modal-dialog-server .modal-actions .btn-secondary {
+    min-width: 0;
+    min-height: 0;
+    padding: 0.5rem 0.875rem;
+    font-size: 0.875rem;
+  }
 }
 
 .modal-advanced-section {
@@ -865,7 +979,8 @@ a:hover {
 }
 
 .server-private-key-input {
-  min-height: 10rem;
+  min-height: 8rem;
+  max-height: 12rem;
   resize: vertical;
   overflow: auto;
   white-space: pre;
@@ -924,6 +1039,19 @@ a:hover {
   padding: 0;
 }
 
+.modal-dialog-server .modal-form .modal-actions {
+  padding: 0.875rem 1.25rem 1.25rem;
+}
+
+@media (min-width: 641px) {
+  .modal-dialog-server .modal-form .modal-actions {
+    gap: 0.75rem;
+    padding: 1.5rem 2rem 1.75rem;
+    min-height: 4.5rem;
+    align-items: center;
+  }
+}
+
 .modal-form .form-field select {
   padding: 0.625rem 0.75rem;
   border: 1px solid var(--border);
@@ -947,6 +1075,58 @@ a:hover {
   justify-content: flex-end;
   gap: 0.5rem;
   padding: 1rem 1.25rem 1.25rem;
+}
+
+@media (max-width: 640px) {
+  .modal-overlay {
+    align-items: flex-start;
+    padding:
+      max(0.75rem, env(safe-area-inset-top, 0px))
+      max(0.75rem, env(safe-area-inset-right, 0px))
+      max(0.75rem, env(safe-area-inset-bottom, 0px))
+      max(0.75rem, env(safe-area-inset-left, 0px));
+  }
+
+  .modal-dialog,
+  .modal-dialog-server {
+    width: 100%;
+    max-width: none;
+    max-height: calc(
+      100dvh - max(1.5rem, env(safe-area-inset-top, 0px)) -
+        max(1.5rem, env(safe-area-inset-bottom, 0px))
+    );
+    border-radius: 12px;
+  }
+
+  .modal-dialog-server .modal-form-scroll {
+    padding: 0.875rem 1rem;
+    scrollbar-gutter: stable;
+  }
+
+  .modal-dialog-server .modal-form-scroll::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .modal-dialog-server .modal-form-scroll::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--foreground) 18%, transparent);
+    border-radius: 999px;
+  }
+
+  .modal-dialog-server .modal-actions {
+    padding: 0.75rem 1rem 1rem;
+    gap: 0.625rem;
+  }
+
+  .modal-dialog-server .modal-actions .btn-primary,
+  .modal-dialog-server .modal-actions .btn-secondary {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .server-private-key-input {
+    min-height: 6.5rem;
+    max-height: 9rem;
+  }
 }
 
 .btn-secondary {
@@ -1091,6 +1271,13 @@ a:hover {
 .server-detail-header-main code {
   font-family: var(--font-geist-mono), monospace;
   font-size: 0.8125rem;
+}
+
+.server-detail-host-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  vertical-align: middle;
 }
 
 @media (max-width: 640px) {

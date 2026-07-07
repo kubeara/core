@@ -2,6 +2,14 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { AppLoadingSkeleton } from "@/components/shared/skeleton";
 import { useAuth } from "../context/use-auth";
 
+function resolvePostAuthRedirect(search: string): string {
+  const from = new URLSearchParams(search).get("from")?.trim();
+  if (from && from.startsWith("/")) {
+    return from;
+  }
+  return "/servers";
+}
+
 export function ProtectedRoute() {
   const { user, isLoading } = useAuth();
   const location = useLocation();
@@ -20,13 +28,16 @@ export function ProtectedRoute() {
 
 export function GuestRoute() {
   const { user, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return <AppLoadingSkeleton />;
   }
 
   if (user) {
-    return <Navigate to="/servers" replace />;
+    return (
+      <Navigate to={resolvePostAuthRedirect(location.search)} replace />
+    );
   }
 
   return <Outlet />;

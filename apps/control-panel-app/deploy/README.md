@@ -237,8 +237,39 @@ docker pull kubeara/agent:prod
 | `VITE_API_URL` | Console API base URL incl. `/api` (e.g. `http://localhost:3000/api`; origin-only also works — SPA normalizes) |
 | `DB_HOST` | `postgres` inside compose (do not use `127.0.0.1`) |
 | `DB_*` | Postgres credentials and database name |
+| `GRAFANA_CLOUD_LOKI_*` | Optional Grafana Cloud Loki push (see below) |
+| `KUBEARA_ENV` | Must be `PROD` (case-insensitive) for Loki shipping; also used as a Loki label |
+| `KUBEARA_HOST_LABEL` | Loki label for host identity |
+| `LOG_LEVEL` | Winston log level (default `info`) |
 
 Mounted at `/app/apps/control-panel-app/.env` inside the container (same pattern as the agent).
+
+### Grafana Cloud logs (winston-loki)
+
+The control panel ships NestJS logs to Grafana Cloud Loki only when `KUBEARA_ENV=PROD` and these variables are set:
+
+| Variable | Purpose |
+|----------|---------|
+| `GRAFANA_CLOUD_LOKI_URL` | Push URL from Grafana Cloud (ends with `/loki/api/v1/push`) |
+| `GRAFANA_CLOUD_LOKI_USER` | Numeric user / instance ID |
+| `GRAFANA_CLOUD_LOKI_API_KEY` | Access policy token with `logs:write` |
+
+Copy `deploy/.env.monitoring.example` to `.env.monitoring`, fill in credentials from your Grafana Cloud stack portal, then either merge the values into `.env.control-panel` or pass both files:
+
+```bash
+docker compose -f docker-compose.control-panel.yml \
+  --env-file .env.control-panel --env-file .env.monitoring up -d
+```
+
+In Grafana → Explore → Loki, query logs with:
+
+```logql
+{service="control-panel-app"}
+```
+
+Add `env` and `host` labels for filtering: `{service="control-panel-app", env="PROD"}`.
+
+When `KUBEARA_ENV` is not `PROD` or Loki credentials are unset, logs continue to stdout only (Docker still captures them).
 
 ### .env.agent
 

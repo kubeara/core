@@ -59,6 +59,10 @@ export enum DeploymentEvents {
   AGENT_REMOVE = "agent:remove",
   /** Agent → control panel: agent uninstall response. */
   AGENT_REMOVE_RESULT = "agent:remove:result",
+  /** Control panel → agent: verify host resources before deployment. */
+  DEPLOYMENT_VALIDATE = "deployment:validate",
+  /** Agent → control panel: pre-deploy validation response. */
+  DEPLOYMENT_VALIDATE_RESULT = "deployment:validate:result",
   /** Control panel → console: server add/delete background operation update. */
   SERVER_OPERATION_UPDATED = "server:operation-updated",
 }
@@ -134,6 +138,8 @@ export interface SocketDeployMessage {
     composeOnly?: boolean;
     /** Route HTTP(S) via Traefik on the agent (port 80/443, no host port publish). */
     useTraefik?: boolean;
+    /** When true, skip RAM/CPU availability checks for this deployment only. */
+    skipResourceValidation?: boolean;
   };
 }
 
@@ -418,11 +424,40 @@ export interface AgentRemoveResponsePayload {
   imageRefs?: string[];
 }
 
+/** Control panel → agent: pre-deploy resource and port validation. */
+export interface DeploymentValidateRequestPayload {
+  requestId: string;
+  templateSlug: string;
+  /** Encrypted base64-encoded compose JSON (same as deploy). */
+  compose: string;
+  /** Encrypted JSON env object. */
+  env?: string;
+  /** Encrypted JSON ports object. */
+  ports?: string;
+  schema?: TemplateSchema;
+  composeOnly?: boolean;
+  useTraefik?: boolean;
+}
+
+export type DeploymentResourceWarningCode =
+  "insufficient_ram" | "insufficient_cpu";
+
+export interface DeploymentResourceWarning {
+  code: DeploymentResourceWarningCode;
+  message: string;
+}
+
+/** Agent → control panel: pre-deploy validation response. */
+export interface DeploymentValidateResponsePayload {
+  requestId: string;
+  available: boolean;
+  error?: string;
+  /** Set when RAM/CPU is insufficient but the user may override and continue. */
+  warning?: DeploymentResourceWarning;
+}
+
 export type ServerOperationStatusValue =
-  | "starting"
-  | "removing"
-  | "error"
-  | null;
+  "starting" | "removing" | "error" | null;
 
 /** Control panel → console when a server background operation changes. */
 export interface ServerOperationUpdatedPayload {
