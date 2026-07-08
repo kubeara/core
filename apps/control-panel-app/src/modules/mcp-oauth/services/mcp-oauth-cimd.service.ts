@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import axios from "axios";
 import dayjs from "dayjs";
 
 import { ERROR_MESSAGES } from "@control-panel/constants/error";
@@ -46,21 +47,26 @@ export class McpOAuthCimdService {
     );
 
     try {
-      const response = await fetch(metadataUrl.toString(), {
-        method: "GET",
-        headers: { Accept: "application/json" },
-        redirect: "manual",
-        signal: AbortSignal.timeout(10_000),
-      });
+      const { data: metadata } = await axios.get<McpOAuthCimdMetadata>(
+        metadataUrl.toString(),
+        {
+          timeout: 10_000,
+          maxRedirects: 0,
+          headers: { Accept: "application/json" },
+        },
+      );
 
-      if (!response.ok) {
+      if (
+        typeof metadata.client_id !== "string" ||
+        !Array.isArray(metadata.redirect_uris) ||
+        metadata.redirect_uris.some((uri) => typeof uri !== "string")
+      ) {
         throw new BadRequestException(
-          ERROR_MESSAGES.MCP_OAUTH.CIMD_FETCH_FAILED,
+          ERROR_MESSAGES.MCP_OAUTH.INVALID_CIMD_CLIENT_ID,
         );
       }
 
-      const metadata: unknown = await response.json();
-      return this.parseCimdMetadata(metadata);
+      return metadata;
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
@@ -71,49 +77,6 @@ export class McpOAuthCimdService {
       );
       throw new BadRequestException(ERROR_MESSAGES.MCP_OAUTH.CIMD_FETCH_FAILED);
     }
-  }
-
-  private parseCimdMetadata(metadata: unknown): McpOAuthCimdMetadata {
-    if (typeof metadata !== "object" || metadata === null) {
-      throw new BadRequestException(
-        ERROR_MESSAGES.MCP_OAUTH.INVALID_CIMD_CLIENT_ID,
-      );
-    }
-
-    const record = metadata as Record<string, unknown>;
-    const {
-      client_id,
-      redirect_uris,
-      client_name,
-      token_endpoint_auth_method,
-    } = record;
-
-    if (typeof client_id !== "string" || !this.isStringArray(redirect_uris)) {
-      throw new BadRequestException(
-        ERROR_MESSAGES.MCP_OAUTH.INVALID_CIMD_CLIENT_ID,
-      );
-    }
-
-    const parsed: McpOAuthCimdMetadata = {
-      client_id,
-      redirect_uris,
-    };
-
-    if (typeof client_name === "string") {
-      parsed.client_name = client_name;
-    }
-
-    if (typeof token_endpoint_auth_method === "string") {
-      parsed.token_endpoint_auth_method = token_endpoint_auth_method;
-    }
-
-    return parsed;
-  }
-
-  private isStringArray(value: unknown): value is string[] {
-    return (
-      Array.isArray(value) && value.every((item) => typeof item === "string")
-    );
   }
 
   private assertMetadataMatchesClientId(
