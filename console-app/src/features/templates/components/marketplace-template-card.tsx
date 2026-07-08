@@ -1,8 +1,9 @@
 import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
 import {
-  getTemplateCategoryTagsDisplay,
+  formatCategoryLabel,
   normalizeTemplateCategories,
 } from "../utils/format-template-category";
+import { MarketplaceCardInlineTags } from "./marketplace-card-inline-tags";
 import type { ApiTemplate } from "../types";
 
 type MarketplaceTemplateCardProps = {
@@ -37,8 +38,10 @@ export function MarketplaceTemplateCard({
   isDeployed = false,
 }: MarketplaceTemplateCardProps) {
   const configFieldCount = countConfigFields(template);
-  const categoryTags = getTemplateCategoryTagsDisplay(template.category);
-  const categoryValues = normalizeTemplateCategories(template.category);
+  const categoryTags = normalizeTemplateCategories(template.category).map(
+    formatCategoryLabel,
+  );
+  const templateTags = template.tags ?? [];
 
   return (
     <article className="marketplace-card">
@@ -55,25 +58,13 @@ export function MarketplaceTemplateCard({
               <span className="marketplace-card-deployed-badge">Deployed</span>
             ) : null}
           </h3>
-          {categoryTags ? (
-            <ul
-              className="marketplace-card-tags marketplace-card-headline-tags"
-              aria-label="Categories"
-            >
-              {categoryTags.visible.map((label, index) => (
-                <li
-                  key={`${categoryValues[index] ?? label}-${index}`}
-                  className="marketplace-card-tag template-category-label"
-                >
-                  {label}
-                </li>
-              ))}
-              {categoryTags.overflowCount > 0 ? (
-                <li className="marketplace-card-tag">
-                  {categoryTags.overflowCount} more
-                </li>
-              ) : null}
-            </ul>
+          {categoryTags.length > 0 ? (
+            <MarketplaceCardInlineTags
+              tags={categoryTags}
+              ariaLabel="Categories"
+              className="marketplace-card-headline-tags"
+              tagClassName="template-category-label"
+            />
           ) : null}
         </div>
       </div>
@@ -89,34 +80,20 @@ export function MarketplaceTemplateCard({
           </p>
         )}
 
-        {template.tags && template.tags.length > 0 && (
-          <ul className="marketplace-card-tags" aria-label="Tags">
-            {template.tags.map((tag) => (
-              <li key={tag} className="marketplace-card-tag">
-                {tag}
-              </li>
-            ))}
-          </ul>
-        )}
+        {templateTags.length > 0 ? (
+          <MarketplaceCardInlineTags tags={templateTags} ariaLabel="Tags" />
+        ) : null}
 
-        <dl className="marketplace-card-meta">
-          {template.port != null && template.port > 0 && (
-            <div className="marketplace-card-meta-item">
-              <dt>Default port</dt>
-              <dd>
-                <code>{template.port}</code>
-              </dd>
-            </div>
-          )}
-          {configFieldCount > 0 && (
+        {configFieldCount > 0 ? (
+          <dl className="marketplace-card-meta">
             <div className="marketplace-card-meta-item">
               <dt>Configuration</dt>
               <dd>
                 {configFieldCount} field{configFieldCount === 1 ? "" : "s"}
               </dd>
             </div>
-          )}
-        </dl>
+          </dl>
+        ) : null}
       </div>
 
       {showDeployButton && onDeploy && (
