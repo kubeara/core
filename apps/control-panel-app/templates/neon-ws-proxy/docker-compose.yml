@@ -1,0 +1,89 @@
+# documentation: https://neon.tech/docs/connect/choose-connection
+# shortDescription: Neon WebSocket proxy with PostgreSQL for serverless drivers
+# longDescription: <p>Runs <strong>PostgreSQL</strong> with Neon's <code>wsproxy</code> so apps using <code>@neondatabase/serverless</code> can connect locally.</p><p>WebSocket proxy on <code>SERVICE_PORT_NEON_WS_PROXY</code> (80). Postgres credentials use <code>SERVICE_USER_NEONPG</code> and <code>SERVICE_PASSWORD_NEONPG</code>.</p>
+# category: database,postgresql
+# tags: neon,postgresql,websocket,proxy,serverless,postgres
+# logo: svgs/neon.svg
+# port: 80
+
+services:
+  neon-ws-proxy:
+    image: ${NEON_WS_PROXY_IMAGE:-ghcr.io/neondatabase/wsproxy:latest}
+    restart: ${NEON_WS_PROXY_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_NEON_WS_PROXY:-80}:80'
+      - '${SERVICE_PORT_NEON_WS_PROXY_2112:-2112}:2112'
+
+    environment:
+      - SERVICE_URL_NEON_WS_PROXY
+      - APPEND_PORT=postgres:5432
+      - ALLOW_ADDR_REGEX=.*
+      - LOG_TRAFFIC=${NEON_WS_PROXY_LOG_TRAFFIC:-false}
+      - LOG_CONN_INFO=${NEON_WS_PROXY_LOG_CONN_INFO:-true}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'nc -z 127.0.0.1 80 || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${NEON_WS_PROXY_POSTGRES_IMAGE:-postgres:17-alpine}
+    restart: ${NEON_WS_PROXY_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      POSTGRES_USER: ${SERVICE_USER_NEONPG}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_NEONPG}
+      POSTGRES_DB: ${NEON_WS_PROXY_DB:-postgres}
+      POSTGRES_HOST_AUTH_METHOD: password
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - neon_ws_proxy_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 20s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  neon_ws_proxy_postgres_data:

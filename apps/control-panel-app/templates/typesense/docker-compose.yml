@@ -1,0 +1,58 @@
+# documentation: https://typesense.org/docs/
+# shortDescription: Fast typo-tolerant search engine
+# longDescription: <p>Typesense is an open-source <strong>search engine</strong> for instant, typo-tolerant full-text and vector search.</p><p>HTTP API on port 8108. API key authentication uses <code>SERVICE_PASSWORD_TYPESENSE</code>.</p>
+# category: database,search
+# tags: typesense,search,search-engine,full-text,vector,elasticsearch-alternative
+# logo: svgs/typesense.svg
+# port: 8108
+
+services:
+  typesense:
+    image: ${TYPESENSE_IMAGE:-typesense/typesense:28.0}
+    restart: ${TYPESENSE_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_TYPESENSE:-8108}:8108'
+
+    command:
+      - '--data-dir=/data'
+      - '--api-key=${SERVICE_PASSWORD_TYPESENSE}'
+      - '--enable-cors=${TYPESENSE_ENABLE_CORS:-true}'
+
+    environment:
+      - SERVICE_URL_TYPESENSE_8108
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - typesense_data:/data
+
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'bash',
+          '-c',
+          "exec 3<>/dev/tcp/127.0.0.1/8108 && printf 'GET /health HTTP/1.1\\r\\nConnection: close\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep '200' && exec 3>&-",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  typesense_data:

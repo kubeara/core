@@ -43,7 +43,7 @@ for slug in "${TEMPLATE_SLUGS[@]}"; do
 
     case "${_scenario}" in
       default)
-        SERVER_NAME="${SERVER_NAME_PREFIX:-selfhost-e2e}-${slug}-default-$(date +%s)"
+        SERVER_NAME="$(e2e_make_server_name "${SERVER_NAME_PREFIX:-selfhost-e2e}" "${slug}" default "$(date +%s)")"
         ;;
       user_input)
         ENV_FILE="${USER_INPUT_ENV_FILE:-${TEMPLATES_DIR}/${slug}/.env.user}"
@@ -52,7 +52,7 @@ for slug in "${TEMPLATE_SLUGS[@]}"; do
           log "Skipping ${slug}:${_scenario} (missing env file: ${ENV_FILE})"
           continue
         fi
-        SERVER_NAME="${SERVER_NAME_PREFIX:-selfhost-e2e}-${slug}-user-$(date +%s)"
+        SERVER_NAME="$(e2e_make_server_name "${SERVER_NAME_PREFIX:-selfhost-e2e}" "${slug}" user "$(date +%s)")"
         ;;
       *)
         FAILED_SLUGS+=("${slug}:${_scenario}")

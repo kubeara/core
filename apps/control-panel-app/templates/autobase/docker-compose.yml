@@ -1,0 +1,139 @@
+# documentation: https://autobase.tech/docs/
+# shortDescription: Self-hosted PostgreSQL DBaaS automation platform
+# longDescription: <p>Autobase is an open-source <strong>PostgreSQL DBaaS</strong> platform for deploying and managing highly available Postgres clusters.</p><p>Console UI on port 80. Authorization uses <code>SERVICE_PASSWORD_AUTOBASE</code>.</p>
+# category: database,postgresql
+# tags: autobase,postgresql,database,dbaas,automation,patroni,cluster
+# logo: svgs/postgresql-logo-svgrepo-com.svg
+# port: 80
+
+services:
+  autobase:
+    image: ${AUTOBASE_UI_IMAGE:-autobase/console_ui:2.5.2}
+    restart: ${AUTOBASE_RESTART_POLICY:-unless-stopped}
+    platform: linux/amd64
+
+    ports:
+      - '${SERVICE_PORT_AUTOBASE:-80}:80'
+
+    environment:
+      - SERVICE_URL_AUTOBASE
+      - PG_CONSOLE_AUTHORIZATION_TOKEN=${SERVICE_PASSWORD_AUTOBASE}
+      - PG_CONSOLE_API_HOST=autobase-api
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      autobase-api:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://127.0.0.1:80/']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  autobase-api:
+    image: ${AUTOBASE_API_IMAGE:-autobase/console_api:2.5.2}
+    restart: ${AUTOBASE_API_RESTART_POLICY:-unless-stopped}
+    platform: linux/amd64
+
+    environment:
+      - PG_CONSOLE_DB_HOST=autobase-db
+      - PG_CONSOLE_DB_PASSWORD=${SERVICE_PASSWORD_AUTOBASE_POSTGRES}
+      - PG_CONSOLE_AUTHORIZATION_TOKEN=${SERVICE_PASSWORD_AUTOBASE}
+      - PG_CONSOLE_ENCRYPTIONKEY=${SERVICE_BASE64_AUTOBASE_ENCRYPTIONKEY}
+      - PG_CONSOLE_LOGGER_LEVEL=${AUTOBASE_LOGGER_LEVEL:-info}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - autobase_ansible_tmp:/tmp/ansible
+
+    depends_on:
+      autobase-db:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'curl',
+          '-fsS',
+          '-H',
+          'accept: application/json',
+          '-H',
+          'Authorization: Bearer ${SERVICE_PASSWORD_AUTOBASE}',
+          'http://127.0.0.1:8080/api/v1/version',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  autobase-db:
+    image: ${AUTOBASE_DB_IMAGE:-autobase/console_db:2.5.2}
+    restart: ${AUTOBASE_DB_RESTART_POLICY:-unless-stopped}
+    platform: linux/amd64
+
+    environment:
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_AUTOBASE_POSTGRES}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - autobase_db_data:/var/lib/postgresql
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  autobase_db_data:
+  autobase_ansible_tmp:

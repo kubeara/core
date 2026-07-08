@@ -1,0 +1,247 @@
+# documentation: https://supabase.com/docs/guides/self-hosting/docker
+# shortDescription: Open source Firebase alternative with Postgres
+# longDescription: <p>Supabase stack with <strong>PostgreSQL</strong>, PostgREST, GoTrue Auth, Postgres Meta, and Studio dashboard.</p><p>Studio on <code>SERVICE_PORT_SUPABASE</code> (3000). Requires <code>SERVICE_PASSWORD_64_PGMETA</code> for postgres-meta encryption, plus JWT and API keys.</p>
+# category: database,backend
+# tags: supabase,firebase-alternative,postgresql,auth,rest,studio,baas
+# logo: svgs/supabase.svg
+# port: 3000
+
+services:
+  supabase-studio:
+    image: ${SUPABASE_STUDIO_IMAGE:-supabase/studio:2026.06.03-sha-0bca601}
+    restart: ${SUPABASE_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_SUPABASE:-3000}:3000'
+
+    environment:
+      - SERVICE_URL_SUPABASE_3000
+      - HOSTNAME=0.0.0.0
+      - STUDIO_PG_META_URL=http://supabase-meta:8080
+      - POSTGRES_HOST=supabase-db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${SUPABASE_DB:-postgres}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_SUPABASEPG}
+      - POSTGRES_USER_READ_WRITE=${SERVICE_USER_SUPABASEPG}
+      - PG_META_CRYPTO_KEY=${SERVICE_PASSWORD_64_PGMETA}
+      - SUPABASE_URL=${SERVICE_URL_SUPABASE:-${SERVICE_URL_SUPABASE_3000}}
+      - SUPABASE_PUBLIC_URL=${SERVICE_URL_SUPABASE:-${SERVICE_URL_SUPABASE_3000}}
+      - SUPABASE_ANON_KEY=${SERVICE_BASE64_SUPABASEANON}
+      - SUPABASE_SERVICE_KEY=${SERVICE_BASE64_SUPABASESERVICE}
+      - AUTH_JWT_SECRET=${SERVICE_PASSWORD_JWT}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+      supabase-meta:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          "node -e \"fetch('http://127.0.0.1:3000/api/platform/profile').then((r) => { if (r.status !== 200) throw new Error(r.status); })\"",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  supabase-rest:
+    image: ${SUPABASE_REST_IMAGE:-postgrest/postgrest:v14.12}
+    restart: ${SUPABASE_REST_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_SUPABASE_REST:-3001}:3000'
+
+    environment:
+      - SERVICE_URL_SUPABASE_REST_3001
+      - PGRST_DB_URI=postgres://${SERVICE_USER_SUPABASEPG}:${SERVICE_PASSWORD_SUPABASEPG}@supabase-db:5432/${SUPABASE_DB:-postgres}
+      - PGRST_DB_SCHEMAS=${SUPABASE_PGRST_DB_SCHEMAS:-public}
+      - PGRST_DB_ANON_ROLE=${SERVICE_USER_SUPABASEPG}
+      - PGRST_JWT_SECRET=${SERVICE_PASSWORD_JWT}
+      - TZ=${TZ:-UTC}
+
+    command: postgrest
+
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD', 'postgrest', '--ready']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  supabase-auth:
+    image: ${SUPABASE_AUTH_IMAGE:-supabase/gotrue:v2.189.0}
+    restart: ${SUPABASE_AUTH_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_SUPABASE_AUTH:-9999}:9999'
+
+    environment:
+      - SERVICE_URL_SUPABASE_AUTH_9999
+      - GOTRUE_API_HOST=0.0.0.0
+      - GOTRUE_API_PORT=9999
+      - API_EXTERNAL_URL=${SERVICE_URL_SUPABASE_AUTH:-${SERVICE_URL_SUPABASE_AUTH_9999}}
+      - GOTRUE_DB_DRIVER=postgres
+      - GOTRUE_DB_DATABASE_URL=postgres://${SERVICE_USER_SUPABASEPG}:${SERVICE_PASSWORD_SUPABASEPG}@supabase-db:5432/${SUPABASE_DB:-postgres}
+      - GOTRUE_SITE_URL=${SUPABASE_SITE_URL:-${SERVICE_URL_SUPABASE:-http://localhost:3000}}
+      - GOTRUE_URI_ALLOW_LIST=${SUPABASE_URI_ALLOW_LIST:-*}
+      - GOTRUE_DISABLE_SIGNUP=${SUPABASE_DISABLE_SIGNUP:-false}
+      - GOTRUE_JWT_ADMIN_ROLES=service_role
+      - GOTRUE_JWT_AUD=authenticated
+      - GOTRUE_JWT_DEFAULT_GROUP_NAME=authenticated
+      - GOTRUE_JWT_EXP=${SUPABASE_JWT_EXP:-3600}
+      - GOTRUE_JWT_SECRET=${SERVICE_PASSWORD_JWT}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'wget',
+          '--no-verbose',
+          '--tries=1',
+          '--spider',
+          'http://127.0.0.1:9999/health',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  supabase-meta:
+    image: ${SUPABASE_META_IMAGE:-supabase/postgres-meta:v0.96.6}
+    restart: ${SUPABASE_META_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - PG_META_PORT=8080
+      - PG_META_DB_HOST=supabase-db
+      - PG_META_DB_PORT=5432
+      - PG_META_DB_NAME=${SUPABASE_DB:-postgres}
+      - PG_META_DB_USER=${SERVICE_USER_SUPABASEPG}
+      - PG_META_DB_PASSWORD=${SERVICE_PASSWORD_SUPABASEPG}
+      - CRYPTO_KEY=${SERVICE_PASSWORD_64_PGMETA}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      supabase-db:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          "node -e \"fetch('http://127.0.0.1:8080/health').then((r) => { if (r.status !== 200) throw new Error(r.status); })\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  supabase-db:
+    image: ${SUPABASE_DB_IMAGE:-postgres:16-alpine}
+    restart: ${SUPABASE_DB_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_SUPABASEPG}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_SUPABASEPG}
+      - POSTGRES_DB=${SUPABASE_DB:-postgres}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - supabase_db_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  supabase_db_data:
