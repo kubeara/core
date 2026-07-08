@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.5](https://github.com/kubeara/core/compare/v0.0.4...v0.0.5) (2026-07-08)
+
+
+### Bug Fixes
+
+* Merge branch 'main' of https://github.com/kubeara/core into feature/email-integration ([f1b65ea](https://github.com/kubeara/core/commit/f1b65eafb971a5e730967f147ee1aa963ae54272))
+
 ## [0.0.4](https://github.com/kubeara/core/compare/v0.0.3...v0.0.4) (2026-07-08)
 
 
