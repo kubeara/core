@@ -1,0 +1,54 @@
+# documentation: https://docs.onedev.io/installation-guide/run-docker
+# shortDescription: Self-hosted Git server with built-in CI/CD
+# longDescription: <p>OneDev is an all-in-one <strong>Git hosting</strong> platform with kanban, code search, and integrated CI/CD pipelines.</p><p>Mounts the host Docker socket so build agents can spawn job containers. Set <code>SERVICE_URL_ONEDEV_*</code> and initial admin credentials before first deploy.</p>
+# category: git,scm,source-control
+# tags: onedev,git,scm,ci,cd,kanban,self-hosted,devops
+# logo: svgs/gitea-svgrepo-com.svg
+# port: 6610
+
+services:
+  onedev:
+    image: ${ONEDEV_IMAGE:-1dev/server:16.0.2}
+    restart: ${ONEDEV_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_ONEDEV:-6610}:6610'
+      - '${SERVICE_PORT_ONEDEV_6611:-6611}:6611'
+
+    environment:
+      - SERVICE_URL_ONEDEV_6610
+      - initial_user=${SERVICE_USER_ONEDEV:-admin}
+      - initial_password=${SERVICE_PASSWORD_ONEDEV}
+      - initial_email=${ONEDEV_INITIAL_EMAIL:-admin@example.com}
+      - initial_server_url=${SERVICE_URL_ONEDEV:-${SERVICE_URL_ONEDEV_6610:-http://localhost:6610}}
+      - initial_ssh_root_url=${ONEDEV_INITIAL_SSH_URL:-ssh://localhost:6611}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - onedev_data:/opt/onedev
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:6610/']
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 180s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  onedev_data:

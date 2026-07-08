@@ -1,0 +1,62 @@
+# documentation: https://www.elastic.co/guide/en/elasticsearch/reference/current/docker.html
+# shortDescription: Distributed search and analytics engine
+# longDescription: <p>Elasticsearch is a distributed <strong>search and analytics engine</strong> for full-text search, logs, and observability.</p><p>HTTP API on port 9200. Superuser password uses <code>SERVICE_PASSWORD_ELASTICSEARCH</code>.</p>
+# category: database,search
+# tags: elasticsearch,search,analytics,full-text,logs,engine
+# logo: svgs/elasticsearch.svg
+# port: 9200
+
+services:
+  elasticsearch:
+    image: ${ELASTICSEARCH_IMAGE:-docker.elastic.co/elasticsearch/elasticsearch-wolfi:8.19.0}
+    restart: ${ELASTICSEARCH_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_ELASTICSEARCH:-9200}:9200'
+
+    environment:
+      - SERVICE_URL_ELASTICSEARCH_9200
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=false
+      - ELASTIC_PASSWORD=${SERVICE_PASSWORD_ELASTICSEARCH}
+      - ES_JAVA_OPTS=${ELASTICSEARCH_JAVA_OPTS:--Xms512m -Xmx512m}
+      - TZ=${TZ:-UTC}
+
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'curl --user elastic:${SERVICE_PASSWORD_ELASTICSEARCH} --silent --fail http://127.0.0.1:9200/_cluster/health',
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  elasticsearch_data:

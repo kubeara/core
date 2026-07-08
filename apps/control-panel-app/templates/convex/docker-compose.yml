@@ -1,0 +1,98 @@
+# documentation: https://github.com/get-convex/convex-backend/blob/main/self-hosted/README.md
+# shortDescription: Open-source reactive database for app developers
+# longDescription: <p>Convex is an open-source <strong>reactive database</strong> and backend for real-time applications with a built-in dashboard.</p><p>Backend API on <code>SERVICE_PORT_CONVEX</code> (3210), HTTP actions on <code>SERVICE_PORT_CONVEX_3211</code> (3211), and dashboard on <code>SERVICE_PORT_CONVEX_DASHBOARD</code> (6791).</p>
+# category: database,backend
+# tags: convex,database,reactive,realtime,backend,api
+# logo: svgs/sql-database-generic-svgrepo-com.svg
+# port: 6791
+
+services:
+  convex-backend:
+    image: ${CONVEX_BACKEND_IMAGE:-ghcr.io/get-convex/convex-backend:latest}
+    restart: ${CONVEX_RESTART_POLICY:-unless-stopped}
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+
+    ports:
+      - '${SERVICE_PORT_CONVEX:-3210}:3210'
+      - '${SERVICE_PORT_CONVEX_3211:-3211}:3211'
+
+    environment:
+      - SERVICE_URL_CONVEX_3210
+      - INSTANCE_NAME=${CONVEX_INSTANCE_NAME:-self-hosted-convex}
+      - INSTANCE_SECRET=${SERVICE_HEX_64_CONVEX}
+      - CONVEX_CLOUD_ORIGIN=${SERVICE_URL_CONVEX:-${SERVICE_URL_CONVEX_3210}}
+      - CONVEX_SITE_ORIGIN=${CONVEX_SITE_ORIGIN:-http://127.0.0.1:3211}
+      - DO_NOT_REQUIRE_SSL=${CONVEX_DO_NOT_REQUIRE_SSL:-true}
+      - DISABLE_METRICS_ENDPOINT=${CONVEX_DISABLE_METRICS_ENDPOINT:-true}
+      - DOCUMENT_RETENTION_DELAY=${CONVEX_DOCUMENT_RETENTION_DELAY:-172800}
+      - RUST_LOG=${CONVEX_RUST_LOG:-info}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - convex_data:/convex/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://127.0.0.1:3210/version || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  convex-dashboard:
+    image: ${CONVEX_DASHBOARD_IMAGE:-ghcr.io/get-convex/convex-dashboard:latest}
+    restart: ${CONVEX_DASHBOARD_RESTART_POLICY:-unless-stopped}
+    stop_grace_period: 10s
+    stop_signal: SIGINT
+
+    ports:
+      - '${SERVICE_PORT_CONVEX_DASHBOARD:-6791}:6791'
+
+    environment:
+      - SERVICE_URL_CONVEX_DASHBOARD_6791
+      - NEXT_PUBLIC_DEPLOYMENT_URL=${SERVICE_URL_CONVEX:-${SERVICE_URL_CONVEX_3210}}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      convex-backend:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -f http://127.0.0.1:6791/ || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  convex_data:

@@ -1,0 +1,92 @@
+# documentation: https://electric-sql.com/docs/guides/installation
+# shortDescription: Postgres sync engine for local-first apps
+# longDescription: <p>ElectricSQL syncs subsets of <strong>PostgreSQL</strong> data to local apps and services in real time.</p><p>Sync API on port 3000. Uses a dedicated Postgres instance with logical replication enabled.</p>
+# category: database,postgresql
+# tags: electricsql,electric,postgres,sync,realtime,replication,database
+# logo: svgs/postgresql-logo-svgrepo-com.svg
+# port: 3000
+
+services:
+  electricsql:
+    image: ${ELECTRICSQL_IMAGE:-docker.io/electricsql/electric:latest}
+    restart: ${ELECTRICSQL_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_ELECTRICSQL:-3000}:3000'
+
+    environment:
+      - SERVICE_URL_ELECTRICSQL_3000
+      - DATABASE_URL=postgresql://${SERVICE_USER_ELECTRICPG}:${SERVICE_PASSWORD_ELECTRICPG}@electricsql-postgres:5432/${ELECTRICSQL_DB:-electric}?sslmode=disable
+      - ELECTRIC_INSECURE=${ELECTRIC_INSECURE:-true}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      electricsql-postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:3000/v1/health || exit 1']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 45s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  electricsql-postgres:
+    image: ${ELECTRICSQL_POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${ELECTRICSQL_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    command:
+      - postgres
+      - -c
+      - listen_addresses=*
+      - -c
+      - wal_level=logical
+
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_ELECTRICPG}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_ELECTRICPG}
+      - POSTGRES_DB=${ELECTRICSQL_DB:-electric}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - electricsql_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  electricsql_postgres_data:

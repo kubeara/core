@@ -1,0 +1,60 @@
+# documentation: https://docs.trychroma.com/
+# shortDescription: Open-source vector database for AI applications
+# longDescription: <p>Chroma is an open-source <strong>vector database</strong> for embeddings, semantic search, and RAG pipelines.</p><p>HTTP API on port 8000 with persistent storage on the mounted volume.</p>
+# category: database,ai
+# tags: chroma,vector,database,embeddings,semantic-search,rag,ai
+# logo: svgs/Qdrant.svg
+# port: 8000
+
+services:
+  chroma:
+    image: ${CHROMA_IMAGE:-chromadb/chroma:1.0.15}
+    restart: ${CHROMA_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_CHROMA:-8000}:8000'
+
+    environment:
+      - SERVICE_URL_CHROMA_8000
+      - IS_PERSISTENT=${CHROMA_IS_PERSISTENT:-TRUE}
+      - PERSIST_DIRECTORY=/data
+      - ANONYMIZED_TELEMETRY=${CHROMA_ANONYMIZED_TELEMETRY:-FALSE}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - chroma_data:/data
+
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        if ! command -v curl >/dev/null 2>&1; then
+          apt-get update &&
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends curl ca-certificates &&
+          rm -rf /var/lib/apt/lists/*
+        fi
+        exec dumb-init -- chroma run /config.yaml
+
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://127.0.0.1:8000/api/v2/heartbeat']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  chroma_data:
