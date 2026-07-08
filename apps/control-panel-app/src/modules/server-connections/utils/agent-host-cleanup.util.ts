@@ -18,6 +18,24 @@ export function resolveAgentComposeProjectName(
 }
 
 /**
+ * Removes stopped or broken canonical kubeara-agent containers before a fresh compose up.
+ *
+ * @returns Shell script that force-removes kubeara-agent containers whose Docker state is not running.
+ */
+export function buildRemoveStoppedCanonicalAgentShellCommand(): string {
+  const containerName = AGENT_INSTALL.CONTAINER_NAME;
+
+  return [
+    `for cid in $(docker ps -aq --filter ${shellQuote(`name=^/${containerName}$`)} 2>/dev/null); do`,
+    `  status=$(docker inspect -f '{{.State.Status}}' "$cid" 2>/dev/null)`,
+    `  if [ "$status" != "running" ]; then`,
+    `    docker rm -f "$cid" >/dev/null 2>&1 || true`,
+    `  fi`,
+    `done`,
+  ].join(" ");
+}
+
+/**
  * Shell commands to force-remove the Kubeara agent container, volumes, and images on the host.
  */
 export function buildAgentHostCleanupShellCommand(
@@ -43,7 +61,7 @@ export function buildAgentHostCleanupShellCommand(
     `if [ -f ${shellQuote(composeFile)} ] && [ -f ${shellQuote(envFile)} ]; then docker compose -f ${shellQuote(composeFile)} --env-file ${shellQuote(envFile)} -p ${shellQuote(project)} down --volumes --rmi all --remove-orphans >/dev/null 2>&1 || true; fi`,
     `docker update --restart=no ${containerName} >/dev/null 2>&1 || true`,
     `docker rm -f ${containerName} >/dev/null 2>&1 || true`,
-    `for cid in $(docker ps -aq --filter ${shellQuote(`name=^/${containerName}$`)} 2>/dev/null); do docker rm -f "$cid" >/dev/null 2>&1 || true; done`,
+    `for cid in $(docker ps -aq --filter ${shellQuote(`name=${containerName}`)} 2>/dev/null); do docker rm -f "$cid" >/dev/null 2>&1 || true; done`,
     `for cid in $(docker ps -aq --filter ${shellQuote(`label=com.docker.compose.project=${project}`)} 2>/dev/null); do docker rm -f "$cid" >/dev/null 2>&1 || true; done`,
     `for vol in $(docker volume ls -q --filter name=agent_deployments 2>/dev/null); do docker volume rm -f "$vol" >/dev/null 2>&1 || true; done`,
     `for net in $(docker network ls -q --filter ${shellQuote(`label=com.docker.compose.project=${project}`)} 2>/dev/null); do docker network rm "$net" >/dev/null 2>&1 || true; done`,

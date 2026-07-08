@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsDate,
   IsEnum,
   IsInt,
@@ -31,6 +32,10 @@ import {
 } from "../server-connections.constants";
 import { ServerSshCredentialEntity } from "./server-ssh-credential.entity";
 import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
+import {
+  ServerAgentError,
+  ServerHealthError,
+} from "../interfaces/server-health.interface";
 
 @Entity({ name: "servers" })
 @Unique("UQ_servers_host_port", ["host", "username"])
@@ -104,6 +109,28 @@ export class ServerEntity extends BaseEntity {
   @IsDate()
   @Column({ type: "bigint", nullable: true })
   lastConnectedAt!: number | null;
+
+  @IsBoolean()
+  @Column({ type: "boolean", default: false })
+  isServerUp!: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Column({ type: "bigint", nullable: true })
+  lastAgentCheckedAt!: number | null;
+
+  @IsInt()
+  @Min(0)
+  @Column({ type: "integer", default: 0 })
+  retryCount!: number;
+
+  @IsOptional()
+  @Column({ type: "jsonb", nullable: true })
+  serverError!: ServerHealthError | null;
+
+  @IsOptional()
+  @Column({ type: "jsonb", nullable: true })
+  agentError!: ServerAgentError | null;
 
   @OneToMany(
     () => ServerSshCredentialEntity,
