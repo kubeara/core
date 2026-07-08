@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { GENERIC_ERROR_MESSAGE } from "@/api/api-error";
+import { API_ERROR_MESSAGES } from "@/constants/error-messages";
 import { FormFieldLabel } from "@/components/shared/form-field-label";
 import { validateRequired } from "@/lib/validation";
 import { useCreateMcpApiKeyMutation } from "../hooks";
@@ -56,7 +56,7 @@ function GenerateTokenModalContent({ onClose }: GenerateTokenModalContentProps) 
             const result = await createMutation.mutateAsync({ name: name.trim() });
             setGeneratedToken(result.token);
         } catch {
-            setSubmitError(GENERIC_ERROR_MESSAGE);
+            setSubmitError(API_ERROR_MESSAGES.GENERIC);
         }
     }
 

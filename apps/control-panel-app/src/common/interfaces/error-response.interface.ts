@@ -4,4 +4,5 @@ export interface ErrorResponse {
   errorCode: string;
   message: string;
   error?: string;
+  retryAfterSeconds?: number;
 }

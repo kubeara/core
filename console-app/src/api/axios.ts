@@ -4,6 +4,7 @@ import axios, {
   AxiosResponse,
   InternalAxiosRequestConfig,
 } from "axios";
+import { API_ERROR_MESSAGES } from "@/constants/error-messages";
 import { ApiError, extractMessageFromBody } from "@/api/api-error";
 import {
   clearSessionState,
@@ -13,6 +14,7 @@ import {
 } from "@/features/auth/utils/session-manager";
 import { shouldSkipRefreshForUrl } from "@/features/auth/constants";
 import { getApiBaseUrl } from "@/lib/api-config";
+
 
 type RetriableRequestConfig = InternalAxiosRequestConfig & {
   _retry?: boolean;
@@ -30,7 +32,7 @@ function rejectEnvelopeFailure(response: AxiosResponse): AxiosResponse {
 
   const status =
     typeof data.statusCode === "number" ? data.statusCode : response.status;
-  const message = extractMessageFromBody(data) ?? "Request failed";
+  const message = extractMessageFromBody(data) ?? API_ERROR_MESSAGES.REQUEST_FAILED;
 
   throw new ApiError(message, status, data);
 }

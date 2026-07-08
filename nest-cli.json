@@ -25,6 +25,11 @@
             "include": "../scripts/**/*",
             "outDir": "dist/apps/control-panel-app/scripts",
             "watchAssets": true
+          },
+          {
+            "include": "modules/email/templates/**/*",
+            "outDir": "dist/apps/control-panel-app/src",
+            "watchAssets": true
           }
         ]
       }

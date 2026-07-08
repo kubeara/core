@@ -1,4 +1,5 @@
-import { IsEmail, IsString, Length } from "class-validator";
+import { IsEmail, IsEnum, IsString, Length } from "class-validator";
+import { CODE_TYPE } from "../enum/codeType.enum";
 
 export class VerifyOtpDto {
   @IsEmail()
@@ -7,4 +8,7 @@ export class VerifyOtpDto {
   @IsString()
   @Length(6, 6)
   otp!: string;
+
+  @IsEnum(CODE_TYPE)
+  codeType!: CODE_TYPE;
 }
