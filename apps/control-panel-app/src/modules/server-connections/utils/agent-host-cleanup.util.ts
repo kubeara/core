@@ -18,24 +18,6 @@ export function resolveAgentComposeProjectName(
 }
 
 /**
- * Removes kubeara-agent containers that use compose-prefixed names (e.g. 62d288a0f1b9_kubeara-agent).
- *
- * @returns Shell script that deletes every container whose name contains kubeara-agent but is not exactly kubeara-agent.
- */
-export function buildRemoveOrphanAgentContainersShellCommand(): string {
-  const containerName = AGENT_INSTALL.CONTAINER_NAME;
-
-  return [
-    `for cid in $(docker ps -aq --filter ${shellQuote(`name=${containerName}`)} 2>/dev/null); do`,
-    `  name=$(docker inspect -f '{{.Name}}' "$cid" 2>/dev/null | sed 's#^/##')`,
-    `  if [ "$name" != "${containerName}" ]; then`,
-    `    docker rm -f "$cid" >/dev/null 2>&1 || true`,
-    `  fi`,
-    `done`,
-  ].join(" ");
-}
-
-/**
  * Removes stopped or broken canonical kubeara-agent containers before a fresh compose up.
  *
  * @returns Shell script that force-removes kubeara-agent containers whose Docker state is not running.

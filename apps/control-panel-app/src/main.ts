@@ -9,6 +9,7 @@ import { ValidationPipe } from "@nestjs/common";
 import express from "express";
 
 import { AppModule } from "./app.module";
+import { CronService } from "./cron/cron.service";
 import { buildCorsOptions } from "./common/config/cors.util";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
@@ -178,6 +179,10 @@ async function bootstrap(): Promise<void> {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   app.useGlobalInterceptors(new ResponseInterceptor());
+
+  await app.init();
+
+  app.get(CronService).skipCrons();
 
   await app.listen(port);
 

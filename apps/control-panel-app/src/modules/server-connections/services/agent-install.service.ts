@@ -23,10 +23,7 @@ import {
   readAgentComposeFile,
   readAgentPrereqScript,
 } from "../utils/agent-deploy-bundle.util";
-import {
-  buildRemoveOrphanAgentContainersShellCommand,
-  buildRemoveStoppedCanonicalAgentShellCommand,
-} from "../utils/agent-host-cleanup.util";
+import { buildRemoveStoppedCanonicalAgentShellCommand } from "../utils/agent-host-cleanup.util";
 
 export interface RemoteAgentInstallInput {
   connection: SshConnectionOptions;
@@ -226,14 +223,6 @@ export class AgentInstallService {
         };
       }
       this.pushLog(logs, `Using ${composeCmd}`, onLogLine);
-
-      await this.cleanupOrphanAgentContainers(
-        host,
-        installDir,
-        composeCmd,
-        logs,
-        onLogLine,
-      );
 
       const agentAlreadyRunning = await this.isAgentContainerRunning(
         host,
@@ -653,42 +642,6 @@ export class AgentInstallService {
       `command -v docker >/dev/null 2>&1 && ${prefix} compose version >/dev/null 2>&1 && echo ok`,
     );
     return probe.success ? dockerCli.mode : null;
-  }
-
-  /**
-   * Runs compose down and removes compose-prefixed kubeara-agent orphans before install.
-   *
-   * @param host - Local or SSH host adapter executing docker commands.
-   * @param installDir - Remote/local agent install directory (e.g. /opt/kubeara/agent).
-   * @param composeCmd - Docker invocation mode: direct, sudo, or sg.
-   * @param logs - Install log buffer appended in place.
-   * @param onLogLine - Optional live log callback.
-   */
-  private async cleanupOrphanAgentContainers(
-    host: AgentHostAdapter,
-    installDir: string,
-    composeCmd: string,
-    logs: string[],
-    onLogLine?: AgentInstallLogCallback,
-  ): Promise<void> {
-    const down = await host.executeCommand(
-      this.buildComposeCommand(installDir, composeCmd, "down --remove-orphans"),
-      60_000,
-    );
-    this.appendCommandOutput(logs, down, onLogLine);
-
-    const removeOrphans = await host.executeCommand(
-      this.buildDockerShellCommand(
-        composeCmd,
-        buildRemoveOrphanAgentContainersShellCommand(),
-      ),
-      30_000,
-    );
-    this.appendCommandOutput(logs, removeOrphans, onLogLine);
-
-    if (removeOrphans.success) {
-      this.pushLog(logs, "Removed orphan kubeara-agent containers", onLogLine);
-    }
   }
 
   /**

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Logger,
@@ -13,6 +14,8 @@ import {
   Req,
   UseGuards,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { assertCronAuthToken } from "@control-panel/cron/utils/cron-auth.util";
 import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import { ServerConnectionsService } from "../services/server-connections.service";
 import { LocalServerService } from "../services/local-server.service";
@@ -41,17 +44,22 @@ export class ServersController {
   constructor(
     private readonly connectionsService: ServerConnectionsService,
     private readonly localServerService: LocalServerService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
    * Internal cron endpoint for rotating agent health checks.
-   * Called by CronService over loopback; not protected by AccessTokenGuard.
+   * Called by CronService; protected by cron-auth-token header.
    *
    * @returns Health result for one active server selected by fair rotation.
    */
   @Post("cron/agent-health")
   @HttpCode(HttpStatus.OK)
-  async cronAgentHealth(): Promise<AgentHealthCronResult> {
+  async cronAgentHealth(
+    @Headers("cron-auth-token") cronAuthToken?: string,
+  ): Promise<AgentHealthCronResult> {
+    assertCronAuthToken(this.configService, cronAuthToken);
+
     try {
       return await this.connectionsService.processAgentHealthCheck();
     } catch (error) {
