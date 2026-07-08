@@ -17,7 +17,7 @@ import { ServerDetailPage } from "@/pages/server-detail-page";
 import { McpServersPage } from "@/pages/mcp-servers-page";
 import { OAuthAuthorizePage } from "@/pages/oauth-authorize-page";
 import { ServersPage } from "@/pages/servers-page";
-import { TemplatesPage } from "@/pages/templates-page";
+import { ServicesPage } from "@/pages/services-page";
 
 const SentryRoutes = Sentry.withSentryReactRouterV7Routing(Routes);
 
@@ -62,7 +62,8 @@ export function AppRoutes() {
             path="/servers/:serverId/containers/:containerId/logs"
             element={<ContainerLogsPage />}
           />
-          <Route path="/templates" element={<TemplatesPage />} />
+          <Route path="/services" element={<ServicesPage />} />
+          <Route path="/templates" element={<Navigate to="/services" replace />} />
           <Route path="/profile" element={<ProfilePage />} />
 
           <Route
