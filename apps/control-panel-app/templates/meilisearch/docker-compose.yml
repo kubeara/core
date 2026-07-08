@@ -1,0 +1,50 @@
+# documentation: https://www.meilisearch.com/docs
+# shortDescription: Fast and typo-tolerant search engine
+# longDescription: <p>Meilisearch is a lightning-fast <strong>search engine</strong> with instant, typo-tolerant full-text search.</p><p>HTTP API on port 7700. Master key authentication uses <code>SERVICE_PASSWORD_MEILISEARCH</code>.</p>
+# category: database,search
+# tags: meilisearch,search,search-engine,full-text,typo-tolerant
+# logo: svgs/meilisearch.svg
+# port: 7700
+
+services:
+  meilisearch:
+    image: ${MEILISEARCH_IMAGE:-getmeili/meilisearch:v1.22}
+    restart: ${MEILISEARCH_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_MEILISEARCH:-7700}:7700'
+
+    environment:
+      - SERVICE_URL_MEILISEARCH_7700
+      - MEILI_NO_ANALYTICS=${MEILI_NO_ANALYTICS:-true}
+      - MEILI_ENV=${MEILI_ENV:-production}
+      - MEILI_MASTER_KEY=${SERVICE_PASSWORD_MEILISEARCH}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - meilisearch_data:/meili_data
+
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://127.0.0.1:7700/health']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  meilisearch_data:

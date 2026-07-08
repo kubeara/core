@@ -136,6 +136,22 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Gitea",
     version: "1.26.2",
   },
+  forgejo: {
+    name: "Forgejo",
+    version: "12",
+  },
+  "forgejo-with-runner-dind": {
+    name: "Forgejo with Runner (DinD)",
+    version: "12",
+  },
+  "forgejo-with-runner-docker-socket": {
+    name: "Forgejo with Runner (Docker Socket)",
+    version: "12",
+  },
+  onedev: {
+    name: "OneDev",
+    version: "16.0",
+  },
   "gitlab-ce": {
     name: "GitLab CE",
     version: "latest",
@@ -391,6 +407,66 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
   gitleaks: {
     name: "Gitleaks",
     version: "latest",
+  },
+  "neon-ws-proxy": {
+    name: "Neon WS Proxy",
+    version: "latest",
+  },
+  kuzzle: {
+    name: "Kuzzle",
+    version: "2.56",
+  },
+  autobase: {
+    name: "Autobase",
+    version: "2.5",
+  },
+  convex: {
+    name: "Convex",
+    version: "latest",
+  },
+  typesense: {
+    name: "Typesense",
+    version: "28.0",
+  },
+  trailbase: {
+    name: "TrailBase",
+    version: "latest",
+  },
+  supabase: {
+    name: "Supabase",
+    version: "2026.06",
+  },
+  rabbitmq: {
+    name: "RabbitMQ",
+    version: "3",
+  },
+  chroma: {
+    name: "Chroma",
+    version: "1.0",
+  },
+  "deno-kv": {
+    name: "Deno KV",
+    version: "latest",
+  },
+  edgedb: {
+    name: "EdgeDB",
+    version: "6",
+  },
+  electricsql: {
+    name: "ElectricSQL",
+    version: "latest",
+  },
+  elasticsearch: {
+    name: "Elasticsearch",
+    version: "8.19",
+  },
+  "elasticsearch-with-kibana": {
+    name: "Elasticsearch with Kibana",
+    version: "8.19",
+  },
+  meilisearch: {
+    name: "Meilisearch",
+    version: "1.22",
   },
 };
 

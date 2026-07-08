@@ -1,0 +1,55 @@
+# documentation: https://forgejo.org/docs/latest/admin/installation/docker/
+# shortDescription: Community-driven self-hosted Git forge
+# longDescription: <p>Forgejo is a community-led <strong>Git hosting</strong> platform with issues, pull requests, and Forgejo Actions CI/CD.</p><p>Uses embedded SQLite by default. Set <code>SERVICE_URL_FORGEJO_*</code> when deploying behind a reverse proxy. Enable Actions in the admin UI before attaching runners.</p>
+# category: git,scm,source-control
+# tags: forgejo,git,scm,repository,self-hosted,actions,forge
+# logo: svgs/gitea-svgrepo-com.svg
+# port: 3000
+
+services:
+  forgejo:
+    image: ${FORGEJO_IMAGE:-data.forgejo.org/forgejo/forgejo:12}
+    restart: ${FORGEJO_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_FORGEJO:-3000}:3000'
+
+    environment:
+      - SERVICE_URL_FORGEJO_3000
+      - USER_UID=${FORGEJO_USER_UID:-1000}
+      - USER_GID=${FORGEJO_USER_GID:-1000}
+      - FORGEJO__database__DB_TYPE=sqlite3
+      - FORGEJO__server__DOMAIN=${SERVICE_FQDN_FORGEJO:-${SERVICE_FQDN_FORGEJO_3000:-localhost}}
+      - FORGEJO__server__ROOT_URL=${SERVICE_URL_FORGEJO:-${SERVICE_URL_FORGEJO_3000:-http://localhost:3000/}}
+      - FORGEJO__server__HTTP_PORT=3000
+      - FORGEJO__server__DISABLE_SSH=${FORGEJO_DISABLE_SSH:-true}
+      - FORGEJO__actions__ENABLED=${FORGEJO_ACTIONS_ENABLED:-true}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - forgejo_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/ || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  forgejo_data:

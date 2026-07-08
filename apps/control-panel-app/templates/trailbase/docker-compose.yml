@@ -1,0 +1,49 @@
+# documentation: https://trailbase.io/
+# shortDescription: Single-executable Firebase alternative on SQLite
+# longDescription: <p>TrailBase is a blazingly fast <strong>Rust/SQLite/Wasmtime</strong> backend with type-safe APIs, auth, and admin UI in a single executable.</p><p>All data is stored in the mounted <code>traildepot</code> volume. Admin credentials are printed on first startup.</p>
+# category: database,backend
+# tags: trailbase,backend,sqlite,firebase-alternative,api,realtime
+# logo: svgs/sql-database-generic-svgrepo-com.svg
+# port: 4000
+
+services:
+  trailbase:
+    image: ${TRAILBASE_IMAGE:-docker.io/trailbase/trailbase:latest}
+    restart: ${TRAILBASE_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_TRAILBASE:-4000}:4000'
+
+    environment:
+      - SERVICE_URL_TRAILBASE_4000
+      - ADDRESS=0.0.0.0:4000
+      - RUST_BACKTRACE=${RUST_BACKTRACE:-1}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - trailbase_data:/app/traildepot
+
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://127.0.0.1:4000/api/healthcheck']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  trailbase_data:

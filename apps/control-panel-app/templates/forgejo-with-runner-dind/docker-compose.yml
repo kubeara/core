@@ -1,0 +1,147 @@
+# documentation: https://forgejo.org/docs/latest/admin/actions/installation/docker/
+# shortDescription: Forgejo with Actions runner (Docker-in-Docker)
+# longDescription: <p>Self-hosted <strong>Forgejo</strong> with an isolated <strong>Forgejo Actions</strong> runner backed by Docker-in-Docker.</p><p>After deploy, create a runner registration token in Forgejo (<em>Site Administration → Actions → Runners</em>) and set <code>SERVICE_PASSWORD_FORGEJO_RUNNER</code>. The runner auto-registers on first start.</p>
+# category: git,scm,source-control
+# tags: forgejo,git,actions,ci,runner,dind,docker,self-hosted
+# logo: svgs/gitea-svgrepo-com.svg
+# port: 3000
+
+services:
+  forgejo:
+    image: ${FORGEJO_IMAGE:-data.forgejo.org/forgejo/forgejo:12}
+    restart: ${FORGEJO_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_FORGEJO:-3000}:3000'
+
+    environment:
+      - SERVICE_URL_FORGEJO_3000
+      - USER_UID=${FORGEJO_USER_UID:-1000}
+      - USER_GID=${FORGEJO_USER_GID:-1000}
+      - FORGEJO__database__DB_TYPE=sqlite3
+      - FORGEJO__server__DOMAIN=${SERVICE_FQDN_FORGEJO:-${SERVICE_FQDN_FORGEJO_3000:-localhost}}
+      - FORGEJO__server__ROOT_URL=${SERVICE_URL_FORGEJO:-${SERVICE_URL_FORGEJO_3000:-http://localhost:3000/}}
+      - FORGEJO__server__HTTP_PORT=3000
+      - FORGEJO__server__DISABLE_SSH=${FORGEJO_DISABLE_SSH:-true}
+      - FORGEJO__actions__ENABLED=true
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - forgejo_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/ || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  forgejo-runner-dind:
+    image: ${FORGEJO_RUNNER_DIND_IMAGE:-docker:28-dind}
+    restart: ${FORGEJO_RUNNER_DIND_RESTART_POLICY:-unless-stopped}
+    privileged: true
+
+    command: ['dockerd', '-H', 'tcp://0.0.0.0:2375', '--tls=false']
+
+    environment:
+      - TZ=${TZ:-UTC}
+
+    healthcheck:
+      test: ['CMD', 'docker', 'info']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  forgejo-runner:
+    image: ${FORGEJO_RUNNER_IMAGE:-data.forgejo.org/forgejo/runner:12}
+    restart: ${FORGEJO_RUNNER_RESTART_POLICY:-unless-stopped}
+    user: ${FORGEJO_RUNNER_UID:-1000}:${FORGEJO_RUNNER_GID:-1000}
+
+    environment:
+      - DOCKER_HOST=tcp://forgejo-runner-dind:2375
+      - FORGEJO_RUNNER_INSTANCE_URL=${FORGEJO_RUNNER_INSTANCE_URL:-http://forgejo:3000}
+      - FORGEJO_RUNNER_NAME=${FORGEJO_RUNNER_NAME:-kubeara-runner}
+      - SERVICE_PASSWORD_FORGEJO_RUNNER
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - forgejo_runner_data:/data
+
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        set -e
+        if [ ! -f /data/config.yml ]; then
+          forgejo-runner generate-config > /data/config.yml
+        fi
+        if [ ! -f /data/.runner ]; then
+          forgejo-runner register --no-interactive \
+            --instance "$${FORGEJO_RUNNER_INSTANCE_URL}" \
+            --token "$${SERVICE_PASSWORD_FORGEJO_RUNNER}" \
+            --name "$${FORGEJO_RUNNER_NAME}" \
+            --config /data/config.yml
+        fi
+        exec forgejo-runner daemon --config /data/config.yml
+
+    depends_on:
+      forgejo:
+        condition: service_healthy
+      forgejo-runner-dind:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD', 'forgejo-runner', '--version']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  forgejo_data:
+  forgejo_runner_data:
