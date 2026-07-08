@@ -10,5 +10,5 @@ export class VerifyOtpDto {
   otp!: string;
 
   @IsEnum(CODE_TYPE)
-  purpose!: CODE_TYPE;
+  codeType!: CODE_TYPE;
 }

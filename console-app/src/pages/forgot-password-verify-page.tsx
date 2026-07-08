@@ -135,7 +135,7 @@ export function ForgotPasswordVerifyPage() {
       const data = await verifyMutation.mutateAsync({
         email,
         otp,
-        purpose: OTP_CODE_TYPE.FORGOT_PASSWORD,
+        codeType: OTP_CODE_TYPE.FORGOT_PASSWORD,
       });
       showSuccessToast(data.message);
       navigate(`/reset-password?email=${encodeURIComponent(email)}`, {

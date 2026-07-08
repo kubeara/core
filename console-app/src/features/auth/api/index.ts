@@ -22,10 +22,7 @@ import { AUTH_TOAST_MESSAGES } from "../constants";
 
 const GENERIC_SUCCESS_MESSAGE = "Request completed successfully";
 
-function getAuthMessage(
-  response: AuthApiResponse,
-  fallback: string,
-): string {
+function getAuthMessage(response: AuthApiResponse, fallback: string): string {
   const message = response.message?.trim();
   if (!message || message === GENERIC_SUCCESS_MESSAGE) {
     return fallback;
@@ -103,7 +100,9 @@ export async function forgotPassword(
     "/auth/forgot-password",
     input,
   );
-  return { message: getAuthMessage(response.data, AUTH_TOAST_MESSAGES.OTP_SENT) };
+  return {
+    message: getAuthMessage(response.data, AUTH_TOAST_MESSAGES.OTP_SENT),
+  };
 }
 
 export async function resendOtp(
@@ -126,7 +125,7 @@ export async function verifyOtp(
     input,
   );
   const fallback =
-    input.purpose === "EMAIL_VERIFICATION"
+    input.codeType === "EMAIL_VERIFICATION"
       ? AUTH_TOAST_MESSAGES.EMAIL_VERIFIED
       : AUTH_TOAST_MESSAGES.RESET_CODE_VERIFIED;
   return { message: getAuthMessage(response.data, fallback) };

@@ -36,7 +36,7 @@ import { UserCodeEntity } from "./entities/user-codes.entity";
 import { VerifyOtpDto } from "./dto/verify-otp.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { GenerateOTP } from "@control-panel/common/utils/generate-otp";
-import { CODE_TYPE } from "./enum/codeType.enum";
+import { CODE_TYPE, CODE_TYPE_LABEL } from "./enum/codeType.enum";
 import { SALT_ROUNDS } from "@control-panel/constants/env.constant";
 import { isJwtToken } from "./utils/cookie-extractor.util";
 import { hashToken } from "./utils/token-hash.util";
@@ -69,12 +69,18 @@ export class AuthService {
     private readonly emailService: EmailService,
   ) {}
 
+  /**
+   * Resolves refresh token expiry duration from configuration.
+   */
   private resolveRefreshExpiresIn(): StringValue {
     return this.configService.getOrThrow<StringValue>(
       "REFRESH_TOKEN_EXPIRES_IN",
     );
   }
 
+  /**
+   * Converts configured refresh expiry into an absolute unix timestamp.
+   */
   private getRefreshExpiresAt(): number {
     const expiresIn = this.resolveRefreshExpiresIn();
     const expiresInMs = ms(expiresIn);
@@ -84,6 +90,9 @@ export class AuthService {
     return dayjs().add(expiresInMs, "millisecond").unix();
   }
 
+  /**
+   * Converts configured OTP expiry into an absolute unix timestamp.
+   */
   private getOtpExpiresAt(): number {
     const expiresIn =
       this.configService.getOrThrow<StringValue>("OTP_EXPIRES_IN");
@@ -94,11 +103,17 @@ export class AuthService {
     return dayjs().add(expiresInMs, "millisecond").unix();
   }
 
+  /**
+   * Reads maximum OTP resend attempts allowed in the current window.
+   */
   private getOtpResendMaxAttempts(): number {
     const parsed = Number(this.configService.get("OTP_RESEND_MAX_ATTEMPTS", 3));
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
   }
 
+  /**
+   * Reads OTP resend window duration in seconds.
+   */
   private getOtpResendWindowSeconds(): number {
     const parsed = Number(
       this.configService.get("OTP_RESEND_WINDOW_MINUTES", 15),
@@ -107,6 +122,9 @@ export class AuthService {
     return minutes * 60;
   }
 
+  /**
+   * Counts OTP sends for a user in the active resend window.
+   */
   private async countOtpSendsInWindow(
     userId: string,
     codeType: CODE_TYPE,
@@ -122,6 +140,9 @@ export class AuthService {
     });
   }
 
+  /**
+   * Calculates how long the user must wait before resending OTP.
+   */
   private async getOtpResendRetryAfterSeconds(
     userId: string,
     codeType: CODE_TYPE,
@@ -147,6 +168,9 @@ export class AuthService {
     return Math.max(1, windowEnd - dayjs().unix());
   }
 
+  /**
+   * Enforces OTP resend rate limits for a user and purpose.
+   */
   private async assertOtpResendAllowed(
     userId: string,
     codeType: CODE_TYPE,
@@ -172,6 +196,9 @@ export class AuthService {
     }
   }
 
+  /**
+   * Returns the user code repository bound to a transaction when provided.
+   */
   private getUserCodeRepository(
     manager?: EntityManager,
   ): Repository<UserCodeEntity> {
@@ -180,6 +207,9 @@ export class AuthService {
       : this.userCodeRepository;
   }
 
+  /**
+   * Marks existing active OTP records as inactive before issuing a new one.
+   */
   private async replaceOtp(
     userId: string,
     codeType: CODE_TYPE,
@@ -199,6 +229,9 @@ export class AuthService {
     );
   }
 
+  /**
+   * Creates and stores a fresh OTP record, returning the plain OTP value.
+   */
   private async createOtpRecord(
     userId: string,
     codeType: CODE_TYPE,
@@ -223,6 +256,9 @@ export class AuthService {
     return { otp };
   }
 
+  /**
+   * Sends OTP email content tailored to the OTP purpose.
+   */
   private async sendOtpEmail(
     user: UserEntity,
     codeType: CODE_TYPE,
@@ -230,8 +266,8 @@ export class AuthService {
   ) {
     const purposeLabel =
       codeType === CODE_TYPE.EMAIL_VERIFICATION
-        ? "Email verification"
-        : "Password reset";
+        ? CODE_TYPE_LABEL.EMAIL_VERIFICATION
+        : CODE_TYPE_LABEL.FORGOT_PASSWORD;
 
     await this.emailService.sendOtpEmail({
       toEmail: user.email,
@@ -241,6 +277,9 @@ export class AuthService {
     });
   }
 
+  /**
+   * Gets the latest active OTP record for a user and code type.
+   */
   private async getLatestActiveOtpRecord(
     userId: string,
     codeType: CODE_TYPE,
@@ -307,6 +346,9 @@ export class AuthService {
     await this.authSessionRepository.save(session);
   }
 
+  /**
+   * Revokes all active sessions for a user.
+   */
   private async revokeAllUserSessions(userId: string): Promise<void> {
     await this.authSessionRepository.update(
       {
@@ -570,6 +612,9 @@ export class AuthService {
     }
   }
 
+  /**
+   * Logs the user out from all devices by revoking all sessions.
+   */
   async logoutAllDevices(userId: string) {
     try {
       await this.revokeAllUserSessions(userId);
@@ -669,10 +714,6 @@ export class AuthService {
 
       await this.assertOtpResendAllowed(user.id, CODE_TYPE.FORGOT_PASSWORD);
 
-      // const { otp } = await this.createOtpRecord(
-      //   user.id,
-      //   CODE_TYPE.FORGOT_PASSWORD,
-      // );
       await this.sendOtpEmail(user, CODE_TYPE.FORGOT_PASSWORD, otp);
 
       return {
@@ -685,6 +726,9 @@ export class AuthService {
     }
   }
 
+  /**
+   * Resends email verification OTP to an existing user.
+   */
   async resendOtp(email: string) {
     const user = await this.userRepository.findOne({
       where: { email: email.toLowerCase().trim() },
@@ -725,7 +769,7 @@ export class AuthService {
 
       const otpRecord = await this.getLatestActiveOtpRecord(
         user.id,
-        verifyOtpDto.purpose,
+        verifyOtpDto.codeType,
       );
 
       if (!otpRecord) {
@@ -754,14 +798,22 @@ export class AuthService {
 
       await this.userCodeRepository.save(otpRecord);
 
-      if (verifyOtpDto.purpose === CODE_TYPE.EMAIL_VERIFICATION) {
+      if (verifyOtpDto.codeType === CODE_TYPE.EMAIL_VERIFICATION) {
         user.isEmailVerified = true;
         user.emailVerifiedAt = dayjs().unix();
-        await this.userRepository.save(user);
+        await this.userRepository.update(user.id, {
+          isEmailVerified: true,
+          emailVerifiedAt: dayjs().unix(),
+        });
+      } else if (verifyOtpDto.codeType === CODE_TYPE.FORGOT_PASSWORD) {
+        user.lastPasswordResetAt = dayjs().unix();
+        await this.userRepository.update(user.id, {
+          lastPasswordResetAt: dayjs().unix(),
+        });
       }
 
       const message =
-        verifyOtpDto.purpose === CODE_TYPE.EMAIL_VERIFICATION
+        verifyOtpDto.codeType === CODE_TYPE.EMAIL_VERIFICATION
           ? SUCCESS_MESSAGES.AUTH.EMAIL_VERIFIED
           : SUCCESS_MESSAGES.AUTH.RESET_CODE_VERIFIED;
 

@@ -53,7 +53,8 @@ export class AuthController {
   ) {
     try {
       const result = await this.authService.login(loginDto);
-      this.authCookieService.setAuthCookies(res, result.data.tokens);
+      const { tokens } = result.data;
+      this.authCookieService.setAuthCookies(res, tokens);
 
       return {
         message: result.message,
@@ -165,7 +166,12 @@ export class AuthController {
    */
   @Post("resend-otp")
   async resendOtp(@Body() forgotPasswordDto: ForgotPasswordDto) {
-    return this.authService.resendOtp(forgotPasswordDto.email);
+    try {
+      return await this.authService.resendOtp(forgotPasswordDto.email);
+    } catch (error) {
+      this.logger.error(`Resend OTP failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**

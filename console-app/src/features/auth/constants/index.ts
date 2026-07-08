@@ -1,5 +1,5 @@
 /**
- * OTP verification purpose values
+ * OTP verification code type values.
  */
 export const OTP_CODE_TYPE = {
   EMAIL_VERIFICATION: "EMAIL_VERIFICATION",

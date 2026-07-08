@@ -59,7 +59,7 @@ export type OtpCodeType = "EMAIL_VERIFICATION" | "FORGOT_PASSWORD";
 export type VerifyOtpRequest = {
   email: string;
   otp: string;
-  purpose: OtpCodeType;
+  codeType: OtpCodeType;
 };
 
 /**

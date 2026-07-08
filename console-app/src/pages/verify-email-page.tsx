@@ -135,7 +135,7 @@ export function VerifyEmailPage() {
       const data = await verifyMutation.mutateAsync({
         email,
         otp,
-        purpose: OTP_CODE_TYPE.EMAIL_VERIFICATION,
+        codeType: OTP_CODE_TYPE.EMAIL_VERIFICATION,
       });
       showSuccessToast(data.message);
       navigate("/login", { replace: true });
