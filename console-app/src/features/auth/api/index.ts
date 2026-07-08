@@ -13,10 +13,22 @@ import type {
   LoginRequest,
   MessageResponse,
   ResetPasswordRequest,
+  ResendOtpRequest,
   SignupRequest,
   SignupResponse,
   VerifyOtpRequest,
 } from "../types";
+import { AUTH_TOAST_MESSAGES } from "../constants";
+
+const GENERIC_SUCCESS_MESSAGE = "Request completed successfully";
+
+function getAuthMessage(response: AuthApiResponse, fallback: string): string {
+  const message = response.message?.trim();
+  if (!message || message === GENERIC_SUCCESS_MESSAGE) {
+    return fallback;
+  }
+  return message;
+}
 
 export async function signup(input: SignupRequest): Promise<User> {
   const response = await apiClient.post<AuthApiResponse<SignupResponse>>(
@@ -88,7 +100,21 @@ export async function forgotPassword(
     "/auth/forgot-password",
     input,
   );
-  return { message: response.data.message };
+  return {
+    message: getAuthMessage(response.data, AUTH_TOAST_MESSAGES.OTP_SENT),
+  };
+}
+
+export async function resendOtp(
+  input: ResendOtpRequest,
+): Promise<MessageResponse> {
+  const response = await apiClient.post<AuthApiResponse>(
+    "/auth/resend-otp",
+    input,
+  );
+  return {
+    message: getAuthMessage(response.data, AUTH_TOAST_MESSAGES.OTP_RESENT),
+  };
 }
 
 export async function verifyOtp(
@@ -98,7 +124,11 @@ export async function verifyOtp(
     "/auth/verify-otp",
     input,
   );
-  return { message: response.data.message };
+  const fallback =
+    input.codeType === "EMAIL_VERIFICATION"
+      ? AUTH_TOAST_MESSAGES.EMAIL_VERIFIED
+      : AUTH_TOAST_MESSAGES.RESET_CODE_VERIFIED;
+  return { message: getAuthMessage(response.data, fallback) };
 }
 
 export async function resetPassword(
@@ -108,5 +138,7 @@ export async function resetPassword(
     "/auth/reset-password",
     input,
   );
-  return { message: response.data.message };
+  return {
+    message: getAuthMessage(response.data, AUTH_TOAST_MESSAGES.PASSWORD_RESET),
+  };
 }

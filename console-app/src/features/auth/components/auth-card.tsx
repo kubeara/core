@@ -3,7 +3,7 @@ import { KubearaLogo } from "@/components/shared/kubeara-logo";
 
 type AuthCardProps = {
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   children: React.ReactNode;
   footer?: React.ReactNode;
 };
@@ -30,7 +30,8 @@ export function AuthCard({ title, subtitle, children, footer }: AuthCardProps) {
 
         <div className="auth-card-header">
           <h2>{title}</h2>
-          {subtitle && <p>{subtitle}</p>}
+          {subtitle != null &&
+            (typeof subtitle === "string" ? <p>{subtitle}</p> : subtitle)}
         </div>
 
         {children}

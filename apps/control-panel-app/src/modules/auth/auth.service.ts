@@ -1,5 +1,7 @@
 import {
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -7,7 +9,13 @@ import {
 } from "@nestjs/common";
 import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, IsNull, Repository } from "typeorm";
+import {
+  DataSource,
+  EntityManager,
+  IsNull,
+  MoreThan,
+  Repository,
+} from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import dayjs from "dayjs";
 import * as bcrypt from "bcrypt";
@@ -28,11 +36,12 @@ import { UserCodeEntity } from "./entities/user-codes.entity";
 import { VerifyOtpDto } from "./dto/verify-otp.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { GenerateOTP } from "@control-panel/common/utils/generate-otp";
-import { CODE_TYPE } from "./enum/codeType.enum";
+import { CODE_TYPE, CODE_TYPE_LABEL } from "./enum/codeType.enum";
 import { SALT_ROUNDS } from "@control-panel/constants/env.constant";
 import { isJwtToken } from "./utils/cookie-extractor.util";
 import { hashToken } from "./utils/token-hash.util";
 import { AuthSessionLookupService } from "./services/auth-session-lookup.service";
+import { EmailService } from "../email/email.service";
 
 export interface AuthTokens {
   accessToken: string;
@@ -57,14 +66,21 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly authSessionLookupService: AuthSessionLookupService,
+    private readonly emailService: EmailService,
   ) {}
 
+  /**
+   * Resolves refresh token expiry duration from configuration.
+   */
   private resolveRefreshExpiresIn(): StringValue {
     return this.configService.getOrThrow<StringValue>(
       "REFRESH_TOKEN_EXPIRES_IN",
     );
   }
 
+  /**
+   * Converts configured refresh expiry into an absolute unix timestamp.
+   */
   private getRefreshExpiresAt(): number {
     const expiresIn = this.resolveRefreshExpiresIn();
     const expiresInMs = ms(expiresIn);
@@ -72,6 +88,212 @@ export class AuthService {
       throw new Error(`Invalid refresh token expiry: ${expiresIn}`);
     }
     return dayjs().add(expiresInMs, "millisecond").unix();
+  }
+
+  /**
+   * Converts configured OTP expiry into an absolute unix timestamp.
+   */
+  private getOtpExpiresAt(): number {
+    const expiresIn =
+      this.configService.getOrThrow<StringValue>("OTP_EXPIRES_IN");
+    const expiresInMs = ms(expiresIn);
+    if (typeof expiresInMs !== "number") {
+      throw new Error(`Invalid OTP expiry: ${expiresIn}`);
+    }
+    return dayjs().add(expiresInMs, "millisecond").unix();
+  }
+
+  /**
+   * Reads maximum OTP resend attempts allowed in the current window.
+   */
+  private getOtpResendMaxAttempts(): number {
+    const parsed = Number(this.configService.get("OTP_RESEND_MAX_ATTEMPTS", 3));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
+  }
+
+  /**
+   * Reads OTP resend window duration in seconds.
+   */
+  private getOtpResendWindowSeconds(): number {
+    const parsed = Number(
+      this.configService.get("OTP_RESEND_WINDOW_MINUTES", 15),
+    );
+    const minutes = Number.isFinite(parsed) && parsed > 0 ? parsed : 15;
+    return minutes * 60;
+  }
+
+  /**
+   * Counts OTP sends for a user in the active resend window.
+   */
+  private async countOtpSendsInWindow(
+    userId: string,
+    codeType: CODE_TYPE,
+  ): Promise<number> {
+    const windowStart = dayjs().unix() - this.getOtpResendWindowSeconds();
+
+    return this.userCodeRepository.count({
+      where: {
+        userId,
+        codeType,
+        createdAt: MoreThan(windowStart),
+      },
+    });
+  }
+
+  /**
+   * Calculates how long the user must wait before resending OTP.
+   */
+  private async getOtpResendRetryAfterSeconds(
+    userId: string,
+    codeType: CODE_TYPE,
+  ): Promise<number> {
+    const windowStart = dayjs().unix() - this.getOtpResendWindowSeconds();
+    const oldest = await this.userCodeRepository.findOne({
+      where: {
+        userId,
+        codeType,
+        createdAt: MoreThan(windowStart),
+      },
+      order: {
+        createdAt: "ASC",
+      },
+    });
+
+    if (!oldest) {
+      return this.getOtpResendWindowSeconds();
+    }
+
+    const windowEnd =
+      Number(oldest.createdAt) + this.getOtpResendWindowSeconds();
+    return Math.max(1, windowEnd - dayjs().unix());
+  }
+
+  /**
+   * Enforces OTP resend rate limits for a user and purpose.
+   */
+  private async assertOtpResendAllowed(
+    userId: string,
+    codeType: CODE_TYPE,
+  ): Promise<void> {
+    const sendCount = await this.countOtpSendsInWindow(userId, codeType);
+    if (sendCount >= 1 + this.getOtpResendMaxAttempts()) {
+      const retryAfterSeconds = await this.getOtpResendRetryAfterSeconds(
+        userId,
+        codeType,
+      );
+      const retryMinutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
+
+      throw new HttpException(
+        {
+          message: ERROR_MESSAGES.AUTH.OTP_RESEND_LIMIT_REACHED.replace(
+            "{minutes}",
+            String(retryMinutes),
+          ),
+          retryAfterSeconds,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  /**
+   * Returns the user code repository bound to a transaction when provided.
+   */
+  private getUserCodeRepository(
+    manager?: EntityManager,
+  ): Repository<UserCodeEntity> {
+    return manager
+      ? manager.getRepository(UserCodeEntity)
+      : this.userCodeRepository;
+  }
+
+  /**
+   * Marks existing active OTP records as inactive before issuing a new one.
+   */
+  private async replaceOtp(
+    userId: string,
+    codeType: CODE_TYPE,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const userCodeRepository = this.getUserCodeRepository(manager);
+
+    await userCodeRepository.update(
+      {
+        userId,
+        codeType,
+        status: EntityStatus.ACTIVE,
+      },
+      {
+        status: EntityStatus.INACTIVE,
+      },
+    );
+  }
+
+  /**
+   * Creates and stores a fresh OTP record, returning the plain OTP value.
+   */
+  private async createOtpRecord(
+    userId: string,
+    codeType: CODE_TYPE,
+    manager?: EntityManager,
+  ): Promise<{ otp: string }> {
+    await this.replaceOtp(userId, codeType, manager);
+
+    const otp = GenerateOTP();
+    const otpHash = await bcrypt.hash(otp, SALT_ROUNDS);
+    const userCodeRepository = this.getUserCodeRepository(manager);
+
+    await userCodeRepository.save(
+      userCodeRepository.create({
+        userId,
+        codeType,
+        otpHash,
+        expiresAt: this.getOtpExpiresAt(),
+        attempts: 0,
+      }),
+    );
+
+    return { otp };
+  }
+
+  /**
+   * Sends OTP email content tailored to the OTP purpose.
+   */
+  private async sendOtpEmail(
+    user: UserEntity,
+    codeType: CODE_TYPE,
+    otp: string,
+  ) {
+    const purposeLabel =
+      codeType === CODE_TYPE.EMAIL_VERIFICATION
+        ? CODE_TYPE_LABEL.EMAIL_VERIFICATION
+        : CODE_TYPE_LABEL.FORGOT_PASSWORD;
+
+    await this.emailService.sendOtpEmail({
+      toEmail: user.email,
+      toName: user.name,
+      otp,
+      purposeLabel,
+    });
+  }
+
+  /**
+   * Gets the latest active OTP record for a user and code type.
+   */
+  private async getLatestActiveOtpRecord(
+    userId: string,
+    codeType: CODE_TYPE,
+  ): Promise<UserCodeEntity | null> {
+    return this.userCodeRepository.findOne({
+      where: {
+        userId,
+        codeType,
+        status: EntityStatus.ACTIVE,
+      },
+      order: {
+        createdAt: "DESC",
+      },
+    });
   }
 
   /**
@@ -124,6 +346,9 @@ export class AuthService {
     await this.authSessionRepository.save(session);
   }
 
+  /**
+   * Revokes all active sessions for a user.
+   */
   private async revokeAllUserSessions(userId: string): Promise<void> {
     await this.authSessionRepository.update(
       {
@@ -179,11 +404,19 @@ export class AuthService {
         passwordHash,
         organizationId: savedOrganization.id,
         signUpAt: dayjs().unix(),
-        isEmailVerified: true,
-        emailVerifiedAt: dayjs().unix(),
+        isEmailVerified: false,
+        emailVerifiedAt: undefined,
+        dateOfBirth: undefined,
       });
 
       const savedUser = await userRepository.save(user);
+
+      const { otp } = await this.createOtpRecord(
+        savedUser.id,
+        CODE_TYPE.EMAIL_VERIFICATION,
+        queryRunner.manager,
+      );
+      await this.sendOtpEmail(savedUser, CODE_TYPE.EMAIL_VERIFICATION, otp);
 
       await queryRunner.commitTransaction();
 
@@ -379,6 +612,9 @@ export class AuthService {
     }
   }
 
+  /**
+   * Logs the user out from all devices by revoking all sessions.
+   */
   async logoutAllDevices(userId: string) {
     try {
       await this.revokeAllUserSessions(userId);
@@ -472,13 +708,48 @@ export class AuthService {
         }),
       );
 
+      if (!user) {
+        throw new NotFoundException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+      }
+
+      await this.assertOtpResendAllowed(user.id, CODE_TYPE.FORGOT_PASSWORD);
+
+      await this.sendOtpEmail(user, CODE_TYPE.FORGOT_PASSWORD, otp);
+
       return {
         message: SUCCESS_MESSAGES.AUTH.OTP_SENT,
+        data: null,
       };
     } catch (error) {
       this.logger.error(`Forgot password failed: ${toErrorMessage(error)}`);
       throw error;
     }
+  }
+
+  /**
+   * Resends email verification OTP to an existing user.
+   */
+  async resendOtp(email: string) {
+    const user = await this.userRepository.findOne({
+      where: { email: email.toLowerCase().trim() },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
+    }
+
+    await this.assertOtpResendAllowed(user.id, CODE_TYPE.EMAIL_VERIFICATION);
+
+    const { otp } = await this.createOtpRecord(
+      user.id,
+      CODE_TYPE.EMAIL_VERIFICATION,
+    );
+    await this.sendOtpEmail(user, CODE_TYPE.EMAIL_VERIFICATION, otp);
+
+    return {
+      message: SUCCESS_MESSAGES.AUTH.OTP_RESENT,
+      data: null,
+    };
   }
 
   /**
@@ -496,16 +767,10 @@ export class AuthService {
         throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
       }
 
-      const otpRecord = await this.userCodeRepository.findOne({
-        where: {
-          userId: user.id,
-          codeType: CODE_TYPE.FORGOT_PASSWORD,
-          status: EntityStatus.ACTIVE,
-        },
-        order: {
-          createdAt: "DESC",
-        },
-      });
+      const otpRecord = await this.getLatestActiveOtpRecord(
+        user.id,
+        verifyOtpDto.codeType,
+      );
 
       if (!otpRecord) {
         throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
@@ -533,8 +798,28 @@ export class AuthService {
 
       await this.userCodeRepository.save(otpRecord);
 
+      if (verifyOtpDto.codeType === CODE_TYPE.EMAIL_VERIFICATION) {
+        user.isEmailVerified = true;
+        user.emailVerifiedAt = dayjs().unix();
+        await this.userRepository.update(user.id, {
+          isEmailVerified: true,
+          emailVerifiedAt: dayjs().unix(),
+        });
+      } else if (verifyOtpDto.codeType === CODE_TYPE.FORGOT_PASSWORD) {
+        user.lastPasswordResetAt = dayjs().unix();
+        await this.userRepository.update(user.id, {
+          lastPasswordResetAt: dayjs().unix(),
+        });
+      }
+
+      const message =
+        verifyOtpDto.codeType === CODE_TYPE.EMAIL_VERIFICATION
+          ? SUCCESS_MESSAGES.AUTH.EMAIL_VERIFIED
+          : SUCCESS_MESSAGES.AUTH.RESET_CODE_VERIFIED;
+
       return {
-        message: SUCCESS_MESSAGES.AUTH.OTP_VERIFIED,
+        message,
+        data: null,
       };
     } catch (error) {
       this.logger.error(`Verify OTP failed: ${toErrorMessage(error)}`);
@@ -557,16 +842,10 @@ export class AuthService {
         throw new UnauthorizedException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
       }
 
-      const otpRecord = await this.userCodeRepository.findOne({
-        where: {
-          userId: user.id,
-          codeType: CODE_TYPE.FORGOT_PASSWORD,
-          status: EntityStatus.ACTIVE,
-        },
-        order: {
-          createdAt: "DESC",
-        },
-      });
+      const otpRecord = await this.getLatestActiveOtpRecord(
+        user.id,
+        CODE_TYPE.FORGOT_PASSWORD,
+      );
 
       if (!otpRecord?.verifiedAt) {
         throw new UnauthorizedException(ERROR_MESSAGES.AUTH.OTP_NOT_VERIFIED);
@@ -585,10 +864,21 @@ export class AuthService {
 
       await this.userCodeRepository.save(otpRecord);
 
+      await this.userCodeRepository.update(
+        {
+          userId: user.id,
+          codeType: CODE_TYPE.FORGOT_PASSWORD,
+        },
+        {
+          status: EntityStatus.INACTIVE,
+        },
+      );
+
       await this.revokeAllUserSessions(user.id);
 
       return {
         message: SUCCESS_MESSAGES.AUTH.PASSWORD_RESET,
+        data: null,
       };
     } catch (error) {
       this.logger.error(`Reset password failed: ${toErrorMessage(error)}`);

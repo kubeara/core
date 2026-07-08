@@ -1,11 +1,6 @@
 import { AxiosError } from "axios";
+import { API_ERROR_MESSAGES } from "@/constants/error-messages";
 import { normalizeValidationMessage, normalizeValidationMessages } from "@/lib/validation";
-
-export const GENERIC_ERROR_MESSAGE =
-    "Something went wrong. Please try again later.";
-
-export const NETWORK_ERROR_MESSAGE =
-    "Network error. Please check your connection and try again.";
 
 /**
  * Custom error class for API-related errors.
@@ -79,11 +74,11 @@ function sanitizeForDisplay(message: string, status?: number): string {
     const normalized = normalizeValidationMessage(message);
 
     if (status !== undefined && isServerErrorStatus(status)) {
-        return GENERIC_ERROR_MESSAGE;
+        return API_ERROR_MESSAGES.GENERIC;
     }
 
     if (looksTechnical(normalized)) {
-        return GENERIC_ERROR_MESSAGE;
+        return API_ERROR_MESSAGES.GENERIC;
     }
 
     return normalized;
@@ -152,6 +147,24 @@ export function extractMessageFromBody(
 }
 
 /**
+ * Reads retryAfterSeconds from a rate-limit (429) response body.
+ */
+export function extractRetryAfterSeconds(
+    data: Record<string, unknown> | undefined,
+): number | null {
+    if (!data) {
+        return null;
+    }
+
+    const value = data.retryAfterSeconds;
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+        return Math.ceil(value);
+    }
+
+    return null;
+}
+
+/**
  * Extract a user-facing error message from various error types.
  *
  * Server and infrastructure failures always return a generic message.
@@ -165,15 +178,15 @@ export function getErrorMessage(error: unknown): string {
     if (error instanceof AxiosError) {
         if (!error.response) {
             if (error.code === "ERR_CANCELED") {
-                return "Request was canceled.";
+                return API_ERROR_MESSAGES.REQUEST_CANCELED;
             }
-            return NETWORK_ERROR_MESSAGE;
+            return API_ERROR_MESSAGES.NETWORK;
         }
 
         const status = error.response.status;
 
         if (isServerErrorStatus(status)) {
-            return GENERIC_ERROR_MESSAGE;
+            return API_ERROR_MESSAGES.GENERIC;
         }
 
         const extracted = extractMessageFromBody(
@@ -184,21 +197,25 @@ export function getErrorMessage(error: unknown): string {
         }
 
         if (status === 401) {
-            return "Your session has expired. Please sign in again.";
+            return API_ERROR_MESSAGES.SESSION_EXPIRED;
         }
 
         if (status === 403) {
-            return "You do not have permission to perform this action.";
+            return API_ERROR_MESSAGES.FORBIDDEN;
         }
 
-        return GENERIC_ERROR_MESSAGE;
+        if (status === 429) {
+            return API_ERROR_MESSAGES.TOO_MANY_REQUESTS;
+        }
+
+        return error.message || API_ERROR_MESSAGES.REQUEST_FAILED;
     }
 
     if (error instanceof Error) {
         return sanitizeForDisplay(error.message);
     }
 
-    return GENERIC_ERROR_MESSAGE;
+    return API_ERROR_MESSAGES.GENERIC;
 }
 
 /**

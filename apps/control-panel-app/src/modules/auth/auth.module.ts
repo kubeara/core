@@ -15,6 +15,7 @@ import { UserCodeEntity } from "./entities/user-codes.entity";
 import { UsersModule } from "../users/users.module";
 import { AuthCookieService } from "./services/auth-cookie.service";
 import { AuthSessionLookupService } from "./services/auth-session-lookup.service";
+import { EmailService } from "../email/email.service";
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { AuthSessionLookupService } from "./services/auth-session-lookup.service
     AuthService,
     AuthCookieService,
     AuthSessionLookupService,
+    EmailService,
     JwtStrategy,
     RefreshJwtStrategy,
   ],

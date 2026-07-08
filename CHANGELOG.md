@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.4](https://github.com/kubeara/core/compare/v0.0.3...v0.0.4) (2026-07-08)
+
+
+### Features
+
+* add detailed JSDoc comments to components in the templates feature ([41b2d17](https://github.com/kubeara/core/commit/41b2d175c0932bd5d5293d6820cdcf9853a0731d))
+* Add Services Page, Replace Templates Page, and Update Marketplace Navigation ([ffffb3a](https://github.com/kubeara/core/commit/ffffb3a2a9d0af2c9d6052bc7b6f7236ee39188e))
+
 ## [0.0.3](https://github.com/kubeara/core/compare/v0.0.2...v0.0.3) (2026-07-07)
 
 

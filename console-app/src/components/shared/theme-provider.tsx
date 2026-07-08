@@ -19,10 +19,14 @@ function getInitialPreference(): ThemePreference {
         return "system";
     }
 
-    const stored = localStorage.getItem(THEME_STORAGE_KEY);
+    try {
+        const stored = localStorage.getItem(THEME_STORAGE_KEY);
 
-    if (stored === "light" || stored === "dark" || stored === "system") {
-        return stored;
+        if (stored === "light" || stored === "dark" || stored === "system") {
+            return stored;
+        }
+    } catch {
+        // localStorage may be unavailable; fall back to system preference.
     }
 
     return "system";
@@ -75,7 +79,11 @@ export function ThemeProvider({
 
     const setThemePreference = useCallback((next: ThemePreference) => {
         setThemePreferenceState(next);
-        localStorage.setItem(THEME_STORAGE_KEY, next);
+        try {
+            localStorage.setItem(THEME_STORAGE_KEY, next);
+        } catch {
+            // localStorage may be unavailable or full; preference won't persist.
+        }
         setResolvedTheme(resolveTheme(next));
     }, []);
 

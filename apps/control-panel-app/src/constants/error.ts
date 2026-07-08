@@ -61,6 +61,10 @@ export const ERROR_MESSAGES = {
     OTP_EXPIRED: "OTP expired",
     OTP_NOT_VERIFIED: "OTP not verified",
     MAX_OTP_ATTEMPTS: "OTP attempts exhausted, please try again later",
+    EMAIL_NOT_VERIFIED: "Email not verified",
+    OTP_EXPIRED_OR_INVALID: "OTP expired or invalid",
+    OTP_RESEND_LIMIT_REACHED:
+      "You have reached the resend limit. Try again after {minutes} minutes.",
   },
 
   PROFILE: {
