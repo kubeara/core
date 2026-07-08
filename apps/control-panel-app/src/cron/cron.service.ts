@@ -13,6 +13,10 @@ export class CronService {
   constructor(private readonly configService: ConfigService) {}
 
   @Cron(CronExpression.EVERY_SECOND)
+  /**
+   * Fires the internal agent-health tick every second.
+   * @returns Resolves when the HTTP request completes or fails (errors are logged, not thrown).
+   */
   async runAgentHealthCheck(): Promise<void> {
     if (this.configService.get<string>("CRON_ENABLED") === "false") {
       return;
