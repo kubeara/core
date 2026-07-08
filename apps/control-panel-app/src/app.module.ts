@@ -20,6 +20,7 @@ import { TerminalModule } from "./modules/terminal/terminal.module";
 import { LokiLoggerModule } from "./modules/loki-logger";
 import { AppController } from "./app.controller";
 import { isProductionEnv } from "@control-panel/constants/env.constant";
+import { CronModule } from "./cron/cron.module";
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { isProductionEnv } from "@control-panel/constants/env.constant";
     McpOAuthModule,
     McpServerModule,
     TerminalModule,
+    CronModule,
   ],
   controllers: [AppController],
   providers: [],

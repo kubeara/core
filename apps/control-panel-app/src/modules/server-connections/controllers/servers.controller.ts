@@ -32,8 +32,8 @@ import { ServiceResponse } from "@control-panel/common/interfaces/success-respon
 import { PaginatedResponse } from "@shared/common";
 import { AuthenticatedRequest } from "../../../common/interfaces/authenticated-request.interface";
 import { ERROR_MESSAGES } from "@control-panel/constants/error";
+import { AgentHealthCronResult } from "../interfaces/server-health.interface";
 
-@UseGuards(AccessTokenGuard)
 @Controller("servers")
 export class ServersController {
   private readonly logger = new Logger(ServersController.name);
@@ -44,8 +44,28 @@ export class ServersController {
   ) {}
 
   /**
+   * Internal cron endpoint for rotating agent health checks.
+   * Called by CronService over loopback; not protected by AccessTokenGuard.
+   *
+   * @returns Health result for one active server selected by fair rotation.
+   */
+  @Post("cron/agent-health")
+  @HttpCode(HttpStatus.OK)
+  async cronAgentHealth(): Promise<AgentHealthCronResult> {
+    try {
+      return await this.connectionsService.processAgentHealthCheck();
+    } catch (error) {
+      this.logger.error(
+        `Cron agent health check failed: ${toErrorMessage(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Returns the current user's local machine server when it already exists.
    */
+  @UseGuards(AccessTokenGuard)
   @Get("local")
   async getLocalServer(@Req() req: { user: UserEntity }) {
     try {
@@ -72,6 +92,7 @@ export class ServersController {
   /**
    * List servers for the authenticated user.
    */
+  @UseGuards(AccessTokenGuard)
   @Get()
   async list(
     @Req() req: AuthenticatedRequest,
@@ -88,6 +109,7 @@ export class ServersController {
   /**
    * Fetches on-demand server resource metrics from the connected agent.
    */
+  @UseGuards(AccessTokenGuard)
   @Get(":serverId/resources")
   async getServerResources(
     @Req() req: AuthenticatedRequest,
@@ -109,6 +131,7 @@ export class ServersController {
   /**
    * Get a single server by ID.
    */
+  @UseGuards(AccessTokenGuard)
   @Get(":id")
   async getOne(
     @Req() req: AuthenticatedRequest,
@@ -125,6 +148,7 @@ export class ServersController {
   /**
    * Create and onboard a server.
    */
+  @UseGuards(AccessTokenGuard)
   @Post("onboard")
   @HttpCode(HttpStatus.CREATED)
   async onboard(
@@ -142,6 +166,7 @@ export class ServersController {
   /**
    * Update server name.
    */
+  @UseGuards(AccessTokenGuard)
   @Patch(":id")
   async update(
     @Req() req: AuthenticatedRequest,
@@ -159,6 +184,7 @@ export class ServersController {
   /**
    * Connect with the server.
    */
+  @UseGuards(AccessTokenGuard)
   @Post(":id/connect")
   @HttpCode(HttpStatus.OK)
   async connect(
@@ -176,6 +202,7 @@ export class ServersController {
   /**
    * Disconnect server.
    */
+  @UseGuards(AccessTokenGuard)
   @Post(":id/disconnect")
   @HttpCode(HttpStatus.OK)
   async disconnect(
@@ -193,6 +220,7 @@ export class ServersController {
   /**
    * Soft delete server.
    */
+  @UseGuards(AccessTokenGuard)
   @Post(":id/delete")
   @HttpCode(HttpStatus.OK)
   async deleteServer(

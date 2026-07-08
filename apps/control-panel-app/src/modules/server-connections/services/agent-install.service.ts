@@ -23,6 +23,10 @@ import {
   readAgentComposeFile,
   readAgentPrereqScript,
 } from "../utils/agent-deploy-bundle.util";
+import {
+  buildRemoveOrphanAgentContainersShellCommand,
+  buildRemoveStoppedCanonicalAgentShellCommand,
+} from "../utils/agent-host-cleanup.util";
 
 export interface RemoteAgentInstallInput {
   connection: SshConnectionOptions;
@@ -223,11 +227,23 @@ export class AgentInstallService {
       }
       this.pushLog(logs, `Using ${composeCmd}`, onLogLine);
 
+      await this.cleanupOrphanAgentContainers(
+        host,
+        installDir,
+        composeCmd,
+        logs,
+        onLogLine,
+      );
+
       const agentAlreadyRunning = await this.isAgentContainerRunning(
         host,
         installDir,
         composeCmd,
       );
+      const agentContainerPresent =
+        agentAlreadyRunning ||
+        (await this.isAgentContainerPresent(host, installDir, composeCmd));
+
       if (agentAlreadyRunning) {
         this.pushLog(
           logs,
@@ -236,6 +252,22 @@ export class AgentInstallService {
         );
         this.logger.log(
           `Agent upgrade (already running) serverId=${input.serverId} image=${envBuild.agentImage} dir=${installDir}`,
+        );
+      } else if (agentContainerPresent) {
+        this.pushLog(
+          logs,
+          `Agent container exists but is not running — recreating`,
+          onLogLine,
+        );
+        this.logger.log(
+          `Agent recreate (stopped) serverId=${input.serverId} image=${envBuild.agentImage} dir=${installDir}`,
+        );
+        await this.cleanupStoppedCanonicalAgent(
+          host,
+          installDir,
+          composeCmd,
+          logs,
+          onLogLine,
         );
       }
 
@@ -306,9 +338,11 @@ export class AgentInstallService {
        */
       const upArgs = agentAlreadyRunning
         ? "up -d --force-recreate --pull never"
-        : skipPull
-          ? "up -d --pull never"
-          : "up -d";
+        : agentContainerPresent
+          ? "up -d --force-recreate --remove-orphans --pull never"
+          : skipPull
+            ? "up -d --pull never"
+            : "up -d";
 
       const up = await host.executeCommand(
         this.buildComposeCommand(installDir, composeCmd, upArgs),
@@ -322,12 +356,14 @@ export class AgentInstallService {
         logs,
         agentAlreadyRunning
           ? "Agent container recreated with latest config/image"
-          : "Agent container started",
+          : agentContainerPresent
+            ? "Agent container recreated from stopped state"
+            : "Agent container started",
         onLogLine,
       );
 
       this.logger.log(
-        `Agent ${agentAlreadyRunning ? "upgraded" : "installed"} serverId=${input.serverId} image=${envBuild.agentImage} dir=${installDir} host=${host.label}`,
+        `Agent ${agentAlreadyRunning ? "upgraded" : agentContainerPresent ? "recreated" : "installed"} serverId=${input.serverId} image=${envBuild.agentImage} dir=${installDir} host=${host.label}`,
       );
 
       return { success: true, logs };
@@ -619,13 +655,136 @@ export class AgentInstallService {
     return probe.success ? dockerCli.mode : null;
   }
 
+  /**
+   * Runs compose down and removes compose-prefixed kubeara-agent orphans before install.
+   *
+   * @param host - Local or SSH host adapter executing docker commands.
+   * @param installDir - Remote/local agent install directory (e.g. /opt/kubeara/agent).
+   * @param composeCmd - Docker invocation mode: direct, sudo, or sg.
+   * @param logs - Install log buffer appended in place.
+   * @param onLogLine - Optional live log callback.
+   */
+  private async cleanupOrphanAgentContainers(
+    host: AgentHostAdapter,
+    installDir: string,
+    composeCmd: string,
+    logs: string[],
+    onLogLine?: AgentInstallLogCallback,
+  ): Promise<void> {
+    const down = await host.executeCommand(
+      this.buildComposeCommand(installDir, composeCmd, "down --remove-orphans"),
+      60_000,
+    );
+    this.appendCommandOutput(logs, down, onLogLine);
+
+    const removeOrphans = await host.executeCommand(
+      this.buildDockerShellCommand(
+        composeCmd,
+        buildRemoveOrphanAgentContainersShellCommand(),
+      ),
+      30_000,
+    );
+    this.appendCommandOutput(logs, removeOrphans, onLogLine);
+
+    if (removeOrphans.success) {
+      this.pushLog(logs, "Removed orphan kubeara-agent containers", onLogLine);
+    }
+  }
+
+  /**
+   * Removes stopped or Created canonical kubeara-agent containers before compose recreate.
+   *
+   * @param host - Local or SSH host adapter executing docker commands.
+   * @param installDir - Remote/local agent install directory.
+   * @param composeCmd - Docker invocation mode: direct, sudo, or sg.
+   * @param logs - Install log buffer appended in place.
+   * @param onLogLine - Optional live log callback.
+   */
+  private async cleanupStoppedCanonicalAgent(
+    host: AgentHostAdapter,
+    installDir: string,
+    composeCmd: string,
+    logs: string[],
+    onLogLine?: AgentInstallLogCallback,
+  ): Promise<void> {
+    const removeStopped = await host.executeCommand(
+      this.buildDockerShellCommand(
+        composeCmd,
+        buildRemoveStoppedCanonicalAgentShellCommand(),
+      ),
+      30_000,
+    );
+    this.appendCommandOutput(logs, removeStopped, onLogLine);
+
+    if (removeStopped.success) {
+      this.pushLog(
+        logs,
+        "Removed stopped kubeara-agent container before recreate",
+        onLogLine,
+      );
+    }
+  }
+
+  /**
+   * Wraps a shell script for docker execution under direct, sudo, or sg docker modes.
+   *
+   * @param composeMode - Docker invocation mode from detectComposeCommand().
+   * @param script - Shell script body to execute.
+   * @returns Full shell command string.
+   */
+  private buildDockerShellCommand(composeMode: string, script: string): string {
+    switch (composeMode) {
+      case "sg":
+        return `sg docker -c ${JSON.stringify(script)}`;
+      case "sudo":
+        return `sudo -n bash -lc ${JSON.stringify(script)}`;
+      default:
+        return `bash -lc ${JSON.stringify(script)}`;
+    }
+  }
+
+  /**
+   * Returns true when any kubeara-agent container exists on the host (any Docker state).
+   *
+   * @param host - Local or SSH host adapter.
+   * @param installDir - Agent compose directory on the host.
+   * @param composeCmd - Docker invocation mode.
+   */
+  private async isAgentContainerPresent(
+    host: AgentHostAdapter,
+    installDir: string,
+    composeCmd: string,
+  ): Promise<boolean> {
+    const byName = await host.executeCommand(
+      this.buildDockerPsFilterCommand(
+        composeCmd,
+        AGENT_INSTALL.CONTAINER_NAME,
+        false,
+      ),
+      15_000,
+    );
+    if (byName.success && byName.stdout.trim().length > 0) {
+      return true;
+    }
+
+    const byCompose = await host.executeCommand(
+      this.buildComposeCommand(installDir, composeCmd, "ps -a -q"),
+      15_000,
+    );
+    return byCompose.success && byCompose.stdout.trim().length > 0;
+  }
+
   private async isAgentContainerRunning(
     host: AgentHostAdapter,
     installDir: string,
     composeCmd: string,
   ): Promise<boolean> {
     const byName = await host.executeCommand(
-      this.buildDockerPsFilterCommand(composeCmd, AGENT_INSTALL.CONTAINER_NAME),
+      this.buildDockerPsFilterCommand(
+        composeCmd,
+        AGENT_INSTALL.CONTAINER_NAME,
+        true,
+      ),
       15_000,
     );
     if (byName.success && byName.stdout.trim().length > 0) {
@@ -643,12 +802,20 @@ export class AgentInstallService {
     return byCompose.success && byCompose.stdout.trim().length > 0;
   }
 
+  /**
+   * Builds a docker ps filter command for kubeara-agent containers.
+   *
+   * @param composeMode - Docker invocation mode.
+   * @param containerName - Container name filter (matches prefixed orphans too).
+   * @param runningOnly - When true, limits results to running containers.
+   */
   private buildDockerPsFilterCommand(
     composeMode: string,
     containerName: string,
+    runningOnly: boolean,
   ): string {
-    const args =
-      'ps --filter "name=^' + containerName + '$" --filter "status=running" -q';
+    const statusFilter = runningOnly ? ' --filter "status=running"' : "";
+    const args = `ps -a --filter "name=${containerName}"${statusFilter} -q`;
     switch (composeMode) {
       case "sg":
         return `sg docker -c "docker ${args}"`;
@@ -659,12 +826,19 @@ export class AgentInstallService {
     }
   }
 
+  /**
+   * Builds a docker compose command using a fixed project name (-p agent).
+   *
+   * @param installDir - Working directory containing compose and env files.
+   * @param composeMode - Docker invocation mode.
+   * @param subcommand - Compose subcommand (e.g. up -d, down --remove-orphans).
+   */
   private buildComposeCommand(
     installDir: string,
     composeMode: string,
     subcommand: string,
   ): string {
-    const base = `-f ${AGENT_INSTALL.COMPOSE_FILE} --env-file ${AGENT_INSTALL.ENV_FILE} ${subcommand}`;
+    const base = `-f ${AGENT_INSTALL.COMPOSE_FILE} --env-file ${AGENT_INSTALL.ENV_FILE} -p ${AGENT_INSTALL.COMPOSE_PROJECT_NAME} ${subcommand}`;
     switch (composeMode) {
       case "sg":
         return `cd ${installDir} && sg docker -c "docker compose ${base}"`;
