@@ -93,12 +93,11 @@ export class McpOAuthController {
       const redirectUrl =
         await this.authorizeService.buildConsoleAuthorizeRedirectUrl(query);
       res.redirect(302, redirectUrl);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : ERROR_MESSAGES.MCP_OAUTH.INVALID_AUTHORIZE_REQUEST;
-      res.status(400).type("text/plain").send(message);
+    } catch {
+      res
+        .status(400)
+        .type("text/plain; charset=utf-8")
+        .send(ERROR_MESSAGES.MCP_OAUTH.INVALID_AUTHORIZE_REQUEST);
     }
   }
 
@@ -138,14 +137,10 @@ export class McpOAuthController {
           : await this.tokenService.exchangeAuthorizationCode(body);
 
       res.status(200).json(tokenResponse);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : ERROR_MESSAGES.MCP_OAUTH.INVALID_TOKEN_REQUEST;
+    } catch {
       res.status(401).json({
         error: "invalid_grant",
-        error_description: message,
+        error_description: ERROR_MESSAGES.MCP_OAUTH.INVALID_TOKEN_REQUEST,
       });
     }
   }
