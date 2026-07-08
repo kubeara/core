@@ -89,6 +89,7 @@ import { ExistingServerCheck } from "../interfaces/existing-server-check.interfa
 import { OnboardFailureParams } from "../interfaces/onboard-failure-params.interface";
 import { RunAgentInstallAfterOnboardParams } from "../interfaces/run-agent-install-after-onboard-params.interface";
 import { ServerErrorCode } from "../enums/server-error-code.enum";
+import { ContainerAction } from "../enums/container-action.enum";
 import { mapSshTestErrorCode } from "../utils/map-ssh-test-error-code.util";
 import { runSshHealthTestWithTimeout } from "../utils/run-ssh-health-test.util";
 import {
@@ -112,10 +113,19 @@ import {
   SERVER_OPERATION_STATUS,
   type ServerOperationStatus,
 } from "../utils/server-operation.util";
+import {
+  AgentHealthCronResult,
+  ServerAgentError,
+} from "../interfaces/server-health.interface";
 
 @Injectable()
 export class ServerConnectionsService {
   private readonly logger = new Logger(ServerConnectionsService.name);
+  /**
+   * Process-local guard against overlapping cron ticks in one instance only.
+   * Not persisted — on restart there is no in-flight check, which is safe.
+   */
+  private agentHealthCheckInProgress = false;
 
   constructor(
     @InjectRepository(ServerEntity)
@@ -198,6 +208,147 @@ export class ServerConnectionsService {
     } catch (error) {
       this.logger.error(
         `Ensure agent installed failed for server '${serverId}': ${toErrorMessage(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Restores agent connectivity: remove orphans, start a stopped container, recreate a broken one, or install fresh.
+   *
+   * @param serverId - Active server to recover.
+   * @param options.plainPrivateKey - Optional decrypted SSH key for remote install.
+   * @param options.onLogLine - Optional install log callback.
+   * @returns Install/recovery result, or skipped when already connected or recovery is in progress.
+   */
+  async recoverAgentForServer(
+    serverId: string,
+    options?: {
+      plainPrivateKey?: string;
+      onLogLine?: AgentInstallLogCallback;
+    },
+  ): Promise<AgentInstallResult> {
+    try {
+      if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+        return { success: true, logs: [], skipped: true };
+      }
+
+      const serverRow = await this.serverRepository.findOne({
+        where: {
+          id: serverId,
+          status: EntityStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
+        select: { id: true, agentError: true },
+      });
+
+      if (this.isRecoveryInProgress(serverRow?.agentError ?? null)) {
+        return {
+          success: true,
+          logs: ["Agent recovery already in progress"],
+          skipped: true,
+        };
+      }
+
+      await this.setRecoveryInProgress(serverId, true);
+
+      try {
+        const agentContainers = await this.findAgentContainersOnHost(serverId);
+        const orphanAgents = agentContainers.filter(
+          (container) =>
+            !this.isCanonicalAgentContainerName(container.containerName),
+        );
+
+        for (const container of orphanAgents) {
+          this.logger.warn(
+            `Removing orphan agent container '${container.containerName}' (${container.status}) on server '${serverId}'`,
+          );
+          await this.executeContainerActionOnHost(
+            serverId,
+            container.containerId,
+            ContainerAction.DELETE,
+          );
+        }
+
+        const remainingAgents = agentContainers.filter((container) =>
+          this.isCanonicalAgentContainerName(container.containerName),
+        );
+        const runningAgents = remainingAgents.filter((container) =>
+          this.isDockerContainerRunning(container.status),
+        );
+        const stoppedAgents = remainingAgents.filter(
+          (container) => !this.isDockerContainerRunning(container.status),
+        );
+
+        if (runningAgents.length > 0) {
+          this.logger.log(
+            `Agent container is running but socket disconnected on server '${serverId}' — waiting for reconnect`,
+          );
+          return {
+            success: true,
+            logs: [
+              "Agent container is running — waiting for WebSocket reconnect",
+            ],
+            skipped: true,
+          };
+        }
+
+        const startableAgents = stoppedAgents.filter((container) =>
+          this.isDockerContainerStartable(container.status),
+        );
+        const brokenAgents = stoppedAgents.filter(
+          (container) => !this.isDockerContainerStartable(container.status),
+        );
+
+        for (const container of brokenAgents) {
+          this.logger.warn(
+            `Removing broken agent container '${container.containerName}' (${container.status}) on server '${serverId}'`,
+          );
+          await this.executeContainerActionOnHost(
+            serverId,
+            container.containerId,
+            ContainerAction.DELETE,
+          );
+        }
+
+        if (startableAgents.length > 0) {
+          for (const container of startableAgents) {
+            this.logger.log(
+              `Starting stopped agent container '${container.containerName}' (${container.status}) on server '${serverId}'`,
+            );
+            const startResult = await this.executeContainerActionOnHost(
+              serverId,
+              container.containerId,
+              ContainerAction.START,
+            );
+
+            if (startResult.success) {
+              return {
+                success: true,
+                logs: [
+                  `Started agent container ${container.containerName} (${container.status})`,
+                ],
+              };
+            }
+          }
+
+          this.logger.warn(
+            `Failed to start stopped agent on server '${serverId}' — reinstalling`,
+          );
+        }
+
+        this.logger.log(
+          startableAgents.length > 0 || brokenAgents.length > 0
+            ? `Reinstalling agent on server '${serverId}' after cleanup`
+            : `No agent container found on server '${serverId}' — installing`,
+        );
+        return await this.ensureAgentInstalledForServer(serverId, options);
+      } finally {
+        await this.setRecoveryInProgress(serverId, false);
+      }
+    } catch (error) {
+      this.logger.error(
+        `Recover agent failed for server '${serverId}': ${toErrorMessage(error)}`,
       );
       throw error;
     }
@@ -358,7 +509,10 @@ export class ServerConnectionsService {
   }
 
   /**
-   * Returns true when the Kubeara agent container exists on the server host.
+   * Returns true when the Kubeara agent is connected via WebSocket or its container is running on the host.
+   *
+   * @param serverId - Server to inspect.
+   * @returns True when connected or a running kubeara-agent container exists.
    */
   async isAgentInstalledOnServer(serverId: string): Promise<boolean> {
     if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
@@ -366,11 +520,9 @@ export class ServerConnectionsService {
     }
 
     try {
-      const containers = await this.discoverContainersOnHost(serverId);
-      return containers.some(
-        (container) =>
-          container.containerName.toLowerCase() ===
-          AGENT_INSTALL.CONTAINER_NAME.toLowerCase(),
+      const containers = await this.findAgentContainersOnHost(serverId);
+      return containers.some((container) =>
+        this.isDockerContainerRunning(container.status),
       );
     } catch (error) {
       this.logger.warn(
@@ -1750,5 +1902,292 @@ export class ServerConnectionsService {
       this.logger.error(`Find server failed: ${toErrorMessage(error)}`);
       throw error;
     }
+  }
+
+  /**
+   * Checks agent WebSocket health for the next active server in rotation.
+   * Updates health columns, applies grace thresholds, and may trigger background recovery.
+   * Processes exactly one server per invocation; never runs checks in parallel.
+   *
+   * @returns Result indicating which server was checked and whether recovery was triggered.
+   */
+  async processAgentHealthCheck(): Promise<AgentHealthCronResult> {
+    if (this.agentHealthCheckInProgress) {
+      return { processed: false };
+    }
+
+    this.agentHealthCheckInProgress = true;
+
+    try {
+      const server = await this.selectNextServerForHealthCheck();
+
+      if (!server) {
+        return { processed: false };
+      }
+
+      const checkedAt = dayjs().unix();
+      const isConnected = this.deploymentGateway.isAgentConnectedForServer(
+        server.id,
+      );
+
+      if (isConnected) {
+        await this.serverRepository.update(server.id, {
+          isServerUp: true,
+          lastAgentCheckedAt: checkedAt,
+          retryCount: 0,
+          agentError: null,
+        });
+
+        return {
+          processed: true,
+          serverId: server.id,
+          connected: true,
+        };
+      }
+
+      const nextRetryCount = server.retryCount + 1;
+      let agentContainersSummary = "no agent container found";
+      let hasRunningAgentContainer = false;
+
+      try {
+        const agentContainers = await this.findAgentContainersOnHost(server.id);
+        hasRunningAgentContainer = agentContainers.some((container) =>
+          this.isDockerContainerRunning(container.status),
+        );
+        if (agentContainers.length > 0) {
+          agentContainersSummary = agentContainers
+            .map(
+              (container) =>
+                `${container.containerName} (${container.status || "unknown"})`,
+            )
+            .join(", ");
+        }
+      } catch (error) {
+        agentContainersSummary = `container discovery failed: ${toErrorMessage(error)}`;
+      }
+
+      const shouldRecover =
+        !hasRunningAgentContainer &&
+        nextRetryCount >= 5 &&
+        !this.isRecoveryInProgress(server.agentError);
+
+      const agentError: ServerAgentError = {
+        message: shouldRecover
+          ? `Agent WebSocket is not connected (${agentContainersSummary})`
+          : `Agent WebSocket is not connected — waiting before recovery (${agentContainersSummary})`,
+        serverId: server.id,
+        host: server.host,
+        checkedAt,
+        retryCount: nextRetryCount,
+        recoveryInProgress: server.agentError?.recoveryInProgress,
+      };
+
+      await this.serverRepository.update(server.id, {
+        isServerUp: false,
+        lastAgentCheckedAt: checkedAt,
+        retryCount: nextRetryCount,
+        agentError,
+      });
+
+      if (shouldRecover) {
+        this.triggerAgentRecoveryAsync(server.id);
+      }
+
+      return {
+        processed: true,
+        serverId: server.id,
+        connected: false,
+        recoveryTriggered: shouldRecover,
+      };
+    } catch (error) {
+      this.logger.error(`Agent health check failed: ${toErrorMessage(error)}`);
+      throw error;
+    } finally {
+      this.agentHealthCheckInProgress = false;
+    }
+  }
+
+  /**
+   * Starts recoverAgentForServer() in the background without awaiting completion.
+   *
+   * @param serverId - Server to recover.
+   */
+  private triggerAgentRecoveryAsync(serverId: string): void {
+    void (async () => {
+      try {
+        const result = await this.recoverAgentForServer(serverId);
+
+        if (!result.success) {
+          this.logger.warn(
+            `Background agent recovery failed for server '${serverId}': ${result.error ?? "unknown error"}`,
+          );
+        }
+      } catch (error) {
+        this.logger.error(
+          `Background agent recovery failed for server '${serverId}': ${toErrorMessage(error)}`,
+        );
+      }
+    })();
+  }
+
+  /**
+   * Picks the active server checked least recently (fair rotation persisted via lastAgentCheckedAt).
+   *
+   * @returns Next server to health-check, or null when no active servers exist.
+   */
+  private async selectNextServerForHealthCheck(): Promise<{
+    id: string;
+    host: string;
+    retryCount: number;
+    agentError: ServerAgentError | null;
+  } | null> {
+    const healthSelect = {
+      id: true,
+      host: true,
+      retryCount: true,
+      agentError: true,
+    } as const;
+    const activeWhere = {
+      status: EntityStatus.ACTIVE,
+      deletedAt: IsNull(),
+    };
+
+    const neverChecked = await this.serverRepository.findOne({
+      where: { ...activeWhere, lastAgentCheckedAt: IsNull() },
+      order: { id: "ASC" },
+      select: healthSelect,
+    });
+
+    if (neverChecked) {
+      return neverChecked;
+    }
+
+    return this.serverRepository.findOne({
+      where: activeWhere,
+      order: { lastAgentCheckedAt: "ASC", id: "ASC" },
+      select: healthSelect,
+    });
+  }
+
+  /**
+   * True when a recovery is marked in progress and not stale (10 minutes).
+   *
+   * @param agentError - Persisted agent error payload for the server.
+   */
+  private isRecoveryInProgress(agentError: ServerAgentError | null): boolean {
+    if (!agentError?.recoveryInProgress) {
+      return false;
+    }
+
+    return dayjs().unix() - agentError.checkedAt < 600;
+  }
+
+  /**
+   * Updates recoveryInProgress on the persisted agentError jsonb (no new DB columns).
+   *
+   * @param serverId - Server row to update.
+   * @param inProgress - Whether recovery is currently running.
+   */
+  private async setRecoveryInProgress(
+    serverId: string,
+    inProgress: boolean,
+  ): Promise<void> {
+    try {
+      const server = await this.serverRepository.findOne({
+        where: { id: serverId },
+        select: { id: true, agentError: true },
+      });
+
+      if (!server?.agentError) {
+        return;
+      }
+
+      await this.serverRepository.update(serverId, {
+        agentError: {
+          ...server.agentError,
+          recoveryInProgress: inProgress,
+        },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to update recoveryInProgress for server '${serverId}': ${toErrorMessage(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Lists kubeara-agent containers on the server host (canonical and compose-prefixed).
+   *
+   * @param serverId - Server to query via SSH or local shell.
+   * @returns Containers whose name matches kubeara-agent patterns.
+   */
+  private async findAgentContainersOnHost(
+    serverId: string,
+  ): Promise<DiscoveredContainerPayload[]> {
+    try {
+      const containers = await this.discoverContainersOnHost(serverId);
+      return containers.filter((container) =>
+        this.isKubearaAgentContainerName(container.containerName),
+      );
+    } catch (error) {
+      this.logger.error(
+        `Find agent containers failed for server '${serverId}': ${toErrorMessage(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Matches canonical and compose-prefixed kubeara-agent container names.
+   *
+   * @param containerName - Docker container name (with or without leading slash).
+   * @returns True when the name refers to a kubeara agent container.
+   */
+  private isKubearaAgentContainerName(containerName: string): boolean {
+    const normalized = containerName.replace(/^\//, "").toLowerCase();
+    const agentName = AGENT_INSTALL.CONTAINER_NAME.toLowerCase();
+
+    return (
+      normalized === agentName ||
+      normalized.endsWith(`_${agentName}`) ||
+      normalized.includes(agentName)
+    );
+  }
+
+  /**
+   * True only for the canonical container name kubeara-agent (not compose-prefixed orphans).
+   *
+   * @param containerName - Docker container name (with or without leading slash).
+   */
+  private isCanonicalAgentContainerName(containerName: string): boolean {
+    return (
+      containerName.replace(/^\//, "").toLowerCase() ===
+      AGENT_INSTALL.CONTAINER_NAME.toLowerCase()
+    );
+  }
+
+  /**
+   * True when docker ps status indicates the container can be started with docker start.
+   * Excludes Created state, which requires remove + reinstall.
+   *
+   * @param status - Raw Status field from docker ps.
+   */
+  private isDockerContainerStartable(status: string): boolean {
+    const normalized = status.trim().toLowerCase();
+
+    return (
+      normalized.includes("exited") ||
+      normalized.includes("stopped") ||
+      normalized.includes("paused")
+    );
+  }
+
+  /**
+   * True when docker ps status indicates a running container (starts with "Up").
+   *
+   * @param status - Raw Status field from docker ps.
+   */
+  private isDockerContainerRunning(status: string): boolean {
+    return status.trim().toLowerCase().startsWith("up");
   }
 }
