@@ -25,6 +25,13 @@ type TemplatesMarketplacePanelProps = {
   connectedTemplateSlugs?: Set<string>;
 };
 
+/**
+ * Renders the templates marketplace panel.
+ * @param onDeploy 
+ * @param serverId 
+ * @param connectedTemplateSlugs 
+ * @returns 
+ */
 export function TemplatesMarketplacePanel({
   onDeploy,
   serverId,
@@ -48,16 +55,27 @@ export function TemplatesMarketplacePanel({
   const templatesQuery = useTemplatesQuery(listParams, serverId);
   const categoriesQuery = useTemplateCategoriesQuery();
 
+  /**
+   * Handles the change of the search input.
+   * @param value 
+   */
   function handleSearchChange(value: string) {
     setSearchInput(value);
     setPage(1);
   }
 
+  /**
+   * Handles the change of the category.
+   * @param value 
+   */
   function handleCategoryChange(value: string) {
     setCategory(value);
     setPage(1);
   }
 
+  /**
+   * Clears the filters.
+   */
   function clearFilters() {
     setSearchInput("");
     setCategory("");

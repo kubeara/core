@@ -9,6 +9,12 @@ type MarketplaceCardInlineTagsProps = {
   tagClassName?: string;
 };
 
+/**
+ * Measures the width of the overflow badge.
+ * @param element 
+ * @param overflowCount 
+ * @returns 
+ */
 function measureOverflowBadgeWidth(
   element: HTMLElement | null,
   overflowCount: number,
@@ -21,6 +27,14 @@ function measureOverflowBadgeWidth(
   return element.offsetWidth;
 }
 
+/**
+ * Computes the number of tags that can be displayed within the available width.
+ * @param availableWidth 
+ * @param tagWidths 
+ * @param overflowMeasureEl 
+ * @param gap 
+ * @returns 
+ */
 function computeVisibleTagCount(
   availableWidth: number,
   tagWidths: number[],
@@ -50,11 +64,22 @@ function computeVisibleTagCount(
   return 1;
 }
 
+/**
+ * Props for the OverflowTagBadge component.
+ * @param overflowCount 
+ * @param hiddenTags 
+ */
 type OverflowTagBadgeProps = {
   overflowCount: number;
   hiddenTags: string[];
 };
 
+/**
+ * Renders a badge for the overflow of tags.
+ * @param overflowCount 
+ * @param hiddenTags 
+ * @returns 
+ */
 function OverflowTagBadge({ overflowCount, hiddenTags }: OverflowTagBadgeProps) {
   const tooltipLabel = hiddenTags.join(", ");
 
@@ -67,7 +92,14 @@ function OverflowTagBadge({ overflowCount, hiddenTags }: OverflowTagBadgeProps) 
     </li>
   );
 }
-
+/**
+ * Renders a list of tags inline.
+ * @param tags 
+ * @param ariaLabel 
+ * @param className 
+ * @param tagClassName 
+ * @returns 
+ */
 export function MarketplaceCardInlineTags({
   tags,
   ariaLabel,

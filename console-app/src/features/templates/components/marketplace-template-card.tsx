@@ -31,6 +31,14 @@ function DeployIcon() {
   );
 }
 
+/**
+ * Renders a template card for the marketplace.
+ * @param template 
+ * @param onDeploy 
+ * @param showDeployButton 
+ * @param isDeployed 
+ * @returns 
+ */
 export function MarketplaceTemplateCard({
   template,
   onDeploy,

@@ -13,6 +13,13 @@ import "./select-deploy-server-modal.css";
 
 const SERVER_LIST_LIMIT = 100;
 
+/**
+ * Props for the SelectDeployServerModal component.
+ * @param open 
+ * @param template 
+ * @param onClose 
+ * @param onSelectServer 
+ */
 type SelectDeployServerModalProps = {
   open: boolean;
   template: ApiTemplate | null;
@@ -20,10 +27,22 @@ type SelectDeployServerModalProps = {
   onSelectServer: (serverId: string) => void;
 };
 
+/**
+ * Formats a server option label.
+ * @param name 
+ * @param host 
+ * @returns 
+ */
 function formatServerOptionLabel(name: string, host: string): string {
   return `${name} (${host})`;
 }
 
+/**
+ * Renders the content of the select deploy server modal.
+ * @param template 
+ * @param onClose 
+ * @param onSelectServer 
+ */
 function SelectDeployServerModalContent({
   template,
   onClose,
@@ -178,6 +197,13 @@ function SelectDeployServerModalContent({
   );
 }
 
+/**
+ * Renders the select deploy server modal.
+ * @param open 
+ * @param template 
+ * @param onClose 
+ * @param onSelectServer 
+ */
 export function SelectDeployServerModal({
   open,
   template,
