@@ -46,7 +46,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--background);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .mcp-token-value {
@@ -57,32 +57,23 @@
   font-size: 0.8125rem;
   line-height: 1.45;
   word-break: break-all;
+  border-radius: 8px 0 0 8px;
 }
 
-.mcp-token-field-copy {
-  display: inline-flex;
+.mcp-token-field-copy-wrap {
+  display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   width: 2.75rem;
-  padding: 0;
-  border: none;
   border-left: 1px solid var(--border);
   background: color-mix(in srgb, var(--foreground) 3%, var(--surface));
-  color: var(--muted);
-  cursor: pointer;
-  transition:
-    color 0.15s ease,
-    background 0.15s ease;
+  border-radius: 0 8px 8px 0;
+  overflow: visible;
 }
 
-.mcp-token-field-copy:hover {
-  color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
-}
-
-.mcp-token-field-copy.is-copied {
-  color: var(--success);
+.mcp-token-field-copy-wrap .copy-btn {
+  opacity: 1;
 }
 
 .mcp-setup-guides-grid {

@@ -133,27 +133,101 @@ export function SkeletonInsightStack({
   );
 }
 
-export function SkeletonMarketplaceCard() {
+export type SkeletonMarketplaceCardVariant = "services" | "overview";
+
+function SkeletonOverviewMetaItem({
+  labelClassName,
+  valueClassName,
+}: {
+  labelClassName?: string;
+  valueClassName: string;
+}) {
   return (
-    <article className="skeleton-marketplace-card" aria-hidden>
-      <div className="skeleton-marketplace-accent" />
-      <div className="skeleton-marketplace-header">
-        <SkeletonCircle size={48} />
-        <div className="skeleton-marketplace-headline">
-          <SkeletonText width="45%" />
-          <SkeletonText width="35%" size="sm" />
+    <div className="marketplace-card-meta-item">
+      <Skeleton
+        className={cn("skeleton-marketplace-meta-label", labelClassName)}
+      />
+      <Skeleton className={valueClassName} />
+    </div>
+  );
+}
+
+export function SkeletonMarketplaceCard({
+  variant = "services",
+}: {
+  variant?: SkeletonMarketplaceCardVariant;
+}) {
+  if (variant === "overview") {
+    return (
+      <article
+        className="marketplace-card overview-container-card skeleton-marketplace-card skeleton-marketplace-card--overview"
+        aria-hidden
+      >
+        <Skeleton className="skeleton-marketplace-actions" />
+        <div className="marketplace-card-header">
+          <Skeleton className="skeleton-marketplace-icon" />
+          <div className="marketplace-card-headline">
+            <Skeleton className="skeleton-marketplace-category" />
+            <Skeleton className="skeleton-marketplace-name" />
+          </div>
+        </div>
+        <div className="marketplace-card-body">
+          <Skeleton className="skeleton-marketplace-image-line" />
+          <dl className="marketplace-card-meta">
+            <SkeletonOverviewMetaItem
+              labelClassName="skeleton-marketplace-meta-label--status"
+              valueClassName="skeleton-marketplace-meta-status"
+            />
+            <SkeletonOverviewMetaItem
+              labelClassName="skeleton-marketplace-meta-label--ports"
+              valueClassName="skeleton-marketplace-meta-port"
+            />
+            <SkeletonOverviewMetaItem
+              labelClassName="skeleton-marketplace-meta-label--created"
+              valueClassName="skeleton-marketplace-meta-value--created"
+            />
+          </dl>
+        </div>
+      </article>
+    );
+  }
+
+  return (
+    <article
+      className="marketplace-card skeleton-marketplace-card skeleton-marketplace-card--services"
+      aria-hidden
+    >
+      <div className="marketplace-card-header">
+        <Skeleton className="skeleton-marketplace-icon" />
+        <div className="marketplace-card-headline">
+          <Skeleton className="skeleton-marketplace-name" />
+          <div className="skeleton-marketplace-tags skeleton-marketplace-tags--headline">
+            <Skeleton className="skeleton-marketplace-tag" />
+            <Skeleton className="skeleton-marketplace-tag skeleton-marketplace-tag--medium" />
+          </div>
         </div>
       </div>
-      <div className="skeleton-marketplace-body">
-        <SkeletonText width="92%" />
-        <SkeletonText width="78%" />
-        <div className="skeleton-marketplace-meta">
-          {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="skeleton-marketplace-meta-item">
-              <SkeletonText width="3rem" size="sm" />
-              <SkeletonText width="4rem" />
-            </div>
-          ))}
+      <div className="marketplace-card-body">
+        <div className="skeleton-marketplace-description">
+          <SkeletonText width="100%" className="skeleton-marketplace-description-line" />
+          <SkeletonText width="84%" className="skeleton-marketplace-description-line" />
+        </div>
+        <div className="skeleton-marketplace-tags">
+          <Skeleton className="skeleton-marketplace-tag" />
+          <Skeleton className="skeleton-marketplace-tag skeleton-marketplace-tag--medium" />
+          <Skeleton className="skeleton-marketplace-tag skeleton-marketplace-tag--wide" />
+        </div>
+        {/* <dl className="marketplace-card-meta">
+          <div className="marketplace-card-meta-item">
+            <Skeleton className="skeleton-marketplace-meta-label" />
+            <Skeleton className="skeleton-marketplace-meta-value" />
+          </div>
+        </dl> */}
+      </div>
+      <div className="marketplace-card-footer">
+        <div className="skeleton-marketplace-deploy-btn">
+          <Skeleton className="skeleton-marketplace-deploy-icon" />
+          <Skeleton className="skeleton-marketplace-deploy-label" />
         </div>
       </div>
     </article>
@@ -164,10 +238,12 @@ export function SkeletonMarketplaceGrid({
   count = 3,
   label = "Loading…",
   className,
+  variant = "services",
 }: {
   count?: number;
   label?: string;
   className?: string;
+  variant?: SkeletonMarketplaceCardVariant;
 }) {
   return (
     <div
@@ -177,7 +253,7 @@ export function SkeletonMarketplaceGrid({
     >
       <span className="skeleton-visually-hidden">{label}</span>
       {Array.from({ length: count }).map((_, index) => (
-        <SkeletonMarketplaceCard key={index} />
+        <SkeletonMarketplaceCard key={index} variant={variant} />
       ))}
     </div>
   );
@@ -262,7 +338,32 @@ export function ServerDetailPageSkeleton() {
           <Skeleton key={index} className="skeleton-tab" />
         ))}
       </div>
-      <SkeletonMarketplaceGrid count={3} label="Loading overview…" />
+      <SkeletonMarketplaceGrid count={3} label="Loading overview…" variant="overview" />
+    </div>
+  );
+}
+
+export function DeployServiceSummaryCardSkeleton() {
+  return (
+    <div className="skeleton-deploy-service-card" aria-hidden>
+      <Skeleton className="skeleton-deploy-service-card-accent" />
+      <div className="skeleton-deploy-service-card-body">
+        <SkeletonCircle size={56} />
+        <div className="skeleton-deploy-service-card-content">
+          <div className="skeleton-deploy-service-card-top">
+            <div className="skeleton-deploy-service-card-details">
+              <SkeletonText width="42%" size="lg" />
+              <SkeletonText width="28%" size="sm" />
+              <SkeletonText width="72%" />
+            </div>
+            <div className="skeleton-deploy-service-card-target">
+              <SkeletonText width="4.5rem" size="sm" />
+              <SkeletonText width="6.5rem" />
+            </div>
+          </div>
+          <Skeleton className="skeleton-deploy-service-meta" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -273,7 +374,7 @@ export function DeployConfigurePageSkeleton() {
       <span className="skeleton-visually-hidden">
         Loading deployment configuration…
       </span>
-      <Skeleton className="skeleton-deploy-service-card" />
+      <DeployServiceSummaryCardSkeleton />
       <Skeleton className="skeleton-card" style={{ height: "24rem" }} />
     </div>
   );
@@ -295,12 +396,35 @@ export function DeployFormFieldsSkeleton({ fields = 5 }: { fields?: number }) {
   );
 }
 
+export function DeployLogsServiceCardSkeleton() {
+  return (
+    <div className="skeleton-deploy-service-card" aria-hidden>
+      <Skeleton className="skeleton-deploy-service-card-accent" />
+      <div className="skeleton-deploy-service-card-body">
+        <SkeletonCircle size={56} />
+        <div className="skeleton-deploy-service-card-content">
+          <div className="skeleton-deploy-service-card-top">
+            <div className="skeleton-deploy-service-card-details">
+              <SkeletonText width="42%" size="lg" />
+              <SkeletonText width="28%" size="sm" />
+              <SkeletonText width="72%" />
+            </div>
+            <div className="skeleton-deploy-service-card-target">
+              <SkeletonText width="14rem" size="sm" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function DeployLogsPageSkeleton() {
   return (
     <div className="dashboard skeleton-page skeleton-deploy-logs" aria-live="polite" aria-busy="true">
       <span className="skeleton-visually-hidden">Loading deployment…</span>
       <SkeletonText width="7rem" size="sm" />
-      <Skeleton className="skeleton-deploy-service-card" />
+      <DeployLogsServiceCardSkeleton />
       <Skeleton className="skeleton-deploy-terminal" />
     </div>
   );

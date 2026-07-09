@@ -9,6 +9,7 @@ import {
   getContainerCardHeadline,
   getContainerDockerName,
   getContainerHostPorts,
+  getContainerPortsTooltip,
   getContainerServiceName,
   getManagedTypeLabel,
   getContainerStatusLabel,
@@ -54,6 +55,10 @@ export function ConnectedServiceCard({
 
   const statusLabel = getContainerStatusLabel(container);
   const hostPorts = getContainerHostPorts(container.ports ?? "");
+  const portsTooltip = getContainerPortsTooltip(
+    serverHost,
+    container.ports ?? "",
+  );
   const portsDisplay =
     hostPorts.length > 0
       ? hostPorts.join(", ")
@@ -132,7 +137,7 @@ export function ConnectedServiceCard({
           </div>
           <div className="marketplace-card-meta-item">
             <dt>Ports</dt>
-            <dd title={container.ports || undefined}>
+            <dd title={portsTooltip}>
               {hostPorts.length > 0 && serverHost ? (
                 hostPorts.map((port, index) => (
                   <span key={port}>

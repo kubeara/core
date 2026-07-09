@@ -315,8 +315,6 @@ export function DeploymentLogs({
     return () => window.clearTimeout(timer);
   }, [isFullscreen, logView]);
 
-  const resolvedStatus = liveDeploymentStatus;
-
   return (
     <div className={`deploy-logs-page ${isFullscreen ? "is-fullscreen" : ""}`}>
       <BackLink to={backHref} label="Back" />
@@ -334,42 +332,27 @@ export function DeploymentLogs({
             }}
           />
           <div className="deploy-service-content">
-            <div className="deploy-service-headline">
-              <h1>{template.name}</h1>
-              <span className={`deploy-status-badge ${status}`}>
-                {statusLabel(status, isStarting, liveDeploymentStatus)}
-              </span>
+            <div className="deploy-service-card-top">
+              <div className="deploy-service-details">
+                <div className="deploy-service-headline">
+                  <h1>{template.name}</h1>
+                  <span className={`deploy-status-badge ${status}`}>
+                    {statusLabel(status, isStarting, liveDeploymentStatus)}
+                  </span>
+                </div>
+                {template.category ? (
+                  <p className="deploy-service-category">{template.category}</p>
+                ) : null}
+                {template.description ? (
+                  <p className="deploy-service-description">
+                    {template.description}
+                  </p>
+                ) : null}
+              </div>
+              <p className="deploy-service-deployment-id">
+                <code>{deploymentId ?? "Pending…"}</code>
+              </p>
             </div>
-            <p className="deploy-service-category">{template.category}</p>
-            <p className="deploy-service-description">{template.description}</p>
-            <dl className="deploy-service-meta-grid">
-              <div className="deploy-service-meta-item">
-                <dt>Template</dt>
-                <dd>{template.name}</dd>
-              </div>
-              <div className="deploy-service-meta-item">
-                <dt>Deployment ID</dt>
-                <dd>
-                  <code>{deploymentId ?? "Pending…"}</code>
-                </dd>
-              </div>
-              <div className="deploy-service-meta-item">
-                <dt>Status</dt>
-                <dd>
-                  {startError ??
-                    (hasReceivedStatus
-                      ? formatDeploymentStatus(liveDeploymentStatus)
-                      : null) ??
-                    deploymentQuery.data?.statusMessage ??
-                    resolvedStatus ??
-                    deploymentStateLabel(
-                      status,
-                      isStarting,
-                      liveDeploymentStatus,
-                    )}
-                </dd>
-              </div>
-            </dl>
           </div>
         </div>
       </article>
@@ -458,63 +441,5 @@ function statusLabel(
       return "Complete";
     case "error":
       return "Error";
-  }
-}
-
-function formatDeploymentStatus(
-  status: DeploymentStatus | null,
-): string | null {
-  if (!status) return null;
-  switch (status) {
-    case "pending":
-      return "Queued";
-    case "validating":
-      return "Validating";
-    case "pulling":
-      return "Pulling images";
-    case "building":
-      return "Building";
-    case "deploying":
-      return "Deploying";
-    case "running":
-      return "Running";
-    case "success":
-      return "Deployed successfully";
-    case "failed":
-      return "Failed";
-    case "cancelled":
-      return "Cancelled";
-    case "removing":
-      return "Removing";
-    case "removed":
-      return "Removed";
-    default:
-      return status;
-  }
-}
-
-function deploymentStateLabel(
-  status: StreamStatus,
-  isStarting: boolean,
-  deploymentStatus: DeploymentStatus | null,
-): string {
-  const fromStatus = formatDeploymentStatus(deploymentStatus);
-  if (fromStatus) {
-    return fromStatus;
-  }
-
-  if (isStarting) {
-    return "Preparing deployment…";
-  }
-
-  switch (status) {
-    case "connecting":
-      return "Connecting to log stream…";
-    case "streaming":
-      return "Streaming logs";
-    case "complete":
-      return "Deployed successfully";
-    case "error":
-      return "Failed / interrupted";
   }
 }

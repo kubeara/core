@@ -16,6 +16,10 @@ import {
 } from "@/features/servers/types";
 import type { Server, ServerOperationStatus } from "@/types";
 import { getErrorMessage } from "@/api/api-error";
+import {
+  SERVER_OPERATION_REMOVING_LABEL,
+  SERVER_OPERATION_SETTING_UP_LABEL,
+} from "@/features/servers/constants/messages";
 import { ServerFeedbackMessage } from "@/features/servers/components/server-feedback-message";
 import { ServersTableSkeleton } from "@/components/shared/skeleton";
 import { showErrorToast } from "@/lib/toast";
@@ -75,9 +79,9 @@ function DeleteIcon() {
 function operationStatusLabel(status: ServerOperationStatus): string {
   switch (status) {
     case "starting":
-      return "Starting…";
+      return SERVER_OPERATION_SETTING_UP_LABEL;
     case "removing":
-      return "Removing…";
+      return SERVER_OPERATION_REMOVING_LABEL;
     case "error":
       return "Error";
     default:

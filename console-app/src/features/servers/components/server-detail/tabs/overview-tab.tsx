@@ -3,6 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { Dropdown } from "@/components/shared/dropdown";
 import { FilterClearButton } from "@/components/shared/filter-clear-button";
 import { ContainerActionConfirmModal } from "@/features/deployments/components/container-action-confirm-modal";
+import { DeployResourceWarningConfirmModal } from "@/features/deployments/components/deploy-resource-warning-confirm-modal";
+import {
+  KUBEARA_AGENT_DELETE_WARNING_MESSAGE,
+  KUBEARA_AGENT_DELETE_WARNING_TITLE,
+} from "@/features/deployments/constants/container-action-messages";
 import { useContainerActionMutation } from "@/features/deployments/hooks";
 import { useTemplatesQuery } from "@/features/templates/hooks";
 import type {
@@ -60,6 +65,7 @@ export function ServerOverviewTab({
     container: ServerContainer;
     action: ContainerActionType;
   } | null>(null);
+  const [agentDeleteWarningOpen, setAgentDeleteWarningOpen] = useState(false);
 
   const isConfirmPending = Boolean(
     confirmAction &&
@@ -101,6 +107,11 @@ export function ServerOverviewTab({
     container: ServerContainer,
     action: ContainerActionType,
   ) {
+    if (action === "delete" && isKubearaAgentContainer(container)) {
+      setAgentDeleteWarningOpen(true);
+      return;
+    }
+
     setConfirmAction({ container, action });
   }
 
@@ -165,6 +176,15 @@ export function ServerOverviewTab({
 
   return (
     <div className="server-detail-panel">
+      {agentDeleteWarningOpen ? (
+        <DeployResourceWarningConfirmModal
+          title={KUBEARA_AGENT_DELETE_WARNING_TITLE}
+          message={KUBEARA_AGENT_DELETE_WARNING_MESSAGE}
+          dismissLabel="OK"
+          onCancel={() => setAgentDeleteWarningOpen(false)}
+        />
+      ) : null}
+
       {confirmAction ? (
         <ContainerActionConfirmModal
           containerName={getContainerDisplayName(confirmAction.container)}
@@ -209,7 +229,7 @@ export function ServerOverviewTab({
       ) : null}
 
       {isLoading ? (
-        <SkeletonMarketplaceGrid count={3} label="Loading containers…" />
+        <SkeletonMarketplaceGrid count={3} label="Loading containers…" variant="overview" />
       ) : isError ? (
         <p className="server-detail-empty">
           Could not load containers. Check that this server is online.

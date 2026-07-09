@@ -7,10 +7,14 @@ import type { DeploymentResourceWarningCode } from "../types";
 import "./deploy-resource-warning-confirm-modal.css";
 
 type DeployResourceWarningConfirmModalProps = {
-  warningCode: DeploymentResourceWarningCode;
-  isPending: boolean;
+  title?: string;
+  message?: string;
+  warningCode?: DeploymentResourceWarningCode;
+  isPending?: boolean;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm?: () => void;
+  confirmLabel?: string;
+  dismissLabel?: string;
 };
 
 function WarningIcon() {
@@ -38,11 +42,23 @@ function WarningIcon() {
 }
 
 export function DeployResourceWarningConfirmModal({
+  title,
+  message,
   warningCode,
-  isPending,
+  isPending = false,
   onCancel,
   onConfirm,
+  confirmLabel = DEPLOYMENT_RESOURCE_WARNING_CONFIRM_BUTTON,
+  dismissLabel = "Cancel",
 }: DeployResourceWarningConfirmModalProps) {
+  const resolvedTitle =
+    title ??
+    (warningCode ? DEPLOYMENT_RESOURCE_WARNING_CONFIRM_TITLE : "Warning");
+  const resolvedMessage =
+    message ??
+    (warningCode ? getDeploymentResourceWarningMessage(warningCode) : "");
+  const dismissOnly = !onConfirm;
+
   return (
     <div
       className="modal-overlay"
@@ -58,9 +74,7 @@ export function DeployResourceWarningConfirmModal({
       >
         <header className="modal-header">
           <WarningIcon />
-          <h2 id="deploy-resource-warning-confirm-title">
-            {DEPLOYMENT_RESOURCE_WARNING_CONFIRM_TITLE}
-          </h2>
+          <h2 id="deploy-resource-warning-confirm-title">{resolvedTitle}</h2>
           {!isPending ? (
             <button
               type="button"
@@ -72,27 +86,38 @@ export function DeployResourceWarningConfirmModal({
             </button>
           ) : null}
         </header>
-        <p className="modal-body-text">
-          {getDeploymentResourceWarningMessage(warningCode)}
-        </p>
+        <p className="modal-body-text">{resolvedMessage}</p>
         <div className="modal-actions">
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={onCancel}
-            disabled={isPending}
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className={`btn-warning${isPending ? " is-loading" : ""}`}
-            onClick={onConfirm}
-            disabled={isPending}
-            aria-busy={isPending}
-          >
-            {DEPLOYMENT_RESOURCE_WARNING_CONFIRM_BUTTON}
-          </button>
+          {dismissOnly ? (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={onCancel}
+              disabled={isPending}
+            >
+              {dismissLabel}
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={onCancel}
+                disabled={isPending}
+              >
+                {dismissLabel}
+              </button>
+              <button
+                type="button"
+                className={`btn-warning${isPending ? " is-loading" : ""}`}
+                onClick={onConfirm}
+                disabled={isPending}
+                aria-busy={isPending}
+              >
+                {confirmLabel}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
