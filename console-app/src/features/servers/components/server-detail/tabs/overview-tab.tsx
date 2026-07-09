@@ -129,6 +129,7 @@ export function ServerOverviewTab({
         serverId,
         containerId: containerId ?? "",
         containerName: getContainerDisplayName(container),
+        deploymentId: container.deploymentId,
         action,
       });
       setConfirmAction(null);
