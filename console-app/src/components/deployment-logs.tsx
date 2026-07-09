@@ -1,6 +1,7 @@
 import { BackLink } from "@/components/shared/back-link";
 import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
 import { TerminalWordWrapToggle } from "@/components/shared/terminal-word-wrap-toggle";
+import { TooltipHint } from "@/components/ui/tooltip";
 import { useTerminalWordWrap } from "@/components/shared/use-terminal-word-wrap";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeploymentTerminalViewer } from "@/components/deployment-terminal-viewer";
@@ -111,26 +112,31 @@ function DeploymentLogsIntro({
                 </span>
               ) : null}
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={logView === "container"}
-              className={`server-terminal-source-btn${logView === "container" ? " active" : ""}`}
-              disabled={!containerLogsAvailable}
-              title={
+            <TooltipHint
+              content={
                 containerLogsAvailable
                   ? "Container output"
                   : "Available after the service starts"
               }
-              onClick={() => onLogViewChange("container")}
             >
-              Container
-              {containerLineCount > 0 ? (
-                <span className="server-terminal-source-count">
-                  {containerLineCount}
-                </span>
-              ) : null}
-            </button>
+              <span className="tooltip-trigger-wrap">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={logView === "container"}
+                  className={`server-terminal-source-btn${logView === "container" ? " active" : ""}`}
+                  disabled={!containerLogsAvailable}
+                  onClick={() => onLogViewChange("container")}
+                >
+                  Container
+                  {containerLineCount > 0 ? (
+                    <span className="server-terminal-source-count">
+                      {containerLineCount}
+                    </span>
+                  ) : null}
+                </button>
+              </span>
+            </TooltipHint>
           </div>
         </div>
       </div>

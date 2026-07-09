@@ -89,49 +89,6 @@
   flex-shrink: 0;
 }
 
-.terminal-scroll-down-tooltip {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 0.625rem);
-  padding: 0.4375rem 0.6875rem;
-  border: 1px solid rgb(255 153 0 / 28%);
-  border-radius: 8px;
-  background: rgb(15 27 42 / 98%);
-  color: #f2f3f3;
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transform: translateY(4px);
-  box-shadow:
-    0 8px 24px rgb(0 0 0 / 45%),
-    0 0 0 1px rgb(255 255 255 / 6%);
-  transition:
-    opacity 0.16s ease,
-    transform 0.16s ease,
-    visibility 0.16s ease;
-}
-
-.terminal-scroll-down-tooltip::after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  right: 0.875rem;
-  border: 5px solid transparent;
-  border-top-color: rgb(15 27 42 / 98%);
-}
-
-.terminal-scroll-down-anchor:hover .terminal-scroll-down-tooltip,
-.terminal-scroll-down-anchor:focus-within .terminal-scroll-down-tooltip {
-  opacity: 1;
-  visibility: visible;
-  transform: translateY(0);
-}
-
 .terminal-scroll-down-btn:hover {
   transform: scale(1.06);
   border-color: #ffb84d;
@@ -191,18 +148,10 @@
     width: 2.625rem;
     height: 2.625rem;
   }
-
-  .terminal-scroll-down-tooltip {
-    font-size: 0.6875rem;
-    max-width: 10rem;
-    white-space: normal;
-    text-align: right;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .terminal-scroll-down-btn,
-  .terminal-scroll-down-tooltip {
+  .terminal-scroll-down-btn {
     animation: none;
     transition: none;
   }

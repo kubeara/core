@@ -1,4 +1,5 @@
 import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
+import { TooltipHint } from "@/components/ui/tooltip";
 import { ContainerActionsMenu } from "@/features/deployments/components/container-actions-menu";
 import type {
   ContainerActionType,
@@ -89,27 +90,28 @@ export function ConnectedServiceCard({
           <p className="marketplace-card-category">
             {getManagedTypeLabel(container)}
           </p>
-          <h3 className="marketplace-card-name" title={headline}>
-            {headline}
-            {!container.isOnline ? (
-              <span className="marketplace-card-status-badge is-offline">
-                Offline
-              </span>
-            ) : shouldShowDeployedBadge(container) ? (
-              <span className="marketplace-card-deployed-badge">Deployed</span>
-            ) : null}
-          </h3>
+          <TooltipHint content={headline}>
+            <h3 className="marketplace-card-name">
+              {headline}
+              {!container.isOnline ? (
+                <span className="marketplace-card-status-badge is-offline">
+                  Offline
+                </span>
+              ) : shouldShowDeployedBadge(container) ? (
+                <span className="marketplace-card-deployed-badge">Deployed</span>
+              ) : null}
+            </h3>
+          </TooltipHint>
         </div>
       </div>
 
       <div className="marketplace-card-body">
         {container.imageName ? (
-          <p
-            className="marketplace-card-description"
-            title={container.imageName}
-          >
-            {container.imageName}
-          </p>
+          <TooltipHint content={container.imageName} multiline>
+            <p className="marketplace-card-description tooltip-trigger-wrap--block">
+              {container.imageName}
+            </p>
+          </TooltipHint>
         ) : (
           <p className="marketplace-card-description marketplace-card-description-empty">
             No image information available.
@@ -121,9 +123,12 @@ export function ConnectedServiceCard({
             <div className="marketplace-card-meta-item">
               <dt>Container</dt>
               <dd>
-                <code title={container.containerName || undefined}>
-                  {dockerName}
-                </code>
+                <TooltipHint
+                  content={container.containerName || undefined}
+                  disabled={!container.containerName}
+                >
+                  <code className="tooltip-trigger-wrap--inline">{dockerName}</code>
+                </TooltipHint>
               </dd>
             </div>
           ) : null}
@@ -137,25 +142,27 @@ export function ConnectedServiceCard({
           </div>
           <div className="marketplace-card-meta-item">
             <dt>Ports</dt>
-            <dd title={portsTooltip}>
-              {hostPorts.length > 0 && serverHost ? (
-                hostPorts.map((port, index) => (
-                  <span key={port}>
-                    {index > 0 ? ", " : null}
-                    <a
-                      href={`http://${serverHost}:${port}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="container-port-link"
-                    >
-                      {port}
-                    </a>
-                  </span>
-                ))
-              ) : (
-                <code>{portsDisplay}</code>
-              )}
-            </dd>
+            <TooltipHint content={portsTooltip} multiline>
+              <dd className="tooltip-trigger-wrap--block">
+                {hostPorts.length > 0 && serverHost ? (
+                  hostPorts.map((port, index) => (
+                    <span key={port}>
+                      {index > 0 ? ", " : null}
+                      <a
+                        href={`http://${serverHost}:${port}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="container-port-link"
+                      >
+                        {port}
+                      </a>
+                    </span>
+                  ))
+                ) : (
+                  <code>{portsDisplay}</code>
+                )}
+              </dd>
+            </TooltipHint>
           </div>
           {container.runningSince ? (
             <div className="marketplace-card-meta-item">

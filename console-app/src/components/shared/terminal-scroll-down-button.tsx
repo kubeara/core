@@ -1,5 +1,6 @@
-import { useEffect, useId, useState, type RefObject } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
+import { TooltipHint } from "@/components/ui/tooltip";
 import "./terminal-scroll-down-button.css";
 
 function IconChevronDown() {
@@ -55,28 +56,21 @@ export function TerminalScrollDownButton({
   tooltip = "Go to latest output",
 }: TerminalScrollDownButtonProps) {
   const portalTarget = useTerminalScrollPortalTarget(hostRef, visible);
-  const tooltipId = useId();
 
   if (!visible || !portalTarget) return null;
 
   const content = (
     <div className="terminal-scroll-down-anchor">
-      <button
-        type="button"
-        className="terminal-scroll-down-btn"
-        onClick={onClick}
-        aria-label={tooltip}
-        aria-describedby={tooltipId}
-      >
-        <IconChevronDown />
-      </button>
-      <span
-        id={tooltipId}
-        className="terminal-scroll-down-tooltip"
-        role="tooltip"
-      >
-        {tooltip}
-      </span>
+      <TooltipHint content={tooltip} side="top" align="end">
+        <button
+          type="button"
+          className="terminal-scroll-down-btn"
+          onClick={onClick}
+          aria-label={tooltip}
+        >
+          <IconChevronDown />
+        </button>
+      </TooltipHint>
     </div>
   );
 

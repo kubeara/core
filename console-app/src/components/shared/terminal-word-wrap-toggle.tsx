@@ -1,3 +1,5 @@
+import { TooltipHint } from "@/components/ui/tooltip";
+
 function IconWordWrap() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -41,16 +43,19 @@ export function TerminalWordWrapToggle({
   onToggle,
   className = "server-terminal-icon-btn",
 }: TerminalWordWrapToggleProps) {
+  const tooltip = wordWrap ? "Disable word wrap" : "Enable word wrap";
+
   return (
-    <button
-      type="button"
-      className={`${className}${wordWrap ? " is-active" : ""}`}
-      onClick={onToggle}
-      aria-label={wordWrap ? "Disable word wrap" : "Enable word wrap"}
-      aria-pressed={wordWrap}
-      title={wordWrap ? "Disable word wrap" : "Enable word wrap"}
-    >
-      {wordWrap ? <IconWordWrap /> : <IconWordWrapOff />}
-    </button>
+    <TooltipHint content={tooltip}>
+      <button
+        type="button"
+        className={`${className}${wordWrap ? " is-active" : ""}`}
+        onClick={onToggle}
+        aria-label={tooltip}
+        aria-pressed={wordWrap}
+      >
+        {wordWrap ? <IconWordWrap /> : <IconWordWrapOff />}
+      </button>
+    </TooltipHint>
   );
 }

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CopyButton } from "@/components/shared/copy-button";
+import { TooltipHint } from "@/components/ui/tooltip";
 import {
   useDeleteServerMutation,
   useServersQuery,
@@ -408,36 +409,39 @@ export function ServersTable() {
                       <HostCell host={server.host} />
                     </td>
                     <td>
-                      <time
-                        className="server-created-link"
-                        dateTime={server.createdAt}
-                        title={formatApiTimestamp(server.createdAt)}
-                      >
-                        {formatApiTimestamp(server.createdAt)}
-                      </time>
+                      <TooltipHint content={formatApiTimestamp(server.createdAt)}>
+                        <time
+                          className="server-created-link"
+                          dateTime={server.createdAt}
+                        >
+                          {formatApiTimestamp(server.createdAt)}
+                        </time>
+                      </TooltipHint>
                     </td>
                     <td>
                       <div className="server-row-actions">
-                        <button
-                          type="button"
-                          className="server-action-btn"
-                          onClick={() => openEdit(server)}
-                          aria-label={`Edit ${server.name}`}
-                          title="Edit"
-                          disabled={busy}
-                        >
-                          <EditIcon />
-                        </button>
-                        <button
-                          type="button"
-                          className="server-action-btn danger"
-                          onClick={() => setDeleteTarget(server)}
-                          aria-label={`Delete ${server.name}`}
-                          title="Delete"
-                          disabled={busy}
-                        >
-                          <DeleteIcon />
-                        </button>
+                        <TooltipHint content="Edit">
+                          <button
+                            type="button"
+                            className="server-action-btn"
+                            onClick={() => openEdit(server)}
+                            aria-label={`Edit ${server.name}`}
+                            disabled={busy}
+                          >
+                            <EditIcon />
+                          </button>
+                        </TooltipHint>
+                        <TooltipHint content="Delete">
+                          <button
+                            type="button"
+                            className="server-action-btn danger"
+                            onClick={() => setDeleteTarget(server)}
+                            aria-label={`Delete ${server.name}`}
+                            disabled={busy}
+                          >
+                            <DeleteIcon />
+                          </button>
+                        </TooltipHint>
                       </div>
                     </td>
                   </tr>
