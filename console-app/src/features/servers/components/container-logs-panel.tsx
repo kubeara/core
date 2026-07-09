@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getErrorMessage } from "@/api/api-error";
+import { TerminalWordWrapToggle } from "@/components/shared/terminal-word-wrap-toggle";
+import { useTerminalWordWrap } from "@/components/shared/use-terminal-word-wrap";
 import { ContainerLogsStopConfirmModal } from "@/features/deployments/components/container-logs-stop-confirm-modal";
 import { useContainerLogs } from "@/features/deployments/hooks/use-container-logs";
 import {
@@ -58,6 +60,7 @@ export function ContainerLogsPanel({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showStopConfirm, setShowStopConfirm] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
+  const { wordWrap, toggleWordWrap } = useTerminalWordWrap();
 
   const handleOutput = useCallback((data: string) => {
     terminalApiRef.current?.write(data);
@@ -228,6 +231,10 @@ export function ContainerLogsPanel({
                 >
                   {isFullscreen ? <IconRestore /> : <IconMaximize />}
                 </button>
+                <TerminalWordWrapToggle
+                  wordWrap={wordWrap}
+                  onToggle={toggleWordWrap}
+                />
               </>
             )}
 
@@ -282,6 +289,7 @@ export function ContainerLogsPanel({
             <ServerTerminalViewer
               isVisible={isStreaming || status === "complete"}
               readOnly
+              wordWrap={wordWrap}
               onData={() => undefined}
               onResize={() => undefined}
               onReady={(api) => {

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getErrorMessage } from "@/api/api-error";
+import { TerminalWordWrapToggle } from "@/components/shared/terminal-word-wrap-toggle";
+import { useTerminalWordWrap } from "@/components/shared/use-terminal-word-wrap";
 import { useServerTerminal } from "../hooks/use-server-terminal";
 import {
   ServerTerminalViewer,
@@ -51,6 +53,7 @@ export function ServerTerminalPanel({
   const shellRef = useRef<HTMLElement>(null);
   const terminalApiRef = useRef<ServerTerminalViewerApi | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const { wordWrap, toggleWordWrap } = useTerminalWordWrap();
 
   const handleOutput = useCallback((data: string) => {
     terminalApiRef.current?.write(data);
@@ -80,7 +83,7 @@ export function ServerTerminalPanel({
     if (isVisible && status === "connected") {
       refit();
     }
-  }, [isVisible, refit, status]);
+  }, [isVisible, refit, status, wordWrap]);
 
   const handleConnect = () => {
     const dimensions = terminalApiRef.current?.getDimensions();
@@ -190,6 +193,10 @@ export function ServerTerminalPanel({
                 >
                   {isFullscreen ? <IconRestore /> : <IconMaximize />}
                 </button>
+                <TerminalWordWrapToggle
+                  wordWrap={wordWrap}
+                  onToggle={toggleWordWrap}
+                />
               </>
             )}
 
@@ -262,6 +269,7 @@ export function ServerTerminalPanel({
             <ServerTerminalViewer
               isVisible={isVisible && isSessionActive}
               refitToken={refitToken}
+              wordWrap={wordWrap}
               onData={sendInput}
               onResize={sendResize}
               onReady={(api) => {

@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useDisconnectServerMutation } from "@/features/servers/hooks";
 import { formatApiTimestamp } from "@/lib/unix-timestamp";
-import { Switch } from "@/components/ui/switch";
 import type { Server } from "@/types";
 
 type ServerSettingsTabProps = {
@@ -11,11 +10,6 @@ type ServerSettingsTabProps = {
 export function ServerSettingsTab({ server }: ServerSettingsTabProps) {
   const disconnectMutation = useDisconnectServerMutation();
   const [disconnectOpen, setDisconnectOpen] = useState(false);
-  const [monitoringEnabled, setMonitoringEnabled] = useState(server.connected);
-
-  useEffect(() => {
-    setMonitoringEnabled(server.connected);
-  }, [server.connected]);
 
   async function handleDisconnect() {
     try {
@@ -65,22 +59,6 @@ export function ServerSettingsTab({ server }: ServerSettingsTabProps) {
             </dd>
           </div>
         </dl>
-
-        <div className="settings-toggles">
-          <div className="settings-toggle-row">
-            <div>
-              <span className="settings-toggle-label">Monitoring</span>
-              <span className="settings-toggle-hint">
-                Collect metrics and send alerts to your workspace
-              </span>
-            </div>
-            <Switch
-              checked={monitoringEnabled}
-              onCheckedChange={setMonitoringEnabled}
-              aria-label="Monitoring"
-            />
-          </div>
-        </div>
       </section>
 
       <section className="settings-danger-zone">

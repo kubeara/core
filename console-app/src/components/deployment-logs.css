@@ -10,6 +10,18 @@
   min-height: 0;
 }
 
+.deploy-logs-page .server-terminal-shell.has-session {
+  flex: 1;
+  min-height: 0;
+  height: min(72vh, 52rem);
+  max-height: min(72vh, 52rem);
+}
+
+.deploy-logs-page.is-fullscreen .server-terminal-shell.has-session {
+  height: 100%;
+  max-height: none;
+}
+
 .deploy-logs-page .back-link {
   align-self: flex-start;
   margin-bottom: 0;

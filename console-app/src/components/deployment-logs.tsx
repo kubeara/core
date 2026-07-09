@@ -1,5 +1,7 @@
 import { BackLink } from "@/components/shared/back-link";
 import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
+import { TerminalWordWrapToggle } from "@/components/shared/terminal-word-wrap-toggle";
+import { useTerminalWordWrap } from "@/components/shared/use-terminal-word-wrap";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeploymentTerminalViewer } from "@/components/deployment-terminal-viewer";
 import "@/components/shared/kubeara-terminal-shell.css";
@@ -66,8 +68,10 @@ function DeploymentLogsIntro({
   containerLogsAvailable,
   isFullscreen,
   isSocketConnected,
+  wordWrap,
   onLogViewChange,
   onToggleFullscreen,
+  onToggleWordWrap,
 }: {
   title: string;
   lineCount: number;
@@ -77,8 +81,10 @@ function DeploymentLogsIntro({
   containerLogsAvailable: boolean;
   isFullscreen: boolean;
   isSocketConnected: boolean;
+  wordWrap: boolean;
   onLogViewChange: (view: DeploymentLogView) => void;
   onToggleFullscreen: () => void;
+  onToggleWordWrap: () => void;
 }) {
   return (
     <div className="server-terminal-intro">
@@ -146,6 +152,10 @@ function DeploymentLogsIntro({
         >
           {isFullscreen ? <IconRestore /> : <IconMaximize />}
         </button>
+        <TerminalWordWrapToggle
+          wordWrap={wordWrap}
+          onToggle={onToggleWordWrap}
+        />
       </div>
     </div>
   );
@@ -164,6 +174,7 @@ export function DeploymentLogs({
   const failureHandledRef = useRef(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [logView, setLogView] = useState<DeploymentLogView>("installation");
+  const { wordWrap, toggleWordWrap } = useTerminalWordWrap();
 
   const deploymentQuery = useDeploymentQuery(deploymentId);
   const {
@@ -378,8 +389,10 @@ export function DeploymentLogs({
             containerLogsAvailable={containerLogsAvailable}
             isFullscreen={isFullscreen}
             isSocketConnected={isSocketConnected}
+            wordWrap={wordWrap}
             onLogViewChange={setLogView}
             onToggleFullscreen={() => void toggleFullscreen()}
+            onToggleWordWrap={toggleWordWrap}
           />
 
           <div className="server-terminal-window">
@@ -401,6 +414,7 @@ export function DeploymentLogs({
               isActive
               emptyMessage={emptyMessage}
               isLive={isStreaming}
+              wordWrap={wordWrap}
             />
           </div>
         </div>
