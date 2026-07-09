@@ -1,0 +1,47 @@
+# documentation: https://github.com/henrygd/beszel
+# shortDescription: Lightweight Docker host monitoring dashboard
+# longDescription: <p>Beszel provides a lightweight <strong>monitoring dashboard</strong> for Docker hosts and services.</p><p>Use this hub service with Beszel agents to collect and visualize host metrics.</p>
+# category: monitoring,observability
+# tags: beszel,monitoring,metrics,docker,observability
+# port: 8090
+
+services:
+  beszel:
+    image: ${BESZEL_IMAGE:-henrygd/beszel:latest}
+    restart: ${BESZEL_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_BESZEL:-8090}:8090'
+
+    environment:
+      - SERVICE_URL_BESZEL_8090
+      - BESZEL_HUB_PORT=${BESZEL_HUB_PORT:-8090}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - beszel_data:/beszel_data
+
+    healthcheck:
+      test: ['CMD', '/beszel', 'health', '--url', 'http://localhost:8090']
+      interval: 120s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  beszel_data:

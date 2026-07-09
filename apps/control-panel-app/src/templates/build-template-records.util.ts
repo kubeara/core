@@ -128,9 +128,29 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Grafana",
     version: "13.0.2",
   },
+  "grafana-with-postgresql": {
+    name: "Grafana with PostgreSQL",
+    version: "13.0.2",
+  },
   prometheus: {
     name: "Prometheus",
     version: "3.12.0",
+  },
+  beszel: {
+    name: "Beszel",
+    version: "latest",
+  },
+  diun: {
+    name: "DIUN",
+    version: "latest",
+  },
+  glances: {
+    name: "Glances",
+    version: "latest",
+  },
+  openobserve: {
+    name: "OpenObserve",
+    version: "latest",
   },
   gitea: {
     name: "Gitea",
@@ -303,6 +323,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
   signoz: {
     name: "SigNoz",
     version: "0.128",
+  },
+  wakapi: {
+    name: "Wakapi",
+    version: "latest",
   },
   appwrite: {
     name: "Appwrite",

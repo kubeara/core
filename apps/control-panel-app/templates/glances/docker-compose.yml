@@ -1,0 +1,47 @@
+# documentation: https://nicolargo.github.io/glances/
+# shortDescription: Real-time system monitoring in web UI
+# longDescription: <p>Glances provides real-time <strong>host and container monitoring</strong> with a simple web dashboard.</p><p>Run in web mode to monitor CPU, memory, disk, and network at a glance.</p>
+# category: monitoring,observability
+# tags: glances,monitoring,metrics,host,containers
+# port: 61208
+
+services:
+  glances:
+    image: ${GLANCES_IMAGE:-nicolargo/glances:latest-full}
+    restart: ${GLANCES_RESTART_POLICY:-unless-stopped}
+
+    pid: host
+
+    ports:
+      - '${SERVICE_PORT_GLANCES:-61208}:61208'
+
+    environment:
+      - SERVICE_URL_GLANCES_61208
+      - GLANCES_OPT=${GLANCES_OPT:--w}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /etc/os-release:/etc/os-release:ro
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:61208/ >/dev/null 2>&1 || exit 1']
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

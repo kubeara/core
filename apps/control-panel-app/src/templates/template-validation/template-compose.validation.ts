@@ -2,6 +2,7 @@ import {
   extractComposeVariables,
   findMissingComposeVariables,
   listComposePortVariables,
+  parseTemplateCommentMetadata,
   resolveAndValidateComposeEnvironment,
   resolveComposeEnvironment,
 } from "@shared/common";
@@ -343,11 +344,19 @@ function schemaPortsDeclaredInCompose(
 /**
  * Ensures the template exposes at least one reachable endpoint across its services.
  */
+function templateDeclaresNoHostPort(composeYaml: string): boolean {
+  return parseTemplateCommentMetadata(composeYaml).port === 0;
+}
+
 function validateTemplateHasExposedEndpoint(
   services: Record<string, Record<string, unknown>>,
   context: TemplateComposeFileContext,
   issues: TemplateValidationIssue[],
 ): void {
+  if (templateDeclaresNoHostPort(context.composeYaml)) {
+    return;
+  }
+
   const anyServiceExposes = Object.values(services).some((service) =>
     serviceExposesHostEndpoint(service),
   );
