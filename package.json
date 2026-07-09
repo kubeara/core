@@ -1,6 +1,6 @@
 {
   "name": "kubeara",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Open-source platform to deploy and manage services on your own servers",
   "author": "",
   "private": true,
@@ -73,6 +73,7 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.1.27",
     "@nestjs/platform-socket.io": "^11.1.27",
+    "@nestjs/schedule": "^6.1.3",
     "@nestjs/typeorm": "^11.0.3",
     "@nestjs/websockets": "^11.1.27",
     "axios": "^1.18.1",
