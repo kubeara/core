@@ -263,4 +263,39 @@ services:
       "services.s2.ports",
     );
   });
+
+  it("allows compose-only templates with port: 0 and no published ports", () => {
+    const result = validateTemplateComposeFile({
+      slug: "diun",
+      composePath: "/tmp/diun/docker-compose.yml",
+      composeYaml: `
+# documentation: https://example.com
+# port: 0
+
+services:
+  diun:
+    image: crazymax/diun:latest
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'diun', 'healthcheck']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+`,
+      hasTemplateConfig: false,
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.issues).toEqual([]);
+  });
 });

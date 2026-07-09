@@ -1,0 +1,51 @@
+# documentation: https://wakapi.dev/
+# shortDescription: Self-hosted coding activity tracking from WakaTime clients
+# longDescription: <p>Wakapi is a lightweight, self-hosted coding activity dashboard compatible with WakaTime clients.</p><p>Track coding time and language usage trends in a private observability setup.</p>
+# category: monitoring,logging,observability
+# tags: wakapi,monitoring,analytics,developer-productivity,wakatime
+# port: 3000
+
+services:
+  wakapi:
+    image: ${WAKAPI_IMAGE:-ghcr.io/muety/wakapi:latest}
+    restart: ${WAKAPI_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_WAKAPI:-3000}:3000'
+
+    environment:
+      - SERVICE_URL_WAKAPI_3000
+      - TZ=${TZ:-UTC}
+      - WAKAPI_DB_TYPE=${WAKAPI_DB_TYPE:-sqlite3}
+      - WAKAPI_DB_NAME=${WAKAPI_DB_NAME:-wakapi.db}
+      - WAKAPI_CREATE_ADMIN=${WAKAPI_CREATE_ADMIN:-true}
+      - WAKAPI_USERNAME=${SERVICE_USER_WAKAPI}
+      - WAKAPI_PASSWORD=${SERVICE_PASSWORD_WAKAPI}
+
+    volumes:
+      - wakapi_data:/data
+
+    healthcheck:
+      test: ['CMD', '/app/healthcheck']
+      interval: 60s
+      timeout: 3s
+      retries: 3
+      start_period: 120s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  wakapi_data:

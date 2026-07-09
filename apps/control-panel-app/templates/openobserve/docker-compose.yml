@@ -1,0 +1,49 @@
+# documentation: https://openobserve.ai/docs/
+# shortDescription: Unified logs, metrics, traces, and dashboards
+# longDescription: <p>OpenObserve is an open-source observability platform for <strong>logs, metrics, traces, and analytics</strong>.</p><p>Use it to ingest telemetry and build dashboards with lower storage costs.</p>
+# category: monitoring,logging,observability
+# tags: openobserve,logs,metrics,traces,monitoring,observability
+# port: 5080
+
+services:
+  openobserve:
+    image: ${OPENOBSERVE_IMAGE:-openobserve/openobserve:v0.91.1-debug}
+    restart: ${OPENOBSERVE_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_OPENOBSERVE:-5080}:5080'
+
+    environment:
+      - SERVICE_URL_OPENOBSERVE_5080
+      - ZO_ROOT_USER_EMAIL=${SERVICE_EMAIL_OPENOBSERVE:-admin@example.com}
+      - ZO_ROOT_USER_PASSWORD=${SERVICE_PASSWORD_OPENOBSERVE:-OpenObserve1!}
+      - ZO_DATA_DIR=/data
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - openobserve_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:5080/healthz || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  openobserve_data:
