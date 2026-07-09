@@ -65,13 +65,7 @@ export class CronService {
     try {
       const cronAuthToken = this.configService.get<string>("CRON_AUTH_TOKEN");
 
-      if (!cronAuthToken) {
-        this.logger.error("CRON_AUTH_TOKEN is not configured");
-        return;
-      }
-
-      const baseUrl =
-        this.configService.get<string>("CRON_URL") ?? `http://127.0.0.1:3000`;
+      const baseUrl = this.configService.get<string>("CRON_URL");
 
       await axios.post(
         `${baseUrl}${CRON_AGENT_HEALTH_PATH}`,
