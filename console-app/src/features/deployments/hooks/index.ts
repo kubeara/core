@@ -85,15 +85,18 @@ type ContainerActionInput = {
   containerId: string;
   containerName: string;
   action: ContainerActionType;
+  deploymentId?: string | null;
 };
 
 export function useContainerActionMutation() {
   const queryClient = useQueryClient();
 
   return useMutation<ContainerActionResult, ApiError, ContainerActionInput>({
-    mutationFn: async ({ serverId, containerId, action }) => {
+    mutationFn: async ({ serverId, containerId, action, deploymentId }) => {
       try {
-        return await executeContainerAction(serverId, containerId, action);
+        return await executeContainerAction(serverId, containerId, action, {
+          deploymentId,
+        });
       } catch (error) {
         throw toApiError(error);
       }

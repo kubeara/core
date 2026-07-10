@@ -24,6 +24,7 @@ type DeploymentTerminalViewerProps = {
   isActive: boolean;
   emptyMessage?: string;
   isLive?: boolean;
+  wordWrap?: boolean;
 };
 
 export function DeploymentTerminalViewer({
@@ -31,6 +32,7 @@ export function DeploymentTerminalViewer({
   isActive,
   emptyMessage = "Waiting for logs…",
   isLive = false,
+  wordWrap = true,
 }: DeploymentTerminalViewerProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const hscrollRef = useRef<HTMLDivElement>(null);
@@ -40,7 +42,10 @@ export function DeploymentTerminalViewer({
   const writtenCountRef = useRef(0);
   const contentColsRef = useRef(0);
   const stickToBottomRef = useRef(true);
+  const wordWrapRef = useRef(wordWrap);
   const [isEmpty, setIsEmpty] = useState(true);
+
+  wordWrapRef.current = wordWrap;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -51,7 +56,6 @@ export function DeploymentTerminalViewer({
       fontFamily: KUBEARA_TERMINAL_FONT,
       fontSize: 14,
       lineHeight: 1.4,
-      letterSpacing: 0.2,
       cursorBlink: false,
       disableStdin: true,
       scrollback: 10000,
@@ -74,6 +78,7 @@ export function DeploymentTerminalViewer({
           termRef.current,
           fitRef.current,
           contentColsRef.current,
+          wordWrapRef.current,
         );
       } catch {
         // ignore fit errors during hidden layout
@@ -83,8 +88,12 @@ export function DeploymentTerminalViewer({
     fitTerminal();
 
     const resizeTarget = hscrollRef.current ?? host;
+    let resizeDebounceTimer = 0;
     const observer = new ResizeObserver(() => {
-      fitTerminal();
+      clearTimeout(resizeDebounceTimer);
+      resizeDebounceTimer = window.setTimeout(() => {
+        fitTerminal();
+      }, wordWrapRef.current ? 150 : 50);
     });
     observer.observe(resizeTarget);
 
@@ -99,6 +108,7 @@ export function DeploymentTerminalViewer({
     viewport?.addEventListener("scroll", handleScroll, { passive: true });
 
     return () => {
+      clearTimeout(resizeDebounceTimer);
       viewport?.removeEventListener("scroll", handleScroll);
       observer.disconnect();
       term.dispose();
@@ -121,6 +131,7 @@ export function DeploymentTerminalViewer({
           termRef.current,
           fitRef.current,
           contentColsRef.current,
+          wordWrapRef.current,
         );
       } catch {
         // ignore
@@ -129,7 +140,7 @@ export function DeploymentTerminalViewer({
 
     const timer = window.setTimeout(fit, 0);
     return () => window.clearTimeout(timer);
-  }, [isActive, lines.length]);
+  }, [isActive, wordWrap]);
 
   useEffect(() => {
     const term = termRef.current;
@@ -154,19 +165,22 @@ export function DeploymentTerminalViewer({
     writtenCountRef.current = lines.length;
     setIsEmpty(lines.length === 0);
 
-    requestAnimationFrame(() => {
-      if (!hostRef.current || !fitRef.current) return;
-      try {
-        fitAndSyncTerminal(
-          hostRef.current,
-          term,
-          fitRef.current,
-          contentColsRef.current,
-        );
-      } catch {
-        // ignore
-      }
-    });
+    if (!wordWrapRef.current) {
+      requestAnimationFrame(() => {
+        if (!hostRef.current || !fitRef.current) return;
+        try {
+          fitAndSyncTerminal(
+            hostRef.current,
+            term,
+            fitRef.current,
+            contentColsRef.current,
+            wordWrapRef.current,
+          );
+        } catch {
+          // ignore
+        }
+      });
+    }
 
     const shouldAutoScroll = stickToBottomRef.current || isLive;
     if (shouldAutoScroll) {
@@ -185,7 +199,7 @@ export function DeploymentTerminalViewer({
   const { visible: showScrollDown, handleClick: handleScrollDown } =
     useTerminalScrollDown(hostRef, scrollToBottom);
 
-  useTerminalWheelTrap(frameRef);
+  useTerminalWheelTrap(frameRef, wordWrap);
 
   return (
     <div
@@ -197,7 +211,10 @@ export function DeploymentTerminalViewer({
           <span>{emptyMessage}</span>
         </div>
       )}
-      <div ref={frameRef} className="terminal-viewer-frame">
+      <div
+        ref={frameRef}
+        className={`terminal-viewer-frame${wordWrap ? " is-word-wrap" : ""}`}
+      >
         <div ref={hscrollRef} className="terminal-xterm-hscroll">
           <div ref={hostRef} className="server-terminal-xterm-host" />
         </div>

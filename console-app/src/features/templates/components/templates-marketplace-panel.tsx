@@ -112,7 +112,7 @@ export function TemplatesMarketplacePanel({
     (isSearchDebouncing || listParamsKey !== settledParamsKey);
 
   if (loading && !templatesQuery.data) {
-    return <SkeletonMarketplaceGrid count={6} label="Loading templates…" />;
+    return <SkeletonMarketplaceGrid count={6} label="Loading templates…" variant="services" />;
   }
 
   if (templatesQuery.isError) {
@@ -177,7 +177,7 @@ export function TemplatesMarketplacePanel({
       </div>
 
       {isFilterLoading ? (
-        <SkeletonMarketplaceGrid count={12} label="Loading services…" />
+        <SkeletonMarketplaceGrid count={12} label="Loading services…" variant="services" />
       ) : templates.length === 0 ? (
         <div className="server-templates-state">
           <p className="server-templates-state-title">No templates found</p>

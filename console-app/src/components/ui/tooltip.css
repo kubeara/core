@@ -1,0 +1,96 @@
+.kubeara-tooltip {
+  z-index: 200;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  max-width: 20rem;
+  padding: 0.4375rem 0.6875rem;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--primary) 28%);
+  border-radius: 8px;
+  background: var(--surface-elevated);
+  color: var(--foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  box-shadow:
+    var(--shadow),
+    0 8px 24px rgb(15 23 42 / 12%);
+  transform-origin: var(--radix-tooltip-content-transform-origin);
+  animation: kubeara-tooltip-in 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.kubeara-tooltip[data-state="closed"] {
+  animation: kubeara-tooltip-out 0.12s ease forwards;
+}
+
+.kubeara-tooltip--multiline {
+  white-space: normal;
+  text-align: center;
+}
+
+.kubeara-tooltip--success {
+  color: var(--success);
+}
+
+.kubeara-tooltip-arrow {
+  fill: var(--surface-elevated);
+}
+
+.kubeara-tooltip-arrow polygon {
+  stroke: color-mix(in srgb, var(--border) 72%, var(--primary) 28%);
+  stroke-width: 1px;
+  stroke-linejoin: round;
+}
+
+[data-theme="dark"] .kubeara-tooltip {
+  box-shadow:
+    var(--shadow),
+    0 10px 28px rgb(0 0 0 / 42%);
+  border-color: color-mix(in srgb, var(--border) 88%, var(--primary) 12%);
+}
+
+@keyframes kubeara-tooltip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes kubeara-tooltip-out {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(0.96) translateY(2px);
+  }
+}
+
+.tooltip-trigger-wrap {
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.tooltip-trigger-wrap--block {
+  display: block;
+  min-width: 0;
+}
+
+.tooltip-trigger-wrap--inline {
+  display: inline;
+  min-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kubeara-tooltip {
+    animation: none;
+  }
+}

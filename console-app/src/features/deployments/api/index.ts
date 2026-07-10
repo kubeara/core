@@ -62,14 +62,17 @@ export async function executeContainerAction(
   serverId: string,
   containerId: string,
   action: ContainerActionType,
+  options?: { deploymentId?: string | null },
 ): Promise<ContainerActionResult> {
   const encodedServerId = encodeURIComponent(serverId);
   const encodedContainerId = encodeURIComponent(containerId);
+  const deploymentId = options?.deploymentId?.trim();
 
   const response =
     action === "delete"
       ? await apiClient.delete(
           `/deployments/${encodedServerId}/containers/${encodedContainerId}`,
+          deploymentId ? { params: { deploymentId } } : undefined,
         )
       : await apiClient.post(
           `/deployments/${encodedServerId}/containers/${encodedContainerId}/${action}`,

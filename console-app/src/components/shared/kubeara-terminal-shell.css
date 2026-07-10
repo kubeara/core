@@ -6,7 +6,17 @@
 }
 
 .server-terminal-shell.has-session {
-  min-height: min(72vh, 52rem);
+  height: min(72vh, 52rem);
+  max-height: min(72vh, 52rem);
+}
+
+.server-terminal-card.has-session {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .server-terminal-card {
@@ -28,11 +38,16 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  min-height: 100%;
   height: 100vh;
+  max-height: 100vh;
   margin: 0;
   padding: 1rem;
   background: #0b1220;
+}
+
+.server-terminal-shell.is-fullscreen.has-session {
+  height: 100vh;
+  max-height: 100vh;
 }
 
 .server-terminal-shell.is-fullscreen .server-terminal-card {
@@ -352,6 +367,18 @@
   color: #ffffff;
 }
 
+.server-terminal-icon-btn.is-active {
+  background: rgb(255 153 0 / 18%);
+  border-color: rgb(255 153 0 / 45%);
+  color: #ffb84d;
+}
+
+.server-terminal-intro .server-terminal-icon-btn.is-active {
+  background: color-mix(in srgb, var(--primary) 12%, var(--background));
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  color: var(--primary);
+}
+
 .server-terminal-collapsed-bar {
   display: flex;
   align-items: center;
@@ -369,7 +396,7 @@
 .server-terminal-window {
   position: relative;
   flex: 1;
-  min-height: 28rem;
+  min-height: 0;
   min-width: 0;
   overflow: hidden;
   background: #0f1b2a;
@@ -426,9 +453,10 @@
   position: relative;
   width: 100%;
   height: 100%;
-  min-height: inherit;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .server-terminal-log-viewer.is-empty .server-terminal-xterm-host {
@@ -463,9 +491,10 @@
 }
 
 .server-terminal-xterm-host {
+  width: 100%;
   height: 100%;
-  min-height: 28rem;
-  padding: 0.65rem 0.8rem 0.8rem;
+  min-height: 0;
+  box-sizing: border-box;
 }
 
 .server-terminal-shell.is-fullscreen .server-terminal-xterm-host {
