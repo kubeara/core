@@ -50,6 +50,13 @@ function getHostHorizontalPadding(host: HTMLElement): number {
   );
 }
 
+function clearHostWidthOverrides(host: HTMLElement): void {
+  host.style.width = "";
+  host.style.minWidth = "";
+  host.style.maxWidth = "";
+  host.style.height = "";
+}
+
 function resetHostToViewportWidth(
   host: HTMLElement,
   viewportWidth: number,
@@ -87,13 +94,46 @@ function applyHostContentWidth(
   host.style.height = "100%";
 }
 
+function resizeFromFitProposal(
+  term: Terminal,
+  fitAddon: FitAddon,
+): boolean {
+  const proposed = fitAddon.proposeDimensions();
+  if (!proposed || Number.isNaN(proposed.cols) || Number.isNaN(proposed.rows)) {
+    return false;
+  }
+
+  if (term.cols === proposed.cols && term.rows === proposed.rows) {
+    return false;
+  }
+
+  term.resize(proposed.cols, proposed.rows);
+  return true;
+}
+
 export function fitAndSyncTerminal(
   host: HTMLElement,
   term: Terminal,
   fitAddon: FitAddon,
   contentCols = 0,
+  wordWrap = true,
 ): void {
   const scrollContainer = getTerminalScrollContainer(host);
+
+  if (wordWrap) {
+    clearHostWidthOverrides(host);
+    if (scrollContainer) {
+      scrollContainer.scrollLeft = 0;
+    }
+
+    try {
+      resizeFromFitProposal(term, fitAddon);
+    } catch {
+      // hidden containers cannot be measured yet
+    }
+    return;
+  }
+
   if (!scrollContainer) {
     const proposed = fitAddon.proposeDimensions();
     if (!proposed || Number.isNaN(proposed.cols) || Number.isNaN(proposed.rows)) {

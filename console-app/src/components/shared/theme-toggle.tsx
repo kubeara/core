@@ -1,4 +1,5 @@
 import { ThemePreference, useTheme } from "./use-theme";
+import { TooltipHint } from "@/components/ui/tooltip";
 
 type ThemeToggleProps = {
   compact?: boolean;
@@ -137,39 +138,41 @@ export function ThemeToggle({
     const switchIconSize = 16;
 
     return (
-      <button
-        type="button"
-        role="switch"
-        aria-checked={isDark}
-        onClick={toggleTheme}
-        className={`theme-switch-control${isDark ? " is-on" : ""}`}
-        aria-label={`Switch to ${nextTheme} mode`}
-        title={`Switch to ${nextTheme} mode`}
-      >
-        <span className="theme-switch-icon theme-switch-icon--sun">
-          <SunIcon size={switchIconSize} />
-        </span>
-        <span className="theme-switch-icon theme-switch-icon--moon">
-          <MoonIcon size={switchIconSize} />
-        </span>
-        <span className="theme-switch-thumb" aria-hidden />
-      </button>
+      <TooltipHint content={`Switch to ${nextTheme} mode`}>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={isDark}
+          onClick={toggleTheme}
+          className={`theme-switch-control${isDark ? " is-on" : ""}`}
+          aria-label={`Switch to ${nextTheme} mode`}
+        >
+          <span className="theme-switch-icon theme-switch-icon--sun">
+            <SunIcon size={switchIconSize} />
+          </span>
+          <span className="theme-switch-icon theme-switch-icon--moon">
+            <MoonIcon size={switchIconSize} />
+          </span>
+          <span className="theme-switch-thumb" aria-hidden />
+        </button>
+      </TooltipHint>
     );
   }
 
   return (
-    <button
-      type="button"
-      onClick={toggleTheme}
-      className={`theme-toggle${compact ? " theme-toggle--compact" : ""}`}
-      aria-label={`Switch to ${nextTheme} mode`}
-      title={`Switch to ${nextTheme} mode`}
-    >
-      {resolvedTheme === "light" ? (
-        <MoonIcon size={iconSize} />
-      ) : (
-        <SunIcon size={iconSize} />
-      )}
-    </button>
+    <TooltipHint content={`Switch to ${nextTheme} mode`}>
+      <button
+        type="button"
+        onClick={toggleTheme}
+        className={`theme-toggle${compact ? " theme-toggle--compact" : ""}`}
+        aria-label={`Switch to ${nextTheme} mode`}
+      >
+        {resolvedTheme === "light" ? (
+          <MoonIcon size={iconSize} />
+        ) : (
+          <SunIcon size={iconSize} />
+        )}
+      </button>
+    </TooltipHint>
   );
 }

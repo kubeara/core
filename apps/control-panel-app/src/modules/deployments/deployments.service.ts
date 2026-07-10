@@ -937,10 +937,49 @@ export class DeploymentsService {
     userId: string,
     containerId: string,
     action: ContainerActionType,
+    options: { deploymentId?: string | null } = {},
   ): Promise<ContainerActionResponseDto> {
     try {
       await this.assertActiveServerForUser(serverId, userId);
       const safeContainerId = assertValidContainerId(containerId);
+
+      let linkedDeploymentId: string | null = null;
+      if (action === "delete") {
+        const trimmedDeploymentId = options.deploymentId?.trim();
+        if (trimmedDeploymentId) {
+          const deployment = await this.deploymentRepository.findOne({
+            where: {
+              id: trimmedDeploymentId,
+              serverId,
+              deletedAt: IsNull(),
+            },
+          });
+          linkedDeploymentId = deployment?.id ?? null;
+        } else {
+          const discovered =
+            await this.serverConnectionsService.discoverContainers(serverId);
+          const queryId = safeContainerId.toLowerCase();
+          const targetContainer = discovered.find((container) => {
+            const id = container.containerId.trim().toLowerCase();
+            return (
+              id === queryId || id.startsWith(queryId) || queryId.startsWith(id)
+            );
+          });
+          const containerName =
+            targetContainer?.containerName
+              .split(",")[0]
+              ?.trim()
+              .replace(/^\//, "") ?? "";
+          if (
+            containerName.toLowerCase() ===
+            AGENT_INSTALL.CONTAINER_NAME.toLowerCase()
+          ) {
+            throw new BadRequestException(
+              ERROR_MESSAGES.CONTAINER.KUBEARA_AGENT_DELETE_FORBIDDEN,
+            );
+          }
+        }
+      }
 
       let result: ContainerActionResponsePayload | null = null;
       let socketError: string | null = null;
@@ -1019,6 +1058,12 @@ export class DeploymentsService {
             result.stderr?.trim() ||
             `Failed to ${action} container '${safeContainerId}'`,
         );
+      }
+
+      if (action === "delete" && linkedDeploymentId) {
+        await this.softDeleteDeploymentRecord(linkedDeploymentId, {
+          message: DEPLOYMENT_MESSAGES.CONTAINER_DELETED,
+        });
       }
 
       const actionPastTense: Record<ContainerActionType, string> = {
@@ -1724,20 +1769,25 @@ export class DeploymentsService {
   ): Promise<void> {
     try {
       const deployment = await this.deploymentRepository.findOne({
-        where: { id: deploymentId },
-        withDeleted: true,
+        where: { id: deploymentId, deletedAt: IsNull() },
       });
 
-      if (!deployment || deployment.deletedAt) {
+      if (!deployment) {
         return;
       }
 
-      deployment.deploymentStatus = "removed";
-      deployment.statusMessage =
-        options.message ?? SUCCESS_MESSAGES.REMOVAL_COMPLETED;
-      deployment.lastError = null;
-
-      await this.deploymentRepository.softRemove(deployment);
+      const now = dayjs().unix();
+      await this.deploymentRepository.update(
+        { id: deploymentId },
+        {
+          status: EntityStatus.INACTIVE,
+          deploymentStatus: "removed",
+          statusMessage: options.message ?? SUCCESS_MESSAGES.REMOVAL_COMPLETED,
+          lastError: null,
+          deletedAt: now,
+          updatedAt: now,
+        },
+      );
 
       this.logger.log(`Soft-deleted deployment record '${deploymentId}'`);
     } catch (error) {

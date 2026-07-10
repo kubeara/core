@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { TooltipHint } from "@/components/ui/tooltip";
 
 const TAG_GAP_PX = 6;
 
@@ -84,12 +85,11 @@ function OverflowTagBadge({ overflowCount, hiddenTags }: OverflowTagBadgeProps) 
   const tooltipLabel = hiddenTags.join(", ");
 
   return (
-    <li
-      className="marketplace-card-tag marketplace-card-tag-overflow"
-      title={tooltipLabel}
-    >
-      +{overflowCount}
-    </li>
+    <TooltipHint content={tooltipLabel} multiline>
+      <li className="marketplace-card-tag marketplace-card-tag-overflow">
+        +{overflowCount}
+      </li>
+    </TooltipHint>
   );
 }
 /**
