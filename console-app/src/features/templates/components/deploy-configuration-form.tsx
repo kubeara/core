@@ -18,7 +18,6 @@ import { showErrorToast } from "@/lib/toast";
 import { validateDeploymentResources } from "@/features/deployments/api";
 import { DeployResourceWarningConfirmModal } from "@/features/deployments/components/deploy-resource-warning-confirm-modal";
 import { DEPLOYMENT_VALIDATION_IN_PROGRESS_MESSAGE } from "@/features/deployments/constants/deployment-validation-messages";
-import { mapDeploymentFailureMessage } from "@/features/deployments/constants/deployment-failure-messages";
 import type { DeploymentResourceWarningCode } from "@/features/deployments/types";
 import { DynamicDeployFields } from "./dynamic-deploy-fields";
 import { DeployServiceSummaryCard } from "./deploy-service-summary-card";
@@ -146,7 +145,7 @@ export function DeployConfigurationForm({
       proceedToDeployLogs(env, portValues);
     } catch (error) {
       setSummaryStatus(null);
-      showErrorToast(mapDeploymentFailureMessage(getErrorMessage(error)));
+      showErrorToast(getErrorMessage(error));
       setIsSubmitting(false);
     }
   }
