@@ -188,6 +188,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "WordPress",
     version: "6.8",
   },
+  freescout: {
+    name: "FreeScout",
+    version: "latest",
+  },
   directus: {
     name: "Directus",
     version: "11.5.5",
