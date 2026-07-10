@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.0.7](https://github.com/kubeara/core/compare/v0.0.6...v0.0.7) (2026-07-10)
+
+
+### Features
+
+* enhance container deletion process and error handling ([6d5a7bb](https://github.com/kubeara/core/commit/6d5a7bb306e42ca9076f63e3d9343e7321df334e))
+
+
+### Refactoring
+
+* Improve copy tooltip design ([1b2138f](https://github.com/kubeara/core/commit/1b2138f1e17f511e28c40a1173bea17202dd89b2))
+
 ## [0.0.6](https://github.com/kubeara/core/compare/v0.0.5...v0.0.6) (2026-07-09)
 
 
