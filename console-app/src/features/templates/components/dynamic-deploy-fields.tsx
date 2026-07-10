@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Control, FieldValues } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { TooltipHint } from "@/components/ui/tooltip";
 import {
   FormControl,
   FormField,
@@ -221,15 +222,16 @@ function VariableRow<TFieldValues extends FieldValues>({
                 {revealed ? <EyeOffIcon /> : <EyeIcon />}
               </button>
             ) : showRegenerate ? (
-              <button
-                type="button"
-                className="deploy-var-action-btn"
-                onClick={() => field.onChange(regenerateValue(variable.name))}
-                aria-label={`Regenerate ${variable.name}`}
-                title="Regenerate value"
-              >
-                <RegenerateIcon />
-              </button>
+              <TooltipHint content="Regenerate value">
+                <button
+                  type="button"
+                  className="deploy-var-action-btn"
+                  onClick={() => field.onChange(regenerateValue(variable.name))}
+                  aria-label={`Regenerate ${variable.name}`}
+                >
+                  <RegenerateIcon />
+                </button>
+              </TooltipHint>
             ) : (
               <span className="deploy-var-action-spacer" aria-hidden />
             )}

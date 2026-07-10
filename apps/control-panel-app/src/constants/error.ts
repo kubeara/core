@@ -39,6 +39,11 @@ export const ERROR_MESSAGES = {
     UNKNOWN_ERROR: "unknown error",
   },
 
+  CONTAINER: {
+    KUBEARA_AGENT_DELETE_FORBIDDEN:
+      "The Kubeara Agent is required to manage this server and cannot be deleted",
+  },
+
   CONTAINER_LOGS: {
     AGENT_UNAVAILABLE:
       "Container logs are unavailable. Connect the agent on this server first.",

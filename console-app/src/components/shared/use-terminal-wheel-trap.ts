@@ -12,7 +12,22 @@ function getHorizontalScrollContainer(
   return scrollContainer instanceof HTMLElement ? scrollContainer : null;
 }
 
-function attachWheelTrap(container: HTMLElement): () => void {
+function getHorizontalWheelDelta(event: WheelEvent): number {
+  if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+    return event.deltaX;
+  }
+
+  if (event.shiftKey) {
+    return event.deltaY;
+  }
+
+  return 0;
+}
+
+function attachWheelTrap(
+  container: HTMLElement,
+  wordWrap: boolean,
+): () => void {
   const viewport = getViewport(container);
   const hscroll = getHorizontalScrollContainer(container);
 
@@ -39,16 +54,35 @@ function attachWheelTrap(container: HTMLElement): () => void {
     }
   };
 
+  const handleHorizontalWheel = (event: WheelEvent) => {
+    if (wordWrap || !hscroll) return;
+
+    const horizontalDelta = getHorizontalWheelDelta(event);
+    if (horizontalDelta === 0) return;
+
+    const { scrollLeft, scrollWidth, clientWidth } = hscroll;
+    const maxScrollLeft = Math.max(0, scrollWidth - clientWidth);
+    if (maxScrollLeft <= 0) return;
+
+    const nextScrollLeft = Math.min(
+      maxScrollLeft,
+      Math.max(0, scrollLeft + horizontalDelta),
+    );
+
+    if (nextScrollLeft === scrollLeft) {
+      event.preventDefault();
+      return;
+    }
+
+    hscroll.scrollLeft = nextScrollLeft;
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
   const trapHorizontalBoundaryScroll = (event: WheelEvent) => {
-    if (!hscroll) return;
+    if (wordWrap || !hscroll) return;
 
-    const horizontalDelta =
-      Math.abs(event.deltaX) > Math.abs(event.deltaY)
-        ? event.deltaX
-        : event.shiftKey
-          ? event.deltaY
-          : 0;
-
+    const horizontalDelta = getHorizontalWheelDelta(event);
     if (horizontalDelta === 0) return;
 
     const { scrollLeft, scrollWidth, clientWidth } = hscroll;
@@ -70,10 +104,19 @@ function attachWheelTrap(container: HTMLElement): () => void {
     }
   };
 
+  const horizontalWheelTargets = [container, viewport, hscroll].filter(
+    (element): element is HTMLElement => element instanceof HTMLElement,
+  );
+
   container.addEventListener("wheel", stopPageScroll, { passive: true });
   viewport?.addEventListener("wheel", trapVerticalBoundaryScroll, {
     passive: false,
   });
+
+  for (const target of horizontalWheelTargets) {
+    target.addEventListener("wheel", handleHorizontalWheel, { passive: false });
+  }
+
   hscroll?.addEventListener("wheel", trapHorizontalBoundaryScroll, {
     passive: false,
   });
@@ -81,6 +124,11 @@ function attachWheelTrap(container: HTMLElement): () => void {
   return () => {
     container.removeEventListener("wheel", stopPageScroll);
     viewport?.removeEventListener("wheel", trapVerticalBoundaryScroll);
+
+    for (const target of horizontalWheelTargets) {
+      target.removeEventListener("wheel", handleHorizontalWheel);
+    }
+
     hscroll?.removeEventListener("wheel", trapHorizontalBoundaryScroll);
   };
 }
@@ -92,6 +140,7 @@ function attachWheelTrap(container: HTMLElement): () => void {
  */
 export function useTerminalWheelTrap(
   containerRef: RefObject<HTMLElement | null>,
+  wordWrap = true,
 ) {
   useEffect(() => {
     const container = containerRef.current;
@@ -105,7 +154,7 @@ export function useTerminalWheelTrap(
       }
 
       cleanup?.();
-      cleanup = attachWheelTrap(container);
+      cleanup = attachWheelTrap(container, wordWrap);
       return true;
     };
 
@@ -124,5 +173,5 @@ export function useTerminalWheelTrap(
     }
 
     return () => cleanup?.();
-  }, [containerRef]);
+  }, [containerRef, wordWrap]);
 }

@@ -1266,6 +1266,7 @@ a:hover {
   margin: 0;
   color: var(--muted);
   font-size: 0.875rem;
+  overflow: visible;
 }
 
 .server-detail-header-main code {
@@ -1278,6 +1279,8 @@ a:hover {
   align-items: center;
   gap: 0.125rem;
   vertical-align: middle;
+  max-width: 100%;
+  overflow: visible;
 }
 
 @media (max-width: 640px) {
@@ -1306,6 +1309,10 @@ a:hover {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .server-detail-header-main .server-detail-host-row {
+    overflow: visible;
   }
 
   .server-detail-grid {

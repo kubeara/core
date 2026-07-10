@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { TooltipHint } from "@/components/ui/tooltip";
 import "./copy-button.css";
 
 function CopyIcon() {
@@ -55,7 +56,20 @@ export function CopyButton({ text, label = "Copy" }: CopyButtonProps) {
   }
 
   return (
-    <div className="copy-btn-wrap">
+    <TooltipHint
+      content={
+        copied ? (
+          <>
+            <CheckIcon />
+            Copied
+          </>
+        ) : (
+          label
+        )
+      }
+      variant={copied ? "success" : "default"}
+      open={copied ? true : undefined}
+    >
       <button
         type="button"
         className={`copy-btn ${copied ? "copied" : ""}`}
@@ -63,21 +77,7 @@ export function CopyButton({ text, label = "Copy" }: CopyButtonProps) {
         aria-label={copied ? "Copied" : label}
       >
         <CopyIcon />
-        <span
-          className={`copy-btn-tooltip ${copied ? "copy-btn-tooltip--success is-visible" : ""}`}
-          role="status"
-          aria-live="polite"
-        >
-          {copied ? (
-            <>
-              <CheckIcon />
-              Copied
-            </>
-          ) : (
-            label
-          )}
-        </span>
       </button>
-    </div>
+    </TooltipHint>
   );
 }

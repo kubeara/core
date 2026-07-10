@@ -5,6 +5,10 @@ import { ServerDetailTabs } from "@/components/server-detail-tabs";
 import { useServerQuery } from "@/features/servers/hooks";
 import { isServerOperationBusy } from "@/features/servers/types";
 import { ApiError, getErrorMessage } from "@/api/api-error";
+import {
+  SERVER_OPERATION_REMOVING_LABEL,
+  SERVER_OPERATION_SETTING_UP_LABEL,
+} from "@/features/servers/constants/messages";
 import { ServerFeedbackMessage } from "@/features/servers/components/server-feedback-message";
 import { ServerDetailPageSkeleton } from "@/components/shared/skeleton";
 import { NotFoundPage } from "./not-found-page";
@@ -51,9 +55,9 @@ export function ServerDetailPage() {
   const busy = isServerOperationBusy(server.operationStatus);
   const operationLabel =
     server.operationStatus === "starting"
-      ? "Starting…"
+      ? SERVER_OPERATION_SETTING_UP_LABEL
       : server.operationStatus === "removing"
-        ? "Removing…"
+        ? SERVER_OPERATION_REMOVING_LABEL
         : null;
 
   return (

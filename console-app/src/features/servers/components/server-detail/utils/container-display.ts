@@ -190,6 +190,21 @@ export function getContainerHostPorts(ports: string): number[] {
   return hostPorts;
 }
 
+export function getContainerPortsTooltip(
+  serverHost: string,
+  ports: string,
+): string | undefined {
+  const host = serverHost.trim();
+  const hostPorts = getContainerHostPorts(ports);
+
+  if (hostPorts.length > 0 && host) {
+    return hostPorts.map((port) => `${host}:${port}`).join(", ");
+  }
+
+  const trimmed = ports.trim();
+  return trimmed || undefined;
+}
+
 export function getContainerDockerName(container: ServerContainer): string {
   const raw = container.containerName?.trim();
   if (!raw) {

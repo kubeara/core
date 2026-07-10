@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { API_ERROR_MESSAGES } from "@/constants/error-messages";
 import { getErrorMessage } from "@/api/api-error";
 import { FilterClearButton } from "@/components/shared/filter-clear-button";
+import { TooltipHint } from "@/components/ui/tooltip";
 import { McpKeysTableSkeleton } from "@/components/shared/skeleton";
 import "@/components/servers-table.css";
 import "../mcp-servers.css";
@@ -254,13 +255,14 @@ export function McpKeysSection() {
                       </span>
                     </td>
                     <td>
-                      <time
-                        className="server-created-link"
-                        dateTime={String(key.createdAt)}
-                        title={formatApiTimestamp(key.createdAt)}
-                      >
-                        {formatApiTimestamp(key.createdAt)}
-                      </time>
+                      <TooltipHint content={formatApiTimestamp(key.createdAt)}>
+                        <time
+                          className="server-created-link"
+                          dateTime={String(key.createdAt)}
+                        >
+                          {formatApiTimestamp(key.createdAt)}
+                        </time>
+                      </TooltipHint>
                     </td>
                     <td>
                       <span className="server-tag">

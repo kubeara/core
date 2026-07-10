@@ -1,3 +1,6 @@
+export const SERVER_OPERATION_SETTING_UP_LABEL = "Setting up…";
+export const SERVER_OPERATION_REMOVING_LABEL = "Removing…";
+
 export const SERVER_API_FALLBACK_MESSAGES = {
   LOAD_LIST: "Failed to load servers",
   LOAD_ONE: "Failed to load server",

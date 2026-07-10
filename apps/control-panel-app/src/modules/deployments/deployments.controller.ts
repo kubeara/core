@@ -434,6 +434,7 @@ export class DeploymentsController {
     @Req() req: { user: UserEntity },
     @Param("serverId") serverId: string,
     @Param("containerId") containerId: string,
+    @Query("deploymentId") deploymentId?: string,
   ) {
     try {
       return this.deploymentsService.executeContainerAction(
@@ -441,6 +442,7 @@ export class DeploymentsController {
         req.user.id,
         containerId,
         "delete",
+        { deploymentId },
       );
     } catch (error) {
       this.logger.error(
