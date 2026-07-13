@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, toApiError } from "@/api/api-error";
+import { ApiError, getErrorMessage, toApiError } from "@/api/api-error";
 import { showErrorToast, showSuccessToast } from "@/lib/toast";
 import { QUERY_KEYS } from "@/constants/query-keys";
 import {
@@ -19,6 +19,8 @@ type UseServerContainersQueryOptions = {
   enabled?: boolean;
   /** Poll every 60s while enabled. Defaults to false. */
   poll?: boolean;
+  /** When true, stops polling and background refetches after an SSH failure. */
+  fetchBlocked?: boolean;
 };
 
 /**
@@ -30,14 +32,32 @@ export function useServerContainersQuery(
 ) {
   const enabled = options?.enabled ?? Boolean(serverId);
   const poll = options?.poll ?? false;
+  const fetchBlocked = options?.fetchBlocked ?? false;
 
   return useQuery({
     queryKey: QUERY_KEYS.deployments.containers(serverId),
     queryFn: () => fetchServerContainers(serverId),
     enabled: Boolean(serverId) && enabled,
-    staleTime: 60_000,
-    refetchInterval: poll ? 60_000 : false,
+    staleTime: fetchBlocked ? Infinity : 60_000,
+    refetchInterval: poll && !fetchBlocked ? 60_000 : false,
     refetchIntervalInBackground: false,
+    refetchOnWindowFocus: !fetchBlocked,
+    refetchOnReconnect: !fetchBlocked,
+    retry: (failureCount, error) => {
+      if (fetchBlocked) {
+        return false;
+      }
+
+      const message = getErrorMessage(error).toLowerCase();
+      if (
+        message.includes("ssh connection failed") ||
+        message.includes("unable to connect to the server")
+      ) {
+        return false;
+      }
+
+      return failureCount < 2;
+    },
   });
 }
 

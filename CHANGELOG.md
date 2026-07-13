@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.0.6](https://github.com/kubeara/core/compare/v0.0.5...v0.0.6) (2026-07-09)
+
+
+### Bug Fixes
+
+* env variables fallback ([183af6e](https://github.com/kubeara/core/commit/183af6ed43c26434bbeb49cf0e1f10f19c881030))
+* env variables fallback ([96ced13](https://github.com/kubeara/core/commit/96ced13fd1e2605f62e477d60424e3880c2693b2))
+
 ## [0.0.5](https://github.com/kubeara/core/compare/v0.0.4...v0.0.5) (2026-07-08)
 
 

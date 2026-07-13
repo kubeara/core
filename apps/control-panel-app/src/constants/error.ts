@@ -10,7 +10,8 @@ export const ERROR_MESSAGES = {
     ALREADY_EXIST: "A server with this host and username already exists",
     CREDENTIALS_NOT_FOUND: "SSH credentials not found",
     SSH_PAYLOAD_REQUIRED: "SSH credentials are required",
-    SSH_CONNECTION_FAILED: "SSH connection failed",
+    SSH_CONNECTION_FAILED:
+      "Unable to connect to the server. The SSH connection failed.",
     SSH_TEST_FAILED: "SSH connection test failed",
     CONNECTION_TIMEOUT: "Connection timed out",
     ALREADY_CONNECTED: "Server is already connected",

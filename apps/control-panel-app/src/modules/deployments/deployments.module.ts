@@ -7,6 +7,7 @@ import {
   TemplateConfigModule,
   TemplatePayloadModule,
 } from "@shared/common";
+import { SshModule } from "@shared/ssh";
 
 import { EnvironmentVariableEntity } from "./entities/environment-variable.entity";
 import { ServiceDeploymentEntity } from "./entities/service-deployment.entity";
@@ -14,6 +15,7 @@ import { DeploymentsService } from "./deployments.service";
 import { DeploymentsController } from "./deployments.controller";
 import { WebsocketModule } from "@control-panel/websocket/websocket.module";
 import { ServerConnectionsModule } from "../server-connections/server-connections.module";
+import { ServerSshCredentialEntity } from "../server-connections/entities/server-ssh-credential.entity";
 import { ServiceTemplateEntity } from "../service-template/entities/service-template.entity";
 
 @Module({
@@ -22,6 +24,7 @@ import { ServiceTemplateEntity } from "../service-template/entities/service-temp
       ServiceDeploymentEntity,
       EnvironmentVariableEntity,
       ServiceTemplateEntity,
+      ServerSshCredentialEntity,
     ]),
     forwardRef(() => ServerConnectionsModule),
     forwardRef(() => WebsocketModule),
@@ -29,6 +32,7 @@ import { ServiceTemplateEntity } from "../service-template/entities/service-temp
     TemplatePayloadModule,
     TemplateConfigModule,
     ComposeParserModule,
+    SshModule,
   ],
   controllers: [DeploymentsController],
   providers: [DeploymentsService],

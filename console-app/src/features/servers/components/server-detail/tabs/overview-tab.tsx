@@ -33,6 +33,7 @@ type ServerOverviewTabProps = {
   containers: ServerContainer[];
   isLoading: boolean;
   isError: boolean;
+  errorMessage?: string;
 };
 
 export function ServerOverviewTab({
@@ -41,6 +42,7 @@ export function ServerOverviewTab({
   containers,
   isLoading,
   isError,
+  errorMessage,
 }: ServerOverviewTabProps) {
   const { data: templatesResponse } = useTemplatesQuery(undefined, serverId);
   const templateLogos = useMemo(
@@ -233,7 +235,7 @@ export function ServerOverviewTab({
         <SkeletonMarketplaceGrid count={3} label="Loading containers…" variant="overview" />
       ) : isError ? (
         <p className="server-detail-empty">
-          Could not load containers. Check that this server is online.
+          {errorMessage ?? "Could not connect to this server. The SSH connection failed."}
         </p>
       ) : containers.length === 0 ? (
         <p className="server-detail-empty">No services connected yet.</p>
