@@ -1,3 +1,4 @@
+import kubearaAgentLogo from "../../../../../assets/logo_colored logo.webp";
 import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
 import { TooltipHint } from "@/components/ui/tooltip";
 import { ContainerActionsMenu } from "@/features/deployments/components/container-actions-menu";
@@ -14,6 +15,7 @@ import {
   getContainerServiceName,
   getManagedTypeLabel,
   getContainerStatusLabel,
+  isKubearaAgentContainer,
   shouldShowDeployedBadge,
 } from "./utils/container-display";
 
@@ -66,6 +68,9 @@ export function ConnectedServiceCard({
       : container.ports?.trim()
         ? container.ports
         : "N/A";
+  const cardLogo = isKubearaAgentContainer(container)
+    ? kubearaAgentLogo
+    : logo;
 
   return (
     <article
@@ -83,7 +88,7 @@ export function ConnectedServiceCard({
       <div className="marketplace-card-header">
         <ServiceBrandIcon
           name={headline}
-          logo={logo}
+          logo={cardLogo}
           className="marketplace-card-icon"
         />
         <div className="marketplace-card-headline">

@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpStatus,
   Inject,
   Injectable,
   Logger,
@@ -33,9 +34,16 @@ import {
   SocketRemoveMessage,
 } from "@shared/socket-events";
 
+import { SshHealthCheckService, SshConnectionManager } from "@shared/ssh";
+
 import { DeploymentGateway } from "@control-panel/websocket/websocket.gateway";
 import { EntityStatus } from "@control-panel/common/entity/entity-status";
+import { OperationFailedException } from "@control-panel/common/exceptions/operation-failed.exception";
 import { ServerEntity } from "@control-panel/modules/server-connections/entities/server.entity";
+import { ServerSshCredentialEntity } from "@control-panel/modules/server-connections/entities/server-ssh-credential.entity";
+import { ServerType } from "@control-panel/modules/server-connections/enums/server-type.enum";
+import { runSshHealthTestWithTimeout } from "@control-panel/modules/server-connections/utils/run-ssh-health-test.util";
+import { mapSshTestErrorCode } from "@control-panel/modules/server-connections/utils/map-ssh-test-error-code.util";
 import { LocalServerService } from "@control-panel/modules/server-connections/services/local-server.service";
 import { AGENT_INSTALL } from "@control-panel/modules/server-connections/constants/agent-install.constants";
 import { ServerConnectionsService } from "@control-panel/modules/server-connections/services/server-connections.service";
@@ -75,12 +83,16 @@ export class DeploymentsService {
     private readonly environmentVariableRepository: Repository<EnvironmentVariableEntity>,
     @InjectRepository(ServiceTemplateEntity)
     private readonly templateRepository: Repository<ServiceTemplateEntity>,
+    @InjectRepository(ServerSshCredentialEntity)
+    private readonly serverCredentialRepository: Repository<ServerSshCredentialEntity>,
     private readonly serverConnectionsService: ServerConnectionsService,
     private readonly localServerService: LocalServerService,
     private readonly templatePayloadService: TemplatePayloadService,
     private readonly templateConfigService: TemplateConfigService,
     private readonly composeParserService: ComposeParserService,
     private readonly encryptionService: EncryptionService,
+    private readonly sshHealthCheck: SshHealthCheckService,
+    private readonly sshConnectionManager: SshConnectionManager,
     @Inject(forwardRef(() => DeploymentGateway))
     private readonly deploymentGateway: DeploymentGateway,
   ) {}
@@ -520,6 +532,49 @@ export class DeploymentsService {
       serverId: input.serverId,
       deployOnLocal: input.deployOnLocal,
     });
+
+    const server = await this.assertActiveServerForUser(serverId, userId);
+
+    if (server.serverType !== ServerType.LOCAL) {
+      const credential = await this.serverCredentialRepository.findOne({
+        where: {
+          serverId,
+          status: EntityStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
+      });
+
+      if (!credential) {
+        throw new NotFoundException(
+          ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
+        );
+      }
+
+      const sshResult = await runSshHealthTestWithTimeout(this.sshHealthCheck, {
+        serverId: server.id,
+        host: server.host,
+        port: server.port,
+        username: server.username,
+        authType: credential.authType,
+        encryptedPassword: credential.encryptedPassword ?? null,
+        encryptedPrivateKey: credential.encryptedPrivateKey ?? null,
+        privateKeyPassphrase: credential.privateKeyPassphrase ?? null,
+      });
+
+      if (!sshResult.success) {
+        this.sshConnectionManager.disconnect(server.id);
+        throw new OperationFailedException(
+          ERROR_MESSAGES.SERVER.SSH_CONNECTION_FAILED,
+          sshResult.message || ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
+          HttpStatus.BAD_REQUEST,
+          {
+            errorCode: sshResult.code ?? mapSshTestErrorCode(sshResult.message),
+          },
+        );
+      }
+
+      this.sshConnectionManager.disconnect(server.id);
+    }
 
     if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
       const agentInstalled =

@@ -8,7 +8,9 @@ export function mapSshTestErrorCode(
   if (
     msg.includes("permission denied") ||
     msg.includes("authentication failed") ||
-    msg.includes("auth")
+    msg.includes("all configured authentication methods failed") ||
+    msg.includes("no supported authentication methods") ||
+    msg.includes("userauth failure")
   ) {
     return ServerErrorCode.AUTH_FAILED;
   }
