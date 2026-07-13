@@ -1,0 +1,48 @@
+# documentation: https://docs.organizr.app/
+# shortDescription: Centralized dashboard and SSO-style portal for your services
+# longDescription: <p>Organizr is a self-hosted <strong>dashboard and portal</strong> for consolidating access to your apps.</p><p>It helps unify service links in one place and offers optional authentication and tabbed organization.</p>
+# category: self-hosted-dashboards
+# tags: organizr,dashboard,portal,homelab,startpage
+# port: 8082
+
+services:
+  organizr:
+    image: ${ORGANIZR_IMAGE:-organizr/organizr:latest}
+    restart: ${ORGANIZR_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_ORGANIZR:-8082}:80'
+
+    environment:
+      - SERVICE_URL_ORGANIZR_80
+      - PUID=${ORGANIZR_PUID:-1000}
+      - PGID=${ORGANIZR_PGID:-1000}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - organizr_config:/config
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1 >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  organizr_config:

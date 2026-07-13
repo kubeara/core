@@ -1,0 +1,49 @@
+# documentation: https://gethomepage.dev/latest/
+# shortDescription: Highly configurable homepage dashboard for self-hosted apps
+# longDescription: <p>Homepage is a flexible <strong>dashboard start page</strong> for homelab and self-hosted environments.</p><p>Show service links, bookmarks, and widgets from one customizable UI.</p>
+# category: self-hosted-dashboards
+# tags: homepage,dashboard,homelab,startpage,widgets
+# port: 3000
+
+services:
+  homepage:
+    image: ${HOMEPAGE_IMAGE:-ghcr.io/gethomepage/homepage:latest}
+    restart: ${HOMEPAGE_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_HOMEPAGE:-3000}:3000'
+
+    environment:
+      - SERVICE_URL_HOMEPAGE_3000
+      - PUID=${HOMEPAGE_PUID:-1000}
+      - PGID=${HOMEPAGE_PGID:-1000}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - homepage_config:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000 >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  homepage_config:

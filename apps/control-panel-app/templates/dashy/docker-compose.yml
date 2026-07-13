@@ -1,0 +1,45 @@
+# documentation: https://dashy.to/docs
+# shortDescription: Customizable self-hosted dashboard for app links and widgets
+# longDescription: <p>Dashy is a lightweight <strong>self-hosted dashboard</strong> for organizing your homelab and app shortcuts.</p><p>Add links, status widgets, and custom sections with a simple YAML-based configuration.</p>
+# category: self-hosted-dashboards
+# tags: dashy,dashboard,homelab,startpage,bookmarks
+# port: 4000
+
+services:
+  dashy:
+    image: ${DASHY_IMAGE:-lissy93/dashy:latest}
+    restart: ${DASHY_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_DASHY:-4000}:8080'
+
+    environment:
+      - SERVICE_URL_DASHY_8080
+
+    volumes:
+      - dashy_data:/app/user-data
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080 >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  dashy_data:
