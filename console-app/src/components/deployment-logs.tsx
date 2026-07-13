@@ -18,7 +18,7 @@ import {
   type DeploymentLogView,
 } from "@/features/deployments/utils/deployment-log-filters";
 import { mapDeploymentFailureMessage } from "@/features/deployments/constants/deployment-failure-messages";
-import type { DeploymentStatus } from "@/constants/deployment-events";
+import { DeploymentStatus } from "@/constants/deployment-events";
 import type { Template } from "@/types";
 import "./deployment-logs.css";
 
@@ -217,7 +217,7 @@ export function DeploymentLogs({
       return;
     }
 
-    if (liveDeploymentStatus !== "failed") {
+    if (liveDeploymentStatus !== DeploymentStatus.FAILED) {
       return;
     }
 
@@ -244,11 +244,11 @@ export function DeploymentLogs({
     }
     const deployStatus = liveDeploymentStatus;
     return (
-      deployStatus === "deploying" ||
-      deployStatus === "running" ||
-      deployStatus === "success" ||
-      deployStatus === "pulling" ||
-      deployStatus === "building"
+      deployStatus === DeploymentStatus.DEPLOYING ||
+      deployStatus === DeploymentStatus.RUNNING ||
+      deployStatus === DeploymentStatus.SUCCESS ||
+      deployStatus === DeploymentStatus.PULLING ||
+      deployStatus === DeploymentStatus.BUILDING
     );
   }, [liveDeploymentStatus, logs]);
 
@@ -417,20 +417,20 @@ function statusLabel(
   isStarting: boolean,
   deploymentStatus: DeploymentStatus | null,
 ): string {
-  if (deploymentStatus === "success") {
+  if (deploymentStatus === DeploymentStatus.SUCCESS) {
     return "Complete";
   }
   if (
-    deploymentStatus === "failed" ||
-    deploymentStatus === "cancelled" ||
-    deploymentStatus === "removed"
+    deploymentStatus === DeploymentStatus.FAILED ||
+    deploymentStatus === DeploymentStatus.CANCELLED ||
+    deploymentStatus === DeploymentStatus.REMOVED
   ) {
     return "Error";
   }
-  if (deploymentStatus === "running") {
+  if (deploymentStatus === DeploymentStatus.RUNNING) {
     return "Live";
   }
-  if (deploymentStatus === "deploying") {
+  if (deploymentStatus === DeploymentStatus.DEPLOYING) {
     return "Deploying";
   }
 

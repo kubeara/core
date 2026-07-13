@@ -5,6 +5,7 @@ import * as fs from "fs/promises";
 import * as path from "path";
 import { FilesystemService } from "../filesystem/filesystem.service";
 import {
+  DeploymentStatus,
   DeploymentStatusPayload,
   DeploymentLogPayload,
   TemplateSchema,
@@ -149,7 +150,7 @@ export class DeployTemplateExecutor {
       notifier.sendStatus({
         deploymentId,
         templateSlug: name,
-        status: "failed",
+        status: DeploymentStatus.FAILED,
         message: ERROR_MESSAGES.DEPLOYMENT_FAILED,
         error: msg,
         completedAt: new Date().toISOString(),
@@ -306,7 +307,7 @@ export class DeployTemplateExecutor {
     notifier.sendStatus({
       deploymentId,
       templateSlug: name,
-      status: "pending",
+      status: DeploymentStatus.PENDING,
       startedAt,
       message: SUCCESS_MESSAGES.PREPARING,
     });
@@ -408,7 +409,7 @@ export class DeployTemplateExecutor {
       notifier.sendStatus({
         deploymentId,
         templateSlug: name,
-        status: "deploying",
+        status: DeploymentStatus.DEPLOYING,
         message: SUCCESS_MESSAGES.VALIDATING,
       });
 
@@ -473,7 +474,7 @@ export class DeployTemplateExecutor {
       notifier.sendStatus({
         deploymentId,
         templateSlug: name,
-        status: "deploying",
+        status: DeploymentStatus.DEPLOYING,
         message: SUCCESS_MESSAGES.DEPLOYING,
       });
 
@@ -508,7 +509,7 @@ export class DeployTemplateExecutor {
       notifier.sendStatus({
         deploymentId,
         templateSlug: name,
-        status: "success",
+        status: DeploymentStatus.SUCCESS,
         message: SUCCESS_MESSAGES.COMPLETED,
         completedAt: new Date().toISOString(),
       });
@@ -561,7 +562,7 @@ export class DeployTemplateExecutor {
       notifier.sendStatus({
         deploymentId,
         templateSlug,
-        status: "failed",
+        status: DeploymentStatus.FAILED,
         message: ERROR_MESSAGES.INVALID_COMPOSE_NAME,
         error: ERROR_MESSAGES.INVALID_COMPOSE_NAME,
         startedAt,
@@ -573,7 +574,7 @@ export class DeployTemplateExecutor {
     notifier.sendStatus({
       deploymentId,
       templateSlug,
-      status: "removing",
+      status: DeploymentStatus.REMOVING,
       message: SUCCESS_MESSAGES.REMOVING,
       startedAt,
     });
@@ -615,7 +616,7 @@ export class DeployTemplateExecutor {
       notifier.sendStatus({
         deploymentId,
         templateSlug,
-        status: "removed",
+        status: DeploymentStatus.REMOVED,
         message: SUCCESS_MESSAGES.REMOVAL_COMPLETED,
         completedAt: new Date().toISOString(),
       });
@@ -626,7 +627,7 @@ export class DeployTemplateExecutor {
       notifier.sendStatus({
         deploymentId,
         templateSlug,
-        status: "failed",
+        status: DeploymentStatus.FAILED,
         message: ERROR_MESSAGES.REMOVAL_FAILED,
         error: msg,
         completedAt: new Date().toISOString(),
@@ -656,7 +657,7 @@ export class DeployTemplateExecutor {
     notifier.sendStatus({
       deploymentId,
       templateSlug: name,
-      status: "failed",
+      status: DeploymentStatus.FAILED,
       message,
       error: message,
       completedAt: new Date().toISOString(),
@@ -746,7 +747,7 @@ export class DeployTemplateExecutor {
     notifier.sendStatus({
       deploymentId,
       templateSlug: name,
-      status: "failed",
+      status: DeploymentStatus.FAILED,
       message,
       error: message,
       completedAt: new Date().toISOString(),
@@ -784,7 +785,7 @@ export class DeployTemplateExecutor {
     notifier.sendStatus({
       deploymentId,
       templateSlug: name,
-      status: "failed",
+      status: DeploymentStatus.FAILED,
       message: resolved.message,
       error: resolved.error,
       completedAt: new Date().toISOString(),
@@ -2074,7 +2075,7 @@ export class DeployTemplateExecutor {
         notifier.sendStatus({
           deploymentId,
           templateSlug,
-          status: "running",
+          status: DeploymentStatus.RUNNING,
           message: SUCCESS_MESSAGES.RUNNING,
         });
 

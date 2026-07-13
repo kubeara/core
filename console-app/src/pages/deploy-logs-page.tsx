@@ -27,6 +27,8 @@ type PendingDeployLocationState = {
     DeployTemplateRequest,
     "env" | "ports" | "templateSlug" | "serverId" | "acknowledgeResourceWarning"
   >;
+  /** Optional override when opening logs from Activity (or elsewhere). */
+  backHref?: string;
 };
 
 /**
@@ -50,9 +52,10 @@ export function DeployLogsPage() {
   const [isStarting, setIsStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const templateQuery = useTemplateDetailsQuery(templateSlug);
-  const backHref = serverId
-    ? buildServerDetailHref(serverId, "templates")
-    : "/servers";
+  const locationState = location.state as PendingDeployLocationState | null;
+  const backHref =
+    locationState?.backHref ??
+    (serverId ? buildServerDetailHref(serverId, "templates") : "/servers");
 
   const handleDeploymentFailed = useCallback(
     (message: string) => {
@@ -62,8 +65,7 @@ export function DeployLogsPage() {
     [backHref, navigate],
   );
 
-  const pendingDeploy = (location.state as PendingDeployLocationState | null)
-    ?.deployRequest;
+  const pendingDeploy = locationState?.deployRequest;
   const deployStartedRef = useRef(false);
 
   useEffect(() => {

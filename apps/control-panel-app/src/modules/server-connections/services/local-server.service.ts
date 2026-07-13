@@ -3,6 +3,9 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { IsNull, Repository } from "typeorm";
 
 import { EntityStatus } from "@control-panel/common/entity/base.entity";
+import { ActivityService } from "@control-panel/modules/activity/services/activity.service";
+import { ActivityType } from "@control-panel/modules/activity/enums/activity-type.enum";
+import { DeploymentStatus } from "@shared/socket-events";
 
 import { LOCAL_SERVER } from "../constants/local-server.constants";
 import { ServerEntity } from "../entities/server.entity";
@@ -20,10 +23,14 @@ export class LocalServerService {
   constructor(
     @InjectRepository(ServerEntity)
     private readonly serverRepository: Repository<ServerEntity>,
+    private readonly activityService: ActivityService,
   ) {}
 
   /**
    * Returns the active local server for a user, if one exists.
+   *
+   * @param userId - Owning user id.
+   * @returns The local server entity, or null when none exists.
    */
   async findLocalServer(userId: string): Promise<ServerEntity | null> {
     try {
@@ -44,6 +51,12 @@ export class LocalServerService {
 
   /**
    * Returns the user's local server row, creating it when missing.
+   *
+   * When a new local server is created, a {@link ActivityType.SERVER_ADDED}
+   * activity is recorded (best-effort; never blocks creation).
+   *
+   * @param userId - Owning user id.
+   * @returns Existing or newly created local server entity.
    */
   async ensureLocalServer(userId: string): Promise<ServerEntity> {
     try {
@@ -72,6 +85,15 @@ export class LocalServerService {
       this.logger.log(
         `Created local server record id=${saved.id} for userId=${userId}`,
       );
+
+      await this.activityService.recordActivity({
+        userId,
+        serverId: saved.id,
+        type: ActivityType.SERVER_ADDED,
+        title: `Server added · ${saved.name}`,
+        message: `Local server created (${saved.host})`,
+        operationStatus: DeploymentStatus.SUCCESS,
+      });
 
       return saved;
     } catch (error) {

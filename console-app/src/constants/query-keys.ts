@@ -77,6 +77,12 @@ export const QUERY_KEYS = {
             ["deployments", deploymentId] as const,
     },
 
+    activity: {
+        byServer: (serverId: string) =>
+            ["activity", "server", serverId] as const,
+        detail: (activityId: string) => ["activity", activityId] as const,
+    },
+
     /**
      * Profile-related queries
      */

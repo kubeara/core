@@ -70,6 +70,7 @@ import { ServiceResponse } from "@control-panel/common/interfaces/success-respon
 import { PaginatedResponse, parseDockerPsStdout } from "@shared/common";
 import {
   DeploymentEvents,
+  DeploymentStatus,
   type ContainerActionResponsePayload,
   type ContainerActionType,
   type DiscoveredContainerPayload,
@@ -101,6 +102,8 @@ import {
 } from "../utils/server-ssh-credential.util";
 import { isUUID } from "class-validator";
 import { DeploymentsService } from "@control-panel/modules/deployments/deployments.service";
+import { ActivityService } from "@control-panel/modules/activity/services/activity.service";
+import { ActivityType } from "@control-panel/modules/activity/enums/activity-type.enum";
 import {
   AGENT_INSTALL,
   AGENT_INSTALL_ENV_KEYS,
@@ -144,6 +147,7 @@ export class ServerConnectionsService {
     @Inject(forwardRef(() => DeploymentsService))
     private readonly deploymentsService: DeploymentsService,
     private readonly configService: ConfigService,
+    private readonly activityService: ActivityService,
   ) {}
 
   /**
@@ -1525,6 +1529,15 @@ export class ServerConnectionsService {
 
       await queryRunner.commitTransaction();
 
+      await this.activityService.recordActivity({
+        userId,
+        serverId: savedServer.id,
+        type: ActivityType.SERVER_ADDED,
+        title: `Server added · ${savedServer.name}`,
+        message: `Added ${savedServer.host}`,
+        operationStatus: DeploymentStatus.SUCCESS,
+      });
+
       if (this.shouldInstallAgent(input.installAgent)) {
         await this.setServerOperationStatus(
           savedServer.id,
@@ -1707,6 +1720,16 @@ export class ServerConnectionsService {
       }
 
       await this.setServerOperationStatus(id, SERVER_OPERATION_STATUS.REMOVING);
+
+      await this.activityService.recordActivity({
+        userId,
+        serverId: id,
+        type: ActivityType.SERVER_DELETED,
+        title: `Server deleted · ${server.name}`,
+        message: `Deleting ${server.host}`,
+        operationStatus: DeploymentStatus.REMOVING,
+      });
+
       this.runServerDeletionAsync(userId, id, options);
 
       return {

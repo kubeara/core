@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { io, Socket } from "socket.io-client";
 import {
+  DeploymentStatus,
   DeploymentStatusPayload,
   SocketDeployMessage,
   SocketRemoveMessage,
@@ -391,7 +392,7 @@ export class SocketClientService {
     this.sendDeploymentStatus({
       deploymentId,
       templateSlug: name,
-      status: "pending",
+      status: DeploymentStatus.PENDING,
       message: SUCCESS_MESSAGES.PREPARING,
     });
 
@@ -449,7 +450,7 @@ export class SocketClientService {
       this.sendDeploymentStatus({
         deploymentId,
         templateSlug: name,
-        status: "failed",
+        status: DeploymentStatus.FAILED,
         message: msg,
         error: msg,
       });
@@ -921,7 +922,7 @@ export class SocketClientService {
       this.sendDeploymentStatus({
         deploymentId,
         templateSlug,
-        status: "failed",
+        status: DeploymentStatus.FAILED,
         message: msg,
         error: msg,
       });
