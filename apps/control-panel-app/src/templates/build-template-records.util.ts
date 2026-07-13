@@ -188,6 +188,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "WordPress",
     version: "6.8",
   },
+  freescout: {
+    name: "FreeScout",
+    version: "latest",
+  },
   directus: {
     name: "Directus",
     version: "11.5.5",
@@ -491,6 +495,26 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
   meilisearch: {
     name: "Meilisearch",
     version: "1.22",
+  },
+  dashy: {
+    name: "Dashy",
+    version: "latest",
+  },
+  heimdall: {
+    name: "Heimdall",
+    version: "latest",
+  },
+  homarr: {
+    name: "Homarr",
+    version: "latest",
+  },
+  homepage: {
+    name: "Homepage",
+    version: "latest",
+  },
+  organizr: {
+    name: "Organizr",
+    version: "latest",
   },
 };
 
