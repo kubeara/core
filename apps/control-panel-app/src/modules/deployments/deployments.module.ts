@@ -17,6 +17,7 @@ import { WebsocketModule } from "@control-panel/websocket/websocket.module";
 import { ServerConnectionsModule } from "../server-connections/server-connections.module";
 import { ServerSshCredentialEntity } from "../server-connections/entities/server-ssh-credential.entity";
 import { ServiceTemplateEntity } from "../service-template/entities/service-template.entity";
+import { ActivityModule } from "../activity/activity.module";
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { ServiceTemplateEntity } from "../service-template/entities/service-temp
     ]),
     forwardRef(() => ServerConnectionsModule),
     forwardRef(() => WebsocketModule),
+    ActivityModule,
     EncryptionModule,
     TemplatePayloadModule,
     TemplateConfigModule,

@@ -189,21 +189,48 @@ export interface DeploymentStatusPayload {
 
 /**
  * Deployment Status
- * Current state of a deployment
+ * Current state of a deployment across prepare, agent execution, and removal.
  */
-export type DeploymentStatus =
-  | "pending"
-  | "validating"
-  | "pulling"
-  | "building"
-  | "deploying"
-  | "running"
-  | "success"
-  | "failed"
-  | "cancelled"
-  | "removing"
-  | "removed"
-  | "unknown";
+export enum DeploymentStatus {
+  PENDING = "pending",
+  VALIDATING = "validating",
+  PULLING = "pulling",
+  BUILDING = "building",
+  DEPLOYING = "deploying",
+  RUNNING = "running",
+  SUCCESS = "success",
+  FAILED = "failed",
+  CANCELLED = "cancelled",
+  REMOVING = "removing",
+  REMOVED = "removed",
+  UNKNOWN = "unknown",
+}
+
+/** Statuses that mean the deployment lifecycle has finished. */
+export const TERMINAL_DEPLOYMENT_STATUSES: readonly DeploymentStatus[] = [
+  DeploymentStatus.SUCCESS,
+  DeploymentStatus.FAILED,
+  DeploymentStatus.CANCELLED,
+  DeploymentStatus.REMOVED,
+];
+
+/** In-flight statuses that block starting a removal. */
+export const REMOVAL_BLOCKING_DEPLOYMENT_STATUSES: readonly DeploymentStatus[] =
+  [
+    DeploymentStatus.PENDING,
+    DeploymentStatus.VALIDATING,
+    DeploymentStatus.PULLING,
+    DeploymentStatus.BUILDING,
+    DeploymentStatus.DEPLOYING,
+    DeploymentStatus.REMOVING,
+    DeploymentStatus.REMOVED,
+  ];
+
+export function isTerminalDeploymentStatus(
+  status: DeploymentStatus | null | undefined,
+): boolean {
+  return status != null && TERMINAL_DEPLOYMENT_STATUSES.includes(status);
+}
 
 /**
  * Deployment Log payload (Agent -> Control Panel)

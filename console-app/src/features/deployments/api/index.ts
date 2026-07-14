@@ -62,20 +62,35 @@ export async function executeContainerAction(
   serverId: string,
   containerId: string,
   action: ContainerActionType,
-  options?: { deploymentId?: string | null },
+  options?: {
+    deploymentId?: string | null;
+    containerName?: string | null;
+  },
 ): Promise<ContainerActionResult> {
   const encodedServerId = encodeURIComponent(serverId);
   const encodedContainerId = encodeURIComponent(containerId);
   const deploymentId = options?.deploymentId?.trim();
+  const containerName = options?.containerName?.trim();
+  const params: Record<string, string> = {};
+  if (deploymentId) {
+    params.deploymentId = deploymentId;
+  }
+  if (containerName) {
+    params.containerName = containerName;
+  }
+  const requestConfig =
+    Object.keys(params).length > 0 ? { params } : undefined;
 
   const response =
     action === "delete"
       ? await apiClient.delete(
           `/deployments/${encodedServerId}/containers/${encodedContainerId}`,
-          deploymentId ? { params: { deploymentId } } : undefined,
+          requestConfig,
         )
       : await apiClient.post(
           `/deployments/${encodedServerId}/containers/${encodedContainerId}/${action}`,
+          undefined,
+          requestConfig,
         );
 
   return unwrapServerApiData<ContainerActionResult>(
@@ -106,9 +121,13 @@ export interface ContainerLogsSession {
 export async function startContainerLogs(
   serverId: string,
   containerId: string,
+  options?: { containerName?: string | null },
 ): Promise<ContainerLogsSession> {
+  const containerName = options?.containerName?.trim();
   const response = await apiClient.post(
     `/deployments/${encodeURIComponent(serverId)}/containers/${encodeURIComponent(containerId)}/logs/start`,
+    undefined,
+    containerName ? { params: { containerName } } : undefined,
   );
 
   return unwrapServerApiData<ContainerLogsSession>(
