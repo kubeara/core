@@ -55,10 +55,34 @@ export const CONTAINER_ACTION_API_ERRORS: Record<ContainerActionType, string> = 
   delete: "Failed to delete the container.",
 };
 
-export const KUBEARA_AGENT_DELETE_WARNING_TITLE = "Cannot delete Kubeara Agent";
+const KUBEARA_AGENT_ACTION_VERBS: Record<ContainerActionType, string> = {
+  stop: "stop",
+  start: "start",
+  restart: "restart",
+  delete: "delete",
+};
 
-export const KUBEARA_AGENT_DELETE_WARNING_MESSAGE =
-  "The Kubeara Agent is required to manage this server and cannot be deleted.";
+const KUBEARA_AGENT_ACTION_PAST_PARTICIPLES: Record<
+  ContainerActionType,
+  string
+> = {
+  stop: "stopped",
+  start: "started",
+  restart: "restarted",
+  delete: "deleted",
+};
+
+export function getKubearaAgentActionWarningTitle(
+  action: ContainerActionType,
+): string {
+  return `Cannot ${KUBEARA_AGENT_ACTION_VERBS[action]} Kubeara Agent`;
+}
+
+export function getKubearaAgentActionWarningMessage(
+  action: ContainerActionType,
+): string {
+  return `The Kubeara Agent is required to manage this server and cannot be ${KUBEARA_AGENT_ACTION_PAST_PARTICIPLES[action]}.`;
+}
 
 export function getContainerActionConfirmBody(
   action: ContainerActionType,

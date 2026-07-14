@@ -5,8 +5,8 @@ import { FilterClearButton } from "@/components/shared/filter-clear-button";
 import { ContainerActionConfirmModal } from "@/features/deployments/components/container-action-confirm-modal";
 import { DeployResourceWarningConfirmModal } from "@/features/deployments/components/deploy-resource-warning-confirm-modal";
 import {
-  KUBEARA_AGENT_DELETE_WARNING_MESSAGE,
-  KUBEARA_AGENT_DELETE_WARNING_TITLE,
+  getKubearaAgentActionWarningMessage,
+  getKubearaAgentActionWarningTitle,
 } from "@/features/deployments/constants/container-action-messages";
 import { useContainerActionMutation } from "@/features/deployments/hooks";
 import { useTemplatesQuery } from "@/features/templates/hooks";
@@ -67,7 +67,8 @@ export function ServerOverviewTab({
     container: ServerContainer;
     action: ContainerActionType;
   } | null>(null);
-  const [agentDeleteWarningOpen, setAgentDeleteWarningOpen] = useState(false);
+  const [agentActionWarning, setAgentActionWarning] =
+    useState<ContainerActionType | null>(null);
 
   const isConfirmPending = Boolean(
     confirmAction &&
@@ -109,8 +110,8 @@ export function ServerOverviewTab({
     container: ServerContainer,
     action: ContainerActionType,
   ) {
-    if (action === "delete" && isKubearaAgentContainer(container)) {
-      setAgentDeleteWarningOpen(true);
+    if (isKubearaAgentContainer(container)) {
+      setAgentActionWarning(action);
       return;
     }
 
@@ -179,12 +180,12 @@ export function ServerOverviewTab({
 
   return (
     <div className="server-detail-panel">
-      {agentDeleteWarningOpen ? (
+      {agentActionWarning ? (
         <DeployResourceWarningConfirmModal
-          title={KUBEARA_AGENT_DELETE_WARNING_TITLE}
-          message={KUBEARA_AGENT_DELETE_WARNING_MESSAGE}
+          title={getKubearaAgentActionWarningTitle(agentActionWarning)}
+          message={getKubearaAgentActionWarningMessage(agentActionWarning)}
           dismissLabel="OK"
-          onCancel={() => setAgentDeleteWarningOpen(false)}
+          onCancel={() => setAgentActionWarning(null)}
         />
       ) : null}
 
