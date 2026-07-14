@@ -334,7 +334,7 @@ export const SETUP_GUIDES: SetupGuide[] = [
       "Connect ChatGPT to your Kubera workspace using OAuth. ChatGPT does not support static MCP API keys — you sign in with your Kubera account when ChatGPT requests access. Desktop clients such as Cursor still use MCP API keys from this page. After connecting, you may need to select Kubera in each chat before ChatGPT calls your tools — this is normal ChatGPT behavior.",
     requirements: [
       "ChatGPT Business, Enterprise, Edu, or Pro with Developer mode enabled",
-      "Workspace admin approval to create and publish MCP apps (Business/Enterprise/Edu)",
+      "Workspace admin approval to create and publish MCP plugins (Business/Enterprise/Edu)",
       "A Kubera account with access to the servers you want ChatGPT to read",
       "Kubera MCP endpoint reachable over public HTTPS",
     ],
@@ -344,12 +344,12 @@ export const SETUP_GUIDES: SetupGuide[] = [
         body: "Open ChatGPT in your browser. Click your profile or workspace menu, then open Settings from the bottom of the left sidebar.",
       },
       {
-        title: "Go to Apps",
-        body: "In Settings, open the Apps section. Under Advanced settings, turn on Developer mode if it is not already enabled. On Business and Enterprise workspaces, an admin may need to enable this under Workspace settings first.",
+        title: "Go to Plugins",
+        body: "In Settings, open the Plugins section. At the bottom of Plugins, turn on Developer mode if it is not already enabled. On Business and Enterprise workspaces, an admin may need to enable this under Workspace settings first.",
       },
       {
-        title: "Create a New App",
-        body: 'Click Create (or Create app). Enter a name you will recognize, such as Kubera. Add a short description if you want — for example, "Access my Kubera servers from ChatGPT".',
+        title: "Create a New Plugin",
+        body: 'Open Browse plugins. In the top section, click the + (plus) button to add Kubera. Enter a name you will recognize, such as Kubera. Add a short description if you want — for example, "Access my Kubera servers from ChatGPT".',
       },
       {
         title: "Paste the Kubera MCP URL",
@@ -371,12 +371,12 @@ export const SETUP_GUIDES: SetupGuide[] = [
         note: "You do not need a client secret — leave that blank if the field is optional.",
       },
       {
-        title: "Confirm and Create the App",
+        title: "Confirm and Create the Plugin",
         body: 'Review the settings, click I understand and continue (or the equivalent confirmation), then click Create. ChatGPT may take a moment to register the connector and scan available tools.',
       },
       {
         title: "Sign In with Kubera",
-        body: 'When prompted with Add [your app name] to ChatGPT, click Sign in with Kubera (or the name you chose). ChatGPT opens a new browser window or tab for authorization — keep the ChatGPT tab open while you complete this step.',
+        body: 'When prompted with Add [your plugin name] to ChatGPT, click Sign in with Kubera (or the name you chose). ChatGPT opens a new browser window or tab for authorization — keep the ChatGPT tab open while you complete this step.',
       },
       {
         title: "Log In to Kubera (If Needed)",
@@ -389,10 +389,10 @@ export const SETUP_GUIDES: SetupGuide[] = [
       },
       {
         title: "Select Kubera in the Chat",
-        body: 'Open a new chat. Click the + button on the left side of the message box. Under apps or MCP connections, select your Kubera app (the name you chose when creating the app, e.g. kubera). The app appears as a chip next to +.',
+        body: 'Open a new chat. Click the + button on the left side of the message box. Under plugins or MCP connections, select your Kubera plugin (the name you chose when creating it, e.g. kubera). The plugin appears as a chip next to +.',
         note: "ChatGPT does not always call Kubera tools automatically. If the reply looks generic or does not use your real server data, confirm the Kubera chip is visible next to + before you send.",
         followUp:
-          "Select the app again in each new chat, or whenever the Kubera chip is not shown.",
+          "Select the plugin again in each new chat, or whenever the Kubera chip is not shown.",
       },
       {
         title: "Test with a Prompt",
@@ -414,7 +414,7 @@ export const SETUP_GUIDES: SetupGuide[] = [
       },
       {
         issue: "ChatGPT doesn't use Kubera or gives a generic answer",
-        fix: "Click + in the chat input, select your Kubera app, confirm the chip appears next to +, then send your prompt again.",
+        fix: "Click + in the chat input, select your Kubera plugin, confirm the chip appears next to +, then send your prompt again.",
       },
       {
         issue: "Tools worked before but not in a new chat",
@@ -422,11 +422,11 @@ export const SETUP_GUIDES: SetupGuide[] = [
       },
       {
         issue: "Kubera not listed under +",
-        fix: "Go to Settings → Apps, confirm the app exists and OAuth is complete (Sign in → Authorize). Reconnect if needed.",
+        fix: "Go to Settings → Plugins, confirm the plugin exists and OAuth is complete (Sign in → Authorize). Reconnect if needed.",
       },
     ],
     outro:
-      "ChatGPT is now connected to Kubera through OAuth. Your Kubera user identity controls which servers and metrics ChatGPT can access. In each chat, select your Kubera app from + when you want ChatGPT to use your live server data.",
+      "ChatGPT is now connected to Kubera through OAuth. Your Kubera user identity controls which servers and metrics ChatGPT can access. In each chat, select your Kubera plugin from + when you want ChatGPT to use your live server data.",
     available: true,
   },
 ];
