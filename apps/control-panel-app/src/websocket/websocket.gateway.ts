@@ -14,6 +14,7 @@ import {
   DeploymentStatusPayload,
   DeploymentLogPayload,
   DeploymentEvents,
+  DeploymentStatus,
   DeploymentLogStreamPayload,
   DeploymentLogStreamType,
   LogsSubscribePayload,
@@ -961,11 +962,11 @@ export class DeploymentGateway
           payload.deploymentId,
         );
         if (pendingRemove) {
-          if (payload.status === "removed") {
+          if (payload.status === DeploymentStatus.REMOVED) {
             clearTimeout(pendingRemove.timer);
             this.pendingDeploymentRemoves.delete(payload.deploymentId);
             pendingRemove.resolve();
-          } else if (payload.status === "failed") {
+          } else if (payload.status === DeploymentStatus.FAILED) {
             clearTimeout(pendingRemove.timer);
             this.pendingDeploymentRemoves.delete(payload.deploymentId);
             pendingRemove.reject(
@@ -978,7 +979,7 @@ export class DeploymentGateway
           }
         }
 
-        if (payload.status === "removed") {
+        if (payload.status === DeploymentStatus.REMOVED) {
           await this.deploymentsService.softDeleteDeploymentRecord(
             payload.deploymentId,
             { message: payload.message },

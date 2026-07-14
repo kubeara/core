@@ -83,6 +83,10 @@ export const ERROR_MESSAGES = {
     MISSING_AUTHORIZATION: "Missing Authorization header",
   },
 
+  ACTIVITY: {
+    NOT_FOUND: "Activity not found",
+  },
+
   MCP_SERVER: {
     METHOD_NOT_ALLOWED: "Method not allowed.",
     INTERNAL_SERVER_ERROR: "Internal server error",

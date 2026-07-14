@@ -79,6 +79,7 @@ export function ContainerLogsPanel({
   } = useContainerLogs({
     serverId,
     containerId,
+    containerName,
     enabled: true,
     onOutput: handleOutput,
     onSessionClosed: handleSessionClosed,

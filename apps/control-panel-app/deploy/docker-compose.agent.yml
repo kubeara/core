@@ -40,6 +40,19 @@ services:
     # Avoid creating a new compose network (helps when Docker IP pools are exhausted).
     network_mode: bridge
     restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://127.0.0.1:3001/health"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 volumes:
   agent_deployments:

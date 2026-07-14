@@ -99,7 +99,7 @@ export class DeploymentsController {
         serverUrlContext,
       });
 
-      const result = this.deploymentsService.schedulePreparedDeployment(
+      const result = await this.deploymentsService.schedulePreparedDeployment(
         prepared,
         Boolean(deploymentId),
         {
@@ -334,12 +334,14 @@ export class DeploymentsController {
     @Req() req: { user: UserEntity },
     @Param("serverId") serverId: string,
     @Param("containerId") containerId: string,
+    @Query("containerName") containerName?: string,
   ) {
     try {
       const data = await this.deploymentsService.startContainerLogs(
         serverId,
         req.user.id,
         containerId,
+        { containerName },
       );
       return { message: "Container log stream started", data };
     } catch (error) {
@@ -359,6 +361,7 @@ export class DeploymentsController {
     @Req() req: { user: UserEntity },
     @Param("serverId") serverId: string,
     @Param("containerId") containerId: string,
+    @Query("containerName") containerName?: string,
   ) {
     try {
       return this.deploymentsService.executeContainerAction(
@@ -366,6 +369,7 @@ export class DeploymentsController {
         req.user.id,
         containerId,
         "stop",
+        { containerName },
       );
     } catch (error) {
       this.logger.error(
@@ -384,6 +388,7 @@ export class DeploymentsController {
     @Req() req: { user: UserEntity },
     @Param("serverId") serverId: string,
     @Param("containerId") containerId: string,
+    @Query("containerName") containerName?: string,
   ) {
     try {
       return this.deploymentsService.executeContainerAction(
@@ -391,6 +396,7 @@ export class DeploymentsController {
         req.user.id,
         containerId,
         "start",
+        { containerName },
       );
     } catch (error) {
       this.logger.error(
@@ -409,6 +415,7 @@ export class DeploymentsController {
     @Req() req: { user: UserEntity },
     @Param("serverId") serverId: string,
     @Param("containerId") containerId: string,
+    @Query("containerName") containerName?: string,
   ) {
     try {
       return this.deploymentsService.executeContainerAction(
@@ -416,6 +423,7 @@ export class DeploymentsController {
         req.user.id,
         containerId,
         "restart",
+        { containerName },
       );
     } catch (error) {
       this.logger.error(
@@ -435,6 +443,7 @@ export class DeploymentsController {
     @Param("serverId") serverId: string,
     @Param("containerId") containerId: string,
     @Query("deploymentId") deploymentId?: string,
+    @Query("containerName") containerName?: string,
   ) {
     try {
       return this.deploymentsService.executeContainerAction(
@@ -442,7 +451,7 @@ export class DeploymentsController {
         req.user.id,
         containerId,
         "delete",
-        { deploymentId },
+        { deploymentId, containerName },
       );
     } catch (error) {
       this.logger.error(

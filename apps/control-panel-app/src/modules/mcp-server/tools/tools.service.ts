@@ -281,7 +281,7 @@ export class McpToolsService {
         serverUrlContext,
       });
 
-      const result = this.deploymentsService.schedulePreparedDeployment(
+      const result = await this.deploymentsService.schedulePreparedDeployment(
         prepared,
         false,
         {
