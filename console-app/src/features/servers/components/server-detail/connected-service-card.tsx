@@ -8,6 +8,7 @@ import type {
 } from "@/features/deployments/types";
 import {
   containerStatusClass,
+  canDeleteOfflineManagedContainer,
   getContainerCardHeadline,
   getContainerDockerName,
   getContainerHostPorts,
@@ -25,6 +26,7 @@ type ConnectedServiceCardProps = {
   logo?: string | null;
   pendingAction: {
     containerId: string | null;
+    deploymentId?: string | null;
     action: ContainerActionType;
   } | null;
   onAction: (container: ServerContainer, action: ContainerActionType) => void;
@@ -41,11 +43,13 @@ export function ConnectedServiceCard({
 }: ConnectedServiceCardProps) {
   const statusClass = containerStatusClass(container);
   const containerId = container.containerId;
-  const canManage = Boolean(containerId);
+  const canManage =
+    Boolean(containerId) || canDeleteOfflineManagedContainer(container);
   const isPending = Boolean(
-    containerId &&
-      pendingAction?.containerId === containerId &&
-      pendingAction.action,
+    pendingAction?.action &&
+      ((containerId && pendingAction.containerId === containerId) ||
+        (container.deploymentId &&
+          pendingAction.deploymentId === container.deploymentId)),
   );
 
   const serviceName = getContainerServiceName(container);
@@ -76,13 +80,15 @@ export function ConnectedServiceCard({
     <article
       className={`marketplace-card overview-container-card${!container.isOnline ? " marketplace-card-offline" : ""}`}
     >
-      {canManage && containerId ? (
+      {canManage ? (
         <ContainerActionsMenu
           container={container}
           isPending={isPending}
           pendingAction={pendingAction}
           onAction={onAction}
-          onViewLogs={onViewLogs}
+          onViewLogs={
+            container.containerId ? onViewLogs : undefined
+          }
         />
       ) : null}
       <div className="marketplace-card-header">

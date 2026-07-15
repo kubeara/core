@@ -1,23 +1,23 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { IsNull, Repository } from "typeorm";
+import { In, IsNull, Repository } from "typeorm";
 
 import { EntityStatus } from "@control-panel/common/entity/base.entity";
 import { normalizeServerHostForUrls } from "@control-panel/modules/deployments/utils/deployment-server.util";
 
 import { LOCAL_SERVER } from "../constants/local-server.constants";
 import { ServerEntity } from "../entities/server.entity";
-import { ServerType } from "../enums/server-type.enum";
 
 export interface ResolveAgentServerBindingInput {
-  /** From install-generated agent env (never required from the user). */
+  /** Install-written server UUID from agent env. */
   explicitServerId?: string | null;
-  /** From agent handshake (env or runtime detection). */
+  /** Public IP/host reported by the agent handshake. */
   reportedPublicIp?: string | null;
 }
 
 /**
- * Resolves which `servers` row an agent connection belongs to without manual UUID entry.
+ * Maps an agent connection to control-panel `servers` rows.
+ * Multiple users on the same host share one agent socket.
  */
 @Injectable()
 export class AgentServerBindingService {
@@ -29,23 +29,18 @@ export class AgentServerBindingService {
   ) {}
 
   /**
-   * Determines server id for a newly connected agent.
-   *
-   * Order:
-   * 1. Explicit id from remote install (written into generated `.env.agent` on the host).
-   * 2. Match reported public IP to `servers.host`.
-   * 3. Single active local server when the agent reports loopback (dev / single-box).
+   * Resolves every active server id this agent should serve.
+   * Preference: install id → reported host → local loopback host.
    */
-  async resolveServerIdForAgent(
+  async resolveSharedHostServerIds(
     input: ResolveAgentServerBindingInput,
-  ): Promise<string | null> {
+  ): Promise<string[]> {
     try {
       const explicit = input.explicitServerId?.trim();
       if (explicit) {
-        const server = await this.findActiveServer(explicit);
+        const server = await this.findActiveServerById(explicit);
         if (server) {
-          this.logger.log(`Agent bound via install id to server ${explicit}`);
-          return server.id;
+          return this.listActiveServerIdsForHost(server.host);
         }
         this.logger.warn(
           `Agent sent server id ${explicit} but no active server was found`,
@@ -54,12 +49,9 @@ export class AgentServerBindingService {
 
       const reportedIp = input.reportedPublicIp?.trim();
       if (reportedIp) {
-        const byIp = await this.findServerByHost(reportedIp);
-        if (byIp) {
-          this.logger.log(
-            `Agent bound by host match publicIp=${reportedIp} → server ${byIp.id}`,
-          );
-          return byIp.id;
+        const byHost = await this.listActiveServerIdsForHost(reportedIp);
+        if (byHost.length > 0) {
+          return byHost;
         }
       }
 
@@ -70,59 +62,57 @@ export class AgentServerBindingService {
         reportedIp === "localhost";
 
       if (isLocalAgent) {
-        const localId = await this.resolveUniqueLocalServerId();
-        if (localId) {
-          this.logger.log(
-            `Agent bound to local server ${localId} (no remote host match)`,
-          );
-          return localId;
-        }
+        return this.listActiveServerIdsForHost(LOCAL_SERVER.HOST);
       }
 
       this.logger.warn(
         "Agent connected without a resolvable server binding. " +
           "Onboard the host or ensure AGENT_PUBLIC_IP matches servers.host.",
       );
-      return null;
+      return [];
     } catch (error) {
       this.logger.error(
         `Failed to resolve agent server binding: ${error instanceof Error ? error.message : String(error)}`,
       );
-      return null;
+      return [];
     }
   }
 
-  private async resolveUniqueLocalServerId(): Promise<string | null> {
+  /**
+   * Lists active server ids for a host (indexed `host` lookup).
+   */
+  async listActiveServerIdsForHost(hostOrIp: string): Promise<string[]> {
     try {
-      const localServers = await this.serverRepository.find({
+      const trimmed = hostOrIp.trim();
+      if (!trimmed) {
+        return [];
+      }
+
+      const normalized = normalizeServerHostForUrls(trimmed);
+      const hosts = normalized === trimmed ? [trimmed] : [trimmed, normalized];
+
+      const servers = await this.serverRepository.find({
         where: {
-          // serverType: ServerType.LOCAL,
-          host: LOCAL_SERVER.HOST,
+          host: In(hosts),
           status: EntityStatus.ACTIVE,
           deletedAt: IsNull(),
         },
+        select: {
+          id: true,
+        },
       });
 
-      if (localServers.length === 1) {
-        return localServers[0].id;
-      }
-
-      if (localServers.length > 1) {
-        this.logger.warn(
-          "Multiple local servers exist; use install server id or match servers.host via public IP.",
-        );
-      }
-
-      return null;
+      return servers.map((server) => server.id);
     } catch (error) {
       this.logger.error(
-        `Failed to resolve local server binding: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to list servers by host: ${error instanceof Error ? error.message : String(error)}`,
       );
-      return null;
+      return [];
     }
   }
 
-  private async findActiveServer(
+  /** Loads an active server by id (id + host only). */
+  private async findActiveServerById(
     serverId: string,
   ): Promise<ServerEntity | null> {
     try {
@@ -132,51 +122,14 @@ export class AgentServerBindingService {
           status: EntityStatus.ACTIVE,
           deletedAt: IsNull(),
         },
+        select: {
+          id: true,
+          host: true,
+        },
       });
     } catch (error) {
       this.logger.error(
         `Failed to load server ${serverId}: ${error instanceof Error ? error.message : String(error)}`,
-      );
-      return null;
-    }
-  }
-
-  private async findServerByHost(
-    reportedHostOrIp: string,
-  ): Promise<ServerEntity | null> {
-    try {
-      const normalizedReported = normalizeServerHostForUrls(reportedHostOrIp);
-      const servers = await this.serverRepository.find({
-        where: {
-          status: EntityStatus.ACTIVE,
-          deletedAt: IsNull(),
-        },
-      });
-
-      const matches = servers.filter(
-        (server) =>
-          normalizeServerHostForUrls(server.host) === normalizedReported,
-      );
-
-      if (matches.length === 1) {
-        return matches[0];
-      }
-
-      if (matches.length > 1) {
-        const remote = matches.find((s) => s.serverType !== ServerType.LOCAL);
-        if (remote) {
-          this.logger.warn(
-            `Multiple servers share host ${normalizedReported}; using ${remote.id}`,
-          );
-          return remote;
-        }
-        return matches[0];
-      }
-
-      return null;
-    } catch (error) {
-      this.logger.error(
-        `Failed to match server by host: ${error instanceof Error ? error.message : String(error)}`,
       );
       return null;
     }

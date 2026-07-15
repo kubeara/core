@@ -17,7 +17,6 @@ import {
   JoinColumn,
   ManyToOne,
   OneToMany,
-  Unique,
 } from "typeorm";
 import { BaseEntity } from "../../../common/entity/base.entity";
 import { ServerProvider } from "../enums/server-provider.enum";
@@ -38,7 +37,6 @@ import {
 } from "../interfaces/server-health.interface";
 
 @Entity({ name: "servers" })
-@Unique("UQ_servers_host_port", ["host", "username"])
 @Index("IDX_servers_host", ["host"])
 @Index("IDX_servers_status", ["status"])
 @Index("IDX_servers_userId", ["userId"])

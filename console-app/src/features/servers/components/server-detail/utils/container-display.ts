@@ -225,6 +225,21 @@ export function isKubearaManagedContainer(container: ServerContainer): boolean {
   );
 }
 
+/**
+ * Offline Kubeara-managed container stub that still has a deployment id
+ * (owner can delete via the same Delete action).
+ */
+export function canDeleteOfflineManagedContainer(
+  container: ServerContainer,
+): boolean {
+  return (
+    !container.isOnline &&
+    Boolean(container.deploymentId) &&
+    isKubearaManagedContainer(container) &&
+    !isKubearaAgentContainer(container)
+  );
+}
+
 export function getContainerDisplayName(container: ServerContainer): string {
   if (isKubearaAgentContainer(container)) {
     return "Kubeara Agent";

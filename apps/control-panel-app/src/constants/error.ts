@@ -7,7 +7,7 @@ export const ERROR_MESSAGES = {
 
   SERVER: {
     NOT_FOUND: "Server not found",
-    ALREADY_EXIST: "A server with this host and username already exists",
+    ALREADY_EXIST: "A server with this host already exists for your account",
     CREDENTIALS_NOT_FOUND: "SSH credentials not found",
     SSH_PAYLOAD_REQUIRED: "SSH credentials are required",
     SSH_CONNECTION_FAILED:
@@ -18,7 +18,8 @@ export const ERROR_MESSAGES = {
     CONNECTION_FAILED: "Failed to connect to server",
     DELETE_FAILED: "Failed to delete server",
     OPERATION_IN_PROGRESS: "Server setup is still in progress",
-    HOST_ALREADY_EXISTS: "A server with this host and port already exists",
+    HOST_ALREADY_EXISTS:
+      "A server with this host already exists for your account",
     AGENT_CREDENTIALS_MISSING:
       "No SSH credentials for this server. Onboard the server first.",
     INACTIVE_OR_MISSING: "Server not found or inactive",
