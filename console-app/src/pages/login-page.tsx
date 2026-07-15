@@ -81,7 +81,7 @@ export function LoginPage() {
             title={isOAuthFlow ? "Sign in to connect ChatGPT" : "Sign in"}
             subtitle={
                 isOAuthFlow
-                    ? "Sign in to your Kubera account, then you will approve access for ChatGPT."
+                    ? "Sign in to your Kubeara account, then you will approve access for ChatGPT."
                     : "Welcome back. Enter your credentials to continue."
             }
             footer={

@@ -101,7 +101,7 @@ function GenerateTokenModalContent({ onClose }: GenerateTokenModalContentProps) 
                                     setFieldError(null);
                                     setSubmitError(null);
                                 }}
-                                placeholder="e.g. Kubera dev team's token"
+                                placeholder="e.g. Kubeara dev team's token"
                                 disabled={createMutation.isPending}
                                 aria-invalid={fieldError ? true : undefined}
                                 aria-describedby={fieldError ? "mcp-key-name-error" : undefined}
