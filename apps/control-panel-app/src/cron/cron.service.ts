@@ -26,6 +26,7 @@ export class CronService {
     try {
       const isCronServer =
         this.configService.get<string>("IS_CRON_SERVER") === "true";
+      this.logger.log(`isCronServer: `, isCronServer);
 
       if (!isCronServer) {
         const jobNames = [...this.schedulerRegistry.getCronJobs().keys()];
@@ -42,6 +43,7 @@ export class CronService {
           this.configService.get<string>("SKIP_CRON_AGENT_HEALTH_CHECK") ===
           "true";
 
+        this.logger.log(`skipAgentHealthCheck: ${skipAgentHealthCheck}`);
         if (skipAgentHealthCheck) {
           if (this.schedulerRegistry.getCronJobs().has(CRON_JOB_AGENT_HEALTH)) {
             this.schedulerRegistry.deleteCronJob(CRON_JOB_AGENT_HEALTH);
@@ -49,6 +51,8 @@ export class CronService {
               `Cron job "${CRON_JOB_AGENT_HEALTH}" skipped (SKIP_CRON_AGENT_HEALTH_CHECK=true)`,
             );
           }
+        } else {
+          this.logger.log(`job: ${CRON_JOB_AGENT_HEALTH} -> `);
         }
       }
     } catch (error) {

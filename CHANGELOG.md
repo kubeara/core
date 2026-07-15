@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.0.8](https://github.com/kubeara/core/compare/v0.0.7...v0.0.8) (2026-07-14)
+
+
+### Features
+
+* add activity logging for server and deployment operations ([b83219e](https://github.com/kubeara/core/commit/b83219e8b71f6bf7c60c5c32ac25e71bf78b44c9))
+* add health check configuration for agent services in Docker Compose ([705688b](https://github.com/kubeara/core/commit/705688b3a3ece760375ff47b004c93bde0cae74a))
+* sync authenticated user with Sentry and Microsoft Clarity ([5879872](https://github.com/kubeara/core/commit/5879872d553bd17099333da650ca3c3908438ee7))
+* sync authenticated user with Sentry and Microsoft Clarity ([f9bd0ac](https://github.com/kubeara/core/commit/f9bd0acfaa82fb110b51dcd255b87e32df53fcea))
+
+
+### Bug Fixes
+
+* Add warning popup to restart, stop actions of agent app ([7829172](https://github.com/kubeara/core/commit/782917215379ff9fcd828257da1f282f0b0d2cac))
+* update ChatGPT MCP guide due to changes from ChatGPT side ([a3ed066](https://github.com/kubeara/core/commit/a3ed066a775f149c1079d5666d53d4546948079a))
+
+
+### Refactoring
+
+* standardize deployment status handling across applications ([eff4d3c](https://github.com/kubeara/core/commit/eff4d3c2a6a279ed7f40477c7fbb3b1bd459ccff))
+
 ## [0.0.7](https://github.com/kubeara/core/compare/v0.0.6...v0.0.7) (2026-07-10)
 
 
