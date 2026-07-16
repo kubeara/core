@@ -1,0 +1,123 @@
+.select-deploy-server-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 28rem);
+  max-width: 28rem;
+}
+
+.select-deploy-server-modal .modal-header {
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.select-deploy-server-header-text h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.select-deploy-server-header-text p {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.select-deploy-server-header-text strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.select-deploy-server-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 0 1.25rem 1rem;
+  overflow: visible;
+}
+
+.select-deploy-server-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.select-deploy-server-dropdown {
+  width: 100%;
+}
+
+.select-deploy-server-dropdown .dropdown-trigger--combobox {
+  width: 100%;
+  min-width: 0;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.select-deploy-server-dropdown .dropdown-menu {
+  z-index: 120;
+  max-height: 220px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent;
+}
+
+.select-deploy-server-dropdown .dropdown-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.select-deploy-server-dropdown .dropdown-menu::-webkit-scrollbar-track {
+  margin: 0.25rem 0;
+  background: transparent;
+}
+
+.select-deploy-server-dropdown .dropdown-menu::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--foreground) 16%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.select-deploy-server-field-hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--danger);
+}
+
+.select-deploy-server-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem 1rem;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
+
+.select-deploy-server-state p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.select-deploy-server-state-title {
+  font-size: 0.9375rem !important;
+  font-weight: 600;
+  color: var(--foreground) !important;
+}
+
+.select-deploy-server-state-text {
+  max-width: 36ch;
+}
+
+.select-deploy-server-state-error p {
+  color: var(--danger);
+}
+
+.select-deploy-server-modal .modal-actions {
+  padding: 0 1.25rem 1.25rem;
+}

@@ -1,0 +1,133 @@
+# documentation: https://evolutionapi-evolution-api-90.mintlify.app/deployment/docker
+# shortDescription: WhatsApp API gateway and automation backend
+# longDescription: <p>Evolution API is a self-hosted WhatsApp API platform for messaging automation, integrations, and webhook-driven workflows.</p><p>This template deploys Evolution API with PostgreSQL and Redis dependencies for production-style persistence and queueing.</p>
+# category: automation,workflows,integration
+# tags: evolution-api,whatsapp,api,automation,postgresql,redis,webhook
+# port: 8080
+
+services:
+  evolution-api:
+    image: ${EVOLUTION_API_IMAGE:-evoapicloud/evolution-api:latest}
+    restart: ${EVOLUTION_API_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_EVOLUTION_API:-8080}:8080'
+
+    environment:
+      - SERVICE_URL_EVOLUTION_API_8080
+      - SERVER_URL=${SERVICE_URL_EVOLUTION_API:-${SERVICE_URL_EVOLUTION_API_8080}}
+      - DATABASE_ENABLED=true
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://${SERVICE_USER_EVOLUTIONDB:-evolution}:${SERVICE_PASSWORD_EVOLUTIONDB:-evolution_password}@postgres:5432/${EVOLUTION_API_DB_NAME:-evolution}
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://redis:6379
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - evolution_api_instances:/evolution/instances
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/ || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 45s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${EVOLUTION_API_POSTGRES_IMAGE:-postgres:15}
+    restart: ${EVOLUTION_API_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_EVOLUTIONDB:-evolution}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_EVOLUTIONDB:-evolution_password}
+      - POSTGRES_DB=${EVOLUTION_API_DB_NAME:-evolution}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - evolution_api_postgres_data:/var/lib/postgresql/data
+
+    command:
+      - postgres
+      - -c
+      - max_connections=1000
+      - -c
+      - listen_addresses=*
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${SERVICE_USER_EVOLUTIONDB:-evolution} -d ${EVOLUTION_API_DB_NAME:-evolution}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: ${EVOLUTION_API_REDIS_IMAGE:-redis:latest}
+    restart: ${EVOLUTION_API_REDIS_RESTART_POLICY:-unless-stopped}
+
+    command: redis-server --port 6379 --appendonly yes
+
+    volumes:
+      - evolution_api_redis_data:/data
+
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  evolution_api_instances:
+  evolution_api_postgres_data:
+  evolution_api_redis_data:

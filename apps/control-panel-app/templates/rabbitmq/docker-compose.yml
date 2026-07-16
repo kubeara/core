@@ -1,0 +1,51 @@
+# documentation: https://www.rabbitmq.com/documentation.html
+# shortDescription: Open source message broker and queue
+# longDescription: <p>RabbitMQ is a widely used <strong>message broker</strong> supporting AMQP, MQTT, and STOMP for reliable async messaging.</p><p>Management UI on <code>SERVICE_PORT_RABBITMQ_15672</code> (15672). Credentials use <code>SERVICE_USER_RABBITMQ</code> and <code>SERVICE_PASSWORD_RABBITMQ</code>.</p>
+# category: database,messaging
+# tags: rabbitmq,message-broker,queue,amqp,mqtt,messaging
+# logo: svgs/rabbitmq.svg
+# port: 15672
+
+services:
+  rabbitmq:
+    image: ${RABBITMQ_IMAGE:-rabbitmq:3-management}
+    restart: ${RABBITMQ_RESTART_POLICY:-unless-stopped}
+    hostname: rabbitmq
+
+    ports:
+      - '${SERVICE_PORT_RABBITMQ:-5672}:5672'
+      - '${SERVICE_PORT_RABBITMQ_15672:-15672}:15672'
+
+    environment:
+      - SERVICE_URL_RABBITMQ_15672
+      - RABBITMQ_DEFAULT_USER=${SERVICE_USER_RABBITMQ}
+      - RABBITMQ_DEFAULT_PASS=${SERVICE_PASSWORD_RABBITMQ}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 10s
+      timeout: 30s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  rabbitmq_data:

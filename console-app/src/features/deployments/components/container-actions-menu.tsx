@@ -7,24 +7,7 @@ import {
 } from "../constants/container-action-messages";
 import { CONTAINER_LOGS_LABEL } from "../constants/container-logs-messages";
 import type { ContainerActionType, ServerContainer } from "../types";
-
-/**
- * Checks if the container is running.
- */
-function isContainerRunning(container: ServerContainer): boolean {
-  const normalized = container.status.toLowerCase();
-  if (normalized.includes("exited") || normalized.includes("stopped")) {
-    return false;
-  }
-  if (normalized.includes("dead") || normalized.includes("created")) {
-    return false;
-  }
-  return (
-    normalized.includes("up") ||
-    normalized.includes("running") ||
-    normalized.includes("restarting")
-  );
-}
+import { isContainerRunning } from "@/features/servers/components/server-detail/utils/container-display";
 
 /**
  * The props for the ContainerActionsMenu component.
@@ -32,7 +15,10 @@ function isContainerRunning(container: ServerContainer): boolean {
 type ContainerActionsMenuProps = {
   container: ServerContainer;
   isPending: boolean;
-  pendingAction: { containerId: string | null; action: ContainerActionType } | null;
+  pendingAction: {
+    containerId: string | null;
+    action: ContainerActionType;
+  } | null;
   onAction: (container: ServerContainer, action: ContainerActionType) => void;
   onViewLogs?: (container: ServerContainer) => void;
 };
@@ -146,20 +132,6 @@ export function ContainerActionsMenu({
               minWidth: menuPosition.minWidth,
             }}
           >
-            {showStop ? (
-              <button
-                type="button"
-                role="menuitem"
-                className="container-actions-menu-item"
-                disabled={isPending}
-                onClick={() => runAction("stop")}
-              >
-                <span className="container-actions-menu-item-icon container-actions-menu-item-icon--stop">
-                  <ContainerActionIcon action="stop" />
-                </span>
-                {actionLabel("stop")}
-              </button>
-            ) : null}
             {onViewLogs ? (
               <button
                 type="button"
@@ -174,6 +146,33 @@ export function ContainerActionsMenu({
                 {CONTAINER_LOGS_LABEL}
               </button>
             ) : null}
+            {showStop ? (
+              <button
+                type="button"
+                role="menuitem"
+                className="container-actions-menu-item"
+                disabled={isPending}
+                onClick={() => runAction("stop")}
+              >
+                <span className="container-actions-menu-item-icon container-actions-menu-item-icon--stop">
+                  <ContainerActionIcon action="stop" />
+                </span>
+                {actionLabel("stop")}
+              </button>
+            ) : (
+              <button
+                type="button"
+                role="menuitem"
+                className="container-actions-menu-item"
+                disabled={isPending}
+                onClick={() => runAction("start")}
+              >
+                <span className="container-actions-menu-item-icon container-actions-menu-item-icon--start">
+                  <ContainerActionIcon action="start" />
+                </span>
+                {actionLabel("start")}
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"
@@ -205,9 +204,7 @@ export function ContainerActionsMenu({
 
   return (
     <>
-      <div
-        className={`container-actions-menu${open ? " is-open" : ""}`}
-      >
+      <div className={`container-actions-menu${open ? " is-open" : ""}`}>
         <button
           ref={triggerRef}
           type="button"
@@ -239,13 +236,7 @@ export function ContainerActionsMenu({
 
 function ContainerLogsIcon() {
   return (
-    <svg
-      width={20}
-      height={20}
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-    >
+    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
         d="M8 6h12M8 12h12M8 18h7"
         stroke="currentColor"

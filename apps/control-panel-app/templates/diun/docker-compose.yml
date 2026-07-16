@@ -1,0 +1,55 @@
+# documentation: https://crazymax.dev/diun/
+# shortDescription: Docker image update notifier
+# longDescription: <p>DIUN tracks running container images and notifies you when updates are available.</p><p>Requires a watch schedule to run continuously. Configure notification providers separately as needed.</p>
+# category: monitoring,logging,observability
+# tags: diun,monitoring,images,updates,docker,notifications
+# port: 0
+
+services:
+  diun:
+    image: ${DIUN_IMAGE:-crazymax/diun:latest}
+    restart: ${DIUN_RESTART_POLICY:-unless-stopped}
+
+    command: serve
+
+    environment:
+      - TZ=${TZ:-UTC}
+      - LOG_LEVEL=${DIUN_LOG_LEVEL:-info}
+      - LOG_JSON=${DIUN_LOG_JSON:-false}
+      - DIUN_WATCH_WORKERS=${DIUN_WATCH_WORKERS:-20}
+      - "DIUN_WATCH_SCHEDULE=${DIUN_WATCH_SCHEDULE:-0 */6 * * *}"
+      - DIUN_WATCH_JITTER=${DIUN_WATCH_JITTER:-30s}
+      - DIUN_PROVIDERS_DOCKER=true
+      - DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT=true
+
+    labels:
+      - diun.enable=true
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - diun_data:/data
+
+    healthcheck:
+      test: ['CMD', 'diun', 'healthcheck']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  diun_data:

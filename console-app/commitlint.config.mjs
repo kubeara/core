@@ -6,7 +6,7 @@ const config = {
       2,
       "always",
       [
-        "feature",
+        "feat",
         "fix",
         "ui",
         "refactor",

@@ -38,7 +38,21 @@ export interface DeployTemplateInput {
   serverId: string;
   env?: Record<string, string>;
   ports?: Record<string, string>;
+  acknowledgeResourceWarning?: boolean;
 }
+
+export type DeploymentResourceWarningCode =
+  | "insufficient_ram"
+  | "insufficient_cpu";
+
+export interface DeploymentResourceWarning {
+  code: DeploymentResourceWarningCode;
+  message: string;
+}
+
+export type ValidateDeploymentResourcesResult =
+  | { ok: true }
+  | { ok: false; warning: DeploymentResourceWarning };
 
 export type ManagedType = "KUBEARA_MANAGED" | "SELF_MANAGED";
 
@@ -66,7 +80,7 @@ export interface DeployTemplateResult {
   publicUrl?: string;
 }
 
-export type ContainerActionType = "stop" | "restart" | "delete";
+export type ContainerActionType = "stop" | "start" | "restart" | "delete";
 
 export type ContainerActionExecutionPath = "agent" | "host";
 

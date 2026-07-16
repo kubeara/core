@@ -3,20 +3,28 @@ import type { ApiTemplate } from "../types";
 import { getTemplateAccentColor } from "../utils/deploy-form-schema";
 import { formatTemplateCategory } from "../utils/format-template-category";
 
+export type DeployServiceSummaryStatus = {
+  type: "validating";
+  message: string;
+};
+
 type DeployServiceSummaryCardProps = {
   template: ApiTemplate;
   serverName?: string;
   serverId: string;
   variableCount: number | "loading";
+  status?: DeployServiceSummaryStatus | null;
 };
 
 export function DeployServiceSummaryCard({
   template,
   serverName,
   serverId,
+  status,
 }: DeployServiceSummaryCardProps) {
   const accent = getTemplateAccentColor(template.slug);
   const categoryLabel = formatTemplateCategory(template.category);
+  const targetServerName = serverName ?? serverId;
 
   return (
     <article className="deploy-service-card">
@@ -32,33 +40,42 @@ export function DeployServiceSummaryCard({
           }}
         />
         <div className="deploy-service-content">
-          <div className="deploy-service-headline">
-            <h1>{template.name}</h1>
+          <div className="deploy-service-card-top">
+            <div className="deploy-service-details">
+              <div className="deploy-service-headline">
+                <h1>{template.name}</h1>
+                {status?.type === "validating" ? (
+                  <span
+                    className="deploy-service-status deploy-service-status-validating"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {status.message}
+                  </span>
+                ) : null}
+              </div>
+              {categoryLabel ? (
+                <p className="deploy-service-category">{categoryLabel}</p>
+              ) : null}
+              {template.shortDescription ? (
+                <p className="deploy-service-description">
+                  {template.shortDescription}
+                </p>
+              ) : null}
+            </div>
+            <div className="deploy-service-target">
+              <span className="deploy-service-target-label">Target server</span>
+              <p className="deploy-service-target-name">{targetServerName}</p>
+            </div>
           </div>
-          {categoryLabel ? (
-            <p className="deploy-service-category">{categoryLabel}</p>
-          ) : null}
-          {template.shortDescription ? (
-            <p className="deploy-service-description">{template.shortDescription}</p>
-          ) : null}
-          <dl className="deploy-service-meta-grid">
-            <div className="deploy-service-meta-item">
-              <dt>Target server</dt>
-              <dd>{serverName ?? serverId}</dd>
-            </div>
-            <div className="deploy-service-meta-item">
-              <dt>Template</dt>
-              <dd>
-                <code>{template.slug}</code>
-              </dd>
-            </div>
-            {template.version ? (
+          {template.version ? (
+            <dl className="deploy-service-meta-grid">
               <div className="deploy-service-meta-item">
                 <dt>Version</dt>
                 <dd>{template.version}</dd>
               </div>
-            ) : null}
-          </dl>
+            </dl>
+          ) : null}
         </div>
       </div>
     </article>

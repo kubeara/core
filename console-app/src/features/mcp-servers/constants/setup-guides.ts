@@ -326,6 +326,109 @@ export const SETUP_GUIDES: SetupGuide[] = [
       "Antigravity is now connected to your Kubera workspace. Your AI assistant can list servers, check GPU metrics, get server status, and more — all from the Agent chat window.",
     available: true,
   },
+  {
+    id: "chatgpt",
+    label: "ChatGPT",
+    title: "Connecting Kubera to ChatGPT via MCP",
+    intro:
+      "Connect ChatGPT to your Kubera workspace using OAuth. ChatGPT does not support static MCP API keys — you sign in with your Kubera account when ChatGPT requests access. Desktop clients such as Cursor still use MCP API keys from this page. After connecting, you may need to select Kubera in each chat before ChatGPT calls your tools — this is normal ChatGPT behavior.",
+    requirements: [
+      "ChatGPT Business, Enterprise, Edu, or Pro with Developer mode enabled",
+      "Workspace admin approval to create and publish MCP plugins (Business/Enterprise/Edu)",
+      "A Kubera account with access to the servers you want ChatGPT to read",
+      "Kubera MCP endpoint reachable over public HTTPS",
+    ],
+    steps: [
+      {
+        title: "Open ChatGPT Settings",
+        body: "Open ChatGPT in your browser. Click your profile or workspace menu, then open Settings from the bottom of the left sidebar.",
+      },
+      {
+        title: "Go to Plugins",
+        body: "In Settings, open the Plugins section. At the bottom of Plugins, turn on Developer mode if it is not already enabled. On Business and Enterprise workspaces, an admin may need to enable this under Workspace settings first.",
+      },
+      {
+        title: "Create a New Plugin",
+        body: 'Open Browse plugins. In the top section, click the + (plus) button to add Kubera. Enter a name you will recognize, such as Kubera. Add a short description if you want — for example, "Access my Kubera servers from ChatGPT".',
+      },
+      {
+        title: "Paste the Kubera MCP URL",
+        body: "In the Connection section, find the server URL field. Paste our Kubera MCP endpoint below.",
+        configPreset: "chatgpt",
+      },
+      {
+        title: "Choose OAuth Authentication",
+        body: "Under Authentication, select OAuth (not API key). OAuth is required for ChatGPT — Kubera MCP API keys from this page do not work in ChatGPT.",
+      },
+      {
+        title: "Open Advanced OAuth Settings",
+        body: "Click Advanced OAuth settings. A panel opens on the right with OAuth details. After you paste the Kubera MCP URL, ChatGPT usually auto-fills OAuth fields from Kubera's discovery metadata.",
+      },
+      {
+        title: "Confirm OAuth Client ID (If Needed)",
+        body: "In most cases ChatGPT fills OAuth Client ID automatically. If the field is empty, set it to https://chatgpt.com/ (include the trailing slash). Kubera accepts ChatGPT's auto-configured client identity or this legacy value.",
+        example: "https://chatgpt.com/",
+        note: "You do not need a client secret — leave that blank if the field is optional.",
+      },
+      {
+        title: "Confirm and Create the Plugin",
+        body: 'Review the settings, click I understand and continue (or the equivalent confirmation), then click Create. ChatGPT may take a moment to register the connector and scan available tools.',
+      },
+      {
+        title: "Sign In with Kubera",
+        body: 'When prompted with Add [your plugin name] to ChatGPT, click Sign in with Kubera (or the name you chose). ChatGPT opens a new browser window or tab for authorization — keep the ChatGPT tab open while you complete this step.',
+      },
+      {
+        title: "Log In to Kubera (If Needed)",
+        body: "If you are already signed in to Kubera in that browser, you will go straight to the consent screen. If not, the Kubera login page opens — enter your Kubera email and password and click Sign in. You will then be returned to the OAuth authorization page (not the main dashboard).",
+        note: "Use your Kubera console email and password. MCP API keys from this page do not work here.",
+      },
+      {
+        title: "Authorize ChatGPT",
+        body: 'On the Connect ChatGPT to Kubera screen, review the requested access (mcp:read, mcp:write) and click Authorize. This step is required — signing in alone does not finish the connection. The window closes automatically and you are sent back to ChatGPT.',
+      },
+      {
+        title: "Select Kubera in the Chat",
+        body: 'Open a new chat. Click the + button on the left side of the message box. Under plugins or MCP connections, select your Kubera plugin (the name you chose when creating it, e.g. kubera). The plugin appears as a chip next to +.',
+        note: "ChatGPT does not always call Kubera tools automatically. If the reply looks generic or does not use your real server data, confirm the Kubera chip is visible next to + before you send.",
+        followUp:
+          "Select the plugin again in each new chat, or whenever the Kubera chip is not shown.",
+      },
+      {
+        title: "Test with a Prompt",
+        body: 'With Kubera selected, ask something like "List my servers in Kubera." You should see tool usage and data from your workspace.',
+      },
+    ],
+    troubleshooting: [
+      {
+        issue: "Invalid client ID",
+        fix: "Paste the Kubera MCP URL first and wait for OAuth settings to auto-fill. If Client ID is still empty, set it to https://chatgpt.com/ in Advanced OAuth settings.",
+      },
+      {
+        issue: "Sign-in window keeps loading",
+        fix: "Complete the full flow: Sign in → Connect ChatGPT to Kubera → Authorize. Signing in alone is not enough.",
+      },
+      {
+        issue: "Login fails",
+        fix: "Use your Kubera console email and password. MCP API keys from this page do not work in ChatGPT.",
+      },
+      {
+        issue: "ChatGPT doesn't use Kubera or gives a generic answer",
+        fix: "Click + in the chat input, select your Kubera plugin, confirm the chip appears next to +, then send your prompt again.",
+      },
+      {
+        issue: "Tools worked before but not in a new chat",
+        fix: "Each new chat may require selecting Kubera again via + in the message box.",
+      },
+      {
+        issue: "Kubera not listed under +",
+        fix: "Go to Settings → Plugins, confirm the plugin exists and OAuth is complete (Sign in → Authorize). Reconnect if needed.",
+      },
+    ],
+    outro:
+      "ChatGPT is now connected to Kubera through OAuth. Your Kubera user identity controls which servers and metrics ChatGPT can access. In each chat, select your Kubera plugin from + when you want ChatGPT to use your live server data.",
+    available: true,
+  },
 ];
 
 export function getSetupGuideById(id: string): SetupGuide | undefined {

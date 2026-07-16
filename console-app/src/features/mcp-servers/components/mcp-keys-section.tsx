@@ -1,6 +1,12 @@
-import { useState } from "react";
-import { GENERIC_ERROR_MESSAGE } from "@/api/api-error";
+import { useMemo, useState } from "react";
+import { API_ERROR_MESSAGES } from "@/constants/error-messages";
+import { getErrorMessage } from "@/api/api-error";
+import { FilterClearButton } from "@/components/shared/filter-clear-button";
+import { TooltipHint } from "@/components/ui/tooltip";
 import { McpKeysTableSkeleton } from "@/components/shared/skeleton";
+import "@/components/servers-table.css";
+import "../mcp-servers.css";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { formatApiTimestamp } from "@/lib/unix-timestamp";
 import {
   useMcpApiKeysQuery,
@@ -8,150 +14,324 @@ import {
 } from "../hooks";
 import type { McpApiKeyListItem } from "../types";
 import { GenerateTokenModal } from "./generate-token-modal";
+import { RevokeTokenConfirmModal } from "./revoke-token-confirm-modal";
 
-function StatusBadge({ status }: { status: McpApiKeyListItem["status"] }) {
-  const isActive = status === "ACTIVE";
+const PAGE_SIZE = 10 as const;
+const SEARCH_DEBOUNCE_MS = 300;
+
+type SortDir = "asc" | "desc";
+type McpKeySortField = "name" | "lastUsedAt" | "createdAt" | "revokedAt";
+
+const TABLE_COLUMNS: { key: McpKeySortField; label: string }[] = [
+  { key: "name", label: "Name" },
+  { key: "lastUsedAt", label: "Last Used" },
+  { key: "createdAt", label: "Created At" },
+  { key: "revokedAt", label: "Revoked At" },
+];
+
+function SortHeader({
+  label,
+  sortKey,
+  activeKey,
+  dir,
+  onSort,
+}: {
+  label: string;
+  sortKey: McpKeySortField;
+  activeKey: McpKeySortField;
+  dir: SortDir;
+  onSort: (key: McpKeySortField) => void;
+}) {
+  const isActive = activeKey === sortKey;
+
   return (
-    <span
-      className={`status-pill ${isActive ? "status-online" : "status-offline"}`}
+    <button
+      type="button"
+      className={`servers-th-sort ${isActive ? "is-active" : ""}`}
+      onClick={() => onSort(sortKey)}
     >
-      {isActive ? "Active" : "Revoked"}
-    </span>
+      <span className="servers-th-label">{label}</span>
+      <span className="servers-th-sort-icon">
+        {isActive ? (dir === "asc" ? "▲" : "▼") : "▲"}
+      </span>
+    </button>
   );
 }
 
-function McpKeysTable({
-  keys,
-  loading,
-  revokingId,
-  onRevoke,
-}: {
-  keys: McpApiKeyListItem[];
-  loading: boolean;
-  revokingId: string | null;
-  onRevoke: (id: string) => void;
-}) {
-  return (
-    <div className="mcp-keys-table-card">
-      <table className="mcp-keys-table" aria-busy={loading}>
-        <thead>
-          <tr>
-            <th scope="col">Name</th>
-            <th scope="col">Created</th>
-            <th scope="col">Last used</th>
-            <th scope="col">Status</th>
-            <th scope="col" aria-label="Actions" />
-          </tr>
-        </thead>
-        <tbody>
-          {loading && <McpKeysTableSkeleton />}
-          {!loading && keys.length === 0 && (
-            <tr>
-              <td colSpan={5} className="mcp-keys-empty">
-                No tokens yet. Generate one to get started.
-              </td>
-            </tr>
-          )}
-          {!loading &&
-            keys.map((key) => (
-              <tr key={key.id}>
-                <td>{key.name}</td>
-                <td>{formatApiTimestamp(key.createdAt, "—")}</td>
-                <td>{formatApiTimestamp(key.lastUsedAt, "Never")}</td>
-                <td>
-                  <StatusBadge status={key.status} />
-                </td>
-                <td>
-                  {key.status === "ACTIVE" ? (
-                    <button
-                      type="button"
-                      className={`btn-danger-outline${revokingId === key.id ? " is-loading" : ""}`}
-                      disabled={revokingId !== null}
-                      onClick={() => onRevoke(key.id)}
-                    >
-                      Revoke
-                    </button>
-                  ) : (
-                    <span className="mcp-keys-revoked-label">—</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-        </tbody>
-      </table>
-    </div>
-  );
+function sortKeys(
+  keys: McpApiKeyListItem[],
+  sortKey: McpKeySortField,
+  sortDir: SortDir,
+): McpApiKeyListItem[] {
+  const sorted = [...keys].sort((left, right) => {
+    switch (sortKey) {
+      case "name":
+        return left.name.localeCompare(right.name);
+      case "lastUsedAt":
+        return (left.lastUsedAt ?? 0) - (right.lastUsedAt ?? 0);
+      case "createdAt":
+        return left.createdAt - right.createdAt;
+      case "revokedAt":
+        return (left.revokedAt ?? 0) - (right.revokedAt ?? 0);
+      default:
+        return 0;
+    }
+  });
+
+  return sortDir === "asc" ? sorted : sorted.reverse();
 }
 
 export function McpKeysSection() {
+  const [searchInput, setSearchInput] = useState("");
+  const debouncedSearch = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
+  const [sortKey, setSortKey] = useState<McpKeySortField>("createdAt");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [page, setPage] = useState(1);
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState(false);
-  const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<McpApiKeyListItem | null>(
+    null,
+  );
 
   const {
     data: keys = [],
-    isPending,
+    isPending: loading,
     isFetching,
     isError,
+    error,
+    refetch,
   } = useMcpApiKeysQuery();
   const revokeMutation = useRevokeMcpApiKeyMutation();
 
-  async function handleRevoke(keyId: string) {
-    setRevokingId(keyId);
+  const revoking = revokeMutation.isPending;
+
+  const filteredKeys = useMemo(() => {
+    const query = debouncedSearch.trim().toLowerCase();
+    if (!query) {
+      return keys;
+    }
+
+    return keys.filter((key) => key.name.toLowerCase().includes(query));
+  }, [debouncedSearch, keys]);
+
+  const sortedKeys = useMemo(
+    () => sortKeys(filteredKeys, sortKey, sortDir),
+    [filteredKeys, sortKey, sortDir],
+  );
+
+  const total = sortedKeys.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const rangeStart = total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const rangeEnd = Math.min(currentPage * PAGE_SIZE, total);
+  const pageKeys = sortedKeys.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE,
+  );
+
+  const hasFilters = searchInput.trim() !== "";
+  const listErrorMessage = isError ? getErrorMessage(error) : null;
+  const emptyMessage = hasFilters
+    ? "No tokens match your search."
+    : "No tokens yet. Generate one to get started.";
+
+  function handleSort(key: McpKeySortField) {
+    if (sortKey === key) {
+      setSortDir((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(key);
+    setSortDir(key === "name" ? "asc" : "desc");
+  }
+
+  function handleSearchChange(value: string) {
+    setSearchInput(value);
+    setPage(1);
+  }
+
+  function clearFilters() {
+    setSearchInput("");
+    setPage(1);
+  }
+
+  async function handleConfirmRevoke() {
+    if (!revokeTarget) {
+      return;
+    }
+
     try {
-      await revokeMutation.mutateAsync(keyId);
+      await revokeMutation.mutateAsync(revokeTarget.id);
+      setRevokeTarget(null);
     } catch {
       // Error toast shown by mutation hook
-    } finally {
-      setRevokingId(null);
     }
   }
 
-  return (
-    <section className="profile-section-card mcp-keys-section">
-      <h2>Tokens</h2>
+  function closeRevokeModal() {
+    if (revoking) {
+      return;
+    }
+    setRevokeTarget(null);
+  }
 
-      <div className="mcp-keys-content">
-        <div className="mcp-keys-toolbar">
-          <p className="mcp-keys-toolbar-desc">
-            Generate tokens for AI desktop clients to authenticate with our MCP
-            server.
-          </p>
+  return (
+    <div className="servers-table-wrap">
+      {listErrorMessage ? (
+        <div className="servers-feedback-message" role="alert">
+          <span>{listErrorMessage || API_ERROR_MESSAGES.GENERIC}</span>
           <button
             type="button"
-            className="btn-primary mcp-keys-generate-btn"
-            onClick={() => setIsGenerateModalOpen(true)}
+            className="servers-feedback-retry"
+            onClick={() => {
+              void refetch();
+            }}
           >
-            Generate Token
+            Retry
           </button>
         </div>
+      ) : null}
 
-        {isError && (
-          <p className="form-field-error" role="alert">
-            {GENERIC_ERROR_MESSAGE}
-          </p>
-        )}
+      <div className="servers-table-toolbar">
+        <div className="servers-table-filters">
+          <input
+            type="text"
+            className="servers-search"
+            placeholder="Search by name…"
+            value={searchInput}
+            onChange={(event) => handleSearchChange(event.target.value)}
+            aria-label="Search tokens"
+          />
+          {hasFilters ? <FilterClearButton onClick={clearFilters} /> : null}
+        </div>
+        <button
+          type="button"
+          className="btn-add-server"
+          onClick={() => setIsGenerateModalOpen(true)}
+        >
+          + Generate Token
+        </button>
+      </div>
 
-        {!isError && (
-          <>
-            {isFetching && !isPending ? (
-              <p className="mcp-keys-updating" aria-live="polite">
-                Updating…
-              </p>
-            ) : null}
-            <McpKeysTable
-              keys={keys}
-              loading={isPending}
-              revokingId={revokingId}
-              onRevoke={handleRevoke}
-            />
-          </>
-        )}
+      <div className="servers-table-card">
+        <div className="servers-table-scroll">
+          <table
+            className="servers-table-do"
+            aria-busy={loading}
+            aria-label={loading ? "Loading tokens" : undefined}
+          >
+            <thead>
+              <tr>
+                {TABLE_COLUMNS.map(({ key, label }) => (
+                  <th key={key}>
+                    <SortHeader
+                      label={label}
+                      sortKey={key}
+                      activeKey={sortKey}
+                      dir={sortDir}
+                      onSort={handleSort}
+                    />
+                  </th>
+                ))}
+                <th className="servers-th-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && <McpKeysTableSkeleton />}
+              {!loading && !isError && pageKeys.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="servers-table-empty">
+                    {emptyMessage}
+                  </td>
+                </tr>
+              )}
+              {!loading &&
+                !isError &&
+                pageKeys.map((key) => (
+                  <tr key={key.id}>
+                    <td>{key.name}</td>
+                    <td>
+                      <span className="server-tag">
+                        {formatApiTimestamp(key.lastUsedAt, "Never")}
+                      </span>
+                    </td>
+                    <td>
+                      <TooltipHint content={formatApiTimestamp(key.createdAt)}>
+                        <time
+                          className="server-created-link"
+                          dateTime={String(key.createdAt)}
+                        >
+                          {formatApiTimestamp(key.createdAt)}
+                        </time>
+                      </TooltipHint>
+                    </td>
+                    <td>
+                      <span className="server-tag">
+                        {formatApiTimestamp(key.revokedAt, "—")}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="server-row-actions">
+                        <button
+                          type="button"
+                          className="mcp-revoke-btn"
+                          onClick={() => setRevokeTarget(key)}
+                          aria-label={`Revoke ${key.name}`}
+                          disabled={revoking || key.status !== "ACTIVE"}
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="servers-pagination">
+        <div>
+          Showing {rangeStart}–{rangeEnd} of {total}
+          {isFetching && !loading ? " · Updating…" : ""}
+        </div>
+        <div className="servers-pagination-controls">
+          <button
+            type="button"
+            className="servers-page-btn"
+            disabled={currentPage <= 1 || loading}
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+          >
+            Previous
+          </button>
+          <span className="servers-page-indicator">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            type="button"
+            className="servers-page-btn"
+            disabled={currentPage >= totalPages || loading}
+            onClick={() => setPage((current) => current + 1)}
+          >
+            Next
+          </button>
+        </div>
       </div>
 
       <GenerateTokenModal
         open={isGenerateModalOpen}
         onClose={() => setIsGenerateModalOpen(false)}
       />
-    </section>
+
+      {revokeTarget ? (
+        <RevokeTokenConfirmModal
+          keyItem={revokeTarget}
+          isPending={revoking}
+          onCancel={closeRevokeModal}
+          onConfirm={() => {
+            void handleConfirmRevoke();
+          }}
+        />
+      ) : null}
+    </div>
   );
 }

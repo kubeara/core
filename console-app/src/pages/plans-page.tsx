@@ -80,7 +80,7 @@ function PlanCard({
     plan.tierSlug === "pro" && currentIdx < proIdx && action !== "current";
   const isScheduledTarget = scheduledPlanSlug === plan.slug;
   const ctaLabel = isEnterprise
-    ? "Contact support team"
+    ? "Contact Support"
     : isScheduledTarget
       ? "Scheduled"
       : action === "upgrade"

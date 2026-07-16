@@ -4,6 +4,7 @@ export const DEPLOYMENT_SOCKET_EVENTS = {
   DEPLOYMENT_STREAM: "deployment:stream",
   AGENT_CONNECTED: "agent:connected",
   AGENT_DISCONNECTED: "agent:disconnected",
+  SERVER_OPERATION_UPDATED: "server:operation-updated",
   TERMINAL_SUBSCRIBE: "terminal:subscribe",
   TERMINAL_INPUT: "terminal:input",
   TERMINAL_OUTPUT: "terminal:output",
@@ -55,19 +56,23 @@ export interface DeploymentLogStreamPayload {
   message: string;
 }
 
-export type DeploymentStatus =
-  | "pending"
-  | "validating"
-  | "pulling"
-  | "building"
-  | "deploying"
-  | "running"
-  | "success"
-  | "failed"
-  | "cancelled"
-  | "removing"
-  | "removed"
-  | "unknown";
+/**
+ * Current state of a deployment across prepare, agent execution, and removal.
+ */
+export enum DeploymentStatus {
+  PENDING = "pending",
+  VALIDATING = "validating",
+  PULLING = "pulling",
+  BUILDING = "building",
+  DEPLOYING = "deploying",
+  RUNNING = "running",
+  SUCCESS = "success",
+  FAILED = "failed",
+  CANCELLED = "cancelled",
+  REMOVING = "removing",
+  REMOVED = "removed",
+  UNKNOWN = "unknown",
+}
 
 export interface SocketDeploymentStatus {
   deploymentId: string;
@@ -84,10 +89,10 @@ export interface SocketDeploymentStatus {
 }
 
 const TERMINAL_STATUSES: DeploymentStatus[] = [
-  "success",
-  "failed",
-  "cancelled",
-  "removed",
+  DeploymentStatus.SUCCESS,
+  DeploymentStatus.FAILED,
+  DeploymentStatus.CANCELLED,
+  DeploymentStatus.REMOVED,
 ];
 
 export function isTerminalDeploymentStatus(

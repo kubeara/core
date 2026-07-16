@@ -26,6 +26,8 @@ type UseDeploymentLogStreamResult = {
   lineCount: number;
   status: StreamStatus;
   deploymentStatus: DeploymentStatus | null;
+  deploymentStatusMessage: string | null;
+  deploymentError: string | null;
   hasReceivedStatus: boolean;
   isSocketConnected: boolean;
 };
@@ -65,7 +67,12 @@ export function useDeploymentLogStream(
   const { deploymentId, enabled = true } = options;
 
   const [logs, setLogs] = useState<DeploymentLogLine[]>([]);
-  const [deploymentStatus, setDeploymentStatus] = useState<DeploymentStatus | null>(null);
+  const [deploymentStatus, setDeploymentStatus] =
+    useState<DeploymentStatus | null>(null);
+  const [deploymentStatusMessage, setDeploymentStatusMessage] = useState<
+    string | null
+  >(null);
+  const [deploymentError, setDeploymentError] = useState<string | null>(null);
   const [hasReceivedStatus, setHasReceivedStatus] = useState(false);
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [hasReceivedLog, setHasReceivedLog] = useState(false);
@@ -120,6 +127,8 @@ export function useDeploymentLogStream(
 
       setHasReceivedStatus(true);
       setDeploymentStatus(payload.status);
+      setDeploymentStatusMessage(payload.message?.trim() || null);
+      setDeploymentError(payload.error?.trim() || null);
     }
 
     setIsSocketConnected(socket.connected);
@@ -127,7 +136,10 @@ export function useDeploymentLogStream(
     socket.on("connect", handleConnect);
     socket.on("disconnect", handleDisconnect);
     socket.on("connect_error", handleConnectError);
-    socket.on(DEPLOYMENT_SOCKET_EVENTS.DEPLOYMENT_STREAM, handleDeploymentStream);
+    socket.on(
+      DEPLOYMENT_SOCKET_EVENTS.DEPLOYMENT_STREAM,
+      handleDeploymentStream,
+    );
     socket.on(DEPLOYMENT_SOCKET_EVENTS.DEPLOYMENT_STATUS, handleStatus);
 
     if (!socket.connected) {
@@ -140,7 +152,10 @@ export function useDeploymentLogStream(
       socket.off("connect", handleConnect);
       socket.off("disconnect", handleDisconnect);
       socket.off("connect_error", handleConnectError);
-      socket.off(DEPLOYMENT_SOCKET_EVENTS.DEPLOYMENT_STREAM, handleDeploymentStream);
+      socket.off(
+        DEPLOYMENT_SOCKET_EVENTS.DEPLOYMENT_STREAM,
+        handleDeploymentStream,
+      );
       socket.off(DEPLOYMENT_SOCKET_EVENTS.DEPLOYMENT_STATUS, handleStatus);
     };
   }, [appendLine, deploymentId, enabled]);
@@ -167,6 +182,8 @@ export function useDeploymentLogStream(
       setHasReceivedLog(false);
       setHasReceivedStatus(false);
       setDeploymentStatus(null);
+      setDeploymentStatusMessage(null);
+      setDeploymentError(null);
       setStreamError(false);
     }
   }, [deploymentId]);
@@ -191,6 +208,8 @@ export function useDeploymentLogStream(
     lineCount: logs.length,
     status,
     deploymentStatus,
+    deploymentStatusMessage,
+    deploymentError,
     hasReceivedStatus,
     isSocketConnected,
   };

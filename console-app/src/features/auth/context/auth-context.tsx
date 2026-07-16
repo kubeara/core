@@ -19,6 +19,7 @@ import {
   subscribeToAuthChanges,
   type SessionLifecycle,
 } from "../utils/session-manager";
+import { syncAnalyticsUser } from "@/lib/sync-analytics-user";
 
 export type AuthContextValue = {
   user: User | null;
@@ -98,6 +99,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     });
   }, []);
+
+  useEffect(() => {
+    syncAnalyticsUser(isAuthenticated && user ? user : null);
+  }, [isAuthenticated, user]);
 
   const value = useMemo<AuthContextValue>(() => {
     const isRestoringUser =

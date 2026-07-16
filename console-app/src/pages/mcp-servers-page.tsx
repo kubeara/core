@@ -16,15 +16,14 @@ export function McpServersPage() {
           <h1>Kubera's MCP</h1>
           <p>
             Give your AI assistant direct access to your servers. Supported on
-            Cursor, Claude Desktop, VS Code with Copilot, Windsurf, and Antigravity.
+            Cursor, Claude Desktop, VS Code with Copilot, Windsurf, Antigravity,
+            and ChatGPT (OAuth).
           </p>
         </div>
       </header>
 
-      <div className="mcp-servers-page-body">
-        <McpKeysSection />
-        <SetupGuidesSection />
-      </div>
+      <McpKeysSection />
+      <SetupGuidesSection />
     </div>
   );
 }

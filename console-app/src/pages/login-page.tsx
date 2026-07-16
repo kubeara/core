@@ -3,8 +3,13 @@ import { useState } from "react";
 import { AuthCard } from "@/features/auth/components/auth-card";
 import { AuthForm } from "@/features/auth/components/auth-form";
 import { useLoginMutation } from "@/features/auth/hooks";
-import { getErrorMessage } from "@/api/api-error";
+import { AUTH_ERROR_MESSAGES } from "@/features/auth/constants";
+import { getErrorMessage, toApiError } from "@/api/api-error";
 import { validateEmail, validateRequired } from "@/lib/validation";
+
+function isOAuthLoginReturn(from: string | null): boolean {
+  return from?.startsWith("/oauth/authorize") ?? false;
+}
 
 /**
  * Login page component.
@@ -22,6 +27,9 @@ export function LoginPage() {
     const loginMutation = useLoginMutation();
     const [error, setError] = useState<string | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+    const from = searchParams.get("from");
+    const isOAuthFlow = isOAuthLoginReturn(from);
 
     async function handleSubmit(formData: FormData) {
         setError(null);
@@ -48,18 +56,34 @@ export function LoginPage() {
                 password,
             });
 
-            // Redirect to intended page or default to /servers
-            const from = searchParams.get("from") ?? "/servers";
-            navigate(from, { replace: true });
+            // GuestRoute sends logged-in users to `from` when present.
+            const destination = from?.startsWith("/") ? from : "/servers";
+            navigate(destination, { replace: true });
         } catch (err) {
+            const apiError = toApiError(err);
+            if (
+                apiError.message
+                    .toLowerCase()
+                    .includes(AUTH_ERROR_MESSAGES.EMAIL_NOT_VERIFIED.toLowerCase())
+            ) {
+                navigate(
+                    `/verify-email?email=${encodeURIComponent(email.trim())}`,
+                    { replace: true },
+                );
+                return;
+            }
             setError(getErrorMessage(err));
         }
     }
 
     return (
         <AuthCard
-            title="Sign in"
-            subtitle="Welcome back. Enter your credentials to continue."
+            title={isOAuthFlow ? "Sign in to connect ChatGPT" : "Sign in"}
+            subtitle={
+                isOAuthFlow
+                    ? "Sign in to your Kubera account, then you will approve access for ChatGPT."
+                    : "Welcome back. Enter your credentials to continue."
+            }
             footer={
                 <p>
                     Don&apos;t have an account?{" "}
@@ -88,6 +112,7 @@ export function LoginPage() {
                 submitLabel="Sign in"
                 onSubmit={handleSubmit}
                 error={error}
+                errorAfterFields
                 fieldErrors={fieldErrors}
                 loading={loginMutation.isPending}
             >

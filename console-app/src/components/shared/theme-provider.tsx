@@ -5,32 +5,35 @@ import {
 } from "react";
 
 import {
-    Theme,
+    getSystemTheme,
+    resolveTheme,
     ThemeContext,
+    ThemePreference,
+    ResolvedTheme,
 } from "./use-theme";
 
-/**
- * Get the initial theme from localStorage or system preference.
- *
- * Priority:
- * 1. Stored theme in localStorage
- * 2. System preference (prefers-color-scheme)
- * 3. Default to light
- *
- * @returns The initial theme
- */
-function getInitialTheme(): Theme {
-    if (typeof window === "undefined") return "light";
+const THEME_STORAGE_KEY = "kubeara-theme";
 
-    const stored = localStorage.getItem("kubeara-theme") as Theme | null;
-
-    if (stored === "light" || stored === "dark") {
-        return stored;
+function getInitialPreference(): ThemePreference {
+    if (typeof window === "undefined") {
+        return "system";
     }
 
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-        ? "dark"
-        : "light";
+    try {
+        const stored = localStorage.getItem(THEME_STORAGE_KEY);
+
+        if (stored === "light" || stored === "dark" || stored === "system") {
+            return stored;
+        }
+    } catch {
+        // localStorage may be unavailable; fall back to system preference.
+    }
+
+    return "system";
+}
+
+function applyResolvedTheme(theme: ResolvedTheme): void {
+    document.documentElement.setAttribute("data-theme", theme);
 }
 
 /**
@@ -38,7 +41,7 @@ function getInitialTheme(): Theme {
  *
  * Provides theme state and controls to the application.
  * Persists theme preference to localStorage.
- * Applies theme to document root via data-theme attribute.
+ * Applies resolved theme to document root via data-theme attribute.
  *
  * @param children - Child components
  */
@@ -47,24 +50,58 @@ export function ThemeProvider({
 }: {
     children: React.ReactNode;
 }) {
-    const [theme, setThemeState] = useState<Theme>(getInitialTheme);
+    const [themePreference, setThemePreferenceState] =
+        useState<ThemePreference>(getInitialPreference);
+    const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
+        resolveTheme(getInitialPreference()),
+    );
 
     useEffect(() => {
-        document.documentElement.setAttribute("data-theme", theme);
-    }, [theme]);
+        applyResolvedTheme(resolvedTheme);
+    }, [resolvedTheme]);
 
-    const setTheme = useCallback((next: Theme) => {
-        setThemeState(next);
-        localStorage.setItem("kubeara-theme", next);
-        document.documentElement.setAttribute("data-theme", next);
+    useEffect(() => {
+        if (themePreference !== "system") {
+            setResolvedTheme(themePreference);
+            return;
+        }
+
+        setResolvedTheme(getSystemTheme());
+
+        const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+        const handleChange = () => {
+            setResolvedTheme(getSystemTheme());
+        };
+
+        mediaQuery.addEventListener("change", handleChange);
+        return () => mediaQuery.removeEventListener("change", handleChange);
+    }, [themePreference]);
+
+    const setThemePreference = useCallback((next: ThemePreference) => {
+        setThemePreferenceState(next);
+        try {
+            localStorage.setItem(THEME_STORAGE_KEY, next);
+        } catch {
+            // localStorage may be unavailable or full; preference won't persist.
+        }
+        setResolvedTheme(resolveTheme(next));
     }, []);
 
     const toggleTheme = useCallback(() => {
-        setTheme(theme === "light" ? "dark" : "light");
-    }, [theme, setTheme]);
+        const nextPreference: ThemePreference =
+            resolvedTheme === "light" ? "dark" : "light";
+        setThemePreference(nextPreference);
+    }, [resolvedTheme, setThemePreference]);
 
     return (
-        <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
+        <ThemeContext.Provider
+            value={{
+                themePreference,
+                resolvedTheme,
+                setThemePreference,
+                toggleTheme,
+            }}
+        >
             {children}
         </ThemeContext.Provider>
     );

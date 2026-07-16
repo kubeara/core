@@ -12,14 +12,17 @@ import { SshModule } from "@shared/ssh";
 import { DeploymentsModule } from "./modules/deployments/deployments.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
-import { OrganizationsModule } from "./modules/organizations/organizations.module";
 import { ProfileModule } from "./modules/profile/profile.module";
 import { McpApiKeysModule } from "./modules/mcp-api-keys/mcp-api-keys.module";
+import { McpOAuthModule } from "./modules/mcp-oauth/mcp-oauth.module";
 import { McpServerModule } from "./modules/mcp-server/mcp-server.module";
 import { TerminalModule } from "./modules/terminal/terminal.module";
 import { SubscriptionsModule } from "./modules/subscriptions/subscriptions.module";
+import { ActivityModule } from "./modules/activity/activity.module";
+import { LokiLoggerModule } from "./modules/loki-logger";
 import { AppController } from "./app.controller";
 import { isProductionEnv } from "@control-panel/constants/env.constant";
+import { CronModule } from "./cron/cron.module";
 
 @Module({
   imports: [
@@ -45,7 +48,7 @@ import { isProductionEnv } from "@control-panel/constants/env.constant";
             database: configService.get<string>("DB_DATABASE"),
             synchronize: false,
             migrationsRun: false,
-            entities: [__dirname + "/modules/**/entities/*{.ts,.js}"],
+            entities: [__dirname + "/modules/**/entities/*.entity{.ts,.js}"],
             migrations: [path.join(__dirname, "../../migrations/*{.js,.ts}")],
             ...(isProduction ? { ssl: { rejectUnauthorized: false } } : {}),
           };
@@ -56,6 +59,7 @@ import { isProductionEnv } from "@control-panel/constants/env.constant";
         }
       },
     }),
+    LokiLoggerModule,
     ServiceTemplateModule,
     DeploymentsModule,
     ServerConnectionsModule,
@@ -64,12 +68,14 @@ import { isProductionEnv } from "@control-panel/constants/env.constant";
     WebsocketModule,
     AuthModule,
     UsersModule,
-    OrganizationsModule,
     ProfileModule,
     McpApiKeysModule,
+    McpOAuthModule,
     McpServerModule,
     TerminalModule,
     SubscriptionsModule,
+    ActivityModule,
+    CronModule,
   ],
   controllers: [AppController],
   providers: [],

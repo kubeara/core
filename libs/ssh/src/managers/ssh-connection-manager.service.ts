@@ -4,7 +4,10 @@ import { SshConnectionOptions } from "../interfaces/ssh-connection-options.inter
 import { EncryptionService } from "@shared/common";
 import { SSH_DEFAULTS, AUTH_TYPE } from "../constants/ssh.constants";
 import { SshConnectionError } from "../errors/ssh-connection.error";
-import { SshAuthenticationError } from "../errors/ssh-authentication.error";
+import {
+  SshAuthenticationError,
+  isSshAuthenticationFailure,
+} from "../errors/ssh-authentication.error";
 import { errors } from "../errors/error-messages";
 
 @Injectable()
@@ -71,8 +74,7 @@ export class SshConnectionManager {
           `SSH error server=${options.serverId} host=${options.host} msg=${String(err.message)}`,
         );
         if (!resolved) {
-          // classify auth errors roughly
-          if (/auth/i.test(err.message)) {
+          if (isSshAuthenticationFailure(err.message)) {
             reject(new SshAuthenticationError());
           } else {
             reject(new SshConnectionError(err.message));

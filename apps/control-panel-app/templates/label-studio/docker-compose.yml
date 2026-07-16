@@ -1,0 +1,101 @@
+# documentation: https://labelstud.io/guide/
+# shortDescription: Multi-type data labeling and annotation tool
+# longDescription: <p>Label Studio is a <strong>data labeling and annotation</strong> platform for images, text, audio, and video.</p><p>Includes PostgreSQL for persistent storage. Admin credentials use <code>LABEL_STUDIO_USERNAME</code> and <code>SERVICE_PASSWORD_LABEL_STUDIO</code>. Set <code>LABEL_STUDIO_HOST</code> via <code>SERVICE_URL_LABEL_STUDIO</code> when behind a reverse proxy.</p>
+# category: ai,data
+# tags: label-studio,labeling,annotation,datasets,machine-learning,nlp,vision
+# logo: svgs/label-studio.svg
+# port: 8080
+
+services:
+  label-studio:
+    image: ${LABEL_STUDIO_IMAGE:-heartexlabs/label-studio:latest}
+    restart: ${LABEL_STUDIO_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_LABEL_STUDIO:-8080}:8080'
+
+    environment:
+      - SERVICE_URL_LABEL_STUDIO_8080
+      - CSRF_TRUSTED_ORIGINS=${SERVICE_URL_LABEL_STUDIO:-${SERVICE_URL_LABEL_STUDIO_8080}}
+      - EXPERIMENTAL_FEATURES=${LABEL_STUDIO_EXPERIMENTAL_FEATURES:-false}
+      - DJANGO_DB=${LABEL_STUDIO_DJANGO_DB:-default}
+      - POSTGRE_NAME=${POSTGRES_DB:-labelstudio}
+      - POSTGRE_USER=${SERVICE_USER_POSTGRES}
+      - POSTGRE_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+      - POSTGRE_PORT=5432
+      - POSTGRE_HOST=postgres
+      - LABEL_STUDIO_HOST=${SERVICE_URL_LABEL_STUDIO:-${SERVICE_URL_LABEL_STUDIO_8080}}
+      - SSRF_PROTECTION_ENABLED=${LABEL_STUDIO_SSRF_PROTECTION_ENABLED:-true}
+      - LABEL_STUDIO_DISABLE_SIGNUP_WITHOUT_LINK=${LABEL_STUDIO_DISABLE_SIGNUP_WITHOUT_LINK:-true}
+      - DATA_UPLOAD_MAX_NUMBER_FILES=${LABEL_STUDIO_DATA_UPLOAD_MAX_NUMBER_FILES:-10000}
+      - LABEL_STUDIO_USERNAME=${LABEL_STUDIO_USERNAME:-admin@example.com}
+      - LABEL_STUDIO_PASSWORD=${SERVICE_PASSWORD_LABEL_STUDIO}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - label_studio_data:/label-studio/data
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8080/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${LABEL_STUDIO_POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${LABEL_STUDIO_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_POSTGRES}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+      - POSTGRES_DB=${POSTGRES_DB:-labelstudio}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - label_studio_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${SERVICE_USER_POSTGRES} -d ${POSTGRES_DB:-labelstudio}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  label_studio_data:
+  label_studio_postgres_data:

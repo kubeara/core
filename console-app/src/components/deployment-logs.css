@@ -10,6 +10,18 @@
   min-height: 0;
 }
 
+.deploy-logs-page .server-terminal-shell.has-session {
+  flex: 1;
+  min-height: 0;
+  height: min(72vh, 52rem);
+  max-height: min(72vh, 52rem);
+}
+
+.deploy-logs-page.is-fullscreen .server-terminal-shell.has-session {
+  height: 100%;
+  max-height: none;
+}
+
 .deploy-logs-page .back-link {
   align-self: flex-start;
   margin-bottom: 0;
@@ -44,7 +56,7 @@
   gap: 1.125rem;
   flex: 1;
   min-width: 0;
-  padding: 1.25rem 0 1.25rem 1.25rem;
+  padding: 1.25rem;
 }
 
 .deploy-logs-page .deploy-service-icon {
@@ -63,6 +75,34 @@
 .deploy-logs-page .deploy-service-content {
   flex: 1;
   min-width: 0;
+}
+
+.deploy-logs-page .deploy-service-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.25rem;
+}
+
+.deploy-logs-page .deploy-service-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.deploy-logs-page .deploy-service-deployment-id {
+  flex-shrink: 0;
+  max-width: min(100%, 22rem);
+  margin: 0;
+  text-align: right;
+}
+
+.deploy-logs-page .deploy-service-deployment-id code {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--foreground);
+  overflow-wrap: anywhere;
 }
 
 .deploy-logs-page .deploy-service-headline {
@@ -92,7 +132,7 @@
 }
 
 .deploy-logs-page .deploy-service-description {
-  margin: 0 0 1rem;
+  margin: 0;
   font-size: 0.9375rem;
   line-height: 1.55;
   color: var(--muted);
@@ -624,7 +664,18 @@
   }
 
   .deploy-logs-page .deploy-service-card-main {
-    padding: 1rem 1rem 0;
+    padding: 1rem;
+  }
+
+  .deploy-logs-page .deploy-service-card-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.875rem;
+  }
+
+  .deploy-logs-page .deploy-service-deployment-id {
+    max-width: none;
+    text-align: right;
   }
 
   .deploy-logs-page .deploy-service-card-aside {
@@ -686,6 +737,7 @@
 .deploy-logs-page .deploy-terminal-xterm-host .xterm-viewport {
   overflow-y: auto !important;
   width: 100% !important;
+  overscroll-behavior: contain;
 }
 
 .deploy-logs-page .deploy-terminal-loading {

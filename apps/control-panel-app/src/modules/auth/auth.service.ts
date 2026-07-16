@@ -1,11 +1,21 @@
 import {
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
+  Logger,
   UnauthorizedException,
   NotFoundException,
 } from "@nestjs/common";
+import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DataSource, IsNull, Repository } from "typeorm";
+import {
+  DataSource,
+  EntityManager,
+  IsNull,
+  MoreThan,
+  Repository,
+} from "typeorm";
 import { JwtService } from "@nestjs/jwt";
 import dayjs from "dayjs";
 import * as bcrypt from "bcrypt";
@@ -26,12 +36,13 @@ import { UserCodeEntity } from "./entities/user-codes.entity";
 import { VerifyOtpDto } from "./dto/verify-otp.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { GenerateOTP } from "@control-panel/common/utils/generate-otp";
-import { CODE_TYPE } from "./enum/codeType.enum";
+import { CODE_TYPE, CODE_TYPE_LABEL } from "./enum/codeType.enum";
 import { SALT_ROUNDS } from "@control-panel/constants/env.constant";
 import { isJwtToken } from "./utils/cookie-extractor.util";
 import { hashToken } from "./utils/token-hash.util";
 import { AuthSessionLookupService } from "./services/auth-session-lookup.service";
 import { SubscriptionService } from "../subscriptions/services/subscription.service";
+import { EmailService } from "../email/email.service";
 
 export interface AuthTokens {
   accessToken: string;
@@ -40,6 +51,8 @@ export interface AuthTokens {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
@@ -55,14 +68,21 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly authSessionLookupService: AuthSessionLookupService,
     private readonly subscriptionService: SubscriptionService,
+    private readonly emailService: EmailService,
   ) {}
 
+  /**
+   * Resolves refresh token expiry duration from configuration.
+   */
   private resolveRefreshExpiresIn(): StringValue {
     return this.configService.getOrThrow<StringValue>(
       "REFRESH_TOKEN_EXPIRES_IN",
     );
   }
 
+  /**
+   * Converts configured refresh expiry into an absolute unix timestamp.
+   */
   private getRefreshExpiresAt(): number {
     const expiresIn = this.resolveRefreshExpiresIn();
     const expiresInMs = ms(expiresIn);
@@ -70,6 +90,212 @@ export class AuthService {
       throw new Error(`Invalid refresh token expiry: ${expiresIn}`);
     }
     return dayjs().add(expiresInMs, "millisecond").unix();
+  }
+
+  /**
+   * Converts configured OTP expiry into an absolute unix timestamp.
+   */
+  private getOtpExpiresAt(): number {
+    const expiresIn =
+      this.configService.getOrThrow<StringValue>("OTP_EXPIRES_IN");
+    const expiresInMs = ms(expiresIn);
+    if (typeof expiresInMs !== "number") {
+      throw new Error(`Invalid OTP expiry: ${expiresIn}`);
+    }
+    return dayjs().add(expiresInMs, "millisecond").unix();
+  }
+
+  /**
+   * Reads maximum OTP resend attempts allowed in the current window.
+   */
+  private getOtpResendMaxAttempts(): number {
+    const parsed = Number(this.configService.get("OTP_RESEND_MAX_ATTEMPTS", 3));
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
+  }
+
+  /**
+   * Reads OTP resend window duration in seconds.
+   */
+  private getOtpResendWindowSeconds(): number {
+    const parsed = Number(
+      this.configService.get("OTP_RESEND_WINDOW_MINUTES", 15),
+    );
+    const minutes = Number.isFinite(parsed) && parsed > 0 ? parsed : 15;
+    return minutes * 60;
+  }
+
+  /**
+   * Counts OTP sends for a user in the active resend window.
+   */
+  private async countOtpSendsInWindow(
+    userId: string,
+    codeType: CODE_TYPE,
+  ): Promise<number> {
+    const windowStart = dayjs().unix() - this.getOtpResendWindowSeconds();
+
+    return this.userCodeRepository.count({
+      where: {
+        userId,
+        codeType,
+        createdAt: MoreThan(windowStart),
+      },
+    });
+  }
+
+  /**
+   * Calculates how long the user must wait before resending OTP.
+   */
+  private async getOtpResendRetryAfterSeconds(
+    userId: string,
+    codeType: CODE_TYPE,
+  ): Promise<number> {
+    const windowStart = dayjs().unix() - this.getOtpResendWindowSeconds();
+    const oldest = await this.userCodeRepository.findOne({
+      where: {
+        userId,
+        codeType,
+        createdAt: MoreThan(windowStart),
+      },
+      order: {
+        createdAt: "ASC",
+      },
+    });
+
+    if (!oldest) {
+      return this.getOtpResendWindowSeconds();
+    }
+
+    const windowEnd =
+      Number(oldest.createdAt) + this.getOtpResendWindowSeconds();
+    return Math.max(1, windowEnd - dayjs().unix());
+  }
+
+  /**
+   * Enforces OTP resend rate limits for a user and purpose.
+   */
+  private async assertOtpResendAllowed(
+    userId: string,
+    codeType: CODE_TYPE,
+  ): Promise<void> {
+    const sendCount = await this.countOtpSendsInWindow(userId, codeType);
+    if (sendCount >= 1 + this.getOtpResendMaxAttempts()) {
+      const retryAfterSeconds = await this.getOtpResendRetryAfterSeconds(
+        userId,
+        codeType,
+      );
+      const retryMinutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
+
+      throw new HttpException(
+        {
+          message: ERROR_MESSAGES.AUTH.OTP_RESEND_LIMIT_REACHED.replace(
+            "{minutes}",
+            String(retryMinutes),
+          ),
+          retryAfterSeconds,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  /**
+   * Returns the user code repository bound to a transaction when provided.
+   */
+  private getUserCodeRepository(
+    manager?: EntityManager,
+  ): Repository<UserCodeEntity> {
+    return manager
+      ? manager.getRepository(UserCodeEntity)
+      : this.userCodeRepository;
+  }
+
+  /**
+   * Marks existing active OTP records as inactive before issuing a new one.
+   */
+  private async replaceOtp(
+    userId: string,
+    codeType: CODE_TYPE,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const userCodeRepository = this.getUserCodeRepository(manager);
+
+    await userCodeRepository.update(
+      {
+        userId,
+        codeType,
+        status: EntityStatus.ACTIVE,
+      },
+      {
+        status: EntityStatus.INACTIVE,
+      },
+    );
+  }
+
+  /**
+   * Creates and stores a fresh OTP record, returning the plain OTP value.
+   */
+  private async createOtpRecord(
+    userId: string,
+    codeType: CODE_TYPE,
+    manager?: EntityManager,
+  ): Promise<{ otp: string }> {
+    await this.replaceOtp(userId, codeType, manager);
+
+    const otp = GenerateOTP();
+    const otpHash = await bcrypt.hash(otp, SALT_ROUNDS);
+    const userCodeRepository = this.getUserCodeRepository(manager);
+
+    await userCodeRepository.save(
+      userCodeRepository.create({
+        userId,
+        codeType,
+        otpHash,
+        expiresAt: this.getOtpExpiresAt(),
+        attempts: 0,
+      }),
+    );
+
+    return { otp };
+  }
+
+  /**
+   * Sends OTP email content tailored to the OTP purpose.
+   */
+  private async sendOtpEmail(
+    user: UserEntity,
+    codeType: CODE_TYPE,
+    otp: string,
+  ) {
+    const purposeLabel =
+      codeType === CODE_TYPE.EMAIL_VERIFICATION
+        ? CODE_TYPE_LABEL.EMAIL_VERIFICATION
+        : CODE_TYPE_LABEL.FORGOT_PASSWORD;
+
+    await this.emailService.sendOtpEmail({
+      toEmail: user.email,
+      toName: user.name,
+      otp,
+      purposeLabel,
+    });
+  }
+
+  /**
+   * Gets the latest active OTP record for a user and code type.
+   */
+  private async getLatestActiveOtpRecord(
+    userId: string,
+    codeType: CODE_TYPE,
+  ): Promise<UserCodeEntity | null> {
+    return this.userCodeRepository.findOne({
+      where: {
+        userId,
+        codeType,
+        status: EntityStatus.ACTIVE,
+      },
+      order: {
+        createdAt: "DESC",
+      },
+    });
   }
 
   /**
@@ -122,6 +348,9 @@ export class AuthService {
     await this.authSessionRepository.save(session);
   }
 
+  /**
+   * Revokes all active sessions for a user.
+   */
   private async revokeAllUserSessions(userId: string): Promise<void> {
     await this.authSessionRepository.update(
       {
@@ -167,7 +396,7 @@ export class AuthService {
 
       const savedOrganization = await organizationRepository.save(organization);
 
-      const passwordHash = await bcrypt.hash(signupDto.password, 10);
+      const passwordHash = await bcrypt.hash(signupDto.password, SALT_ROUNDS);
 
       const userRepository = queryRunner.manager.getRepository(UserEntity);
 
@@ -177,11 +406,19 @@ export class AuthService {
         passwordHash,
         organizationId: savedOrganization.id,
         signUpAt: dayjs().unix(),
-        isEmailVerified: true,
-        emailVerifiedAt: dayjs().unix(),
+        isEmailVerified: false,
+        emailVerifiedAt: undefined,
+        dateOfBirth: undefined,
       });
 
       const savedUser = await userRepository.save(user);
+
+      const { otp } = await this.createOtpRecord(
+        savedUser.id,
+        CODE_TYPE.EMAIL_VERIFICATION,
+        queryRunner.manager,
+      );
+      await this.sendOtpEmail(savedUser, CODE_TYPE.EMAIL_VERIFICATION, otp);
 
       await queryRunner.commitTransaction();
 
@@ -202,6 +439,7 @@ export class AuthService {
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
+      this.logger.error(`Signup failed: ${toErrorMessage(error)}`);
       throw error;
     } finally {
       await queryRunner.release();
@@ -223,52 +461,61 @@ export class AuthService {
       tokens: AuthTokens;
     };
   }> {
-    const emailNormalized = loginDto.email.toLowerCase().trim();
+    try {
+      const emailNormalized = loginDto.email.toLowerCase().trim();
 
-    const user = await this.userRepository.findOne({
-      where: { email: emailNormalized },
-      relations: { organization: true },
-    });
+      const user = await this.userRepository.findOne({
+        where: { email: emailNormalized },
+        relations: { organization: true },
+      });
 
-    if (!user) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_CREDENTIALS);
-    }
+      if (!user) {
+        throw new UnauthorizedException(
+          ERROR_MESSAGES.AUTH.INVALID_CREDENTIALS,
+        );
+      }
 
-    const isPasswordValid = await bcrypt.compare(
-      loginDto.password,
-      user.passwordHash,
-    );
-    if (!isPasswordValid) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_CREDENTIALS);
-    }
+      const isPasswordValid = await bcrypt.compare(
+        loginDto.password,
+        user.passwordHash,
+      );
+      if (!isPasswordValid) {
+        throw new UnauthorizedException(
+          ERROR_MESSAGES.AUTH.INVALID_CREDENTIALS,
+        );
+      }
 
-    user.lastLoginAt = dayjs().valueOf();
-    await this.userRepository.save(user);
+      user.lastLoginAt = dayjs().valueOf();
+      await this.userRepository.save(user);
 
-    const tokens = await this.generateTokens(user);
-    const session = this.authSessionRepository.create({
-      userId: user.id,
-      tokenType: "jwt",
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresAt: this.getRefreshExpiresAt(),
-      status: EntityStatus.ACTIVE,
-    });
+      const tokens = await this.generateTokens(user);
+      const session = this.authSessionRepository.create({
+        userId: user.id,
+        tokenType: "jwt",
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt: this.getRefreshExpiresAt(),
+        status: EntityStatus.ACTIVE,
+      });
 
-    await this.persistSessionTokens(session, tokens);
+      await this.persistSessionTokens(session, tokens);
 
-    return {
-      message: SUCCESS_MESSAGES.AUTH.LOGIN,
-      data: {
-        user: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          organizationId: user.organizationId,
+      return {
+        message: SUCCESS_MESSAGES.AUTH.LOGIN,
+        data: {
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            organizationId: user.organizationId,
+          },
+          tokens,
         },
-        tokens,
-      },
-    };
+      };
+    } catch (error) {
+      this.logger.error(`Login failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**
@@ -278,178 +525,238 @@ export class AuthService {
     userId: string;
     refreshToken: string;
   }): Promise<{ message: string; data: { tokens: AuthTokens } }> {
-    const { userId, refreshToken } = input;
+    try {
+      const { userId, refreshToken } = input;
 
-    if (!isJwtToken(refreshToken)) {
-      throw new UnauthorizedException(
-        ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
-      );
+      if (!isJwtToken(refreshToken)) {
+        throw new UnauthorizedException(
+          ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
+        );
+      }
+
+      const authSession =
+        await this.authSessionLookupService.findSessionByRefreshToken(
+          userId,
+          refreshToken,
+        );
+
+      if (!authSession) {
+        await this.revokeAllUserSessions(userId);
+        throw new UnauthorizedException(
+          ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
+        );
+      }
+
+      if (authSession.status !== EntityStatus.ACTIVE) {
+        await this.revokeAllUserSessions(userId);
+        throw new UnauthorizedException(
+          ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
+        );
+      }
+
+      if (Number(authSession.expiresAt) <= dayjs().unix()) {
+        authSession.status = EntityStatus.INACTIVE;
+        await this.authSessionRepository.save(authSession);
+
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.SESSION_EXPIRED);
+      }
+
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+      });
+
+      if (!user || user.status !== EntityStatus.ACTIVE) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
+      }
+
+      const tokens = await this.generateTokens(user);
+
+      authSession.metadata = {
+        ...(authSession.metadata || {}),
+        refreshedAt: dayjs().unix(),
+      };
+
+      await this.persistSessionTokens(authSession, tokens);
+
+      return {
+        message: SUCCESS_MESSAGES.AUTH.REFRESH,
+        data: { tokens },
+      };
+    } catch (error) {
+      this.logger.error(`Refresh token failed: ${toErrorMessage(error)}`);
+      throw error;
     }
-
-    const authSession =
-      await this.authSessionLookupService.findSessionByRefreshToken(
-        userId,
-        refreshToken,
-      );
-
-    if (!authSession) {
-      await this.revokeAllUserSessions(userId);
-      throw new UnauthorizedException(
-        ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
-      );
-    }
-
-    if (authSession.status !== EntityStatus.ACTIVE) {
-      await this.revokeAllUserSessions(userId);
-      throw new UnauthorizedException(
-        ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
-      );
-    }
-
-    if (Number(authSession.expiresAt) <= dayjs().unix()) {
-      authSession.status = EntityStatus.INACTIVE;
-      await this.authSessionRepository.save(authSession);
-
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.SESSION_EXPIRED);
-    }
-
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-    });
-
-    if (!user || user.status !== EntityStatus.ACTIVE) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
-    }
-
-    const tokens = await this.generateTokens(user);
-
-    authSession.metadata = {
-      ...(authSession.metadata || {}),
-      refreshedAt: dayjs().unix(),
-    };
-
-    await this.persistSessionTokens(authSession, tokens);
-
-    return {
-      message: SUCCESS_MESSAGES.AUTH.REFRESH,
-      data: { tokens },
-    };
   }
 
   /**
    * Logout a user
    */
   async logout(userId: string, accessToken?: string) {
-    if (!accessToken) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
+    try {
+      if (!accessToken) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
+      }
+
+      const authSession =
+        await this.authSessionLookupService.findActiveSessionByAccessToken(
+          userId,
+          accessToken,
+        );
+
+      if (!authSession) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
+      }
+
+      authSession.status = EntityStatus.INACTIVE;
+      await this.authSessionRepository.save(authSession);
+
+      return {
+        message: SUCCESS_MESSAGES.AUTH.LOGOUT,
+        data: null,
+      };
+    } catch (error) {
+      this.logger.error(`Logout failed: ${toErrorMessage(error)}`);
+      throw error;
     }
-
-    const authSession =
-      await this.authSessionLookupService.findActiveSessionByAccessToken(
-        userId,
-        accessToken,
-      );
-
-    if (!authSession) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
-    }
-
-    authSession.status = EntityStatus.INACTIVE;
-    await this.authSessionRepository.save(authSession);
-
-    return {
-      message: SUCCESS_MESSAGES.AUTH.LOGOUT,
-      data: null,
-    };
   }
 
+  /**
+   * Logs the user out from all devices by revoking all sessions.
+   */
   async logoutAllDevices(userId: string) {
-    await this.revokeAllUserSessions(userId);
+    try {
+      await this.revokeAllUserSessions(userId);
 
-    return {
-      message: SUCCESS_MESSAGES.AUTH.LOGOUT_ALL,
-      data: null,
-    };
+      return {
+        message: SUCCESS_MESSAGES.AUTH.LOGOUT_ALL,
+        data: null,
+      };
+    } catch (error) {
+      this.logger.error(`Logout all devices failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**
    * Get the profile of the authenticated user
    */
   async getProfile(userId: string) {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-      relations: { organization: true },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        organizationId: true,
-        profilePictureUrl: true,
-        dateOfBirth: true,
-        organization: {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        relations: { organization: true },
+        select: {
           id: true,
           name: true,
-          logo: true,
+          email: true,
+          organizationId: true,
+          profilePictureUrl: true,
+          dateOfBirth: true,
+          organization: {
+            id: true,
+            name: true,
+            logo: true,
+          },
         },
-      },
-    });
+      });
 
-    if (!user) {
-      throw new NotFoundException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+      if (!user) {
+        throw new NotFoundException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+      }
+
+      return {
+        message: SUCCESS_MESSAGES.AUTH.PROFILE,
+        data: user,
+      };
+    } catch (error) {
+      this.logger.error(`Get profile failed: ${toErrorMessage(error)}`);
+      throw error;
     }
-
-    return {
-      message: SUCCESS_MESSAGES.AUTH.PROFILE,
-      data: user,
-    };
   }
 
   /**
    * Forgot password
    */
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
-    const email = forgotPasswordDto.email.toLowerCase().trim();
+    try {
+      const email = forgotPasswordDto.email.toLowerCase().trim();
 
+      const user = await this.userRepository.findOne({
+        where: { email },
+      });
+
+      if (!user) {
+        return {
+          message: SUCCESS_MESSAGES.AUTH.OTP_SENT,
+        };
+      }
+
+      await this.userCodeRepository.update(
+        {
+          userId: user.id,
+          codeType: CODE_TYPE.FORGOT_PASSWORD,
+          verifiedAt: IsNull(),
+        },
+        {
+          status: EntityStatus.INACTIVE,
+        },
+      );
+
+      const otp = GenerateOTP();
+
+      const otpHash = await bcrypt.hash(otp, 10);
+
+      await this.userCodeRepository.save(
+        this.userCodeRepository.create({
+          userId: user.id,
+          codeType: CODE_TYPE.FORGOT_PASSWORD,
+          otpHash,
+          expiresAt: dayjs().add(10, "minute").unix(),
+          attempts: 0,
+        }),
+      );
+
+      if (!user) {
+        throw new NotFoundException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+      }
+
+      await this.assertOtpResendAllowed(user.id, CODE_TYPE.FORGOT_PASSWORD);
+
+      await this.sendOtpEmail(user, CODE_TYPE.FORGOT_PASSWORD, otp);
+
+      return {
+        message: SUCCESS_MESSAGES.AUTH.OTP_SENT,
+        data: null,
+      };
+    } catch (error) {
+      this.logger.error(`Forgot password failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Resends email verification OTP to an existing user.
+   */
+  async resendOtp(email: string) {
     const user = await this.userRepository.findOne({
-      where: { email },
+      where: { email: email.toLowerCase().trim() },
     });
 
     if (!user) {
-      return {
-        message: SUCCESS_MESSAGES.AUTH.OTP_SENT,
-      };
+      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
     }
 
-    await this.userCodeRepository.update(
-      {
-        userId: user.id,
-        codeType: CODE_TYPE.FORGOT_PASSWORD,
-        verifiedAt: IsNull(),
-      },
-      {
-        status: EntityStatus.INACTIVE,
-      },
+    await this.assertOtpResendAllowed(user.id, CODE_TYPE.EMAIL_VERIFICATION);
+
+    const { otp } = await this.createOtpRecord(
+      user.id,
+      CODE_TYPE.EMAIL_VERIFICATION,
     );
-
-    const otp = GenerateOTP();
-
-    const otpHash = await bcrypt.hash(otp, 10);
-
-    await this.userCodeRepository.save(
-      this.userCodeRepository.create({
-        userId: user.id,
-        codeType: CODE_TYPE.FORGOT_PASSWORD,
-        otpHash,
-        expiresAt: dayjs().add(10, "minute").unix(),
-        attempts: 0,
-      }),
-    );
+    await this.sendOtpEmail(user, CODE_TYPE.EMAIL_VERIFICATION, otp);
 
     return {
-      message: SUCCESS_MESSAGES.AUTH.OTP_SENT,
-      data: {
-        otp,
-      },
+      message: SUCCESS_MESSAGES.AUTH.OTP_RESENT,
+      data: null,
     };
   }
 
@@ -457,104 +764,133 @@ export class AuthService {
    * Verify OTP
    */
   async verifyOtp(verifyOtpDto: VerifyOtpDto) {
-    const email = verifyOtpDto.email.toLowerCase().trim();
+    try {
+      const email = verifyOtpDto.email.toLowerCase().trim();
 
-    const user = await this.userRepository.findOne({
-      where: { email },
-    });
+      const user = await this.userRepository.findOne({
+        where: { email },
+      });
 
-    if (!user) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
-    }
+      if (!user) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
+      }
 
-    const otpRecord = await this.userCodeRepository.findOne({
-      where: {
-        userId: user.id,
-        codeType: CODE_TYPE.FORGOT_PASSWORD,
-        status: EntityStatus.ACTIVE,
-      },
-      order: {
-        createdAt: "DESC",
-      },
-    });
+      const otpRecord = await this.getLatestActiveOtpRecord(
+        user.id,
+        verifyOtpDto.codeType,
+      );
 
-    if (!otpRecord) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
-    }
+      if (!otpRecord) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
+      }
 
-    if (Number(otpRecord.expiresAt) < dayjs().unix()) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.OTP_EXPIRED);
-    }
+      if (Number(otpRecord.expiresAt) < dayjs().unix()) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.OTP_EXPIRED);
+      }
 
-    if (otpRecord.attempts >= 3) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.MAX_OTP_ATTEMPTS);
-    }
+      if (otpRecord.attempts >= 3) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.MAX_OTP_ATTEMPTS);
+      }
 
-    const isValid = await bcrypt.compare(verifyOtpDto.otp, otpRecord.otpHash);
+      const isValid = await bcrypt.compare(verifyOtpDto.otp, otpRecord.otpHash);
 
-    if (!isValid) {
-      otpRecord.attempts += 1;
+      if (!isValid) {
+        otpRecord.attempts += 1;
+
+        await this.userCodeRepository.save(otpRecord);
+
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
+      }
+
+      otpRecord.verifiedAt = dayjs().unix();
 
       await this.userCodeRepository.save(otpRecord);
 
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.INVALID_OTP);
+      if (verifyOtpDto.codeType === CODE_TYPE.EMAIL_VERIFICATION) {
+        user.isEmailVerified = true;
+        user.emailVerifiedAt = dayjs().unix();
+        await this.userRepository.update(user.id, {
+          isEmailVerified: true,
+          emailVerifiedAt: dayjs().unix(),
+        });
+      } else if (verifyOtpDto.codeType === CODE_TYPE.FORGOT_PASSWORD) {
+        user.lastPasswordResetAt = dayjs().unix();
+        await this.userRepository.update(user.id, {
+          lastPasswordResetAt: dayjs().unix(),
+        });
+      }
+
+      const message =
+        verifyOtpDto.codeType === CODE_TYPE.EMAIL_VERIFICATION
+          ? SUCCESS_MESSAGES.AUTH.EMAIL_VERIFIED
+          : SUCCESS_MESSAGES.AUTH.RESET_CODE_VERIFIED;
+
+      return {
+        message,
+        data: null,
+      };
+    } catch (error) {
+      this.logger.error(`Verify OTP failed: ${toErrorMessage(error)}`);
+      throw error;
     }
-
-    otpRecord.verifiedAt = dayjs().unix();
-
-    await this.userCodeRepository.save(otpRecord);
-
-    return {
-      message: SUCCESS_MESSAGES.AUTH.OTP_VERIFIED,
-    };
   }
 
   /**
    * Reset password
    */
   async resetPassword(resetPasswordDto: ResetPasswordDto) {
-    const email = resetPasswordDto.email.toLowerCase().trim();
+    try {
+      const email = resetPasswordDto.email.toLowerCase().trim();
 
-    const user = await this.userRepository.findOne({
-      where: { email },
-    });
+      const user = await this.userRepository.findOne({
+        where: { email },
+      });
 
-    if (!user) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+      if (!user) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.USER_NOT_FOUND);
+      }
+
+      const otpRecord = await this.getLatestActiveOtpRecord(
+        user.id,
+        CODE_TYPE.FORGOT_PASSWORD,
+      );
+
+      if (!otpRecord?.verifiedAt) {
+        throw new UnauthorizedException(ERROR_MESSAGES.AUTH.OTP_NOT_VERIFIED);
+      }
+
+      user.passwordHash = await bcrypt.hash(
+        resetPasswordDto.newPassword,
+        SALT_ROUNDS,
+      );
+
+      user.lastPasswordResetAt = dayjs().unix();
+
+      await this.userRepository.save(user);
+
+      otpRecord.status = EntityStatus.INACTIVE;
+
+      await this.userCodeRepository.save(otpRecord);
+
+      await this.userCodeRepository.update(
+        {
+          userId: user.id,
+          codeType: CODE_TYPE.FORGOT_PASSWORD,
+        },
+        {
+          status: EntityStatus.INACTIVE,
+        },
+      );
+
+      await this.revokeAllUserSessions(user.id);
+
+      return {
+        message: SUCCESS_MESSAGES.AUTH.PASSWORD_RESET,
+        data: null,
+      };
+    } catch (error) {
+      this.logger.error(`Reset password failed: ${toErrorMessage(error)}`);
+      throw error;
     }
-
-    const otpRecord = await this.userCodeRepository.findOne({
-      where: {
-        userId: user.id,
-        codeType: CODE_TYPE.FORGOT_PASSWORD,
-        status: EntityStatus.ACTIVE,
-      },
-      order: {
-        createdAt: "DESC",
-      },
-    });
-
-    if (!otpRecord?.verifiedAt) {
-      throw new UnauthorizedException(ERROR_MESSAGES.AUTH.OTP_NOT_VERIFIED);
-    }
-
-    user.passwordHash = await bcrypt.hash(
-      resetPasswordDto.newPassword,
-      SALT_ROUNDS,
-    );
-
-    user.lastPasswordResetAt = dayjs().unix();
-
-    await this.userRepository.save(user);
-
-    otpRecord.status = EntityStatus.INACTIVE;
-
-    await this.userCodeRepository.save(otpRecord);
-
-    await this.revokeAllUserSessions(user.id);
-
-    return {
-      message: SUCCESS_MESSAGES.AUTH.PASSWORD_RESET,
-    };
   }
 }

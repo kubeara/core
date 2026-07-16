@@ -24,7 +24,9 @@
   font-size: 0.9375rem;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
 .dropdown-trigger:hover:not(:disabled) {
@@ -37,7 +39,8 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
 }
 
-.dropdown.is-disabled .dropdown-trigger {
+.dropdown.is-disabled .dropdown-trigger,
+.dropdown.is-disabled .dropdown-trigger--combobox {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -50,10 +53,88 @@
   white-space: nowrap;
 }
 
+.dropdown-trigger--combobox {
+  padding: 0;
+  gap: 0;
+  cursor: default;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.dropdown-trigger--combobox:has(input:read-only) {
+  cursor: pointer;
+}
+
+.dropdown-trigger--combobox:hover:not(:has(input:read-only)) {
+  border-color: color-mix(in srgb, var(--primary) 50%, var(--border));
+}
+
+.dropdown-trigger--combobox:has(input:read-only):hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+
+.dropdown-trigger--combobox.is-open,
+.dropdown-trigger--combobox:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.dropdown-combobox-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 0.625rem 0.5rem 0.625rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: var(--foreground);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.dropdown-combobox-input:focus {
+  outline: none;
+}
+
+.dropdown-combobox-input:read-only {
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.dropdown-combobox-input::placeholder {
+  color: var(--muted);
+}
+
+.dropdown-combobox-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  align-self: stretch;
+  width: 2.375rem;
+  padding: 0;
+  border: none;
+  border-left: 1px solid var(--border);
+  background: color-mix(in srgb, var(--foreground) 3%, var(--surface));
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.dropdown-combobox-toggle:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  color: var(--primary);
+}
+
+.dropdown-combobox-toggle:disabled {
+  cursor: not-allowed;
+}
+
 .dropdown-chevron {
   flex-shrink: 0;
-  color: var(--muted);
-  transition: transform 0.15s;
+  color: inherit;
+  transition: transform 0.15s ease;
 }
 
 .dropdown-chevron.is-open {
@@ -67,14 +148,48 @@
   left: 0;
   right: 0;
   margin: 0;
-  padding: 0.25rem;
+  padding: 0.375rem;
   list-style: none;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-  max-height: 240px;
+  border-radius: 10px;
+  box-shadow:
+    var(--shadow),
+    0 10px 28px color-mix(in srgb, var(--foreground) 8%, transparent);
+  max-height: 220px;
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent;
+}
+
+.dropdown-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.dropdown-menu::-webkit-scrollbar-track {
+  margin: 0.25rem 0;
+  background: transparent;
+}
+
+.dropdown-menu::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--foreground) 16%, transparent);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.dropdown-menu::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--foreground) 28%, transparent);
+  background-clip: padding-box;
+}
+
+.dropdown-empty {
+  padding: 0.75rem 0.625rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  text-align: center;
 }
 
 .dropdown-option {
@@ -82,12 +197,13 @@
   width: 100%;
   padding: 0.5rem 0.625rem;
   border: none;
-  border-radius: 6px;
+  border-radius: 7px;
   background: transparent;
   color: var(--foreground);
-  font-size: 0.9375rem;
+  font-size: 0.875rem;
   text-align: left;
   cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .dropdown-option:hover {
@@ -98,4 +214,8 @@
   background: color-mix(in srgb, var(--primary) 14%, transparent);
   color: var(--primary);
   font-weight: 600;
+}
+
+.dropdown-option.is-selected:hover {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
 }

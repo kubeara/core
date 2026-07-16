@@ -1,5 +1,6 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { getErrorMessage } from "@/api/api-error";
 import { useServerContainersQuery } from "@/features/deployments/hooks";
 import "@/features/templates/templates-ui.css";
 import "@/components/server-detail-tabs.css";
@@ -45,15 +46,40 @@ export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
 
   const isOverviewTab = activeTab === "overview";
   const isTerminalTab = activeTab === "terminal";
+  const [containersFetchBlocked, setContainersFetchBlocked] = useState(false);
+
+  useEffect(() => {
+    setContainersFetchBlocked(false);
+  }, [server.id]);
 
   const {
     data: overviewContainers = [],
     isLoading: containersLoading,
     isError: containersError,
+    error: containersQueryError,
   } = useServerContainersQuery(server.id, {
     enabled: isOverviewTab,
     poll: isOverviewTab,
+    fetchBlocked: containersFetchBlocked,
   });
+
+  const containersErrorMessage = containersQueryError
+    ? getErrorMessage(containersQueryError)
+    : undefined;
+
+  useEffect(() => {
+    if (containersFetchBlocked || !containersError || !containersErrorMessage) {
+      return;
+    }
+
+    const message = containersErrorMessage.toLowerCase();
+    if (
+      message.includes("ssh connection failed") ||
+      message.includes("unable to connect to the server")
+    ) {
+      setContainersFetchBlocked(true);
+    }
+  }, [containersError, containersErrorMessage, containersFetchBlocked]);
 
   const connectedIds = useMemo(
     () => getConnectedTemplateIds(overviewContainers),
@@ -91,9 +117,11 @@ export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
         {activeTab === "overview" && (
           <ServerOverviewTab
             serverId={server.id}
+            serverHost={server.host}
             containers={overviewContainers}
             isLoading={containersLoading}
             isError={containersError}
+            errorMessage={containersErrorMessage}
           />
         )}
         {activeTab === "templates" && (
@@ -106,10 +134,7 @@ export function ServerDetailTabs({ server }: ServerDetailTabsProps) {
           <ServerInsightsTab serverId={server.id} isActive />
         )}
         {activeTab === "activity" && (
-          <ServerActivityTab
-            serverId={server.id}
-            serverName={server.name}
-          />
+          <ServerActivityTab serverId={server.id} />
         )}
         <ServerTerminalTab
           serverId={server.id}

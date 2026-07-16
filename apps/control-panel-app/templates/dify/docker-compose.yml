@@ -1,0 +1,389 @@
+# documentation: https://docs.dify.ai
+# shortDescription: Open-source LLM app development platform
+# longDescription: <p>Dify is an <strong>LLM application platform</strong> for workflows, RAG, agents, and model management.</p><p>Includes API, worker, web UI, PostgreSQL, Redis, Weaviate, sandbox, and SSRF proxy. Web UI on port 3000; API on port 5001. Secrets use <code>SERVICE_PASSWORD_64_SECRETKEY</code> and related <code>SERVICE_*</code> keys.</p>
+# category: ai,llm
+# tags: dify,ai,llm,rag,agent,workflow,weaviate,postgres,redis
+# logo: svgs/dify.png
+# port: 3000
+
+services:
+  web:
+    image: ${DIFY_WEB_IMAGE:-langgenius/dify-web:latest}
+    restart: ${DIFY_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_DIFY:-3000}:3000'
+
+    environment:
+      - SERVICE_URL_DIFY_3000
+      - CONSOLE_API_URL=${DIFY_CONSOLE_API_URL:-${SERVICE_URL_DIFY_API:-${SERVICE_URL_DIFY_API_5001}}}/console/api
+      - APP_API_URL=${DIFY_APP_API_URL:-${SERVICE_URL_DIFY_API:-${SERVICE_URL_DIFY_API_5001}}}/api
+      - NEXT_TELEMETRY_DISABLED=${DIFY_NEXT_TELEMETRY_DISABLED:-1}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      api:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:3000/ || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api:
+    image: ${DIFY_API_IMAGE:-langgenius/dify-api:latest}
+    restart: ${DIFY_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_DIFY_API:-5001}:5001'
+
+    environment:
+      - SERVICE_URL_DIFY_API_5001
+      - MODE=api
+      - SECRET_KEY=${SERVICE_PASSWORD_64_SECRETKEY}
+      - INIT_PASSWORD=${SERVICE_PASSWORD_INITPASSWORD}
+      - LOG_LEVEL=${DIFY_LOG_LEVEL:-INFO}
+      - MIGRATION_ENABLED=${DIFY_MIGRATION_ENABLED:-true}
+      - DEPLOY_ENV=PRODUCTION
+      - DB_USERNAME=${SERVICE_USER_POSTGRES}
+      - DB_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=${DIFY_DB_NAME:-dify}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${SERVICE_PASSWORD_REDIS}
+      - CELERY_BROKER_URL=redis://:${SERVICE_PASSWORD_REDIS}@redis:6379/1
+      - VECTOR_STORE=weaviate
+      - WEAVIATE_ENDPOINT=http://weaviate:8080
+      - WEAVIATE_API_KEY=${SERVICE_PASSWORD_WEAVIATE}
+      - STORAGE_TYPE=local
+      - STORAGE_LOCAL_PATH=storage
+      - CONSOLE_WEB_URL=${SERVICE_URL_DIFY:-${SERVICE_URL_DIFY_3000}}
+      - CONSOLE_API_URL=${DIFY_CONSOLE_API_URL:-${SERVICE_URL_DIFY_API:-${SERVICE_URL_DIFY_API_5001}}}/console/api
+      - APP_WEB_URL=${SERVICE_URL_DIFY:-${SERVICE_URL_DIFY_3000}}
+      - FILES_URL=${DIFY_FILES_URL:-${SERVICE_URL_DIFY_API:-${SERVICE_URL_DIFY_API_5001}}}
+      - WEB_API_CORS_ALLOW_ORIGINS=${DIFY_WEB_API_CORS_ALLOW_ORIGINS:-*}
+      - CONSOLE_CORS_ALLOW_ORIGINS=${DIFY_CONSOLE_CORS_ALLOW_ORIGINS:-*}
+      - CODE_EXECUTION_ENDPOINT=http://sandbox:8194
+      - CODE_EXECUTION_API_KEY=${DIFY_SANDBOX_API_KEY:-dify-sandbox}
+      - SSRF_PROXY_HTTP_URL=http://ssrf_proxy:3128
+      - SSRF_PROXY_HTTPS_URL=http://ssrf_proxy:3128
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - dify_storage:/app/api/storage
+
+    networks:
+      - default
+      - ssrf_proxy_network
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      weaviate:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:5001/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 8
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  worker:
+    image: ${DIFY_WORKER_IMAGE:-langgenius/dify-api:latest}
+    restart: ${DIFY_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - MODE=worker
+      - SECRET_KEY=${SERVICE_PASSWORD_64_SECRETKEY}
+      - LOG_LEVEL=${DIFY_LOG_LEVEL:-INFO}
+      - MIGRATION_ENABLED=${DIFY_MIGRATION_ENABLED:-true}
+      - DEPLOY_ENV=PRODUCTION
+      - DB_USERNAME=${SERVICE_USER_POSTGRES}
+      - DB_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=${DIFY_DB_NAME:-dify}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${SERVICE_PASSWORD_REDIS}
+      - CELERY_BROKER_URL=redis://:${SERVICE_PASSWORD_REDIS}@redis:6379/1
+      - VECTOR_STORE=weaviate
+      - WEAVIATE_ENDPOINT=http://weaviate:8080
+      - WEAVIATE_API_KEY=${SERVICE_PASSWORD_WEAVIATE}
+      - STORAGE_TYPE=local
+      - STORAGE_LOCAL_PATH=storage
+      - CONSOLE_WEB_URL=${SERVICE_URL_DIFY:-${SERVICE_URL_DIFY_3000}}
+      - CONSOLE_API_URL=${DIFY_CONSOLE_API_URL:-${SERVICE_URL_DIFY_API:-${SERVICE_URL_DIFY_API_5001}}}/console/api
+      - APP_WEB_URL=${SERVICE_URL_DIFY:-${SERVICE_URL_DIFY_3000}}
+      - FILES_URL=${DIFY_FILES_URL:-${SERVICE_URL_DIFY_API:-${SERVICE_URL_DIFY_API_5001}}}
+      - CODE_EXECUTION_ENDPOINT=http://sandbox:8194
+      - CODE_EXECUTION_API_KEY=${DIFY_SANDBOX_API_KEY:-dify-sandbox}
+      - SSRF_PROXY_HTTP_URL=http://ssrf_proxy:3128
+      - SSRF_PROXY_HTTPS_URL=http://ssrf_proxy:3128
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - dify_storage:/app/api/storage
+
+    networks:
+      - default
+      - ssrf_proxy_network
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      weaviate:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'celery -A app.celery inspect ping -d celery@$$HOSTNAME || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 8
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${DIFY_POSTGRES_IMAGE:-postgres:15-alpine}
+    restart: ${DIFY_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_POSTGRES}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+      - POSTGRES_DB=${DIFY_DB_NAME:-dify}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - dify_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${SERVICE_USER_POSTGRES} -d ${DIFY_DB_NAME:-dify}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: ${DIFY_REDIS_IMAGE:-redis:6-alpine}
+    restart: ${DIFY_REDIS_RESTART_POLICY:-unless-stopped}
+
+    command: ['redis-server', '--requirepass', '${SERVICE_PASSWORD_REDIS}']
+
+    environment:
+      - REDIS_PASSWORD=${SERVICE_PASSWORD_REDIS}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - dify_redis_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  weaviate:
+    image: ${DIFY_WEAVIATE_IMAGE:-semitechnologies/weaviate:1.19.0}
+    restart: ${DIFY_WEAVIATE_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - PERSISTENCE_DATA_PATH=/var/lib/weaviate
+      - QUERY_DEFAULTS_LIMIT=${DIFY_WEAVIATE_QUERY_DEFAULTS_LIMIT:-25}
+      - AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=false
+      - AUTHENTICATION_APIKEY_ENABLED=true
+      - AUTHENTICATION_APIKEY_ALLOWED_KEYS=${SERVICE_PASSWORD_WEAVIATE}
+      - AUTHENTICATION_APIKEY_USERS=${SERVICE_USER_WEAVIATE}
+      - DEFAULT_VECTORIZER_MODULE=none
+      - CLUSTER_HOSTNAME=${DIFY_WEAVIATE_CLUSTER_HOSTNAME:-node1}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - dify_weaviate_data:/var/lib/weaviate
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8080/v1/.well-known/ready || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 45s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  sandbox:
+    image: ${DIFY_SANDBOX_IMAGE:-langgenius/dify-sandbox:latest}
+    restart: ${DIFY_SANDBOX_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - API_KEY=${DIFY_SANDBOX_API_KEY:-dify-sandbox}
+      - GIN_MODE=${DIFY_SANDBOX_GIN_MODE:-release}
+      - WORKER_TIMEOUT=${DIFY_SANDBOX_WORKER_TIMEOUT:-15}
+      - ENABLE_NETWORK=${DIFY_SANDBOX_ENABLE_NETWORK:-true}
+      - HTTP_PROXY=http://ssrf_proxy:3128
+      - HTTPS_PROXY=http://ssrf_proxy:3128
+      - SANDBOX_PORT=8194
+      - TZ=${TZ:-UTC}
+
+    networks:
+      - default
+      - ssrf_proxy_network
+
+    healthcheck:
+      test: ['CMD-SHELL', 'bash -c ":> /dev/tcp/127.0.0.1/8194" || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  ssrf_proxy:
+    image: ${DIFY_SSRF_PROXY_IMAGE:-ubuntu/squid:latest}
+    restart: ${DIFY_SSRF_PROXY_RESTART_POLICY:-unless-stopped}
+
+    networks:
+      - default
+      - ssrf_proxy_network
+
+    healthcheck:
+      test: ['CMD-SHELL', 'squid -k check || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  ssrf_proxy_network:
+    driver: bridge
+    internal: true
+
+volumes:
+  dify_storage:
+  dify_postgres_data:
+  dify_redis_data:
+  dify_weaviate_data:

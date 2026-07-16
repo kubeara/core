@@ -1,0 +1,97 @@
+# documentation: https://docs.freescout.net/
+# shortDescription: Self-hosted help desk and shared inbox platform
+# longDescription: <p>FreeScout is an open-source <strong>help desk</strong> and shared mailbox solution for support teams.</p><p>It includes MariaDB for persistent storage and is compatible with email workflows and team collaboration.</p>
+# category: helpdesk,support,collaboration
+# tags: freescout,helpdesk,support,tickets,inbox,mariadb
+# port: 80
+
+services:
+  freescout:
+    image: ${FREESCOUT_IMAGE:-tiredofit/freescout:latest}
+    restart: ${FREESCOUT_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_FREESCOUT:-80}:80'
+
+    environment:
+      - SERVICE_URL_FREESCOUT_80
+      - DB_TYPE=${FREESCOUT_DB_TYPE:-mariadb}
+      - DB_HOST=${FREESCOUT_DB_HOST:-mariadb}
+      - DB_PORT=${FREESCOUT_DB_PORT:-3306}
+      - DB_NAME=${FREESCOUT_DB_NAME:-freescout}
+      - DB_USER=${SERVICE_USER_FREESCOUT:-freescout}
+      - DB_PASS=${SERVICE_PASSWORD_FREESCOUT:-freescout_password}
+      - APP_URL=${SERVICE_URL_FREESCOUT:-${SERVICE_URL_FREESCOUT_80:-http://localhost}}
+      - SITE_URL=${SERVICE_URL_FREESCOUT:-${SERVICE_URL_FREESCOUT_80:-http://localhost}}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - freescout_data:/data
+      - freescout_logs:/www/logs
+
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1']
+      interval: 20s
+      timeout: 10s
+      retries: 6
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mariadb:
+    image: ${FREESCOUT_MARIADB_IMAGE:-mariadb:11.4}
+    restart: ${FREESCOUT_MARIADB_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      MARIADB_ROOT_PASSWORD: ${SERVICE_PASSWORD_MARIADB_ROOT:-mariadb_root_password}
+      MARIADB_DATABASE: ${FREESCOUT_DB_NAME:-freescout}
+      MARIADB_USER: ${SERVICE_USER_FREESCOUT:-freescout}
+      MARIADB_PASSWORD: ${SERVICE_PASSWORD_FREESCOUT:-freescout_password}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - freescout_mariadb_data:/var/lib/mysql
+
+    healthcheck:
+      test: ['CMD-SHELL', 'healthcheck.sh --connect --innodb_initialized']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  freescout_data:
+  freescout_logs:
+  freescout_mariadb_data:

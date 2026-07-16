@@ -1,0 +1,244 @@
+# documentation: https://docs.argilla.io/latest/
+# shortDescription: Collaboration platform for building high-quality AI datasets
+# longDescription: <p>Argilla is a <strong>data annotation and curation</strong> platform for NLP and LLM datasets.</p><p>Includes PostgreSQL, Redis, Elasticsearch, and a background worker. Default user credentials use <code>ARGILLA_USERNAME</code> and <code>SERVICE_PASSWORD_ARGILLA</code>.</p>
+# category: ai,data
+# tags: argilla,ai,datasets,labeling,nlp,machine-learning,elasticsearch
+# logo: svgs/argilla.png
+# port: 6900
+
+services:
+  argilla:
+    image: ${ARGILLA_IMAGE:-argilla/argilla-server:v2.2.0}
+    restart: ${ARGILLA_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_ARGILLA:-6900}:6900'
+
+    environment:
+      - SERVICE_URL_ARGILLA_6900
+      - ARGILLA_HOME_PATH=/var/lib/argilla
+      - ARGILLA_ELASTICSEARCH=http://elasticsearch:9200
+      - ARGILLA_DATABASE_URL=postgresql+asyncpg://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${POSTGRES_DB:-argilla}
+      - ARGILLA_REDIS_URL=redis://redis:6379/0
+      - ARGILLA_AUTH_SECRET_KEY=${SERVICE_PASSWORD_AUTHSECRET}
+      - ARGILLA_ENABLE_TELEMETRY=${ARGILLA_ENABLE_TELEMETRY:-0}
+      - HF_HUB_DISABLE_TELEMETRY=${ARGILLA_HF_HUB_DISABLE_TELEMETRY:-1}
+      - REINDEX_DATASETS=${ARGILLA_REINDEX_DATASETS:-1}
+      - DEFAULT_USER_ENABLED=${ARGILLA_DEFAULT_USER_ENABLED:-true}
+      - USERNAME=${ARGILLA_USERNAME:-argilla}
+      - PASSWORD=${SERVICE_PASSWORD_ARGILLA}
+      - API_KEY=${SERVICE_PASSWORD_APIKEY}
+      - DEFAULT_USER_PASSWORD=${SERVICE_PASSWORD_ARGILLA}
+      - DEFAULT_USER_API_KEY=${SERVICE_PASSWORD_APIKEY}
+      - WORKSPACE=${ARGILLA_WORKSPACE:-default}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - argilla_data:/var/lib/argilla
+
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'python -c "import requests as r; r.get(''http://127.0.0.1:6900/api/_status'').raise_for_status()"',
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  worker:
+    image: ${ARGILLA_WORKER_IMAGE:-argilla/argilla-server:v2.2.0}
+    restart: ${ARGILLA_WORKER_RESTART_POLICY:-unless-stopped}
+
+    command: ['sh', '-c', 'python -m argilla_server worker --num-workers $${ARGILLA_BACKGROUND_NUM_WORKERS}']
+
+    environment:
+      - ARGILLA_HOME_PATH=/var/lib/argilla
+      - ARGILLA_ELASTICSEARCH=http://elasticsearch:9200
+      - ARGILLA_DATABASE_URL=postgresql+asyncpg://${SERVICE_USER_POSTGRES}:${SERVICE_PASSWORD_POSTGRES}@postgres:5432/${POSTGRES_DB:-argilla}
+      - ARGILLA_REDIS_URL=redis://redis:6379/0
+      - ARGILLA_AUTH_SECRET_KEY=${SERVICE_PASSWORD_AUTHSECRET}
+      - ARGILLA_ENABLE_TELEMETRY=${ARGILLA_ENABLE_TELEMETRY:-0}
+      - HF_HUB_DISABLE_TELEMETRY=${ARGILLA_HF_HUB_DISABLE_TELEMETRY:-1}
+      - REINDEX_DATASETS=${ARGILLA_REINDEX_DATASETS:-1}
+      - DEFAULT_USER_ENABLED=${ARGILLA_DEFAULT_USER_ENABLED:-true}
+      - USERNAME=${ARGILLA_USERNAME:-argilla}
+      - PASSWORD=${SERVICE_PASSWORD_ARGILLA}
+      - API_KEY=${SERVICE_PASSWORD_APIKEY}
+      - DEFAULT_USER_PASSWORD=${SERVICE_PASSWORD_ARGILLA}
+      - DEFAULT_USER_API_KEY=${SERVICE_PASSWORD_APIKEY}
+      - ARGILLA_BACKGROUND_NUM_WORKERS=${ARGILLA_BACKGROUND_NUM_WORKERS:-1}
+      - WORKSPACE=${ARGILLA_WORKSPACE:-default}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - argilla_data:/var/lib/argilla
+
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      argilla:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pgrep -f "argilla_server worker" >/dev/null || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${ARGILLA_POSTGRES_IMAGE:-postgres:14}
+    restart: ${ARGILLA_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_POSTGRES}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_POSTGRES}
+      - POSTGRES_DB=${POSTGRES_DB:-argilla}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - argilla_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${SERVICE_USER_POSTGRES} -d ${POSTGRES_DB:-argilla}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: ${ARGILLA_REDIS_IMAGE:-redis:7}
+    restart: ${ARGILLA_REDIS_RESTART_POLICY:-unless-stopped}
+
+    volumes:
+      - argilla_redis_data:/data
+
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  elasticsearch:
+    image: ${ARGILLA_ELASTICSEARCH_IMAGE:-docker.elastic.co/elasticsearch/elasticsearch:8.12.2}
+    restart: ${ARGILLA_ELASTICSEARCH_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - node.name=${ARGILLA_ES_NODE_NAME:-elasticsearch}
+      - cluster.name=${ARGILLA_ES_CLUSTER_NAME:-es-argilla-local}
+      - discovery.type=${ARGILLA_ES_DISCOVERY_TYPE:-single-node}
+      - ES_JAVA_OPTS=${ARGILLA_ES_JAVA_OPTS:--Xms512m -Xmx512m}
+      - cluster.routing.allocation.disk.threshold_enabled=${ARGILLA_ES_DISK_THRESHOLD_ENABLED:-false}
+      - xpack.security.enabled=${ARGILLA_ES_SECURITY_ENABLED:-false}
+      - TZ=${TZ:-UTC}
+
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+
+    volumes:
+      - argilla_elasticsearch_data:/usr/share/elasticsearch/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:9200 || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  argilla_data:
+  argilla_postgres_data:
+  argilla_redis_data:
+  argilla_elasticsearch_data:

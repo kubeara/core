@@ -74,6 +74,10 @@ export function getAntigravityMcpConfig(): string {
 }`;
 }
 
+export function getChatGptMcpConfig(): string {
+  return MCP_SERVER_PUBLIC_URL;
+}
+
 export function getMcpConfigForPreset(preset: SetupGuideConfigPreset): string {
   if (preset === "claude-desktop") {
     return getClaudeDesktopMcpConfig();
@@ -86,6 +90,9 @@ export function getMcpConfigForPreset(preset: SetupGuideConfigPreset): string {
   }
   if (preset === "antigravity") {
     return getAntigravityMcpConfig();
+  }
+  if (preset === "chatgpt") {
+    return getChatGptMcpConfig();
   }
   return getCursorMcpConfig();
 }
@@ -102,6 +109,9 @@ export function getMcpConfigLabel(preset: SetupGuideConfigPreset): string {
   }
   if (preset === "antigravity") {
     return "mcp_config.json";
+  }
+  if (preset === "chatgpt") {
+    return "MCP URL";
   }
   return "mcp.json";
 }

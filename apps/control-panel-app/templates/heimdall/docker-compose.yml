@@ -1,0 +1,48 @@
+# documentation: https://docs.linuxserver.io/images/docker-heimdall/
+# shortDescription: Application dashboard and launcher for self-hosted services
+# longDescription: <p>Heimdall provides a simple <strong>application dashboard</strong> where you can pin your services.</p><p>Use it as a central launch page for your homelab and personal infrastructure.</p>
+# category: self-hosted-dashboards
+# tags: heimdall,dashboard,homelab,launcher,startpage
+# port: 8081
+
+services:
+  heimdall:
+    image: ${HEIMDALL_IMAGE:-lscr.io/linuxserver/heimdall:latest}
+    restart: ${HEIMDALL_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_HEIMDALL:-8081}:80'
+
+    environment:
+      - SERVICE_URL_HEIMDALL_80
+      - PUID=${HEIMDALL_PUID:-1000}
+      - PGID=${HEIMDALL_PGID:-1000}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - heimdall_config:/config
+
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1 >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  heimdall_config:

@@ -1,0 +1,53 @@
+# documentation: https://github.com/semgrep/mcp
+# shortDescription: Static analysis and SAST via the Semgrep MCP server
+# longDescription: <p>Semgrep MCP exposes <strong>static analysis tools</strong> over HTTP for IDE and agent integrations.</p><p>Optional <code>SEMGREP_APP_TOKEN</code> unlocks Semgrep Platform features via <code>SERVICE_PASSWORD_SEMGREP</code>. The API listens on port 8000 at <code>/mcp</code>.</p>
+# category: security,development,devops
+# tags: semgrep,sast,security,static-analysis,code-scanning,mcp
+# port: 8000
+
+services:
+  semgrep:
+    image: ${SEMGREP_IMAGE:-ghcr.io/semgrep/mcp:latest}
+    restart: ${SEMGREP_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_SEMGREP:-8000}:8000'
+
+    environment:
+      - SERVICE_URL_SEMGREP_8000
+      - FASTMCP_HOST=0.0.0.0
+      - FASTMCP_PORT=8000
+      - SEMGREP_APP_TOKEN=${SERVICE_PASSWORD_SEMGREP:-}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - semgrep_data:/home/app/.semgrep
+
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'python3 -c "import socket; s=socket.create_connection((''127.0.0.1'',8000),2); s.close()"',
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 45s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  semgrep_data:

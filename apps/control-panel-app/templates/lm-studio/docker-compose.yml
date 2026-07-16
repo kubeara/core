@@ -1,0 +1,46 @@
+# documentation: https://lmstudio.ai/docs/developer
+# shortDescription: Headless LM Studio daemon with OpenAI-compatible API
+# longDescription: <p>llmster is the <strong>headless LM Studio daemon</strong> for server deployments without a GUI.</p><p>API listens on port <code>1234</code>. Use the <code>lms</code> CLI or OpenAI-compatible REST API. Default image is CPU-only; set <code>LM_STUDIO_IMAGE</code> for GPU variants when available.</p>
+# category: ai,llm
+# tags: lm-studio,llm,local,inference,openai-api,llmster
+# port: 1234
+
+services:
+  lm-studio:
+    image: ${LM_STUDIO_IMAGE:-lmstudio/llmster-preview:cpu}
+    restart: ${LM_STUDIO_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_LM_STUDIO:-1234}:1234'
+
+    environment:
+      - SERVICE_URL_LM_STUDIO_1234
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - lm_studio_data:/root/.lmstudio
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:1234/lmstudio-greeting | grep -q ''"lmstudio":true'' || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  lm_studio_data:

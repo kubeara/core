@@ -24,6 +24,8 @@ services:
       AGENT_PUBLIC_IP: ${AGENT_PUBLIC_IP:-}
       TRAEFIK_ENABLED: ${TRAEFIK_ENABLED:-false}
     volumes:
+      # Host install dir (compose + env) for agent self-removal via socket
+      - .:/opt/kubeara/agent-install:ro
       # Agent bootstrap reads env from this path inside the container
       - ./.env.agent:/app/apps/agent-app/.env:ro
       # Deployment workspaces (compose files written here)
@@ -38,6 +40,19 @@ services:
     # Avoid creating a new compose network (helps when Docker IP pools are exhausted).
     network_mode: bridge
     restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://127.0.0.1:3001/health"
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 volumes:
   agent_deployments:

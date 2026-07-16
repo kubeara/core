@@ -15,6 +15,7 @@ import {
   logout,
   logoutAllDevices,
   resetPassword,
+  resendOtp,
   signup,
   verifyOtp,
 } from "../api";
@@ -22,6 +23,7 @@ import type {
   ForgotPasswordRequest,
   LoginRequest,
   ResetPasswordRequest,
+  ResendOtpRequest,
   SignupRequest,
   VerifyOtpRequest,
 } from "../types";
@@ -101,6 +103,15 @@ export function useLogoutAllDevicesMutation() {
 export function useForgotPasswordMutation() {
   return useMutation({
     mutationFn: (input: ForgotPasswordRequest) => forgotPassword(input),
+    onError: (error) => {
+      throw toApiError(error);
+    },
+  });
+}
+
+export function useResendOtpMutation() {
+  return useMutation({
+    mutationFn: (input: ResendOtpRequest) => resendOtp(input),
     onError: (error) => {
       throw toApiError(error);
     },

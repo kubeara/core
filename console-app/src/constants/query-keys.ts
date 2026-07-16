@@ -61,10 +61,11 @@ export const QUERY_KEYS = {
      */
     templates: {
         all: ["templates"] as const,
-        list: (serverId?: string) =>
+        categories: () => ["templates", "categories"] as const,
+        list: (serverId?: string, params?: Record<string, unknown>) =>
             serverId
-                ? (["templates", "list", serverId] as const)
-                : (["templates", "list"] as const),
+                ? (["templates", "list", serverId, params] as const)
+                : (["templates", "list", params] as const),
         detail: (slug: string) => ["templates", slug] as const,
     },
 
@@ -76,6 +77,12 @@ export const QUERY_KEYS = {
             ["deployments", "server", serverId, "containers"] as const,
         detail: (deploymentId: string) =>
             ["deployments", deploymentId] as const,
+    },
+
+    activity: {
+        byServer: (serverId: string) =>
+            ["activity", "server", serverId] as const,
+        detail: (activityId: string) => ["activity", activityId] as const,
     },
 
     /**

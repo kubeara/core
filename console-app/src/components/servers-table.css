@@ -62,18 +62,32 @@
   box-shadow: 0 0 0 3px rgb(0 105 255 / 12%);
 }
 
-.servers-filter-clear {
-  padding: 0.5rem 0.625rem;
-  border: none;
-  background: none;
-  color: #0069ff;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  cursor: pointer;
-}
+@media (max-width: 640px) {
+  .servers-table-toolbar {
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0.5rem;
+  }
 
-.servers-filter-clear:hover {
-  text-decoration: underline;
+  .servers-table-filters {
+    flex: 1;
+    min-width: 0;
+    flex-wrap: nowrap;
+    align-items: stretch;
+  }
+
+  .servers-search {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .servers-table-wrap .btn-add-server {
+    flex-shrink: 0;
+    align-self: stretch;
+    padding-inline: 0.75rem;
+    font-size: 0.8125rem;
+  }
 }
 
 .servers-table-wrap .btn-add-server {
@@ -269,6 +283,10 @@
   background: #f59e0b;
 }
 
+.server-status-dot.removing {
+  background: #f59e0b;
+}
+
 .server-status-dot.error {
   background: #ef4444;
 }
@@ -277,8 +295,20 @@
   min-width: 0;
 }
 
+.server-name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.server-name-row .server-tag-pill {
+  flex-shrink: 0;
+}
+
 .server-name-link {
-  display: block;
+  display: inline-block;
   font-size: 0.9375rem;
   font-weight: 600;
   color: #0069ff;
@@ -288,6 +318,30 @@
 
 .server-name-link:hover {
   text-decoration: underline;
+}
+
+.server-name-link.is-disabled {
+  color: #62788e;
+  cursor: default;
+  pointer-events: none;
+  text-decoration: none;
+}
+
+.server-name-cell.is-busy .server-name-link.is-disabled {
+  color: #334155;
+}
+
+[data-theme="dark"] .server-name-cell.is-busy .server-name-link.is-disabled {
+  color: var(--foreground);
+}
+
+.server-row-busy {
+  opacity: 0.92;
+}
+
+.server-row-busy .server-action-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .server-name-meta {
@@ -316,74 +370,6 @@
 
 [data-theme="dark"] .server-host-text {
   color: var(--foreground);
-}
-
-.server-copy-wrap {
-  position: relative;
-  display: inline-flex;
-}
-
-.server-copy-popover {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  background: #031b4e;
-  color: #fff;
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1.2;
-  white-space: nowrap;
-  pointer-events: none;
-  z-index: 2;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
-}
-
-.server-copy-popover::after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  border: 4px solid transparent;
-  border-top-color: #031b4e;
-}
-
-[data-theme="dark"] .server-copy-popover {
-  background: #e2e8f0;
-  color: #0f172a;
-}
-
-[data-theme="dark"] .server-copy-popover::after {
-  border-top-color: #e2e8f0;
-}
-
-.server-copy-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  padding: 0;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: #62788e;
-  cursor: pointer;
-  opacity: 0.7;
-  transition: opacity 0.15s, background 0.15s;
-}
-
-.server-copy-btn:hover {
-  opacity: 1;
-  background: rgb(0 0 0 / 6%);
-}
-
-.server-copy-btn.copied {
-  color: #00b871;
-  opacity: 1;
 }
 
 /* Created cell */
@@ -428,9 +414,19 @@
   color: #007a4d;
 }
 
+.server-tag-pill.starting {
+  background: #e6f7ef;
+  color: #007a4d;
+}
+
 .server-tag-pill.offline {
   background: #f1f5f9;
   color: #64748b;
+}
+
+.server-tag-pill.removing {
+  background: #fef3c7;
+  color: #b45309;
 }
 
 .server-tag-pill.pending {
@@ -537,4 +533,23 @@
 [data-theme="dark"] .servers-page-btn,
 [data-theme="dark"] .servers-page-indicator {
   color: var(--foreground);
+}
+
+.delete-server-modal {
+  max-width: 32rem;
+}
+
+.delete-server-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  margin: 0.75rem 1.25rem 0;
+  font-size: 0.9375rem;
+  color: var(--foreground);
+  cursor: pointer;
+}
+
+.delete-server-option input {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
 }

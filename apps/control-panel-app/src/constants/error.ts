@@ -10,12 +10,14 @@ export const ERROR_MESSAGES = {
     ALREADY_EXIST: "A server with this host and username already exists",
     CREDENTIALS_NOT_FOUND: "SSH credentials not found",
     SSH_PAYLOAD_REQUIRED: "SSH credentials are required",
-    SSH_CONNECTION_FAILED: "SSH connection failed",
+    SSH_CONNECTION_FAILED:
+      "Unable to connect to the server. The SSH connection failed.",
     SSH_TEST_FAILED: "SSH connection test failed",
     CONNECTION_TIMEOUT: "Connection timed out",
     ALREADY_CONNECTED: "Server is already connected",
     CONNECTION_FAILED: "Failed to connect to server",
     DELETE_FAILED: "Failed to delete server",
+    OPERATION_IN_PROGRESS: "Server setup is still in progress",
     HOST_ALREADY_EXISTS: "A server with this host and port already exists",
     AGENT_CREDENTIALS_MISSING:
       "No SSH credentials for this server. Onboard the server first.",
@@ -32,6 +34,15 @@ export const ERROR_MESSAGES = {
     SESSION_NOT_FOUND: "Terminal session not found",
     CONNECT_FAILED: "Failed to create terminal session",
     DISCONNECT_FAILED: "Failed to disconnect terminal session",
+    SSH_LOCAL_UNAVAILABLE:
+      "SSH terminal fallback is not available for local servers without an agent",
+    SSH_SHELL_FAILED: "SSH shell failed",
+    UNKNOWN_ERROR: "unknown error",
+  },
+
+  CONTAINER: {
+    KUBEARA_AGENT_DELETE_FORBIDDEN:
+      "The Kubeara Agent is required to manage this server and cannot be deleted",
   },
 
   CONTAINER_LOGS: {
@@ -56,6 +67,10 @@ export const ERROR_MESSAGES = {
     OTP_EXPIRED: "OTP expired",
     OTP_NOT_VERIFIED: "OTP not verified",
     MAX_OTP_ATTEMPTS: "OTP attempts exhausted, please try again later",
+    EMAIL_NOT_VERIFIED: "Email not verified",
+    OTP_EXPIRED_OR_INVALID: "OTP expired or invalid",
+    OTP_RESEND_LIMIT_REACHED:
+      "You have reached the resend limit. Try again after {minutes} minutes.",
   },
 
   PROFILE: {
@@ -68,8 +83,33 @@ export const ERROR_MESSAGES = {
     MISSING_AUTHORIZATION: "Missing Authorization header",
   },
 
+  ACTIVITY: {
+    NOT_FOUND: "Activity not found",
+  },
+
   MCP_SERVER: {
     METHOD_NOT_ALLOWED: "Method not allowed.",
     INTERNAL_SERVER_ERROR: "Internal server error",
+  },
+
+  MCP_OAUTH: {
+    INVALID_RESPONSE_TYPE: "Unsupported response_type",
+    INVALID_AUTHORIZE_REQUEST: "Invalid OAuth authorization request",
+    UNSUPPORTED_CODE_CHALLENGE: "Only S256 code challenge is supported",
+    INVALID_CLIENT_ID: "Unsupported OAuth client",
+    INVALID_CIMD_CLIENT_ID: "Invalid ChatGPT client metadata document",
+    CIMD_FETCH_FAILED: "Failed to fetch ChatGPT client metadata document",
+    CIMD_REDIRECT_URI_MISMATCH:
+      "OAuth redirect URI is not allowed for this ChatGPT client",
+    INVALID_REDIRECT_URI: "Invalid OAuth redirect URI",
+    INVALID_RESOURCE: "Invalid OAuth resource parameter",
+    INVALID_GRANT_TYPE: "Unsupported grant_type",
+    INVALID_TOKEN_REQUEST: "Invalid OAuth token request",
+    INVALID_AUTHORIZATION_CODE: "Invalid authorization code",
+    AUTHORIZATION_CODE_EXPIRED: "Authorization code expired",
+    INVALID_CODE_VERIFIER: "Invalid PKCE code verifier",
+    INVALID_REFRESH_TOKEN: "Invalid refresh token",
+    REFRESH_TOKEN_EXPIRED: "Refresh token expired",
+    INVALID_ACCESS_TOKEN: "Invalid MCP OAuth access token",
   },
 };

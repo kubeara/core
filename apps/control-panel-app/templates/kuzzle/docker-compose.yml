@@ -1,0 +1,137 @@
+# documentation: https://kuzzle.io/
+# shortDescription: Open-source backend for realtime apps and IoT
+# longDescription: <p>Kuzzle is a <strong>generic backend</strong> with REST, WebSocket, and MQTT APIs backed by Elasticsearch and Redis.</p><p>API on port 7512. Includes Elasticsearch for document storage and Redis for caching.</p>
+# category: database,backend
+# tags: kuzzle,backend,api,realtime,websocket,mqtt,iot,elasticsearch
+# logo: svgs/sql-database-generic-svgrepo-com.svg
+# port: 7512
+
+services:
+  kuzzle:
+    image: ${KUZZLE_IMAGE:-kuzzleio/kuzzle:2.56.0}
+    restart: ${KUZZLE_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_KUZZLE:-7512}:7512'
+
+    environment:
+      - SERVICE_URL_KUZZLE_7512
+      - kuzzle_services__storageEngine__client__node=http://elasticsearch:9200
+      - kuzzle_services__storageEngine__commonMapping__dynamic=true
+      - kuzzle_services__internalCache__node__host=redis
+      - kuzzle_services__memoryStorage__node__host=redis
+      - kuzzle_server__protocols__mqtt__enabled=true
+      - kuzzle_server__protocols__mqtt__developmentMode=false
+      - kuzzle_limits__loginsPerSecond=50
+      - NODE_ENV=production
+      - DEBUG=${KUZZLE_DEBUG:-kuzzle:cluster:sync}
+      - TZ=${TZ:-UTC}
+
+    cap_add:
+      - SYS_PTRACE
+
+    ulimits:
+      nofile: 65536
+
+    sysctls:
+      - net.core.somaxconn=8192
+
+    depends_on:
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://127.0.0.1:7512/_healthcheck']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: ${KUZZLE_REDIS_IMAGE:-redis:7-alpine}
+    restart: ${KUZZLE_REDIS_RESTART_POLICY:-unless-stopped}
+
+    command: redis-server --appendonly yes
+
+    volumes:
+      - kuzzle_redis_data:/data
+
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  elasticsearch:
+    image: ${KUZZLE_ELASTICSEARCH_IMAGE:-kuzzleio/elasticsearch:7}
+    restart: ${KUZZLE_ELASTICSEARCH_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=${KUZZLE_ES_JAVA_OPTS:--Xms512m -Xmx512m}
+      - TZ=${TZ:-UTC}
+
+    ulimits:
+      nofile: 65536
+
+    volumes:
+      - kuzzle_elasticsearch_data:/usr/share/elasticsearch/data
+
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://127.0.0.1:9200']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  kuzzle_redis_data:
+  kuzzle_elasticsearch_data:

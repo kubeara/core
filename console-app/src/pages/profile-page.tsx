@@ -6,11 +6,12 @@ import {
 import { useAuth } from "@/features/auth/context/use-auth";
 import { BackLink } from "@/components/shared/back-link";
 import { ProfilePageSkeleton } from "@/components/shared/skeleton";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { ThemePreferenceSelector } from "@/components/shared/theme-toggle";
 import { PasswordField } from "@/components/shared/password-field";
 import { PasswordInput } from "@/components/shared/password-input";
 import { FormFieldLabel } from "@/components/shared/form-field-label";
-import { validatePassword, validateRequired } from "@/lib/validation";
+import { getErrorMessage } from "@/api/api-error";
+import { PASSWORDS_DO_NOT_MATCH_MESSAGE, validatePassword, validateRequired } from "@/lib/validation";
 import "@/components/profile-page.css";
 
 function GeneralDetailsCard() {
@@ -20,15 +21,19 @@ function GeneralDetailsCard() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [initializedForUserId, setInitializedForUserId] = useState<
+    string | null
+  >(null);
 
   const isSaving = updateMutation.isPending;
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || initializedForUserId === user.id) return;
     const parts = user.name.split(/\s+/).filter(Boolean);
     setFirstName(parts[0] || "");
     setLastName(parts.slice(1).join(" ") || "");
-  }, [user]);
+    setInitializedForUserId(user.id);
+  }, [user, initializedForUserId]);
 
   function clearFieldError(fieldId: string) {
     setFieldErrors((current) => {
@@ -70,10 +75,9 @@ function GeneralDetailsCard() {
         <div>
           <h2>General details</h2>
           <p className="profile-section-desc">
-            Your personal information and appearance preferences.
+            Your personal information.
           </p>
         </div>
-        <ThemeToggle variant="switch" />
       </div>
       <form onSubmit={handleSubmit} className="profile-section-form" noValidate>
         <div className="profile-field-group">
@@ -139,6 +143,25 @@ function GeneralDetailsCard() {
   );
 }
 
+function AppearanceCard() {
+  return (
+    <section className="profile-section-card">
+      <div className="profile-section-header profile-section-header--appearance">
+        <div>
+          <h2 id="profile-appearance-title">Appearance</h2>
+          <p className="profile-section-desc">
+            Choose light, dark, or match your device&apos;s system setting.
+          </p>
+        </div>
+        <ThemePreferenceSelector
+          compact
+          labelledBy="profile-appearance-title"
+        />
+      </div>
+    </section>
+  );
+}
+
 function ChangePasswordCard() {
   const changeMutation = useChangeProfilePasswordMutation();
 
@@ -179,7 +202,7 @@ function ChangePasswordCard() {
     if (confirmPasswordError) {
       nextFieldErrors.confirmPassword = confirmPasswordError;
     } else if (newPassword !== confirmPassword) {
-      nextFieldErrors.confirmPassword = "Passwords do not match.";
+      nextFieldErrors.confirmPassword = PASSWORDS_DO_NOT_MATCH_MESSAGE;
     }
 
     if (Object.keys(nextFieldErrors).length > 0) {
@@ -196,8 +219,8 @@ function ChangePasswordCard() {
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-    } catch {
-      // Error toast shown by mutation hook
+    } catch (error) {
+      setFieldErrors({ currentPassword: getErrorMessage(error) });
     }
   }
 
@@ -278,7 +301,7 @@ function ChangePasswordCard() {
             className="btn-primary"
             disabled={changeMutation.isPending}
           >
-            {changeMutation.isPending ? "Updating…" : "Update password"}
+            {changeMutation.isPending ? "Updating…" : "Save"}
           </button>
         </div>
       </form>
@@ -290,7 +313,8 @@ function ChangePasswordCard() {
  * User profile page.
  *
  * Allows users to manage:
- * - General details (name, theme)
+ * - General details (name)
+ * - Appearance (theme)
  * - Password change
  */
 export function ProfilePage() {
@@ -313,6 +337,7 @@ export function ProfilePage() {
 
       <div className="profile-page-body">
         <GeneralDetailsCard />
+        <AppearanceCard />
         <ChangePasswordCard />
       </div>
     </div>

@@ -3,6 +3,7 @@ export interface AgentInstallResponse {
   logs: string[];
   error?: string;
   skipped?: boolean;
+  pending?: boolean;
 }
 
 export interface OnboardSuccessData {

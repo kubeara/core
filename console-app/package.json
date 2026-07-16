@@ -28,6 +28,7 @@
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-tooltip": "^1.2.12",
     "@sentry/react": "^10.57.0",
     "@stripe/react-stripe-js": "^6.6.0",
     "@stripe/stripe-js": "^9.8.0",
@@ -45,6 +46,7 @@
     "react-router-dom": "^7.6.2",
     "socket.io-client": "^4.8.3",
     "tailwind-merge": "^3.6.0",
+    "ws": "^8.21.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

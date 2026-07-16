@@ -7,7 +7,6 @@ import {
   type ContainerLogsStopPayload,
 } from "@/constants/deployment-events";
 import {
-  emitContainerLogsStop,
   getDeploymentSocket,
   subscribeContainerLogsSession,
   unsubscribeContainerLogsSession,
@@ -19,6 +18,7 @@ import type { StreamStatus } from "../types";
 type UseContainerLogsOptions = {
   serverId: string;
   containerId: string;
+  containerName?: string;
   enabled: boolean;
   onOutput?: (data: string) => void;
   onSessionClosed?: () => void;
@@ -36,7 +36,14 @@ type UseContainerLogsResult = {
 export function useContainerLogs(
   options: UseContainerLogsOptions,
 ): UseContainerLogsResult {
-  const { serverId, containerId, enabled, onOutput, onSessionClosed } = options;
+  const {
+    serverId,
+    containerId,
+    containerName,
+    enabled,
+    onOutput,
+    onSessionClosed,
+  } = options;
 
   const [status, setStatus] = useState<StreamStatus>("connecting");
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -69,7 +76,6 @@ export function useContainerLogs(
     }
 
     try {
-      emitContainerLogsStop(currentSessionId);
       await stopContainerLogs(serverId, currentSessionId);
     } catch {
       // Session may already be closed on the server.
@@ -85,7 +91,9 @@ export function useContainerLogs(
     setErrorMessage(null);
 
     try {
-      const session = await startContainerLogs(serverId, containerId);
+      const session = await startContainerLogs(serverId, containerId, {
+        containerName,
+      });
       setSessionId(session.sessionId);
       subscribeContainerLogsSession(session.sessionId);
       setStatus("streaming");
@@ -93,7 +101,7 @@ export function useContainerLogs(
       setStatus("error");
       setErrorMessage(mapContainerLogsErrorMessage(getErrorMessage(error)));
     }
-  }, [containerId, serverId]);
+  }, [containerId, containerName, serverId]);
 
   useEffect(() => {
     if (!enabled) {
@@ -107,7 +115,9 @@ export function useContainerLogs(
       setErrorMessage(null);
 
       try {
-        const session = await startContainerLogs(serverId, containerId);
+        const session = await startContainerLogs(serverId, containerId, {
+          containerName,
+        });
         if (cancelled) {
           await stopContainerLogs(serverId, session.sessionId).catch(() => undefined);
           return;
@@ -131,12 +141,11 @@ export function useContainerLogs(
       cancelled = true;
       const currentSessionId = sessionIdRef.current;
       if (currentSessionId) {
-        emitContainerLogsStop(currentSessionId);
         void stopContainerLogs(serverId, currentSessionId).catch(() => undefined);
         unsubscribeContainerLogsSession(currentSessionId);
       }
     };
-  }, [containerId, enabled, serverId]);
+  }, [containerId, containerName, enabled, serverId]);
 
   useEffect(() => {
     if (!sessionId) {

@@ -1,6 +1,8 @@
 import { Module, forwardRef } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { WebsocketModule } from "@control-panel/websocket/websocket.module";
+import { DeploymentsModule } from "@control-panel/modules/deployments/deployments.module";
+import { ActivityModule } from "@control-panel/modules/activity/activity.module";
 
 import { ServersController } from "./controllers/servers.controller";
 
@@ -24,6 +26,8 @@ import { SshModule } from "@shared/ssh";
     ]),
     SshModule,
     forwardRef(() => WebsocketModule),
+    forwardRef(() => DeploymentsModule),
+    ActivityModule,
   ],
   controllers: [ServersController],
   providers: [

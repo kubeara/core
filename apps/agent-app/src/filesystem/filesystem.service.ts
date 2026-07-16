@@ -80,14 +80,14 @@ export class FilesystemService {
    * @returns Absolute path to ensured deployment directory.
    */
   async ensureDeploymentDir(deploymentId: string): Promise<string> {
-    const targetDir = "";
+    let targetDir = "";
     try {
       const safeId = this.sanitizeName(deploymentId);
       if (!safeId) {
         throw new Error(`Invalid deployment ID: ${deploymentId}`);
       }
 
-      const targetDir = path.join(this.getDeploymentsRoot(), safeId);
+      targetDir = path.join(this.getDeploymentsRoot(), safeId);
       await fs.mkdir(targetDir, { recursive: true });
       return targetDir;
     } catch (error) {

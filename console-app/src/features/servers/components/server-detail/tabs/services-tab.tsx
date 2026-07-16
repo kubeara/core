@@ -1,4 +1,5 @@
 import { ServerTemplatesPanel } from "@/features/templates/components/server-templates-panel";
+import { ServerDetailSectionHeader } from "../server-detail-section-header";
 
 type ServerServicesTabProps = {
   serverId: string;
@@ -11,10 +12,10 @@ export function ServerServicesTab({
 }: ServerServicesTabProps) {
   return (
     <div className="server-detail-panel server-detail-templates">
-      <h2 className="server-detail-section-title">Deploy a template</h2>
-      <p className="server-detail-section-desc">
-        Browse the marketplace and deploy services directly to this server.
-      </p>
+      <ServerDetailSectionHeader
+        title="Deploy a template"
+        description="Browse the marketplace and deploy services directly to this server."
+      />
       <ServerTemplatesPanel
         serverId={serverId}
         connectedTemplateSlugs={connectedIds}

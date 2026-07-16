@@ -9,6 +9,7 @@ type TopBarProps = {
 
 const NAV_ITEMS = [
     { href: "/servers", label: "Servers" },
+    { href: "/services", label: "Services" },
     { href: "/mcp-servers", label: "MCP" },
 ] as const;
 

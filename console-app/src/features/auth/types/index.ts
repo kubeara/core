@@ -54,9 +54,19 @@ export type ForgotPasswordRequest = {
 /**
  * Request payload for OTP verification
  */
+export type OtpCodeType = "EMAIL_VERIFICATION" | "FORGOT_PASSWORD";
+
 export type VerifyOtpRequest = {
   email: string;
   otp: string;
+  codeType: OtpCodeType;
+};
+
+/**
+ * Request payload for resend OTP
+ */
+export type ResendOtpRequest = {
+  email: string;
 };
 
 /**

@@ -1,0 +1,55 @@
+# documentation: https://github.com/denoland/denokv
+# shortDescription: Self-hosted Deno KV key-value database
+# longDescription: <p>Deno KV is a <strong>JavaScript-first key-value database</strong> with a self-hostable backend for Deno applications.</p><p>KV Connect API on port 4512. Access token uses <code>SERVICE_PASSWORD_DENOKV</code>.</p>
+# category: database,nosql
+# tags: deno,kv,key-value,nosql,javascript,database
+# logo: svgs/sql-database-generic-svgrepo-com.svg
+# port: 4512
+
+services:
+  deno-kv:
+    image: ${DENO_KV_IMAGE:-ghcr.io/denoland/denokv:latest}
+    restart: ${DENO_KV_RESTART_POLICY:-unless-stopped}
+    init: true
+
+    ports:
+      - '${SERVICE_PORT_DENO_KV:-4512}:4512'
+
+    command:
+      - --sqlite-path
+      - /data/denokv.sqlite
+      - serve
+      - --access-token
+      - ${SERVICE_PASSWORD_DENOKV}
+
+    environment:
+      - SERVICE_URL_DENO_KV_4512
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - deno_kv_data:/data
+
+    healthcheck:
+      test: ['CMD', '/busybox/nc', '-z', '127.0.0.1', '4512']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  deno_kv_data:

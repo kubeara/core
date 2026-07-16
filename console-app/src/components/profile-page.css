@@ -26,6 +26,15 @@
   margin-bottom: 0;
 }
 
+.profile-section-header--appearance {
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.profile-section-header--appearance .theme-preference-selector--compact {
+  flex-shrink: 0;
+}
+
 .profile-section-card h2 {
   margin: 0 0 0.375rem;
   font-size: 1.125rem;
@@ -242,5 +251,15 @@
   .profile-logo-block {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .profile-section-header--appearance {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.875rem;
+  }
+
+  .profile-section-header--appearance .theme-preference-selector--compact {
+    align-self: flex-start;
   }
 }

@@ -1,29 +1,9 @@
 import { useState } from "react";
-import { GENERIC_ERROR_MESSAGE } from "@/api/api-error";
+import { CopyButton } from "@/components/shared/copy-button";
+import { API_ERROR_MESSAGES } from "@/constants/error-messages";
 import { FormFieldLabel } from "@/components/shared/form-field-label";
 import { validateRequired } from "@/lib/validation";
 import { useCreateMcpApiKeyMutation } from "../hooks";
-
-function CopyIcon() {
-    return (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <rect
-                x="9"
-                y="9"
-                width="13"
-                height="13"
-                rx="2"
-                stroke="currentColor"
-                strokeWidth="2"
-            />
-            <path
-                d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-                stroke="currentColor"
-                strokeWidth="2"
-            />
-        </svg>
-    );
-}
 
 type GenerateTokenModalContentProps = {
     onClose: () => void;
@@ -34,7 +14,6 @@ function GenerateTokenModalContent({ onClose }: GenerateTokenModalContentProps) 
     const [generatedToken, setGeneratedToken] = useState<string | null>(null);
     const [fieldError, setFieldError] = useState<string | null>(null);
     const [submitError, setSubmitError] = useState<string | null>(null);
-    const [copied, setCopied] = useState(false);
     const createMutation = useCreateMcpApiKeyMutation();
 
     const isTokenStep = generatedToken !== null;
@@ -56,19 +35,7 @@ function GenerateTokenModalContent({ onClose }: GenerateTokenModalContentProps) 
             const result = await createMutation.mutateAsync({ name: name.trim() });
             setGeneratedToken(result.token);
         } catch {
-            setSubmitError(GENERIC_ERROR_MESSAGE);
-        }
-    }
-
-    async function handleCopy() {
-        if (!generatedToken) return;
-
-        try {
-            await navigator.clipboard.writeText(generatedToken);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        } catch {
-            // Clipboard unavailable
+            setSubmitError(API_ERROR_MESSAGES.GENERIC);
         }
     }
 
@@ -108,14 +75,12 @@ function GenerateTokenModalContent({ onClose }: GenerateTokenModalContentProps) 
                         </p>
                         <div className="mcp-token-field">
                             <code className="mcp-token-value">{generatedToken}</code>
-                            <button
-                                type="button"
-                                className={`mcp-token-field-copy${copied ? " is-copied" : ""}`}
-                                aria-label={copied ? "Copied" : "Copy token"}
-                                onClick={handleCopy}
-                            >
-                                <CopyIcon />
-                            </button>
+                            <div className="mcp-token-field-copy-wrap">
+                                <CopyButton
+                                    text={generatedToken}
+                                    label="Copy token"
+                                />
+                            </div>
                         </div>
                     </div>
                 ) : (

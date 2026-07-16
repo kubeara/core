@@ -25,7 +25,11 @@ function getBroadcastChannel(): BroadcastChannel | null {
     return null;
   }
 
-  return new BroadcastChannel(AUTH_BROADCAST_CHANNEL);
+  try {
+    return new BroadcastChannel(AUTH_BROADCAST_CHANNEL);
+  } catch {
+    return null;
+  }
 }
 
 export function getSessionLifecycle(): SessionLifecycle {
@@ -53,7 +57,11 @@ export function markBootstrapComplete(hasSession: boolean): void {
 export function markSessionAuthenticated(): void {
   lifecycle = "authenticated";
   notifyAuthChanges("login");
-  getBroadcastChannel()?.postMessage({ type: "login" });
+  try {
+    getBroadcastChannel()?.postMessage({ type: "login" });
+  } catch {
+    // BroadcastChannel may be unavailable; in-tab listeners still run.
+  }
 }
 
 /**
@@ -148,5 +156,9 @@ export function clearSessionState(): void {
   refreshPromise = null;
   resetHttpAuthStateHandler?.();
   notifyAuthChanges("logout");
-  getBroadcastChannel()?.postMessage({ type: "logout" });
+  try {
+    getBroadcastChannel()?.postMessage({ type: "logout" });
+  } catch {
+    // BroadcastChannel may be unavailable; in-tab listeners still run.
+  }
 }

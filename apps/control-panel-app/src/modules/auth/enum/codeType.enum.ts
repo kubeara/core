@@ -3,3 +3,9 @@ export enum CODE_TYPE {
   FORGOT_PASSWORD = "FORGOT_PASSWORD",
   LOGIN_OTP = "LOGIN_OTP",
 }
+
+export enum CODE_TYPE_LABEL {
+  EMAIL_VERIFICATION = "Email Verification",
+  FORGOT_PASSWORD = "Forgot Password",
+  LOGIN_OTP = "Login OTP",
+}

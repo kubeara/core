@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Navigate,
   useLocation,
@@ -19,13 +19,16 @@ import { formatTemplateCategory } from "@/features/templates/utils/format-templa
 import type { DeployTemplateRequest } from "@/features/templates/types";
 import { DeployLogsPageSkeleton } from "@/components/shared/skeleton";
 import { buildServerDetailHref } from "@/features/servers/components/server-detail/utils/server-detail-tab-url";
+import { showErrorToast } from "@/lib/toast";
 import { NotFoundPage } from "./not-found-page";
 
 type PendingDeployLocationState = {
   deployRequest?: Pick<
     DeployTemplateRequest,
-    "env" | "ports" | "templateSlug" | "serverId"
+    "env" | "ports" | "templateSlug" | "serverId" | "acknowledgeResourceWarning"
   >;
+  /** Optional override when opening logs from Activity (or elsewhere). */
+  backHref?: string;
 };
 
 /**
@@ -49,9 +52,20 @@ export function DeployLogsPage() {
   const [isStarting, setIsStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
   const templateQuery = useTemplateDetailsQuery(templateSlug);
+  const locationState = location.state as PendingDeployLocationState | null;
+  const backHref =
+    locationState?.backHref ??
+    (serverId ? buildServerDetailHref(serverId, "templates") : "/servers");
 
-  const pendingDeploy = (location.state as PendingDeployLocationState | null)
-    ?.deployRequest;
+  const handleDeploymentFailed = useCallback(
+    (message: string) => {
+      showErrorToast(message);
+      navigate(backHref, { replace: true });
+    },
+    [backHref, navigate],
+  );
+
+  const pendingDeploy = locationState?.deployRequest;
   const deployStartedRef = useRef(false);
 
   useEffect(() => {
@@ -97,6 +111,7 @@ export function DeployLogsPage() {
       serverId,
       env: pendingDeploy.env,
       ports: pendingDeploy.ports,
+      acknowledgeResourceWarning: pendingDeploy.acknowledgeResourceWarning,
     })
       .then((result) => {
         if (cancelled) return;
@@ -152,9 +167,10 @@ export function DeployLogsPage() {
       }}
       deploymentId={deploymentId}
       serverId={serverId}
-      backHref={buildServerDetailHref(serverId, "templates")}
+      backHref={backHref}
       isStarting={isStarting || Boolean(pendingDeploy && !deploymentId)}
       startError={startError}
+      onDeploymentFailed={handleDeploymentFailed}
     />
   );
 }

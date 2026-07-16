@@ -2,12 +2,14 @@ import {
   Body,
   Controller,
   Get,
+  Logger,
   Post,
   Req,
   Res,
   UseGuards,
 } from "@nestjs/common";
 import { Response } from "express";
+import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import { AuthService } from "./auth.service";
 import { SignupDto } from "./dto/signup.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -21,6 +23,8 @@ import { RefreshTokenPayload } from "./strategies/refresh-jwt.strategy";
 
 @Controller("auth")
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private readonly authService: AuthService,
     private readonly authCookieService: AuthCookieService,
@@ -31,7 +35,12 @@ export class AuthController {
    */
   @Post("signup")
   async signup(@Body() signupDto: SignupDto) {
-    return await this.authService.signup(signupDto);
+    try {
+      return await this.authService.signup(signupDto);
+    } catch (error) {
+      this.logger.error(`Signup failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**
@@ -42,16 +51,21 @@ export class AuthController {
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    console.log("loginDto", loginDto);
-    const result = await this.authService.login(loginDto);
-    this.authCookieService.setAuthCookies(res, result.data.tokens);
+    try {
+      const result = await this.authService.login(loginDto);
+      const { tokens } = result.data;
+      this.authCookieService.setAuthCookies(res, tokens);
 
-    return {
-      message: result.message,
-      data: {
-        user: result.data.user,
-      },
-    };
+      return {
+        message: result.message,
+        data: {
+          user: result.data.user,
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Login failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**
@@ -63,13 +77,18 @@ export class AuthController {
     @Req() req: { user: RefreshTokenPayload },
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.refreshToken(req.user);
-    this.authCookieService.setAuthCookies(res, result.data.tokens);
+    try {
+      const result = await this.authService.refreshToken(req.user);
+      this.authCookieService.setAuthCookies(res, result.data.tokens);
 
-    return {
-      message: result.message,
-      data: null,
-    };
+      return {
+        message: result.message,
+        data: null,
+      };
+    } catch (error) {
+      this.logger.error(`Refresh token failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**
@@ -77,8 +96,13 @@ export class AuthController {
    */
   @UseGuards(AccessTokenGuard)
   @Get("me")
-  me(@Req() req: { user: AuthenticatedUser }) {
-    return this.authService.getProfile(req.user.id);
+  async me(@Req() req: { user: AuthenticatedUser }) {
+    try {
+      return await this.authService.getProfile(req.user.id);
+    } catch (error) {
+      this.logger.error(`Get profile failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**
@@ -90,13 +114,18 @@ export class AuthController {
     @Req() req: { user: AuthenticatedUser },
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.logout(
-      req.user.id,
-      req.user.accessToken,
-    );
-    this.authCookieService.clearAuthCookies(res);
+    try {
+      const result = await this.authService.logout(
+        req.user.id,
+        req.user.accessToken,
+      );
+      this.authCookieService.clearAuthCookies(res);
 
-    return result;
+      return result;
+    } catch (error) {
+      this.logger.error(`Logout failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**
@@ -108,10 +137,15 @@ export class AuthController {
     @Req() req: { user: AuthenticatedUser },
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.logoutAllDevices(req.user.id);
-    this.authCookieService.clearAuthCookies(res);
+    try {
+      const result = await this.authService.logoutAllDevices(req.user.id);
+      this.authCookieService.clearAuthCookies(res);
 
-    return result;
+      return result;
+    } catch (error) {
+      this.logger.error(`Logout all failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**
@@ -119,7 +153,25 @@ export class AuthController {
    */
   @Post("forgot-password")
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(forgotPasswordDto);
+    try {
+      return await this.authService.forgotPassword(forgotPasswordDto);
+    } catch (error) {
+      this.logger.error(`Forgot password failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Resend registration OTP
+   */
+  @Post("resend-otp")
+  async resendOtp(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    try {
+      return await this.authService.resendOtp(forgotPasswordDto.email);
+    } catch (error) {
+      this.logger.error(`Resend OTP failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**
@@ -127,7 +179,12 @@ export class AuthController {
    */
   @Post("verify-otp")
   async verifyOtp(@Body() verifyOtpDto: VerifyOtpDto) {
-    return this.authService.verifyOtp(verifyOtpDto);
+    try {
+      return await this.authService.verifyOtp(verifyOtpDto);
+    } catch (error) {
+      this.logger.error(`Verify OTP failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 
   /**
@@ -135,6 +192,11 @@ export class AuthController {
    */
   @Post("reset-password")
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
-    return this.authService.resetPassword(resetPasswordDto);
+    try {
+      return await this.authService.resetPassword(resetPasswordDto);
+    } catch (error) {
+      this.logger.error(`Reset password failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
   }
 }

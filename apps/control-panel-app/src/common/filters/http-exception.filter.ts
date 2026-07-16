@@ -35,6 +35,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     let message = "Internal server error";
     let errorCode = "INTERNAL_SERVER_ERROR";
     let errorDetail: string | undefined;
+    let retryAfterSeconds: number | undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -63,6 +64,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
 
         if (typeof body.errorCode === "string") {
           errorCode = body.errorCode;
+        }
+
+        if (
+          typeof body.retryAfterSeconds === "number" &&
+          Number.isFinite(body.retryAfterSeconds) &&
+          body.retryAfterSeconds > 0
+        ) {
+          retryAfterSeconds = Math.ceil(body.retryAfterSeconds);
         }
 
         if (typeof body.error === "string") {
@@ -96,6 +105,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       errorCode,
       message,
       ...(errorDetail ? { error: errorDetail } : {}),
+      ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
     };
 
     response.status(status).json({

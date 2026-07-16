@@ -193,7 +193,7 @@ export function getPlanServerBadge(
 ): string {
   const tier = getPlanTierSlug(slug);
   if (tier === "enterprise") {
-    return "Unlimited · Compliance & SSO";
+    return "Unlimited";
   }
 
   if (features.serverLimit === "unlimited") {

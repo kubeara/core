@@ -1,0 +1,95 @@
+# documentation: https://grafana.com/docs/grafana/latest/setup-grafana/installation/docker/
+# shortDescription: Grafana dashboards backed by PostgreSQL storage
+# longDescription: <p>Grafana with PostgreSQL uses Postgres as the persistent configuration database for dashboards, users, and settings.</p><p>Good fit for production-like deployments requiring durable Grafana state.</p>
+# category: monitoring,logging,observability
+# tags: grafana,postgresql,monitoring,dashboards,metrics,visualization
+# logo: svgs/grafana-svgrepo-com.svg
+# port: 3000
+
+services:
+  grafana:
+    image: ${GRAFANA_WITH_POSTGRESQL_IMAGE:-grafana/grafana:13.0.2}
+    restart: ${GRAFANA_WITH_POSTGRESQL_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_GRAFANA_WITH_POSTGRESQL:-3000}:3000'
+
+    environment:
+      - SERVICE_URL_GRAFANA_WITH_POSTGRESQL_3000
+      - GF_SECURITY_ADMIN_USER=${SERVICE_USER_GRAFANA_WITH_POSTGRESQL:-grafana}
+      - GF_SECURITY_ADMIN_PASSWORD=${SERVICE_PASSWORD_GRAFANA_WITH_POSTGRESQL:-grafana_postgres_password}
+      - GF_SERVER_ROOT_URL=${SERVICE_URL_GRAFANA_WITH_POSTGRESQL:-${SERVICE_URL_GRAFANA_WITH_POSTGRESQL_3000}}
+      - GF_DATABASE_TYPE=postgres
+      - GF_DATABASE_HOST=postgres:5432
+      - GF_DATABASE_NAME=${GRAFANA_WITH_POSTGRESQL_DB_NAME:-grafana}
+      - GF_DATABASE_USER=${SERVICE_USER_GRAFANA_WITH_POSTGRESQL:-grafana}
+      - GF_DATABASE_PASSWORD=${SERVICE_PASSWORD_GRAFANA_WITH_POSTGRESQL:-grafana_postgres_password}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    volumes:
+      - grafana_with_postgresql_data:/var/lib/grafana
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/api/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${GRAFANA_WITH_POSTGRESQL_POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${GRAFANA_WITH_POSTGRESQL_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - POSTGRES_DB=${GRAFANA_WITH_POSTGRESQL_DB_NAME:-grafana}
+      - POSTGRES_USER=${SERVICE_USER_GRAFANA_WITH_POSTGRESQL:-grafana}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_GRAFANA_WITH_POSTGRESQL:-grafana_postgres_password}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - grafana_with_postgresql_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 10s
+      retries: 8
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  grafana_with_postgresql_data:
+  grafana_with_postgresql_postgres_data:

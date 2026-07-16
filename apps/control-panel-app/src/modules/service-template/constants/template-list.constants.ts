@@ -1,0 +1,3 @@
+export const DEFAULT_TEMPLATE_LIST_PAGE = 1;
+export const DEFAULT_TEMPLATE_LIST_LIMIT = 12;
+export const MAX_TEMPLATE_LIST_LIMIT = 100;

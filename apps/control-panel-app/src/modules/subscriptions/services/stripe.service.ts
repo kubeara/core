@@ -13,11 +13,7 @@ import { SubscriptionBillingDetails } from "../interfaces/subscription-billing.i
 
 type StripeSubscription = Stripe.Subscription;
 type CheckoutPaymentMethodType =
-  | "card"
-  | "customer_balance"
-  | "paypal"
-  | "sepa_debit"
-  | "us_bank_account";
+  "card" | "customer_balance" | "paypal" | "sepa_debit" | "us_bank_account";
 
 @Injectable()
 export class StripeService implements OnModuleInit {

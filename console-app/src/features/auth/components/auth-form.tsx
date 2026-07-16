@@ -18,6 +18,7 @@ type AuthFormProps = {
   submitLabel: string;
   onSubmit: (formData: FormData) => Promise<void>;
   error?: string | null;
+  errorAfterFields?: boolean;
   success?: string | null;
   loading?: boolean;
   children?: React.ReactNode;
@@ -32,6 +33,7 @@ export function AuthForm({
   submitLabel,
   onSubmit,
   error,
+  errorAfterFields = false,
   success,
   loading,
   children,
@@ -45,7 +47,7 @@ export function AuthForm({
 
   return (
     <form onSubmit={handleSubmit} className="auth-form" noValidate>
-      <FormErrorsSummary formError={error} />
+      {!errorAfterFields && <FormErrorsSummary formError={error} />}
       {fields.map((field) => {
         const inputType = field.validateAsEmail ? "text" : field.type;
         const inputMode = field.validateAsEmail ? "email" : undefined;
@@ -93,6 +95,7 @@ export function AuthForm({
           </div>
         );
       })}
+      {errorAfterFields && <FormErrorsSummary formError={error} />}
       {success && <p className="form-message success">{success}</p>}
       <button type="submit" className="btn-primary" disabled={loading}>
         {loading ? "Please wait…" : submitLabel}

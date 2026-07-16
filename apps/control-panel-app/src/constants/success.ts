@@ -8,6 +8,7 @@ export const SUCCESS_MESSAGES = {
     CONNECTED: "Server connected successfully",
     DISCONNECTED: "Server disconnected successfully",
     DELETED: "Server deleted successfully",
+    DELETE_STARTED: "Server removal started",
   },
 
   TERMINAL: {
@@ -22,16 +23,18 @@ export const SUCCESS_MESSAGES = {
   },
 
   AUTH: {
-    SIGNUP: "User registered successfully",
+    SIGNUP: "Account created. Check your email for a verification code.",
     LOGIN: "User logged in successfully",
     REFRESH: "Tokens refreshed successfully",
     LOGOUT: "User logged out successfully",
     LOGOUT_ALL: "Logged out from all devices successfully",
     PROFILE: "Profile fetched successfully",
     RESET_PASSWORD: "Password updated successfully",
-    OTP_SENT: "OTP sent successfully",
-    OTP_VERIFIED: "OTP verified successfully",
-    PASSWORD_RESET: "Password updated successfully",
+    OTP_SENT: "Verification code sent to your email.",
+    OTP_RESENT: "A new verification code has been sent to your email.",
+    EMAIL_VERIFIED: "Your email has been verified. You can sign in now.",
+    RESET_CODE_VERIFIED: "Code verified. You can set a new password.",
+    PASSWORD_RESET: "Your password has been updated. You can sign in now.",
   },
 
   PROFILE: {
@@ -45,6 +48,15 @@ export const SUCCESS_MESSAGES = {
     REVOKED: "MCP API key revoked successfully",
   },
 
+  ACTIVITY: {
+    LIST: "Activities fetched successfully",
+    DETAIL: "Activity fetched successfully",
+  },
+
+  TEMPLATE: {
+    LIST: "Templates fetched successfully",
+    CATEGORIES: "Template categories fetched successfully",
+  },
   SUBSCRIPTIONS: {
     PLANS: "Plans fetched successfully",
     CURRENT: "Subscription fetched successfully",

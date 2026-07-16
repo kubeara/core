@@ -1,0 +1,54 @@
+# documentation: https://www.checkov.io/4.Integrations/Docker.html
+# shortDescription: IaC static analysis for Terraform, Kubernetes, CloudFormation, and more
+# longDescription: <p>Checkov scans <strong>infrastructure-as-code</strong> for security misconfigurations and compliance violations.</p><p>Mount IaC under <code>/scan</code> and run <code>docker compose exec --entrypoint checkov checkov checkov -d /scan</code>. Port 8080 serves the scan directory for read-only browsing.</p>
+# category: security,development,devops
+# tags: checkov,iac,security,terraform,kubernetes,cloudformation,static-analysis
+# port: 8080
+
+services:
+  checkov:
+    image: ${CHECKOV_IMAGE:-bridgecrew/checkov:latest}
+    restart: ${CHECKOV_RESTART_POLICY:-unless-stopped}
+
+    entrypoint: ["/bin/bash", "-lc"]
+    command: ["python3 -m http.server 8080 --bind 0.0.0.0 --directory /scan"]
+
+    working_dir: /scan
+
+    ports:
+      - '${SERVICE_PORT_CHECKOV:-8080}:8080'
+
+    environment:
+      - SERVICE_URL_CHECKOV_8080
+      - BC_API_KEY=${SERVICE_PASSWORD_CHECKOV:-}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - checkov_scan:/scan
+      - checkov_cache:/root/.cache
+
+    healthcheck:
+      test: ['CMD', 'checkov', '--version']
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  checkov_scan:
+  checkov_cache:

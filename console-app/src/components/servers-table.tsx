@@ -1,20 +1,29 @@
 import { Link } from "react-router-dom";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CopyButton } from "@/components/shared/copy-button";
+import { TooltipHint } from "@/components/ui/tooltip";
 import {
   useDeleteServerMutation,
   useServersQuery,
 } from "@/features/servers/hooks";
 import { ServerFormModal } from "./server-form-modal";
+import { FilterClearButton } from "@/components/shared/filter-clear-button";
 import { formatApiTimestamp } from "@/lib/unix-timestamp";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
+  isServerOperationBusy,
   mapServerApiToServer,
   type ServerListSortField,
 } from "@/features/servers/types";
-import type { Server } from "@/types";
+import type { Server, ServerOperationStatus } from "@/types";
 import { getErrorMessage } from "@/api/api-error";
+import {
+  SERVER_OPERATION_REMOVING_LABEL,
+  SERVER_OPERATION_SETTING_UP_LABEL,
+} from "@/features/servers/constants/messages";
 import { ServerFeedbackMessage } from "@/features/servers/components/server-feedback-message";
 import { ServersTableSkeleton } from "@/components/shared/skeleton";
+import { showErrorToast } from "@/lib/toast";
 import "./servers-table.css";
 
 type SortDir = "asc" | "desc";
@@ -31,27 +40,6 @@ const TABLE_COLUMNS: {
   { key: "host", label: "Host" },
   { key: "createdAt", label: "Created At" },
 ];
-
-function CopyIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect
-        x="9"
-        y="9"
-        width="13"
-        height="13"
-        rx="2"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-      <path
-        d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-    </svg>
-  );
-}
 
 function EditIcon() {
   return (
@@ -86,61 +74,86 @@ function DeleteIcon() {
     </svg>
   );
 }
+/**
+ * Returns the operation status label.
+ */
+function operationStatusLabel(status: ServerOperationStatus): string {
+  switch (status) {
+    case "starting":
+      return SERVER_OPERATION_SETTING_UP_LABEL;
+    case "removing":
+      return SERVER_OPERATION_REMOVING_LABEL;
+    case "error":
+      return "Error";
+    default:
+      return "";
+  }
+}
 
+/**
+ * Server name cell.
+ */
 function ServerNameCell({ server }: { server: Server }) {
+  const busy = isServerOperationBusy(server.operationStatus);
+  const statusLabel = server.operationStatus
+    ? operationStatusLabel(server.operationStatus)
+    : null;
+  const statusPillClass =
+    server.operationStatus === "starting"
+      ? "starting"
+      : server.operationStatus === "removing"
+        ? "removing"
+        : server.operationStatus === "error"
+          ? "error"
+          : null;
+  const statusDotClass =
+    server.operationStatus === "removing"
+      ? "removing"
+      : server.operationStatus === "error"
+        ? "error"
+        : server.agentConnected
+          ? "online"
+          : "offline";
+
   return (
-    <div className="server-name-cell">
+    <div className={`server-name-cell${busy ? " is-busy" : ""}`}>
       <div className="server-avatar">
         <div className="server-avatar-ring">
           <span className="server-avatar-letter">
             {server.name.charAt(0).toUpperCase()}
           </span>
         </div>
+        <span
+          className={`server-status-dot ${statusDotClass}`}
+          aria-hidden
+        />
       </div>
       <div className="server-name-block">
-        <Link to={`/servers/${server.id}`} className="server-name-link">
-          {server.name}
-        </Link>
-        <p className="server-name-meta">
-          {server.username}
-        </p>
+        <div className="server-name-row">
+          {busy ? (
+            <span className="server-name-link is-disabled">{server.name}</span>
+          ) : (
+            <Link to={`/servers/${server.id}`} className="server-name-link">
+              {server.name}
+            </Link>
+          )}
+          {statusLabel && statusPillClass && (
+            <span className={`server-tag-pill ${statusPillClass}`}>
+              {statusLabel}
+            </span>
+          )}
+        </div>
+        <p className="server-name-meta">{server.username}</p>
       </div>
     </div>
   );
 }
 
 function HostCell({ host }: { host: string }) {
-  const [copied, setCopied] = useState(false);
-
-  async function copyHost() {
-    try {
-      await navigator.clipboard.writeText(host);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      /* clipboard unavailable */
-    }
-  }
-
   return (
     <div className="server-host-cell">
       <span className="server-host-text">{host}</span>
-      <div className="server-copy-wrap">
-        {copied && (
-          <span className="server-copy-popover" role="status">
-            Copied
-          </span>
-        )}
-        <button
-          type="button"
-          className={`server-copy-btn ${copied ? "copied" : ""}`}
-          onClick={copyHost}
-          aria-label={copied ? "Copied" : "Copy host"}
-          title="Copy host"
-        >
-          <CopyIcon />
-        </button>
-      </div>
+      <CopyButton text={host} label="Copy host" />
     </div>
   );
 }
@@ -202,6 +215,7 @@ export function ServersTable() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<Server | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Server | null>(null);
+  const [removeManagedServices, setRemoveManagedServices] = useState(false);
 
   const listParams = useMemo(
     () => ({
@@ -229,6 +243,29 @@ export function ServersTable() {
     () => (listResponse?.data ?? []).map(mapServerApiToServer),
     [listResponse?.data],
   );
+  /**
+   * Ref to track notified operation errors.
+   */
+  const notifiedOperationErrorsRef = useRef<Set<string>>(new Set());
+
+  /**
+   * Effect to show error toast for operation errors.
+   */
+  useEffect(() => {
+    for (const server of servers) {
+      if (server.operationStatus !== "error" || !server.operationError) {
+        continue;
+      }
+
+      const key = `${server.id}:${server.operationError}`;
+      if (notifiedOperationErrorsRef.current.has(key)) {
+        continue;
+      }
+
+      notifiedOperationErrorsRef.current.add(key);
+      showErrorToast(server.operationError);
+    }
+  }, [servers]);
 
   const pagination = listResponse?.pagination;
   const total = pagination?.total ?? 0;
@@ -268,8 +305,12 @@ export function ServersTable() {
   async function confirmDelete() {
     if (!deleteTarget) return;
     try {
-      await deleteMutation.mutateAsync(deleteTarget.id);
+      await deleteMutation.mutateAsync({
+        id: deleteTarget.id,
+        removeManagedServices,
+      });
       setDeleteTarget(null);
+      setRemoveManagedServices(false);
     } catch {
       /* errors surfaced via mutation onError toast */
     }
@@ -278,6 +319,7 @@ export function ServersTable() {
   function closeDeleteModal() {
     if (deleting) return;
     setDeleteTarget(null);
+    setRemoveManagedServices(false);
   }
 
   const deleting = deleteMutation.isPending;
@@ -304,22 +346,16 @@ export function ServersTable() {
       <div className="servers-table-toolbar">
         <div className="servers-table-filters">
           <input
-            type="search"
+            type="text"
             className="servers-search"
             placeholder="Search by name, host, or username…"
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             aria-label="Search servers"
           />
-          {hasFilters && (
-            <button
-              type="button"
-              className="servers-filter-clear"
-              onClick={clearFilters}
-            >
-              Clear
-            </button>
-          )}
+          {hasFilters ? (
+            <FilterClearButton onClick={clearFilters} />
+          ) : null}
         </div>
         <button type="button" className="btn-add-server" onClick={openAdd}>
           + Add server
@@ -361,8 +397,11 @@ export function ServersTable() {
               )}
               {!loading &&
                 !isError &&
-                servers.map((server) => (
-                  <tr key={server.id}>
+                servers.map((server) => {
+                  const busy = isServerOperationBusy(server.operationStatus);
+
+                  return (
+                  <tr key={server.id} className={busy ? "server-row-busy" : undefined}>
                     <td>
                       <ServerNameCell server={server} />
                     </td>
@@ -370,38 +409,44 @@ export function ServersTable() {
                       <HostCell host={server.host} />
                     </td>
                     <td>
-                      <time
-                        className="server-created-link"
-                        dateTime={server.createdAt}
-                        title={formatApiTimestamp(server.createdAt)}
-                      >
-                        {formatApiTimestamp(server.createdAt)}
-                      </time>
+                      <TooltipHint content={formatApiTimestamp(server.createdAt)}>
+                        <time
+                          className="server-created-link"
+                          dateTime={server.createdAt}
+                        >
+                          {formatApiTimestamp(server.createdAt)}
+                        </time>
+                      </TooltipHint>
                     </td>
                     <td>
                       <div className="server-row-actions">
-                        <button
-                          type="button"
-                          className="server-action-btn"
-                          onClick={() => openEdit(server)}
-                          aria-label={`Edit ${server.name}`}
-                          title="Edit"
-                        >
-                          <EditIcon />
-                        </button>
-                        <button
-                          type="button"
-                          className="server-action-btn danger"
-                          onClick={() => setDeleteTarget(server)}
-                          aria-label={`Delete ${server.name}`}
-                          title="Delete"
-                        >
-                          <DeleteIcon />
-                        </button>
+                        <TooltipHint content="Edit">
+                          <button
+                            type="button"
+                            className="server-action-btn"
+                            onClick={() => openEdit(server)}
+                            aria-label={`Edit ${server.name}`}
+                            disabled={busy}
+                          >
+                            <EditIcon />
+                          </button>
+                        </TooltipHint>
+                        <TooltipHint content="Delete">
+                          <button
+                            type="button"
+                            className="server-action-btn danger"
+                            onClick={() => setDeleteTarget(server)}
+                            aria-label={`Delete ${server.name}`}
+                            disabled={busy}
+                          >
+                            <DeleteIcon />
+                          </button>
+                        </TooltipHint>
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
             </tbody>
           </table>
         </div>
@@ -453,7 +498,7 @@ export function ServersTable() {
           onClick={closeDeleteModal}
         >
           <div
-            className="modal-dialog modal-dialog-sm"
+            className="modal-dialog delete-server-modal"
             role="alertdialog"
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
@@ -465,6 +510,17 @@ export function ServersTable() {
               Delete <strong>{deleteTarget.name}</strong> ({deleteTarget.host})?
               This cannot be undone.
             </p>
+            <label className="delete-server-option">
+              <input
+                type="checkbox"
+                checked={removeManagedServices}
+                onChange={(event) =>
+                  setRemoveManagedServices(event.target.checked)
+                }
+                disabled={deleting}
+              />
+              <span>Remove Kubeara managed services from this server</span>
+            </label>
             <div className="modal-actions">
               <button
                 type="button"
@@ -481,7 +537,7 @@ export function ServersTable() {
                 disabled={deleting}
                 aria-busy={deleting}
               >
-                {deleting ? "Deleting…" : "Delete"}
+                {deleting ? "Starting removal…" : "Delete"}
               </button>
             </div>
           </div>

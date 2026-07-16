@@ -88,9 +88,37 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "ClickHouse",
     version: "25.3",
   },
+  surrealdb: {
+    name: "SurrealDB",
+    version: "latest",
+  },
   n8n: {
     name: "n8n",
     version: "2.10.2",
+  },
+  "n8n-with-postgresql": {
+    name: "n8n with PostgreSQL",
+    version: "2.10.2",
+  },
+  "n8n-with-postgres-and-worker": {
+    name: "n8n with Postgres and Worker",
+    version: "2.10.2",
+  },
+  hatchet: {
+    name: "Hatchet",
+    version: "latest",
+  },
+  prefect: {
+    name: "Prefect",
+    version: "3",
+  },
+  trigger: {
+    name: "Trigger.dev",
+    version: "v3",
+  },
+  "evolution-api": {
+    name: "Evolution API",
+    version: "latest",
   },
   "uptime-kuma": {
     name: "Uptime Kuma",
@@ -100,13 +128,49 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Grafana",
     version: "13.0.2",
   },
+  "grafana-with-postgresql": {
+    name: "Grafana with PostgreSQL",
+    version: "13.0.2",
+  },
   prometheus: {
     name: "Prometheus",
     version: "3.12.0",
   },
+  beszel: {
+    name: "Beszel",
+    version: "latest",
+  },
+  diun: {
+    name: "DIUN",
+    version: "latest",
+  },
+  glances: {
+    name: "Glances",
+    version: "latest",
+  },
+  openobserve: {
+    name: "OpenObserve",
+    version: "latest",
+  },
   gitea: {
     name: "Gitea",
     version: "1.26.2",
+  },
+  forgejo: {
+    name: "Forgejo",
+    version: "12",
+  },
+  "forgejo-with-runner-dind": {
+    name: "Forgejo with Runner (DinD)",
+    version: "12",
+  },
+  "forgejo-with-runner-docker-socket": {
+    name: "Forgejo with Runner (Docker Socket)",
+    version: "12",
+  },
+  onedev: {
+    name: "OneDev",
+    version: "16.0",
   },
   "gitlab-ce": {
     name: "GitLab CE",
@@ -123,6 +187,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
   wordpress: {
     name: "WordPress",
     version: "6.8",
+  },
+  freescout: {
+    name: "FreeScout",
+    version: "latest",
   },
   directus: {
     name: "Directus",
@@ -171,6 +239,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
   "open-webui": {
     name: "Open WebUI",
     version: "main",
+  },
+  "ollama-with-webui": {
+    name: "Ollama with Open WebUI",
+    version: "latest",
   },
   qdrant: {
     name: "Qdrant",
@@ -256,6 +328,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "SigNoz",
     version: "0.128",
   },
+  wakapi: {
+    name: "Wakapi",
+    version: "latest",
+  },
   appwrite: {
     name: "Appwrite",
     version: "1.6",
@@ -266,6 +342,178 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
   },
   langflow: {
     name: "Langflow",
+    version: "latest",
+  },
+  "label-studio": {
+    name: "Label Studio",
+    version: "latest",
+  },
+  librechat: {
+    name: "LibreChat",
+    version: "latest",
+  },
+  "lobe-chat": {
+    name: "LobeChat",
+    version: "latest",
+  },
+  "mage-ai": {
+    name: "Mage AI",
+    version: "latest",
+  },
+  mindsdb: {
+    name: "MindsDB",
+    version: "latest",
+  },
+  bifrost: {
+    name: "Bifrost",
+    version: "latest",
+  },
+  comfyui: {
+    name: "ComfyUI",
+    version: "latest",
+  },
+  "continue-dev": {
+    name: "Continue (Ollama)",
+    version: "latest",
+  },
+  helicone: {
+    name: "Helicone",
+    version: "latest",
+  },
+  "hermes-agent-with-webui": {
+    name: "Hermes Agent (with Web UI)",
+    version: "latest",
+  },
+  "lm-studio": {
+    name: "LM Studio",
+    version: "latest",
+  },
+  metamcp: {
+    name: "MetaMCP",
+    version: "2.4",
+  },
+  openclaw: {
+    name: "OpenClaw",
+    version: "2026.2.6",
+  },
+  "stable-diffusion-webui": {
+    name: "Stable Diffusion WebUI",
+    version: "latest",
+  },
+  tabby: {
+    name: "Tabby",
+    version: "latest",
+  },
+  argilla: {
+    name: "Argilla",
+    version: "2.2",
+  },
+  dify: {
+    name: "Dify",
+    version: "latest",
+  },
+  zep: {
+    name: "Zep",
+    version: "latest",
+  },
+  unstructured: {
+    name: "Unstructured",
+    version: "latest",
+  },
+  semgrep: {
+    name: "Semgrep",
+    version: "latest",
+  },
+  trivy: {
+    name: "Trivy",
+    version: "latest",
+  },
+  checkov: {
+    name: "Checkov",
+    version: "latest",
+  },
+  gitleaks: {
+    name: "Gitleaks",
+    version: "latest",
+  },
+  "neon-ws-proxy": {
+    name: "Neon WS Proxy",
+    version: "latest",
+  },
+  kuzzle: {
+    name: "Kuzzle",
+    version: "2.56",
+  },
+  autobase: {
+    name: "Autobase",
+    version: "2.5",
+  },
+  convex: {
+    name: "Convex",
+    version: "latest",
+  },
+  typesense: {
+    name: "Typesense",
+    version: "28.0",
+  },
+  trailbase: {
+    name: "TrailBase",
+    version: "latest",
+  },
+  supabase: {
+    name: "Supabase",
+    version: "2026.06",
+  },
+  rabbitmq: {
+    name: "RabbitMQ",
+    version: "3",
+  },
+  chroma: {
+    name: "Chroma",
+    version: "1.0",
+  },
+  "deno-kv": {
+    name: "Deno KV",
+    version: "latest",
+  },
+  edgedb: {
+    name: "EdgeDB",
+    version: "6",
+  },
+  electricsql: {
+    name: "ElectricSQL",
+    version: "latest",
+  },
+  elasticsearch: {
+    name: "Elasticsearch",
+    version: "8.19",
+  },
+  "elasticsearch-with-kibana": {
+    name: "Elasticsearch with Kibana",
+    version: "8.19",
+  },
+  meilisearch: {
+    name: "Meilisearch",
+    version: "1.22",
+  },
+  dashy: {
+    name: "Dashy",
+    version: "latest",
+  },
+  heimdall: {
+    name: "Heimdall",
+    version: "latest",
+  },
+  homarr: {
+    name: "Homarr",
+    version: "latest",
+  },
+  homepage: {
+    name: "Homepage",
+    version: "latest",
+  },
+  organizr: {
+    name: "Organizr",
     version: "latest",
   },
 };

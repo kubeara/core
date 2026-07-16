@@ -7,6 +7,7 @@ import { PasswordField } from "@/components/shared/password-field";
 import { useSignupMutation } from "@/features/auth/hooks";
 import { getErrorMessage } from "@/api/api-error";
 import {
+    PASSWORDS_DO_NOT_MATCH_MESSAGE,
     validateEmail,
     validatePassword,
     validateRequired,
@@ -54,7 +55,7 @@ export function RegisterPage() {
         if (confirmPasswordError) {
             nextFieldErrors.confirmPassword = confirmPasswordError;
         } else if (password !== confirmPassword) {
-            nextFieldErrors.confirmPassword = "Passwords do not match.";
+            nextFieldErrors.confirmPassword = PASSWORDS_DO_NOT_MATCH_MESSAGE;
         }
 
         if (Object.keys(nextFieldErrors).length > 0) {
@@ -70,7 +71,10 @@ export function RegisterPage() {
                 password,
             });
 
-            navigate("/login", { replace: true });
+            navigate(
+                `/verify-email?email=${encodeURIComponent(email.trim())}`,
+                { replace: true },
+            );
         } catch (err) {
             setError(getErrorMessage(err));
         }
@@ -87,7 +91,6 @@ export function RegisterPage() {
             }
         >
             <form onSubmit={handleSubmit} className="auth-form" noValidate>
-                <FormErrorsSummary formError={error} />
                 <div className="form-field">
                     <FormFieldLabel htmlFor="name" required>
                         Full name
@@ -172,6 +175,7 @@ export function RegisterPage() {
                     disabled={signupMutation.isPending}
                     error={fieldErrors.confirmPassword}
                 />
+                <FormErrorsSummary formError={error} />
                 <button
                     type="submit"
                     className="btn-primary"

@@ -1,24 +1,169 @@
 import { ContainerStatus } from "@/enums/container-status.enum";
 import type { ServerContainer } from "@/features/deployments/types";
 
+export type ContainerStatusFilter =
+  | ""
+  | "offline"
+  | "running"
+  | "healthy"
+  | "restarting"
+  | "created"
+  | "paused"
+  | "exited"
+  | "degraded";
+
+export const CONTAINER_STATUS_FILTER_OPTIONS: {
+  value: ContainerStatusFilter;
+  label: string;
+}[] = [
+  { value: "", label: "All" },
+  { value: "running", label: "Running" },
+  { value: "healthy", label: "Healthy" },
+  { value: "restarting", label: "Restarting" },
+  { value: "created", label: "Created" },
+  { value: "paused", label: "Paused" },
+  { value: "exited", label: "Exited" },
+  { value: "offline", label: "Offline" },
+  { value: "degraded", label: "Degraded" },
+];
+
+const CONTAINER_STATUS_LABELS: Record<
+  Exclude<ContainerStatusFilter, "">,
+  string
+> = {
+  offline: "Offline",
+  running: "Running",
+  healthy: "Healthy",
+  restarting: "Restarting",
+  created: "Created",
+  paused: "Paused",
+  exited: "Exited",
+  degraded: "Degraded",
+};
+
 export function managedTypeLabel(
   managedType: ServerContainer["managedType"],
 ): string {
   return managedType === "KUBEARA_MANAGED" ? "Kubeara Managed" : "Self Managed";
 }
 
-export function containerStatusClass(container: ServerContainer): string {
+export function getManagedTypeLabel(container: ServerContainer): string {
+  return isKubearaManagedContainer(container)
+    ? "Kubeara Managed"
+    : "Self Managed";
+}
+
+function normalizeContainerStatus(status: string): string {
+  return status.trim().toLowerCase();
+}
+
+export function getContainerStatusCategory(
+  container: ServerContainer,
+): Exclude<ContainerStatusFilter, ""> {
   if (!container.isOnline) {
-    return ContainerStatus.OFFLINE;
+    return "offline";
   }
-  const normalized = container.status.toLowerCase();
+
+  const normalized = normalizeContainerStatus(container.status);
+
+  if (normalized.includes("healthy")) {
+    return "healthy";
+  }
+
+  if (normalized.includes("restarting")) {
+    return "restarting";
+  }
+
+  if (
+    normalized.includes("exited") ||
+    normalized.includes("stopped") ||
+    normalized.includes("dead")
+  ) {
+    return "exited";
+  }
+
+  if (normalized.includes("created")) {
+    return "created";
+  }
+
+  if (normalized.includes("paused")) {
+    return "paused";
+  }
+
   if (normalized.includes("up") || normalized.includes("running")) {
-    return ContainerStatus.RUNNING;
+    return "running";
   }
-  if (normalized.includes("exited") || normalized.includes("stopped")) {
-    return ContainerStatus.STOPPED;
+
+  return "degraded";
+}
+
+export function isContainerRunning(container: ServerContainer): boolean {
+  const category = getContainerStatusCategory(container);
+  return (
+    category === "running" ||
+    category === "healthy" ||
+    category === "restarting"
+  );
+}
+
+export function isContainerExited(container: ServerContainer): boolean {
+  return getContainerStatusCategory(container) === "exited";
+}
+
+export function isContainerHealthy(container: ServerContainer): boolean {
+  return getContainerStatusCategory(container) === "healthy";
+}
+
+export function shouldShowDeployedBadge(container: ServerContainer): boolean {
+  return (
+    isKubearaManagedContainer(container) &&
+    container.isOnline &&
+    isContainerRunning(container) &&
+    !isKubearaAgentContainer(container)
+  );
+}
+
+export function matchesContainerStatusFilter(
+  container: ServerContainer,
+  statusFilter: ContainerStatusFilter,
+): boolean {
+  if (!statusFilter) {
+    return true;
   }
-  return ContainerStatus.DEGRADED;
+
+  return getContainerStatusCategory(container) === statusFilter;
+}
+
+export function containerStatusClass(container: ServerContainer): string {
+  const category = getContainerStatusCategory(container);
+
+  switch (category) {
+    case "offline":
+      return ContainerStatus.OFFLINE;
+    case "exited":
+      return ContainerStatus.STOPPED;
+    case "healthy":
+      return ContainerStatus.HEALTHY;
+    case "running":
+    case "restarting":
+      return ContainerStatus.RUNNING;
+    case "created":
+    case "paused":
+    case "degraded":
+      return ContainerStatus.DEGRADED;
+    default:
+      return ContainerStatus.DEGRADED;
+  }
+}
+
+export function getContainerStatusLabel(container: ServerContainer): string {
+  const category = getContainerStatusCategory(container);
+
+  if (category === "degraded" && container.status.trim()) {
+    return container.status;
+  }
+
+  return CONTAINER_STATUS_LABELS[category];
 }
 
 export function getContainerServiceName(
@@ -26,6 +171,38 @@ export function getContainerServiceName(
 ): string | null {
   const name = container.serviceName?.trim();
   return name || null;
+}
+
+/** Host ports published by Docker (e.g. `0.0.0.0:8080->80/tcp`). */
+export function getContainerHostPorts(ports: string): number[] {
+  if (!ports.trim()) {
+    return [];
+  }
+
+  const hostPorts: number[] = [];
+  for (const match of ports.matchAll(/:(\d+)->/g)) {
+    const port = Number.parseInt(match[1], 10);
+    if (!Number.isNaN(port) && !hostPorts.includes(port)) {
+      hostPorts.push(port);
+    }
+  }
+
+  return hostPorts;
+}
+
+export function getContainerPortsTooltip(
+  serverHost: string,
+  ports: string,
+): string | undefined {
+  const host = serverHost.trim();
+  const hostPorts = getContainerHostPorts(ports);
+
+  if (hostPorts.length > 0 && host) {
+    return hostPorts.map((port) => `${host}:${port}`).join(", ");
+  }
+
+  const trimmed = ports.trim();
+  return trimmed || undefined;
 }
 
 export function getContainerDockerName(container: ServerContainer): string {
@@ -37,24 +214,27 @@ export function getContainerDockerName(container: ServerContainer): string {
   return raw.replace(/^deployment-\d+-[^-]+-/, "");
 }
 
+export function isKubearaAgentContainer(container: ServerContainer): boolean {
+  return getContainerDockerName(container).toLowerCase() === "kubeara-agent";
+}
+
+export function isKubearaManagedContainer(container: ServerContainer): boolean {
+  return (
+    container.managedType === "KUBEARA_MANAGED" ||
+    isKubearaAgentContainer(container)
+  );
+}
+
 export function getContainerDisplayName(container: ServerContainer): string {
+  if (isKubearaAgentContainer(container)) {
+    return "Kubeara Agent";
+  }
+
   return getContainerServiceName(container) ?? getContainerDockerName(container);
 }
 
 export function getContainerCardHeadline(container: ServerContainer): string {
   return getContainerDisplayName(container);
-}
-
-export function getContainerCardSubtitle(
-  container: ServerContainer,
-): string | null {
-  if (container.managedType === "KUBEARA_MANAGED" && container.templateId) {
-    return container.templateId;
-  }
-
-  const dockerName = getContainerDockerName(container);
-  const headline = getContainerCardHeadline(container);
-  return dockerName !== headline ? dockerName : null;
 }
 
 export function getConnectedTemplateIds(

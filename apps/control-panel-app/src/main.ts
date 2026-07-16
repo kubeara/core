@@ -6,11 +6,15 @@ import cookieParser from "cookie-parser";
 import { NestFactory } from "@nestjs/core";
 import { ConfigService } from "@nestjs/config";
 import { ValidationPipe } from "@nestjs/common";
+import express from "express";
 
 import { AppModule } from "./app.module";
+import { CronService } from "./cron/cron.service";
 import { buildCorsOptions } from "./common/config/cors.util";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { ResponseInterceptor } from "./common/interceptors/response.interceptor";
+import { LokiLoggerService } from "./modules/loki-logger";
+import { MCP_OAUTH_GLOBAL_PREFIX_EXCLUDES } from "./modules/mcp-oauth/constants/mcp-oauth-routes.constants";
 
 const APP_NAME = "control-panel-app";
 
@@ -143,13 +147,23 @@ function initializeEnvironment(): void {
 async function bootstrap(): Promise<void> {
   initializeEnvironment();
 
-  const app = await NestFactory.create(AppModule, { rawBody: true });
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+    rawBody: true,
+  });
+
+  const lokiLogger = app.get(LokiLoggerService);
+  app.useLogger(lokiLogger);
 
   const configService = app.get(ConfigService);
 
   const port = Number(configService.get<string>("PORT"));
 
-  app.setGlobalPrefix("api");
+  app.setGlobalPrefix("api", {
+    exclude: [...MCP_OAUTH_GLOBAL_PREFIX_EXCLUDES],
+  });
+
+  app.use("/oauth/token", express.urlencoded({ extended: true }));
 
   app.use(cookieParser());
 
@@ -167,9 +181,13 @@ async function bootstrap(): Promise<void> {
 
   app.useGlobalInterceptors(new ResponseInterceptor());
 
+  await app.init();
+
+  app.get(CronService).skipCrons();
+
   await app.listen(port);
 
-  console.log(`[${APP_NAME}] Server running on port ${port}`);
+  lokiLogger.log(`Server running on port ${port}`, APP_NAME);
 }
 
 void bootstrap();

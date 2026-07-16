@@ -1,12 +1,9 @@
 import { BackLink } from "@/components/shared/back-link";
 import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { TerminalWordWrapToggle } from "@/components/shared/terminal-word-wrap-toggle";
+import { TooltipHint } from "@/components/ui/tooltip";
+import { useTerminalWordWrap } from "@/components/shared/use-terminal-word-wrap";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DeploymentTerminalViewer } from "@/components/deployment-terminal-viewer";
 import "@/components/shared/kubeara-terminal-shell.css";
 import {
@@ -20,7 +17,8 @@ import {
   hasContainerDeploymentLogs,
   type DeploymentLogView,
 } from "@/features/deployments/utils/deployment-log-filters";
-import type { DeploymentStatus } from "@/constants/deployment-events";
+import { mapDeploymentFailureMessage } from "@/features/deployments/constants/deployment-failure-messages";
+import { DeploymentStatus } from "@/constants/deployment-events";
 import type { Template } from "@/types";
 import "./deployment-logs.css";
 
@@ -59,6 +57,7 @@ type DeploymentLogsProps = {
   backHref: string;
   isStarting?: boolean;
   startError?: string | null;
+  onDeploymentFailed?: (message: string) => void;
 };
 
 function DeploymentLogsIntro({
@@ -70,8 +69,10 @@ function DeploymentLogsIntro({
   containerLogsAvailable,
   isFullscreen,
   isSocketConnected,
+  wordWrap,
   onLogViewChange,
   onToggleFullscreen,
+  onToggleWordWrap,
 }: {
   title: string;
   lineCount: number;
@@ -81,8 +82,10 @@ function DeploymentLogsIntro({
   containerLogsAvailable: boolean;
   isFullscreen: boolean;
   isSocketConnected: boolean;
+  wordWrap: boolean;
   onLogViewChange: (view: DeploymentLogView) => void;
   onToggleFullscreen: () => void;
+  onToggleWordWrap: () => void;
 }) {
   return (
     <div className="server-terminal-intro">
@@ -109,26 +112,31 @@ function DeploymentLogsIntro({
                 </span>
               ) : null}
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={logView === "container"}
-              className={`server-terminal-source-btn${logView === "container" ? " active" : ""}`}
-              disabled={!containerLogsAvailable}
-              title={
+            <TooltipHint
+              content={
                 containerLogsAvailable
                   ? "Container output"
                   : "Available after the service starts"
               }
-              onClick={() => onLogViewChange("container")}
             >
-              Container
-              {containerLineCount > 0 ? (
-                <span className="server-terminal-source-count">
-                  {containerLineCount}
-                </span>
-              ) : null}
-            </button>
+              <span className="tooltip-trigger-wrap">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={logView === "container"}
+                  className={`server-terminal-source-btn${logView === "container" ? " active" : ""}`}
+                  disabled={!containerLogsAvailable}
+                  onClick={() => onLogViewChange("container")}
+                >
+                  Container
+                  {containerLineCount > 0 ? (
+                    <span className="server-terminal-source-count">
+                      {containerLineCount}
+                    </span>
+                  ) : null}
+                </button>
+              </span>
+            </TooltipHint>
           </div>
         </div>
       </div>
@@ -150,6 +158,10 @@ function DeploymentLogsIntro({
         >
           {isFullscreen ? <IconRestore /> : <IconMaximize />}
         </button>
+        <TerminalWordWrapToggle
+          wordWrap={wordWrap}
+          onToggle={onToggleWordWrap}
+        />
       </div>
     </div>
   );
@@ -162,23 +174,69 @@ export function DeploymentLogs({
   backHref,
   isStarting = false,
   startError = null,
+  onDeploymentFailed,
 }: DeploymentLogsProps) {
   const terminalRef = useRef<HTMLElement>(null);
+  const failureHandledRef = useRef(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [logView, setLogView] = useState<DeploymentLogView>("installation");
+  const { wordWrap, toggleWordWrap } = useTerminalWordWrap();
 
   const deploymentQuery = useDeploymentQuery(deploymentId);
-  const { logs, status, deploymentStatus, hasReceivedStatus, isSocketConnected } =
-    useDeploymentLogStream({
-      deploymentId,
-      serverId,
-      enabled: Boolean(serverId && deploymentId),
-    });
+  const {
+    logs,
+    status,
+    deploymentStatus,
+    deploymentStatusMessage,
+    deploymentError,
+    hasReceivedStatus,
+    isSocketConnected,
+  } = useDeploymentLogStream({
+    deploymentId,
+    serverId,
+    enabled: Boolean(serverId && deploymentId),
+  });
 
   const liveDeploymentStatus =
     hasReceivedStatus && deploymentStatus
       ? deploymentStatus
       : (deploymentQuery.data?.deploymentStatus ?? deploymentStatus ?? null);
+
+  const liveDeploymentError =
+    deploymentError ?? deploymentQuery.data?.lastError ?? null;
+
+  const liveDeploymentStatusMessage =
+    deploymentStatusMessage ?? deploymentQuery.data?.statusMessage ?? null;
+
+  useEffect(() => {
+    failureHandledRef.current = false;
+  }, [deploymentId]);
+
+  useEffect(() => {
+    if (!onDeploymentFailed || failureHandledRef.current) {
+      return;
+    }
+
+    if (liveDeploymentStatus !== DeploymentStatus.FAILED) {
+      return;
+    }
+
+    const logText = logs.map((line) => line.message).join("\n");
+    const message = mapDeploymentFailureMessage(
+      liveDeploymentError,
+      liveDeploymentStatusMessage,
+      logText,
+    );
+
+    failureHandledRef.current = true;
+    onDeploymentFailed(message);
+  }, [
+    liveDeploymentError,
+    liveDeploymentStatus,
+    liveDeploymentStatusMessage,
+    logs,
+    onDeploymentFailed,
+  ]);
 
   const containerLogsAvailable = useMemo(() => {
     if (hasContainerDeploymentLogs(logs)) {
@@ -186,11 +244,11 @@ export function DeploymentLogs({
     }
     const deployStatus = liveDeploymentStatus;
     return (
-      deployStatus === "deploying" ||
-      deployStatus === "running" ||
-      deployStatus === "success" ||
-      deployStatus === "pulling" ||
-      deployStatus === "building"
+      deployStatus === DeploymentStatus.DEPLOYING ||
+      deployStatus === DeploymentStatus.RUNNING ||
+      deployStatus === DeploymentStatus.SUCCESS ||
+      deployStatus === DeploymentStatus.PULLING ||
+      deployStatus === DeploymentStatus.BUILDING
     );
   }, [liveDeploymentStatus, logs]);
 
@@ -263,8 +321,6 @@ export function DeploymentLogs({
     return () => window.clearTimeout(timer);
   }, [isFullscreen, logView]);
 
-  const resolvedStatus = liveDeploymentStatus;
-
   return (
     <div className={`deploy-logs-page ${isFullscreen ? "is-fullscreen" : ""}`}>
       <BackLink to={backHref} label="Back" />
@@ -282,38 +338,27 @@ export function DeploymentLogs({
             }}
           />
           <div className="deploy-service-content">
-            <div className="deploy-service-headline">
-              <h1>{template.name}</h1>
-              <span className={`deploy-status-badge ${status}`}>
-                {statusLabel(status, isStarting, liveDeploymentStatus)}
-              </span>
+            <div className="deploy-service-card-top">
+              <div className="deploy-service-details">
+                <div className="deploy-service-headline">
+                  <h1>{template.name}</h1>
+                  <span className={`deploy-status-badge ${status}`}>
+                    {statusLabel(status, isStarting, liveDeploymentStatus)}
+                  </span>
+                </div>
+                {template.category ? (
+                  <p className="deploy-service-category">{template.category}</p>
+                ) : null}
+                {template.description ? (
+                  <p className="deploy-service-description">
+                    {template.description}
+                  </p>
+                ) : null}
+              </div>
+              <p className="deploy-service-deployment-id">
+                <code>{deploymentId ?? "Pending…"}</code>
+              </p>
             </div>
-            <p className="deploy-service-category">{template.category}</p>
-            <p className="deploy-service-description">{template.description}</p>
-            <dl className="deploy-service-meta-grid">
-              <div className="deploy-service-meta-item">
-                <dt>Template</dt>
-                <dd>{template.name}</dd>
-              </div>
-              <div className="deploy-service-meta-item">
-                <dt>Deployment ID</dt>
-                <dd>
-                  <code>{deploymentId ?? "Pending…"}</code>
-                </dd>
-              </div>
-              <div className="deploy-service-meta-item">
-                <dt>Status</dt>
-                <dd>
-                  {startError ??
-                    (hasReceivedStatus
-                      ? formatDeploymentStatus(liveDeploymentStatus)
-                      : null) ??
-                    deploymentQuery.data?.statusMessage ??
-                    resolvedStatus ??
-                    deploymentStateLabel(status, isStarting, liveDeploymentStatus)}
-                </dd>
-              </div>
-            </dl>
           </div>
         </div>
       </article>
@@ -333,13 +378,18 @@ export function DeploymentLogs({
             containerLogsAvailable={containerLogsAvailable}
             isFullscreen={isFullscreen}
             isSocketConnected={isSocketConnected}
+            wordWrap={wordWrap}
             onLogViewChange={setLogView}
             onToggleFullscreen={() => void toggleFullscreen()}
+            onToggleWordWrap={toggleWordWrap}
           />
 
           <div className="server-terminal-window">
             {isStreaming && filteredLineCount === 0 && (
-              <div className="server-terminal-connecting-overlay" aria-live="polite">
+              <div
+                className="server-terminal-connecting-overlay"
+                aria-live="polite"
+              >
                 <span
                   className="server-terminal-connecting-spinner"
                   aria-hidden
@@ -353,6 +403,7 @@ export function DeploymentLogs({
               isActive
               emptyMessage={emptyMessage}
               isLive={isStreaming}
+              wordWrap={wordWrap}
             />
           </div>
         </div>
@@ -366,20 +417,20 @@ function statusLabel(
   isStarting: boolean,
   deploymentStatus: DeploymentStatus | null,
 ): string {
-  if (deploymentStatus === "success") {
+  if (deploymentStatus === DeploymentStatus.SUCCESS) {
     return "Complete";
   }
   if (
-    deploymentStatus === "failed" ||
-    deploymentStatus === "cancelled" ||
-    deploymentStatus === "removed"
+    deploymentStatus === DeploymentStatus.FAILED ||
+    deploymentStatus === DeploymentStatus.CANCELLED ||
+    deploymentStatus === DeploymentStatus.REMOVED
   ) {
     return "Error";
   }
-  if (deploymentStatus === "running") {
+  if (deploymentStatus === DeploymentStatus.RUNNING) {
     return "Live";
   }
-  if (deploymentStatus === "deploying") {
+  if (deploymentStatus === DeploymentStatus.DEPLOYING) {
     return "Deploying";
   }
 
@@ -396,61 +447,5 @@ function statusLabel(
       return "Complete";
     case "error":
       return "Error";
-  }
-}
-
-function formatDeploymentStatus(status: DeploymentStatus | null): string | null {
-  if (!status) return null;
-  switch (status) {
-    case "pending":
-      return "Queued";
-    case "validating":
-      return "Validating";
-    case "pulling":
-      return "Pulling images";
-    case "building":
-      return "Building";
-    case "deploying":
-      return "Deploying";
-    case "running":
-      return "Running";
-    case "success":
-      return "Deployed successfully";
-    case "failed":
-      return "Failed";
-    case "cancelled":
-      return "Cancelled";
-    case "removing":
-      return "Removing";
-    case "removed":
-      return "Removed";
-    default:
-      return status;
-  }
-}
-
-function deploymentStateLabel(
-  status: StreamStatus,
-  isStarting: boolean,
-  deploymentStatus: DeploymentStatus | null,
-): string {
-  const fromStatus = formatDeploymentStatus(deploymentStatus);
-  if (fromStatus) {
-    return fromStatus;
-  }
-
-  if (isStarting) {
-    return "Preparing deployment…";
-  }
-
-  switch (status) {
-    case "connecting":
-      return "Connecting to log stream…";
-    case "streaming":
-      return "Streaming logs";
-    case "complete":
-      return "Deployed successfully";
-    case "error":
-      return "Failed / interrupted";
   }
 }

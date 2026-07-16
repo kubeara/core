@@ -1,0 +1,57 @@
+# documentation: https://aquasecurity.github.io/trivy/latest/docs/references/configuration/cli/trivy_server/
+# shortDescription: Vulnerability scanner server with cached CVE database
+# longDescription: <p>Trivy Server runs in <strong>client-server mode</strong> so scanners share a local vulnerability database cache.</p><p>Clients scan with <code>trivy image --server http://host:4954 &lt;image&gt;</code>. Health is exposed at <code>/healthz</code>.</p>
+# category: security,devops
+# tags: trivy,security,vulnerability,scanner,container,cve,sbom
+# port: 4954
+
+services:
+  trivy:
+    image: ${TRIVY_IMAGE:-aquasec/trivy:latest}
+    restart: ${TRIVY_RESTART_POLICY:-unless-stopped}
+
+    command:
+      - server
+      - --listen
+      - 0.0.0.0:4954
+      - --cache-dir
+      - /root/.cache/trivy
+
+    ports:
+      - '${SERVICE_PORT_TRIVY:-4954}:4954'
+
+    environment:
+      - SERVICE_URL_TRIVY_4954
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - trivy_cache:/root/.cache/trivy
+
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'wget -qO- http://127.0.0.1:4954/healthz | grep -q ok',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  trivy_cache:

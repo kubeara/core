@@ -1,11 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import {
+  fitAndSyncTerminal,
+  updateMaxContentCols,
+} from "@/components/shared/fit-terminal-for-content";
+import {
   KUBEARA_TERMINAL_FONT,
   KUBEARA_TERMINAL_THEME,
 } from "@/components/shared/kubeara-terminal-theme";
+import { TerminalScrollDownButton } from "@/components/shared/terminal-scroll-down-button";
+import { useTerminalScrollDown } from "@/components/shared/use-terminal-scroll-down";
+import { useTerminalWheelTrap } from "@/components/shared/use-terminal-wheel-trap";
+import "@/components/shared/terminal-scroll-down-button.css";
 import type { DeploymentLogLine } from "@/features/deployments/types";
 import { formatDeploymentLogAnsi } from "@/features/deployments/utils/format-deployment-log-ansi";
 
@@ -16,6 +24,7 @@ type DeploymentTerminalViewerProps = {
   isActive: boolean;
   emptyMessage?: string;
   isLive?: boolean;
+  wordWrap?: boolean;
 };
 
 export function DeploymentTerminalViewer({
@@ -23,13 +32,20 @@ export function DeploymentTerminalViewer({
   isActive,
   emptyMessage = "Waiting for logs…",
   isLive = false,
+  wordWrap = true,
 }: DeploymentTerminalViewerProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const hscrollRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const writtenCountRef = useRef(0);
+  const contentColsRef = useRef(0);
   const stickToBottomRef = useRef(true);
+  const wordWrapRef = useRef(wordWrap);
   const [isEmpty, setIsEmpty] = useState(true);
+
+  wordWrapRef.current = wordWrap;
 
   useEffect(() => {
     const host = hostRef.current;
@@ -40,7 +56,6 @@ export function DeploymentTerminalViewer({
       fontFamily: KUBEARA_TERMINAL_FONT,
       fontSize: 14,
       lineHeight: 1.4,
-      letterSpacing: 0.2,
       cursorBlink: false,
       disableStdin: true,
       scrollback: 10000,
@@ -56,9 +71,15 @@ export function DeploymentTerminalViewer({
     fitRef.current = fitAddon;
 
     const fitTerminal = () => {
-      if (!hostRef.current || !fitRef.current) return;
+      if (!hostRef.current || !fitRef.current || !termRef.current) return;
       try {
-        fitRef.current.fit();
+        fitAndSyncTerminal(
+          hostRef.current,
+          termRef.current,
+          fitRef.current,
+          contentColsRef.current,
+          wordWrapRef.current,
+        );
       } catch {
         // ignore fit errors during hidden layout
       }
@@ -66,10 +87,15 @@ export function DeploymentTerminalViewer({
 
     fitTerminal();
 
+    const resizeTarget = hscrollRef.current ?? host;
+    let resizeDebounceTimer = 0;
     const observer = new ResizeObserver(() => {
-      fitTerminal();
+      clearTimeout(resizeDebounceTimer);
+      resizeDebounceTimer = window.setTimeout(() => {
+        fitTerminal();
+      }, wordWrapRef.current ? 150 : 50);
     });
-    observer.observe(host);
+    observer.observe(resizeTarget);
 
     const viewport = host.querySelector(".xterm-viewport");
     const handleScroll = () => {
@@ -82,12 +108,14 @@ export function DeploymentTerminalViewer({
     viewport?.addEventListener("scroll", handleScroll, { passive: true });
 
     return () => {
+      clearTimeout(resizeDebounceTimer);
       viewport?.removeEventListener("scroll", handleScroll);
       observer.disconnect();
       term.dispose();
       termRef.current = null;
       fitRef.current = null;
       writtenCountRef.current = 0;
+      contentColsRef.current = 0;
       stickToBottomRef.current = true;
     };
   }, []);
@@ -96,8 +124,15 @@ export function DeploymentTerminalViewer({
     if (!isActive) return;
 
     const fit = () => {
+      if (!hostRef.current || !fitRef.current || !termRef.current) return;
       try {
-        fitRef.current?.fit();
+        fitAndSyncTerminal(
+          hostRef.current,
+          termRef.current,
+          fitRef.current,
+          contentColsRef.current,
+          wordWrapRef.current,
+        );
       } catch {
         // ignore
       }
@@ -105,7 +140,7 @@ export function DeploymentTerminalViewer({
 
     const timer = window.setTimeout(fit, 0);
     return () => window.clearTimeout(timer);
-  }, [isActive, lines.length]);
+  }, [isActive, wordWrap]);
 
   useEffect(() => {
     const term = termRef.current;
@@ -118,6 +153,10 @@ export function DeploymentTerminalViewer({
       const messages = line.message.split(/\r?\n/);
       for (const msg of messages) {
         if (msg === "") continue;
+        contentColsRef.current = updateMaxContentCols(
+          contentColsRef.current,
+          msg,
+        );
         const colored = formatDeploymentLogAnsi(msg, line.stream);
         term.writeln(colored);
       }
@@ -125,6 +164,23 @@ export function DeploymentTerminalViewer({
 
     writtenCountRef.current = lines.length;
     setIsEmpty(lines.length === 0);
+
+    if (!wordWrapRef.current) {
+      requestAnimationFrame(() => {
+        if (!hostRef.current || !fitRef.current) return;
+        try {
+          fitAndSyncTerminal(
+            hostRef.current,
+            term,
+            fitRef.current,
+            contentColsRef.current,
+            wordWrapRef.current,
+          );
+        } catch {
+          // ignore
+        }
+      });
+    }
 
     const shouldAutoScroll = stickToBottomRef.current || isLive;
     if (shouldAutoScroll) {
@@ -134,6 +190,16 @@ export function DeploymentTerminalViewer({
       });
     }
   }, [isLive, lines]);
+
+  const scrollToBottom = useCallback(() => {
+    stickToBottomRef.current = true;
+    termRef.current?.scrollToBottom();
+  }, []);
+
+  const { visible: showScrollDown, handleClick: handleScrollDown } =
+    useTerminalScrollDown(hostRef, scrollToBottom);
+
+  useTerminalWheelTrap(frameRef, wordWrap);
 
   return (
     <div
@@ -145,7 +211,20 @@ export function DeploymentTerminalViewer({
           <span>{emptyMessage}</span>
         </div>
       )}
-      <div ref={hostRef} className="server-terminal-xterm-host" />
+      <div
+        ref={frameRef}
+        className={`terminal-viewer-frame${wordWrap ? " is-word-wrap" : ""}`}
+      >
+        <div ref={hscrollRef} className="terminal-xterm-hscroll">
+          <div ref={hostRef} className="server-terminal-xterm-host" />
+        </div>
+        <TerminalScrollDownButton
+          visible={showScrollDown && !isEmpty}
+          onClick={handleScrollDown}
+          hostRef={hostRef}
+          tooltip="Go to latest output"
+        />
+      </div>
     </div>
   );
 }
