@@ -541,14 +541,12 @@ export class AuthService {
         );
 
       if (!authSession) {
-        await this.revokeAllUserSessions(userId);
         throw new UnauthorizedException(
           ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
         );
       }
 
       if (authSession.status !== EntityStatus.ACTIVE) {
-        await this.revokeAllUserSessions(userId);
         throw new UnauthorizedException(
           ERROR_MESSAGES.AUTH.INVALID_REFRESH_TOKEN,
         );
