@@ -64,32 +64,34 @@ export class TerminalService {
       const cols = body.cols ?? DEFAULT_TERMINAL_COLS;
       const rows = body.rows ?? DEFAULT_TERMINAL_ROWS;
 
-      const agentSessionId = await this.tryAgentTerminalConnect(
-        serverId,
-        userId,
-        cols,
-        rows,
-      );
+      // connect terminal via agent
+      // const agentSessionId = await this.tryAgentTerminalConnect(
+      //   serverId,
+      //   userId,
+      //   cols,
+      //   rows,
+      // );
 
-      if (agentSessionId) {
-        await this.activityService.recordActivity({
-          userId,
-          serverId,
-          type: ActivityType.TERMINAL_OPENED,
-          title: "Terminal connected",
-          message: "Terminal session started",
-          operationStatus: DeploymentStatus.SUCCESS,
-        });
-        return {
-          message: SUCCESS_MESSAGES.TERMINAL.CONNECTED,
-          data: {
-            sessionId: agentSessionId,
-            serverId,
-            transport: TerminalTransport.AGENT,
-          },
-        };
-      }
+      // if (agentSessionId) {
+      //   await this.activityService.recordActivity({
+      //     userId,
+      //     serverId,
+      //     type: ActivityType.TERMINAL_OPENED,
+      //     title: "Terminal connected",
+      //     message: "Terminal session started",
+      //     operationStatus: DeploymentStatus.SUCCESS,
+      //   });
+      //   return {
+      //     message: SUCCESS_MESSAGES.TERMINAL.CONNECTED,
+      //     data: {
+      //       sessionId: agentSessionId,
+      //       serverId,
+      //       transport: TerminalTransport.AGENT,
+      //     },
+      //   };
+      // }
 
+      // connect terminal via ssh
       try {
         const sessionId = await this.sshTerminalService.createSession(
           serverId,
