@@ -10,6 +10,7 @@ import { PlanEntity } from "../src/modules/subscriptions/entities/plan.entity";
 import { PlanSlug } from "../src/modules/subscriptions/enums/plan-slug.enum";
 import { EntityStatus } from "../src/common/entity/base.entity";
 import { PLAN_DEFINITIONS } from "./plan-definitions.defaults";
+import { isProductionEnv } from "../src/constants/env.constant";
 
 const ROOT_DIR = process.cwd();
 const APP_ENV_PATH = path.join(ROOT_DIR, "apps/control-panel-app/.env");
@@ -25,6 +26,7 @@ const LEGACY_SLUGS = ["starter", "pro", "max", "business"] as const;
 
 export async function seedPlans(): Promise<void> {
   const configService = loadEnv();
+  const isProduction = isProductionEnv(configService.get<string>("NODE_ENV"));
   const ds = new DataSource({
     type: "postgres",
     host: configService.get<string>("DB_HOST"),
@@ -34,6 +36,7 @@ export async function seedPlans(): Promise<void> {
     database: configService.get<string>("DB_DATABASE"),
     entities: [PlanEntity],
     synchronize: false,
+    ...(isProduction ? { ssl: { rejectUnauthorized: false } } : {}),
   });
 
   if (!ds.isInitialized) {
