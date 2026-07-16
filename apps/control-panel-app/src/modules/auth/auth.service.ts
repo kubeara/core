@@ -41,6 +41,7 @@ import { SALT_ROUNDS } from "@control-panel/constants/env.constant";
 import { isJwtToken } from "./utils/cookie-extractor.util";
 import { hashToken } from "./utils/token-hash.util";
 import { AuthSessionLookupService } from "./services/auth-session-lookup.service";
+import { SubscriptionService } from "../subscriptions/services/subscription.service";
 import { EmailService } from "../email/email.service";
 
 export interface AuthTokens {
@@ -66,6 +67,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly authSessionLookupService: AuthSessionLookupService,
+    private readonly subscriptionService: SubscriptionService,
     private readonly emailService: EmailService,
   ) {}
 
@@ -419,6 +421,12 @@ export class AuthService {
       await this.sendOtpEmail(savedUser, CODE_TYPE.EMAIL_VERIFICATION, otp);
 
       await queryRunner.commitTransaction();
+
+      await this.subscriptionService.createFreeSubscription({
+        organizationId: savedOrganization.id,
+        email: savedUser.email,
+        name: savedUser.name,
+      });
 
       return {
         message: SUCCESS_MESSAGES.AUTH.SIGNUP,

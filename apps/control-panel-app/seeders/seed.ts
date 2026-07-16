@@ -1,6 +1,8 @@
 import dataSource from "../config/typeorm.config";
 
 import { seedTemplates } from "./templates.seed";
+import { seedBillingCycles } from "./billing-cycles.seed";
+import { seedPlans } from "./plans.seed";
 
 async function run() {
   const ds = dataSource;
@@ -19,6 +21,8 @@ async function run() {
     console.log("Starting database seeding...");
 
     await seedTemplates();
+    await seedBillingCycles();
+    await seedPlans();
 
     await queryRunner.commitTransaction();
 

@@ -1,0 +1,557 @@
+.plans-billing-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.25rem;
+  width: fit-content;
+  max-width: 100%;
+  margin: 1.5rem auto 0;
+  padding: 0.25rem;
+  background: color-mix(in srgb, var(--foreground) 4%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.plans-billing-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.plans-billing-option.is-active {
+  color: var(--primary);
+  background: var(--surface);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.plans-billing-badge {
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #fff;
+  background: #7c3aed;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.plan-card-price-original {
+  margin-left: 0.375rem;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 220px));
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 0.75rem;
+}
+
+.plan-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem 1.25rem 1.5rem;
+  background: color-mix(in srgb, var(--foreground) 3%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.plan-card.is-current {
+  border-color: var(--primary);
+}
+
+.plan-card.is-popular {
+  border-color: var(--primary);
+}
+
+.plan-card-popular-badge {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--primary);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.plan-card-header {
+  margin-bottom: 1rem;
+}
+
+.plan-card-header h3 {
+  margin: 0 0 0.375rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.plan-card-desc {
+  margin: 0 0 1rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.plan-card-price {
+  margin: 0 0 0.75rem;
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--primary);
+}
+
+.plan-card-price-contact {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.plan-card-price span {
+  font-size: 0.9375rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.plan-card-chip {
+  display: inline-flex;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--foreground) 6%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.plan-card-features {
+  flex: 1;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+.plan-feature-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.625rem;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.plan-feature-includes .plan-feature-label {
+  color: var(--foreground);
+}
+
+.plan-feature-check {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  position: relative;
+}
+
+.plan-feature-check::after {
+  content: "";
+  position: absolute;
+  left: 0.32rem;
+  top: 0.2rem;
+  width: 0.22rem;
+  height: 0.42rem;
+  border: solid var(--primary);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.plan-feature-label {
+  flex: 1;
+  color: var(--muted);
+}
+
+.plan-feature-value {
+  font-weight: 500;
+  color: var(--foreground);
+  text-align: right;
+}
+
+.plan-feature-value.is-accent {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.plan-card-badge {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border-radius: 999px;
+}
+
+.plan-card-actions {
+  margin-top: auto;
+}
+
+.plan-card-cta {
+  width: 100%;
+  padding: 0.6875rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+
+.plan-card-cta:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.plan-card-cta:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--foreground) 5%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--foreground) 30%, var(--border));
+  box-shadow: none;
+  transform: none;
+}
+
+.plan-card-cta-outline:disabled {
+  background: color-mix(in srgb, var(--foreground) 6%, var(--surface));
+  color: color-mix(in srgb, var(--foreground) 55%, var(--muted));
+  border-color: color-mix(in srgb, var(--foreground) 38%, var(--border));
+}
+
+.plan-card-cta-upgrade:disabled,
+.plan-card-cta-upgrade-outline:disabled {
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  color: color-mix(in srgb, var(--primary) 50%, var(--muted));
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+}
+
+.plan-card-cta-downgrade:disabled {
+  background: color-mix(in srgb, var(--foreground) 5%, var(--surface-elevated));
+  color: color-mix(in srgb, var(--foreground) 50%, var(--muted));
+  border-color: color-mix(in srgb, var(--foreground) 38%, var(--border));
+}
+
+.plan-card.is-current .plan-card-cta:disabled {
+  opacity: 0.7;
+}
+
+.plan-card-cta-outline {
+  background: transparent;
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+
+.plan-card-cta-outline:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--foreground) 5%, var(--surface));
+}
+
+.plan-card-cta-upgrade {
+  background: var(--primary);
+  color: #fff;
+  border: 1px solid var(--primary);
+}
+
+.plan-card-cta-upgrade:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.plan-card-cta-upgrade-outline {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+.plan-card-cta-upgrade-outline:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.plan-card-cta-downgrade {
+  background: var(--surface-elevated);
+  color: var(--foreground);
+  border: 1px solid color-mix(in srgb, var(--foreground) 24%, var(--border));
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.plan-card-cta-downgrade:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--foreground) 7%, var(--surface-elevated));
+  color: var(--foreground);
+  border-color: color-mix(in srgb, var(--foreground) 45%, var(--border));
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--foreground) 12%, transparent);
+}
+
+.plan-card-cta-downgrade:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.subscription-notice {
+  color: var(--muted-foreground, #6b7280);
+  line-height: 1.5;
+}
+
+.subscription-tabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.subscription-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 0;
+  padding: 0.25rem;
+  background: color-mix(in srgb, var(--foreground) 4%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.subscription-tabs-actions {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.subscription-tab {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.subscription-tab:hover {
+  color: var(--foreground);
+}
+
+.subscription-tab.is-active {
+  background: var(--surface);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.subscription-details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.subscription-section-divider {
+  margin: 1.5rem 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+
+.subscription-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.subscription-detail-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.subscription-detail-value {
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.subscription-promo-badge {
+  color: var(--success, #16a34a);
+  font-weight: 500;
+}
+
+.subscription-promo-discount {
+  color: var(--success, #16a34a);
+}
+
+.subscription-section-header {
+  margin-bottom: 0.25rem;
+}
+
+.subscription-block {
+  display: block;
+}
+
+.subscription-block .subscription-details-grid {
+  margin-top: 1rem;
+}
+
+@media (max-width: 640px) {
+  .subscription-tabs-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .subscription-tabs-actions {
+    margin-left: 0;
+  }
+
+  .subscription-tabs-actions .btn-secondary {
+    width: 100%;
+  }
+}
+
+.subscription-section-header h2 {
+  margin: 0 0 0.25rem;
+}
+
+.subscription-section-header .profile-section-desc {
+  margin: 0;
+}
+
+.subscription-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.subscription-page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.subscription-confirm-modal .modal-header {
+  padding: 1.25rem 1.5rem 0.5rem;
+}
+
+.subscription-confirm-modal .modal-body-text {
+  padding: 0.75rem 1.5rem 0;
+  line-height: 1.6;
+}
+
+.subscription-cancel-reason {
+  width: calc(100% - 3rem);
+  margin: 0.875rem 1.5rem 0;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--foreground) 12%);
+  color: var(--foreground);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  resize: vertical;
+  min-height: 84px;
+  box-sizing: border-box;
+}
+
+.subscription-cancel-reason::placeholder {
+  color: var(--muted);
+}
+
+.subscription-cancel-reason:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.subscription-cancel-reason:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
+.subscription-confirm-modal .modal-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.875rem;
+  padding: 1.25rem 1.5rem 1.5rem;
+  justify-content: stretch;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.subscription-confirm-modal .modal-actions-single {
+  display: flex;
+  justify-content: center;
+}
+
+.subscription-confirm-modal .modal-actions-single .btn-danger-outline {
+  flex: 0 0 calc((100% - 0.875rem) / 2);
+  width: calc((100% - 0.875rem) / 2);
+}
+
+.subscription-confirm-modal .modal-actions .btn-secondary,
+.subscription-confirm-modal .modal-actions .btn-danger-outline {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.375rem;
+  box-sizing: border-box;
+  white-space: nowrap;
+  padding: 0.5rem 0.75rem;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.btn-secondary:hover {
+  background: var(--muted-bg, color-mix(in srgb, var(--border) 30%, transparent));
+}
+
+.btn-danger-outline {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+}
+
+.btn-danger-outline:hover {
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}

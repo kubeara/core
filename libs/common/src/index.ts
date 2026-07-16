@@ -1,4 +1,4 @@
-export * from "./common";
+export type * from "./common";
 export * from "./encryption/encryption.module";
 export * from "./encryption/encryption.service";
 export * from "./encryption/interfaces";

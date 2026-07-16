@@ -39,7 +39,11 @@ export class McpApiKeysController {
     @Body() body: CreateMcpApiKeyDto,
   ): Promise<ServiceResponse<CreateMcpApiKeyResult>> {
     try {
-      return await this.mcpApiKeysService.createKey(req.user.id, body);
+      return await this.mcpApiKeysService.createKey(
+        req.user.id,
+        req.user.organizationId,
+        body,
+      );
     } catch (error) {
       this.logger.error(`Create MCP API key failed: ${toErrorMessage(error)}`);
       throw error;
