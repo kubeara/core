@@ -16,6 +16,7 @@ import { ERROR_MESSAGES } from "@control-panel/constants/error";
 import { SUCCESS_MESSAGES } from "@control-panel/constants/success";
 import { hashToken } from "@control-panel/modules/auth/utils/token-hash.util";
 import { McpAuthUser } from "@control-panel/modules/mcp-server/interfaces/mcp-auth-user.interface";
+import { SubscriptionService } from "@control-panel/modules/subscriptions/services/subscription.service";
 
 import { MCP_API_KEY_SECRET_BYTES } from "../constants/mcp-api-key.constants";
 import { CreateMcpApiKeyDto } from "../dto";
@@ -28,6 +29,7 @@ export class McpApiKeysService {
   constructor(
     @InjectRepository(McpApiKeyEntity)
     private readonly mcpApiKeyRepository: Repository<McpApiKeyEntity>,
+    private readonly subscriptionService: SubscriptionService,
   ) {}
 
   /**
@@ -38,9 +40,12 @@ export class McpApiKeysService {
    */
   async createKey(
     userId: string,
+    organizationId: string,
     dto: CreateMcpApiKeyDto,
   ): Promise<ServiceResponse<CreateMcpApiKeyResult>> {
     try {
+      await this.subscriptionService.assertMcpAccess(organizationId, "read");
+
       const { token, keyHash } = this.generateApiKeyMaterial();
 
       const record = this.mcpApiKeyRepository.create({

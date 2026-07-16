@@ -57,4 +57,15 @@ export const SUCCESS_MESSAGES = {
     LIST: "Templates fetched successfully",
     CATEGORIES: "Template categories fetched successfully",
   },
+  SUBSCRIPTIONS: {
+    PLANS: "Plans fetched successfully",
+    CURRENT: "Subscription fetched successfully",
+    CHECKOUT: "Checkout session created successfully",
+    PLAN_CHANGED: "Plan changed successfully",
+    CANCELED: "Subscription canceled successfully",
+    CONFIRMED: "Subscription confirmed successfully",
+    PENDING_DOWNGRADE_CANCELED:
+      "Scheduled plan change canceled. Your current plan will continue.",
+    INVOICES: "Invoices fetched successfully",
+  },
 };

@@ -15,11 +15,13 @@ import { UserCodeEntity } from "./entities/user-codes.entity";
 import { UsersModule } from "../users/users.module";
 import { AuthCookieService } from "./services/auth-cookie.service";
 import { AuthSessionLookupService } from "./services/auth-session-lookup.service";
+import { SubscriptionsModule } from "../subscriptions/subscriptions.module";
 import { EmailService } from "../email/email.service";
 
 @Module({
   imports: [
     UsersModule,
+    SubscriptionsModule,
     TypeOrmModule.forFeature([
       UserEntity,
       OrganizationEntity,

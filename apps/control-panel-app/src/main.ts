@@ -149,6 +149,7 @@ async function bootstrap(): Promise<void> {
 
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
+    rawBody: true,
   });
 
   const lokiLogger = app.get(LokiLoggerService);

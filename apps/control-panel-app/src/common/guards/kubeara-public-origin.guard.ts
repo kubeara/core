@@ -8,6 +8,8 @@ import { ConfigService } from "@nestjs/config";
 import type { Request } from "express";
 
 import {
+  isDevelopmentEnvironment,
+  isLocalhostOrigin,
   isOriginAllowed,
   resolvePublicApiAllowedOrigins,
   resolveRequestOrigin,
@@ -29,12 +31,21 @@ export class KubearaPublicOriginGuard implements CanActivate {
     );
     const requestOrigin = resolveRequestOrigin(request);
 
-    if (!requestOrigin || !isOriginAllowed(requestOrigin, allowedOrigins)) {
+    if (!requestOrigin) {
       throw new ForbiddenException(
         "Sorry, this endpoint is not available from your origin.",
       );
     }
 
-    return true;
+    if (
+      isOriginAllowed(requestOrigin, allowedOrigins) ||
+      (isDevelopmentEnvironment() && isLocalhostOrigin(requestOrigin))
+    ) {
+      return true;
+    }
+
+    throw new ForbiddenException(
+      "Sorry, this endpoint is not available from your origin.",
+    );
   }
 }

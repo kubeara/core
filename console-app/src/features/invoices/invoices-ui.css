@@ -1,0 +1,78 @@
+.invoices-page-body {
+  margin-top: 1.5rem;
+}
+
+.invoices-table-wrap {
+  overflow-x: auto;
+}
+
+.invoices-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.invoices-table th,
+.invoices-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.invoices-table th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.invoices-table tbody tr:hover {
+  background: color-mix(in srgb, var(--foreground) 3%, transparent);
+}
+
+.invoices-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.invoices-status--paid {
+  color: var(--success, #16a34a);
+  background: color-mix(in srgb, var(--success, #16a34a) 12%, transparent);
+}
+
+.invoices-status--open {
+  color: var(--warning, #ca8a04);
+  background: color-mix(in srgb, var(--warning, #ca8a04) 12%, transparent);
+}
+
+.invoices-empty {
+  margin: 0;
+  color: var(--muted);
+}
+
+.invoices-actions-header,
+.invoices-actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.invoices-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 768px) {
+  .invoices-table th:nth-child(3),
+  .invoices-table td:nth-child(3) {
+    display: none;
+  }
+}

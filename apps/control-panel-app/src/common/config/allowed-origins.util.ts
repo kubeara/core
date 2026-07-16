@@ -1,5 +1,34 @@
 import type { Request } from "express";
 
+const PRODUCTION_DEFAULT_ORIGINS = [
+  "https://kubeara.dev",
+  "https://www.kubeara.dev",
+  "https://app.kubeara.dev",
+  "https://kubeara.com",
+  "https://www.kubeara.com",
+] as const;
+
+export function isDevelopmentEnvironment(): boolean {
+  return process.env.NODE_ENV !== "production";
+}
+
+export function isLocalhostOrigin(origin: string): boolean {
+  try {
+    const { hostname } = new URL(origin);
+    return hostname === "localhost" || hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+export function getDefaultAllowedOrigins(): string[] {
+  if (isDevelopmentEnvironment()) {
+    return [];
+  }
+
+  return [...PRODUCTION_DEFAULT_ORIGINS];
+}
+
 export function normalizeOrigin(origin: string): string {
   return new URL(origin.trim()).origin;
 }
@@ -20,7 +49,7 @@ export function resolvePublicApiAllowedOrigins(
   if (configured?.trim()) {
     return parseAllowedOrigins(configured);
   }
-  return [];
+  return getDefaultAllowedOrigins();
 }
 
 export function resolveCorsAllowedOrigins(

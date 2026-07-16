@@ -1,3 +1,5 @@
+import type { BillingCycleSlug } from "@/features/subscriptions/types";
+
 /**
  * Centralized query keys for TanStack Query.
  * 
@@ -96,5 +98,13 @@ export const QUERY_KEYS = {
      */
     mcpApiKeys: {
         all: ["mcp-api-keys"] as const,
+    },
+
+    subscriptions: {
+        plans: ["subscriptions", "plans"] as const,
+        current: ["subscriptions", "current"] as const,
+        checkout: (planSlug: string, billingCycle?: BillingCycleSlug) =>
+            ["subscriptions", "checkout", planSlug, billingCycle ?? "monthly"] as const,
+        invoices: ["subscriptions", "invoices"] as const,
     },
 } as const;

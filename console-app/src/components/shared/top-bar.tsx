@@ -34,15 +34,20 @@ export function TopBar({ user }: TopBarProps) {
             <KubearaLogo />
           </Link>
           <nav className="top-bar-nav">
-            {NAV_ITEMS.map(({ href, label }) => (
+            {NAV_ITEMS.map(({ href, label }) => {
+              const isActive =
+                pathname === href || pathname.startsWith(`${href}/`);
+
+              return (
               <Link
                 key={href}
                 to={href}
-                className={`top-bar-link ${pathname === href || pathname.startsWith(`${href}/`) ? "active" : ""}`}
+                className={`top-bar-link ${isActive ? "active" : ""}`}
               >
                 {label}
               </Link>
-            ))}
+              );
+            })}
           </nav>
         </div>
         <div className="top-bar-right">
