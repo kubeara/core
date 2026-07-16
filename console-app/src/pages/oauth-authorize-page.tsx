@@ -69,7 +69,7 @@ export function OAuthAuthorizePage() {
 
   return (
     <AuthCard
-      title="Connect ChatGPT to Kubera"
+      title="Connect ChatGPT to Kubeara"
       subtitle="Click Authorize below to finish connecting. You will be sent back to ChatGPT automatically."
     >
       <div className="auth-form">

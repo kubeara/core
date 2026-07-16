@@ -7,7 +7,7 @@ export function getCursorMcpConfig(): string {
   const mcpUrl = MCP_SERVER_PUBLIC_URL;
   return `{
   "mcpServers": {
-    "kubera": {
+    "Kubeara": {
       "url": "${mcpUrl}",
       "headers": {
         "Authorization": "Bearer YOUR_TOKEN_HERE"
@@ -21,7 +21,7 @@ export function getClaudeDesktopMcpConfig(): string {
   const mcpUrl = MCP_SERVER_PUBLIC_URL;
   return `{
   "mcpServers": {
-    "kubera": {
+    "Kubeara": {
       "command": "npx",
       "args": [
         "-y",
@@ -30,10 +30,10 @@ export function getClaudeDesktopMcpConfig(): string {
         "--transport",
         "http-only",
         "--header",
-        "Authorization:\${KUBERA_MCP_TOKEN}"
+        "Authorization:\${KUBEARA_MCP_TOKEN}"
       ],
       "env": {
-        "KUBERA_MCP_TOKEN": "Bearer YOUR_TOKEN_HERE"
+        "KUBEARA_MCP_TOKEN": "Bearer YOUR_TOKEN_HERE"
       }
     }
   }
@@ -44,7 +44,7 @@ export function getVsCodeMcpConfig(): string {
   const mcpUrl = MCP_SERVER_PUBLIC_URL;
   return `{
   "servers": {
-    "kubera": {
+    "Kubeara": {
       "url": "${mcpUrl}",
       "type": "http",
       "headers": {
@@ -64,7 +64,7 @@ export function getAntigravityMcpConfig(): string {
   const mcpUrl = MCP_SERVER_PUBLIC_URL;
   return `{
   "mcpServers": {
-    "kubera": {
+    "Kubeara": {
       "serverUrl": "${mcpUrl}",
       "headers": {
         "Authorization": "Bearer YOUR_TOKEN_HERE"
