@@ -100,7 +100,7 @@ export const SETUP_GUIDES: SetupGuide[] = [
       },
       {
         title: "Verify the Connection",
-        body: "Go back to Settings → Desktop app → Developer options → Local MCP servers. You should see kubeara listed there with a connected, running status. Once connected, open a Claude chat and ask it anything about your servers — if it responds with your real data, you're all set.",
+        body: "Go back to Settings → Desktop app → Developer options → Local MCP servers. You should see Kubeara listed there with a connected, running status. Once connected, open a Claude chat and ask it anything about your servers — if it responds with your real data, you're all set.",
       },
     ],
     troubleshooting: [
@@ -149,7 +149,7 @@ export const SETUP_GUIDES: SetupGuide[] = [
       },
       {
         title: "Name Your Server",
-        body: 'When prompted for a name, enter a short label such as kubeara or Kubeara MCP, then press Enter.',
+        body: 'When prompted for a name, enter a short label such as Kubeara or Kubeara MCP, then press Enter.',
       },
       {
         title: "Dismiss the OAuth Popup",
@@ -226,7 +226,7 @@ export const SETUP_GUIDES: SetupGuide[] = [
       },
       {
         title: "Add the Kubeara Configuration",
-        body: "In the mcpServers section, add the kubeara entry below. If you already have other MCP servers configured, add kubeara alongside them — do not remove your existing entries. Replace YOUR_TOKEN_HERE with the token generated on the Kubeara MCP page.",
+        body: "In the mcpServers section, add the Kubeara entry below. If you already have other MCP servers configured, add Kubeara alongside them — do not remove your existing entries. Replace YOUR_TOKEN_HERE with the token generated on the Kubeara MCP page.",
         configPreset: "windsurf",
         note: "Your token is shown only once on the Kubeara dashboard. If you have lost it, go back to the MCP page and generate a new one.",
       },
@@ -246,7 +246,7 @@ export const SETUP_GUIDES: SetupGuide[] = [
     troubleshooting: [
       {
         issue: "Kubeara not showing in MCP Marketplace",
-        fix: "Check that the kubeara entry is saved correctly inside mcpServers and the JSON is valid",
+        fix: "Check that the Kubeara entry is saved correctly inside mcpServers and the JSON is valid",
       },
       {
         issue: "Token invalid or rejected",
@@ -291,7 +291,7 @@ export const SETUP_GUIDES: SetupGuide[] = [
       },
       {
         title: "Add the Kubeara Configuration",
-        body: "In the mcpServers section, add the kubeara entry below. If you already have other MCP servers configured, add kubeara alongside them — do not remove your existing entries. Replace YOUR_TOKEN_HERE with the token generated on the Kubeara MCP page.",
+        body: "In the mcpServers section, add the Kubeara entry below. If you already have other MCP servers configured, add Kubeara alongside them — do not remove your existing entries. Replace YOUR_TOKEN_HERE with the token generated on the Kubeara MCP page.",
         configPreset: "antigravity",
         note: "Your token is shown only once on the Kubeara dashboard. If you have lost it, go back to the MCP page and generate a new one.",
       },
@@ -301,11 +301,11 @@ export const SETUP_GUIDES: SetupGuide[] = [
       },
       {
         title: "Refresh MCP Servers",
-        body: "Go back to MCP Servers and refresh the page. You should see kubeara listed there.",
+        body: "Go back to MCP Servers and refresh the page. You should see Kubeara listed there.",
       },
       {
         title: "Configure Kubeara",
-        body: "Click on kubeara in the MCP servers list and complete any setup prompts to enable the connection.",
+        body: "Click on Kubeara in the MCP servers list and complete any setup prompts to enable the connection.",
       },
       {
         title: "Verify the Connection",
@@ -315,7 +315,7 @@ export const SETUP_GUIDES: SetupGuide[] = [
     troubleshooting: [
       {
         issue: "Kubeara not showing in MCP servers",
-        fix: "Check that the kubeara entry is saved correctly inside mcpServers, refresh the page, and confirm the JSON is valid",
+        fix: "Check that the Kubeara entry is saved correctly inside mcpServers, refresh the page, and confirm the JSON is valid",
       },
       {
         issue: "Token invalid or rejected",
@@ -389,7 +389,7 @@ export const SETUP_GUIDES: SetupGuide[] = [
       },
       {
         title: "Select Kubeara in the Chat",
-        body: 'Open a new chat. Click the + button on the left side of the message box. Under plugins or MCP connections, select your Kubeara plugin (the name you chose when creating it, e.g. kubeara). The plugin appears as a chip next to +.',
+        body: 'Open a new chat. Click the + button on the left side of the message box. Under plugins or MCP connections, select your Kubeara plugin (the name you chose when creating it, e.g. Kubeara). The plugin appears as a chip next to +.',
         note: "ChatGPT does not always call Kubeara tools automatically. If the reply looks generic or does not use your real server data, confirm the Kubeara chip is visible next to + before you send.",
         followUp:
           "Select the plugin again in each new chat, or whenever the Kubeara chip is not shown.",
