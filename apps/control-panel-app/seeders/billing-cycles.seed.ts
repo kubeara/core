@@ -9,6 +9,7 @@ import dayjs from "dayjs";
 import { BillingCycleEntity } from "../src/modules/subscriptions/entities/billing-cycle.entity";
 import { BillingCycleSlug } from "../src/modules/subscriptions/enums/billing-cycle.enum";
 import { EntityStatus } from "../src/common/entity/base.entity";
+import { isProductionEnv } from "../src/constants/env.constant";
 
 const ROOT_DIR = process.cwd();
 const APP_ENV_PATH = path.join(ROOT_DIR, "apps/control-panel-app/.env");
@@ -52,6 +53,7 @@ function loadEnv(): ConfigService {
 
 export async function seedBillingCycles(): Promise<void> {
   const configService = loadEnv();
+  const isProduction = isProductionEnv(configService.get<string>("NODE_ENV"));
   const ds = new DataSource({
     type: "postgres",
     host: configService.get<string>("DB_HOST"),
@@ -61,6 +63,7 @@ export async function seedBillingCycles(): Promise<void> {
     database: configService.get<string>("DB_DATABASE"),
     entities: [BillingCycleEntity],
     synchronize: false,
+    ...(isProduction ? { ssl: { rejectUnauthorized: false } } : {}),
   });
 
   if (!ds.isInitialized) {
