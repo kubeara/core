@@ -30,6 +30,16 @@
             "include": "modules/email/templates/**/*",
             "outDir": "dist/apps/control-panel-app/src",
             "watchAssets": true
+          },
+          {
+            "include": "modules/public/templates/**/*",
+            "outDir": "dist/apps/control-panel-app/src",
+            "watchAssets": true
+          },
+          {
+            "include": "modules/public/assets/**/*",
+            "outDir": "dist/apps/control-panel-app/src",
+            "watchAssets": true
           }
         ]
       }
