@@ -41,6 +41,8 @@ export function buildCorsOptions(configService: ConfigService): CorsOptions {
       "Accept",
       "Origin",
       "X-Requested-With",
+      "baggage",
+      "sentry-trace",
     ],
   };
 }
