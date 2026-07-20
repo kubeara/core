@@ -30,7 +30,7 @@ export function DeployConfigurePage() {
 
   if (serverQuery.isPending || detailsQuery.isPending) {
     return (
-      <div className="dashboard deploy-configure-page">
+      <div className="dashboard service-detail-page deploy-configure-page">
         <BackLink to={backHref} label="Back" />
         <DeployConfigurePageSkeleton />
       </div>
@@ -48,7 +48,7 @@ export function DeployConfigurePage() {
   }
 
   return (
-    <div className="dashboard deploy-configure-page">
+    <div className="dashboard service-detail-page deploy-configure-page">
       <BackLink to={backHref} label="Back" />
       <DeployConfigurationForm
         template={template}

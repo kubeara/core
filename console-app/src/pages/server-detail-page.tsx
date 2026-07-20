@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { BackLink } from "@/components/shared/back-link";
-import { CopyButton } from "@/components/shared/copy-button";
+import { SensitiveHost } from "@/components/shared/sensitive-host";
 import { ServerDetailTabs } from "@/components/server-detail-tabs";
 import { useServerQuery } from "@/features/servers/hooks";
 import { isServerOperationBusy } from "@/features/servers/types";
@@ -68,8 +68,10 @@ export function ServerDetailPage() {
           <h1>{server.name}</h1>
           <p>
             <span className="server-detail-host-row">
-              <CopyButton text={server.host} label="Copy host" />
-              <code>{server.host}</code>
+              <SensitiveHost
+                host={server.host}
+                className="server-detail-host-row"
+              />
             </span>{" "}
             · {server.username}
           </p>

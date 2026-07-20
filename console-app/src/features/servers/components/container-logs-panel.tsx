@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getErrorMessage } from "@/api/api-error";
 import { TerminalWordWrapToggle } from "@/components/shared/terminal-word-wrap-toggle";
+import { SensitiveHost } from "@/components/shared/sensitive-host";
+import { TooltipHint } from "@/components/ui/tooltip";
 import { useTerminalWordWrap } from "@/components/shared/use-terminal-word-wrap";
 import { ContainerLogsStopConfirmModal } from "@/features/deployments/components/container-logs-stop-confirm-modal";
 import { useContainerLogs } from "@/features/deployments/hooks/use-container-logs";
@@ -118,10 +120,7 @@ export function ContainerLogsPanel({
   const isStreaming = status === "streaming";
   const showTerminal = isConnecting || isStreaming || status === "complete";
 
-  const logsHeadline = serviceName?.trim() || containerName;
-  const showContainerName =
-    Boolean(serviceName?.trim()) &&
-    containerName.trim() !== serviceName?.trim();
+  const displayName = serviceName?.trim() || containerName;
 
   const introMessage =
     status === "error"
@@ -171,33 +170,24 @@ export function ContainerLogsPanel({
       <div
         className={`server-terminal-card${showTerminal ? " has-session" : ""}`}
       >
-        <div className="server-terminal-intro">
+        <div className="server-terminal-intro container-logs-intro">
           <div className="server-terminal-intro-copy">
-            <h2 className="server-detail-section-title">
-              {serviceName?.trim()
-                ? `Logs — ${serviceName.trim()}`
-                : `Logs — ${containerName}`}
-            </h2>
+            <h2 className="server-detail-section-title">Container logs</h2>
+            <div className="server-terminal-intro-headline">
+              <TooltipHint content={displayName}>
+                <span className="container-logs-headline">{displayName}</span>
+              </TooltipHint>
+            </div>
             {showTerminal ? (
               <p className="server-terminal-session-host">
-                <span className="server-terminal-session-primary">
-                  {logsHeadline}
-                </span>
-                {showContainerName ? (
-                  <>
-                    <span className="server-terminal-host-sep">·</span>
-                    <code>{containerName}</code>
-                  </>
-                ) : null}
-                <span className="server-terminal-host-sep">·</span>
                 {serverName}
                 <span className="server-terminal-host-sep">·</span>
-                {serverHost}
+                <SensitiveHost host={serverHost} />
               </p>
             ) : (
               <p className="server-detail-section-desc">
-                {serviceName?.trim()
-                  ? `Streaming logs for ${serviceName.trim()} on this server.`
+                {displayName
+                  ? `Streaming logs for ${displayName} on this server.`
                   : introMessage}
               </p>
             )}

@@ -12,6 +12,7 @@ import {
   getContainerCardHeadline,
   getContainerDockerName,
   getContainerHostPorts,
+  getContainerLastRestartedLabel,
   getContainerPortsTooltip,
   getContainerServiceName,
   getManagedTypeLabel,
@@ -76,6 +77,8 @@ export function ConnectedServiceCard({
     ? kubearaAgentLogo
     : logo;
 
+  const lastRestartedLabel = getContainerLastRestartedLabel(container);
+
   return (
     <article
       className={`marketplace-card overview-container-card${!container.isOnline ? " marketplace-card-offline" : ""}`}
@@ -98,21 +101,23 @@ export function ConnectedServiceCard({
           className="marketplace-card-icon"
         />
         <div className="marketplace-card-headline">
-          <p className="marketplace-card-category">
-            {getManagedTypeLabel(container)}
-          </p>
-          <TooltipHint content={headline}>
-            <h3 className="marketplace-card-name">
-              {headline}
-              {!container.isOnline ? (
-                <span className="marketplace-card-status-badge is-offline">
-                  Offline
-                </span>
-              ) : shouldShowDeployedBadge(container) ? (
-                <span className="marketplace-card-deployed-badge">Deployed</span>
-              ) : null}
-            </h3>
-          </TooltipHint>
+          <div className="marketplace-card-headline-row">
+            <p className="marketplace-card-category">
+              {getManagedTypeLabel(container)}
+            </p>
+            {!container.isOnline ? (
+              <span className="marketplace-card-status-badge is-offline">
+                Offline
+              </span>
+            ) : shouldShowDeployedBadge(container) ? (
+              <span className="marketplace-card-deployed-badge">Deployed</span>
+            ) : null}
+          </div>
+          <h3 className="marketplace-card-name">
+            <TooltipHint content={headline}>
+              <span className="marketplace-card-name-text">{headline}</span>
+            </TooltipHint>
+          </h3>
         </div>
       </div>
 
@@ -134,10 +139,7 @@ export function ConnectedServiceCard({
             <div className="marketplace-card-meta-item">
               <dt>Container</dt>
               <dd>
-                <TooltipHint
-                  content={container.containerName || undefined}
-                  disabled={!container.containerName}
-                >
+                <TooltipHint content={dockerName}>
                   <code className="tooltip-trigger-wrap--inline">{dockerName}</code>
                 </TooltipHint>
               </dd>
@@ -175,10 +177,10 @@ export function ConnectedServiceCard({
               </dd>
             </TooltipHint>
           </div>
-          {container.runningSince ? (
+          {lastRestartedLabel ? (
             <div className="marketplace-card-meta-item">
-              <dt>Created</dt>
-              <dd>{container.runningSince}</dd>
+              <dt>Running since</dt>
+              <dd>{lastRestartedLabel}</dd>
             </div>
           ) : null}
         </dl>
