@@ -18,9 +18,9 @@ describe("deriveLastRestartedFromDockerStatus", () => {
   });
 
   it("returns empty for exited or created containers", () => {
-    expect(
-      deriveLastRestartedFromDockerStatus("Exited (0) 2 hours ago"),
-    ).toBe("");
+    expect(deriveLastRestartedFromDockerStatus("Exited (0) 2 hours ago")).toBe(
+      "",
+    );
     expect(deriveLastRestartedFromDockerStatus("Created")).toBe("");
     expect(deriveLastRestartedFromDockerStatus("")).toBe("");
   });

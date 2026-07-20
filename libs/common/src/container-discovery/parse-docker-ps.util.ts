@@ -42,7 +42,10 @@ export function deriveLastRestartedFromDockerStatus(status: string): string {
 }
 
 function formatDockerDurationAsAgo(duration: string): string {
-  let text = duration.trim().replace(/\s+ago\s*$/i, "").trim();
+  let text = duration
+    .trim()
+    .replace(/\s+ago\s*$/i, "")
+    .trim();
   if (!text) {
     return "";
   }
