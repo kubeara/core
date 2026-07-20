@@ -82,6 +82,14 @@ import {
   STREAM_DEBUG,
 } from "./constants";
 import { WEBSOCKET_ERROR_MESSAGES } from "./constants/error-messages.constants";
+import {
+  logSocketEmit,
+  logSocketError,
+  logSocketLifecycle,
+  logSocketTimeout,
+  formatSocketDebug,
+} from "./utils/socket-log.util";
+import { logStructuredError, type LogContext } from "@shared/common";
 
 /**
  * Builds the Socket.io room name for a deployment log stream.
@@ -184,19 +192,12 @@ export class DeploymentGateway
    */
   afterInit(): void {
     try {
-      this.logStreamDiagnostics("afterInit");
+      if (STREAM_DEBUG) {
+        this.logger.debug(formatSocketDebug("afterInit"));
+      }
     } catch (error) {
-      this.logger.error(
-        `Failed to initialize WebSocket gateway: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      logSocketError(this.logger, "socket.gateway_init", error);
     }
-  }
-
-  /**
-   * Logs outbound socket event emissions for observability.
-   */
-  private logEmitEvent(event: string, details: string): void {
-    this.logger.log(`[emit] event=${event} ${details}`);
   }
 
   /**
@@ -256,10 +257,17 @@ export class DeploymentGateway
           totalAgents: this.connectedAgents.size,
         });
       }
+
+      logSocketLifecycle(this.logger, "client_connected", {
+        socketId,
+        serverId: serverIds[0] ?? undefined,
+        agentSocket: socketId,
+        totalAgents: this.connectedAgents.size,
+      });
     } catch (error) {
-      this.logger.error(
-        `Failed to handle connection: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      logSocketError(this.logger, "socket.handle_connection", error, {
+        socketId: client.id,
+      });
       client.disconnect(true);
     }
   }
@@ -296,10 +304,17 @@ export class DeploymentGateway
           totalAgents: this.connectedAgents.size,
         });
       }
+
+      logSocketLifecycle(this.logger, "client_disconnected", {
+        socketId,
+        serverId: serverIds[0] ?? undefined,
+        agentSocket: socketId,
+        totalAgents: this.connectedAgents.size,
+      });
     } catch (error) {
-      this.logger.error(
-        `Failed to handle disconnect: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      logSocketError(this.logger, "socket.handle_disconnect", error, {
+        socketId: client.id,
+      });
     }
   }
 
@@ -317,9 +332,7 @@ export class DeploymentGateway
     try {
       this.processAgentLog(client, payload);
     } catch (error) {
-      this.logger.error(
-        `Failed to handle deployment log: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.handle_deployment_log", error);
     }
   }
 
@@ -337,9 +350,7 @@ export class DeploymentGateway
     try {
       await this.processDeploymentStatus(client, payload);
     } catch (error) {
-      this.logger.error(
-        `Failed to handle deployment status: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.handle_deployment_status", error);
     }
   }
 
@@ -357,9 +368,7 @@ export class DeploymentGateway
     try {
       this.processAgentHello(client, payload);
     } catch (error) {
-      this.logger.error(
-        `Failed to handle agent hello: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.handle_agent_hello", error);
     }
   }
 
@@ -406,11 +415,14 @@ export class DeploymentGateway
         return;
       }
 
+      logSocketLifecycle(this.logger, "event_acknowledged", {
+        event: DeploymentEvents.SERVER_GET_RESOURCES_RESULT,
+        requestId,
+        serverId: pending.serverId,
+      });
       pending.resolve(payload.resources);
     } catch (error) {
-      this.logger.error(
-        `Failed to process server get-resources result: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.server_get_resources_result", error);
     }
   }
 
@@ -442,11 +454,14 @@ export class DeploymentGateway
 
       clearTimeout(pending.timer);
       this.pendingDeploymentValidations.delete(requestId);
+      logSocketLifecycle(this.logger, "event_acknowledged", {
+        event: DeploymentEvents.DEPLOYMENT_VALIDATE_RESULT,
+        requestId,
+        serverId: pending.serverId,
+      });
       pending.resolve(payload);
     } catch (error) {
-      this.logger.error(
-        `Failed to process deployment validate result: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.deployment_validate_result", error);
     }
   }
 
@@ -491,9 +506,7 @@ export class DeploymentGateway
 
       pending.resolve({ imageRefs: payload.imageRefs ?? [] });
     } catch (error) {
-      this.logger.error(
-        `Failed to process agent remove result: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.agent_remove_result", error);
     }
   }
 
@@ -525,11 +538,14 @@ export class DeploymentGateway
 
       clearTimeout(pending.timer);
       this.pendingContainerActions.delete(requestId);
+      logSocketLifecycle(this.logger, "event_acknowledged", {
+        event: DeploymentEvents.CONTAINER_ACTION_RESULT,
+        requestId,
+        serverId: pending.serverId,
+      });
       pending.resolve(payload);
     } catch (error) {
-      this.logger.error(
-        `Failed to process container action result: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.container_action_result", error);
     }
   }
 
@@ -569,9 +585,7 @@ export class DeploymentGateway
 
       pending.resolve(payload.containers ?? []);
     } catch (error) {
-      this.logger.error(
-        `Failed to process container discover result: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.container_discover_result", error);
     }
   }
 
@@ -597,11 +611,20 @@ export class DeploymentGateway
       try {
         await client.join(room);
       } catch (error) {
-        this.logger.error(
-          `Failed to join logs room client=${client.id} room=${room}: ${error instanceof Error ? error.message : String(error)}`,
-        );
+        logSocketError(this.logger, "socket.logs_subscribe.join_room", error, {
+          socketId: client.id,
+          deploymentId,
+          room,
+        });
         return;
       }
+
+      logSocketLifecycle(this.logger, "room_joined", {
+        socketId: client.id,
+        deploymentId,
+        room,
+        event: DeploymentEvents.LOGS_SUBSCRIBE,
+      });
 
       this.logStreamDiagnostics("logs:subscribe", {
         socketId: client.id,
@@ -611,9 +634,7 @@ export class DeploymentGateway
 
       this.replayBufferedLogsToClient(client, deploymentId);
     } catch (error) {
-      this.logger.error(
-        `Failed to handle logs subscribe: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.logs_subscribe", error);
     }
   }
 
@@ -637,15 +658,26 @@ export class DeploymentGateway
       const room = terminalRoom(sessionId);
       try {
         await client.join(room);
+        logSocketLifecycle(this.logger, "room_joined", {
+          socketId: client.id,
+          sessionId,
+          room,
+          event: DeploymentEvents.TERMINAL_SUBSCRIBE,
+        });
       } catch (error) {
-        this.logger.error(
-          `Failed to join terminal room client=${client.id} room=${room}: ${error instanceof Error ? error.message : String(error)}`,
+        logSocketError(
+          this.logger,
+          "socket.terminal_subscribe.join_room",
+          error,
+          {
+            socketId: client.id,
+            sessionId,
+            room,
+          },
         );
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to handle terminal subscribe: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.terminal_subscribe", error);
     }
   }
 
@@ -669,15 +701,26 @@ export class DeploymentGateway
       const room = containerLogsRoom(sessionId);
       try {
         await client.join(room);
+        logSocketLifecycle(this.logger, "room_joined", {
+          socketId: client.id,
+          sessionId,
+          room,
+          event: DeploymentEvents.CONTAINER_LOGS_SUBSCRIBE,
+        });
       } catch (error) {
-        this.logger.error(
-          `Failed to join container logs room client=${client.id} room=${room}: ${error instanceof Error ? error.message : String(error)}`,
+        logSocketError(
+          this.logger,
+          "socket.container_logs_subscribe.join_room",
+          error,
+          {
+            socketId: client.id,
+            sessionId,
+            room,
+          },
         );
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to handle container logs subscribe: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.container_logs_subscribe", error);
     }
   }
 
@@ -698,9 +741,7 @@ export class DeploymentGateway
 
       this.closeContainerLogsSession(sessionId, { notifyAgent: true });
     } catch (error) {
-      this.logger.error(
-        `Failed to handle container logs stop: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.container_logs_stop", error);
     }
   }
 
@@ -722,9 +763,7 @@ export class DeploymentGateway
         payload,
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to handle terminal input: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.terminal_input", error);
     }
   }
 
@@ -746,9 +785,7 @@ export class DeploymentGateway
         payload,
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to handle terminal resize: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.terminal_resize", error);
     }
   }
 
@@ -771,9 +808,7 @@ export class DeploymentGateway
 
       this.closeTerminalSession(sessionId, { notifyAgent: true });
     } catch (error) {
-      this.logger.error(
-        `Failed to handle terminal disconnect: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.terminal_disconnect", error);
     }
   }
 
@@ -791,9 +826,7 @@ export class DeploymentGateway
     try {
       this.processTerminalConnectResult(client, payload);
     } catch (error) {
-      this.logger.error(
-        `Failed to handle terminal connect result: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.terminal_connect_result", error);
     }
   }
 
@@ -811,9 +844,7 @@ export class DeploymentGateway
     try {
       this.relayTerminalOutput(client, payload);
     } catch (error) {
-      this.logger.error(
-        `Failed to handle terminal output: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.terminal_output", error);
     }
   }
 
@@ -836,9 +867,7 @@ export class DeploymentGateway
       );
       return hasPublicIp || hasServerHeader;
     } catch (error) {
-      this.logger.error(
-        `Failed to detect agent client: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.detect_agent_client", error);
       return false;
     }
   }
@@ -878,9 +907,7 @@ export class DeploymentGateway
         message: payload.message,
       });
     } catch (error) {
-      this.logger.error(
-        `[stream] failed to process agent log: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.process_agent_log", error);
     }
   }
 
@@ -951,9 +978,9 @@ export class DeploymentGateway
           );
         }
       } catch (error) {
-        this.logger.error(
-          `Could not persist deployment status for ${payload.deploymentId}: ${error instanceof Error ? error.message : String(error)}`,
-        );
+        this.logHandlerError("socket.persist_deployment_status", error, {
+          deploymentId: payload.deploymentId,
+        });
       }
 
       const enriched = {
@@ -976,16 +1003,17 @@ export class DeploymentGateway
         event: DeploymentEvents.DEPLOYMENT_STATUS,
       });
 
-      this.logEmitEvent(
-        DeploymentEvents.DEPLOYMENT_STATUS,
-        `deploymentId=${payload.deploymentId} serverId=${serverId ?? "n/a"} status=${payload.status} room=${room}`,
-      );
+      logSocketLifecycle(this.logger, "event_dispatched", {
+        event: DeploymentEvents.DEPLOYMENT_STATUS,
+        deploymentId: payload.deploymentId,
+        serverId: serverId ?? undefined,
+        status: payload.status,
+        room,
+      });
       ns.emit(DeploymentEvents.DEPLOYMENT_STATUS, enriched);
       ns.to(room).emit(DeploymentEvents.DEPLOYMENT_STATUS, enriched);
     } catch (error) {
-      this.logger.error(
-        `Failed to process deployment status event: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.process_deployment_status", error);
     }
   }
   /**
@@ -1005,15 +1033,13 @@ export class DeploymentGateway
         timestamp: payload.timestamp ?? new Date().toISOString(),
       };
 
-      this.logEmitEvent(
-        DeploymentEvents.SERVER_OPERATION_UPDATED,
-        `serverId=${enriched.serverId} status=${String(enriched.operationStatus)} deleted=${Boolean(enriched.deleted)}`,
-      );
+      logSocketEmit(this.logger, DeploymentEvents.SERVER_OPERATION_UPDATED, {
+        serverId: enriched.serverId,
+        status: String(enriched.operationStatus),
+      });
       ns.emit(DeploymentEvents.SERVER_OPERATION_UPDATED, enriched);
     } catch (error) {
-      this.logger.error(
-        `Failed to broadcast server operation update: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.broadcast_server_operation", error);
     }
   }
 
@@ -1045,9 +1071,7 @@ export class DeploymentGateway
         message,
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to broadcast deployment log: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.broadcast_deployment_log", error);
     }
   }
 
@@ -1095,15 +1119,9 @@ export class DeploymentGateway
 
       this.streamBuffer.append(normalized);
 
-      this.logEmitEvent(
-        DeploymentEvents.DEPLOYMENT_STREAM,
-        `deploymentId=${deploymentId} room=${room} bytes=${normalized.message.length}`,
-      );
       ns.emit(DeploymentEvents.DEPLOYMENT_STREAM, normalized);
     } catch (error) {
-      this.logger.error(
-        `[stream] failed to emit log: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.emit_deployment_log", error);
     }
   }
 
@@ -1124,9 +1142,7 @@ export class DeploymentGateway
         client.emit(DeploymentEvents.DEPLOYMENT_STREAM, entry);
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to replay buffered logs: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.replay_buffered_logs", error);
     }
   }
 
@@ -1137,9 +1153,7 @@ export class DeploymentGateway
     try {
       return this.server ?? null;
     } catch (error) {
-      this.logger.error(
-        `Failed to get namespace server: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.get_namespace_server", error);
       return null;
     }
   }
@@ -1147,6 +1161,17 @@ export class DeploymentGateway
   /**
    * Writes optional stream diagnostics when STREAM_DEBUG is enabled.
    */
+  private logHandlerError(
+    operation: string,
+    error: unknown,
+    context?: LogContext,
+  ): void {
+    logStructuredError(this.logger, operation, error, {
+      module: "DeploymentGateway",
+      ...context,
+    });
+  }
+
   private logStreamDiagnostics(
     context: string,
     extra?: Record<string, unknown>,
@@ -1156,15 +1181,9 @@ export class DeploymentGateway
         return;
       }
 
-      const ns = this.server;
-
-      this.logger.debug(
-        `[stream][diag] ${context} serverDefined=${Boolean(ns)} trackedAgents=${this.connectedAgents.size} ${extra ? JSON.stringify(extra) : ""}`,
-      );
+      this.logger.debug(formatSocketDebug(context, extra));
     } catch (error) {
-      this.logger.error(
-        `Failed to write stream diagnostics: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      logSocketError(this.logger, "socket.stream_diagnostics", error);
     }
   }
 
@@ -1183,15 +1202,17 @@ export class DeploymentGateway
         );
       }
 
-      this.logEmitEvent(
-        DeploymentEvents.REMOVE,
-        `serverId=${serverId} deploymentId=${message.payload.deploymentId}`,
-      );
+      logSocketEmit(this.logger, DeploymentEvents.REMOVE, {
+        serverId,
+        deploymentId: message.payload.deploymentId,
+      });
       client.emit(DeploymentEvents.REMOVE, message);
     } catch (error) {
-      this.logger.error(
-        `Failed to emit remove message: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      logStructuredError(this.logger, "socket.emit_remove", error, {
+        module: "DeploymentGateway",
+        serverId,
+        deploymentId: message.payload.deploymentId,
+      });
       throw error;
     }
   }
@@ -1217,6 +1238,10 @@ export class DeploymentGateway
 
         const timer = setTimeout(() => {
           this.pendingDeploymentRemoves.delete(deploymentId);
+          logSocketTimeout(this.logger, "socket.deployment_remove", {
+            serverId,
+            deploymentId,
+          });
           reject(
             new Error(
               WEBSOCKET_ERROR_MESSAGES.TIMEOUT.DEPLOYMENT_REMOVE(
@@ -1242,10 +1267,10 @@ export class DeploymentGateway
           payload: { deploymentId, templateSlug },
         };
 
-        this.logEmitEvent(
-          DeploymentEvents.REMOVE,
-          `deploymentId=${deploymentId} serverId=${serverId}`,
-        );
+        logSocketEmit(this.logger, DeploymentEvents.REMOVE, {
+          deploymentId,
+          serverId,
+        });
         client.emit(DeploymentEvents.REMOVE, message);
       } catch (error) {
         reject(error instanceof Error ? error : new Error(String(error)));
@@ -1289,6 +1314,10 @@ export class DeploymentGateway
 
         const timer = setTimeout(() => {
           this.pendingAgentRemoves.delete(requestId);
+          logSocketTimeout(this.logger, "socket.agent_remove", {
+            serverId,
+            requestId,
+          });
           reject(
             new Error(
               WEBSOCKET_ERROR_MESSAGES.TIMEOUT.AGENT_REMOVE(
@@ -1306,10 +1335,10 @@ export class DeploymentGateway
           timer,
         });
 
-        this.logEmitEvent(
-          DeploymentEvents.AGENT_REMOVE,
-          `serverId=${serverId} requestId=${requestId}`,
-        );
+        logSocketEmit(this.logger, DeploymentEvents.AGENT_REMOVE, {
+          serverId,
+          requestId,
+        });
         client.emit(DeploymentEvents.AGENT_REMOVE, payload);
       } catch (error) {
         reject(error instanceof Error ? error : new Error(String(error)));
@@ -1341,15 +1370,20 @@ export class DeploymentGateway
         );
       }
 
-      this.logEmitEvent(
-        DeploymentEvents.DEPLOY,
-        `deploymentId=${message.payload.deploymentId ?? "n/a"} serverId=${serverId} template=${message.payload.name} agentSocket=${client.id}`,
-      );
+      logSocketEmit(this.logger, DeploymentEvents.DEPLOY, {
+        deploymentId: message.payload.deploymentId ?? undefined,
+        serverId,
+        template: message.payload.name,
+        agentSocket: client.id,
+      });
       client.emit(DeploymentEvents.DEPLOY, message);
     } catch (error) {
-      this.logger.error(
-        `Failed to emit deploy message: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      logStructuredError(this.logger, "socket.emit_deploy", error, {
+        module: "DeploymentGateway",
+        serverId,
+        deploymentId: message.payload.deploymentId ?? undefined,
+        template: message.payload.name,
+      });
       throw error;
     }
   }
@@ -1376,6 +1410,10 @@ export class DeploymentGateway
 
         const timer = setTimeout(() => {
           this.pendingServerResources.delete(requestId);
+          logSocketTimeout(this.logger, "socket.server_get_resources", {
+            serverId,
+            requestId,
+          });
           reject(
             new Error(
               WEBSOCKET_ERROR_MESSAGES.TIMEOUT.SERVER_RESOURCES(
@@ -1393,10 +1431,11 @@ export class DeploymentGateway
           timer,
         });
 
-        this.logEmitEvent(
-          DeploymentEvents.SERVER_GET_RESOURCES,
-          `agentSocket=${client.id} serverId=${serverId} requestId=${requestId}`,
-        );
+        logSocketEmit(this.logger, DeploymentEvents.SERVER_GET_RESOURCES, {
+          agentSocket: client.id,
+          serverId,
+          requestId,
+        });
 
         client.emit(DeploymentEvents.SERVER_GET_RESOURCES, payload);
       } catch (error) {
@@ -1435,6 +1474,11 @@ export class DeploymentGateway
 
         const timer = setTimeout(() => {
           this.pendingDeploymentValidations.delete(requestId);
+          logSocketTimeout(this.logger, "socket.deployment_validate", {
+            serverId,
+            requestId,
+            template: payload.templateSlug,
+          });
           reject(
             new Error(
               WEBSOCKET_ERROR_MESSAGES.TIMEOUT.DEPLOYMENT_VALIDATE(
@@ -1452,10 +1496,12 @@ export class DeploymentGateway
           timer,
         });
 
-        this.logEmitEvent(
-          DeploymentEvents.DEPLOYMENT_VALIDATE,
-          `agentSocket=${client.id} serverId=${serverId} requestId=${requestId} template=${payload.templateSlug}`,
-        );
+        logSocketEmit(this.logger, DeploymentEvents.DEPLOYMENT_VALIDATE, {
+          agentSocket: client.id,
+          serverId,
+          requestId,
+          template: payload.templateSlug,
+        });
 
         client.emit(DeploymentEvents.DEPLOYMENT_VALIDATE, payload);
       } catch (error) {
@@ -1492,6 +1538,12 @@ export class DeploymentGateway
 
         const timer = setTimeout(() => {
           this.pendingContainerActions.delete(requestId);
+          logSocketTimeout(this.logger, "socket.container_action", {
+            serverId,
+            requestId,
+            containerId,
+            action,
+          });
           reject(
             new Error(
               WEBSOCKET_ERROR_MESSAGES.TIMEOUT.CONTAINER_ACTION(
@@ -1509,10 +1561,13 @@ export class DeploymentGateway
           timer,
         });
 
-        this.logEmitEvent(
-          DeploymentEvents.CONTAINER_ACTION,
-          `agentSocket=${client.id} serverId=${serverId} action=${action} containerId=${containerId} requestId=${requestId}`,
-        );
+        logSocketEmit(this.logger, DeploymentEvents.CONTAINER_ACTION, {
+          agentSocket: client.id,
+          serverId,
+          action,
+          containerId,
+          requestId,
+        });
 
         client.emit(DeploymentEvents.CONTAINER_ACTION, payload);
       } catch (error) {
@@ -1550,6 +1605,11 @@ export class DeploymentGateway
 
         const timer = setTimeout(() => {
           this.pendingTerminalConnects.delete(requestId);
+          logSocketTimeout(this.logger, "socket.terminal_connect", {
+            serverId,
+            requestId,
+            userId,
+          });
           reject(
             new Error(
               WEBSOCKET_ERROR_MESSAGES.TIMEOUT.TERMINAL_CONNECT(
@@ -1568,10 +1628,12 @@ export class DeploymentGateway
           timer,
         });
 
-        this.logEmitEvent(
-          DeploymentEvents.TERMINAL_CONNECT,
-          `agentSocket=${client.id} serverId=${serverId} requestId=${requestId}`,
-        );
+        logSocketEmit(this.logger, DeploymentEvents.TERMINAL_CONNECT, {
+          agentSocket: client.id,
+          serverId,
+          requestId,
+          userId,
+        });
 
         client.emit(DeploymentEvents.TERMINAL_CONNECT, payload);
       } catch (error) {
@@ -1597,9 +1659,7 @@ export class DeploymentGateway
         transport,
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to register terminal session: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.register_terminal_session", error);
     }
   }
 
@@ -1618,18 +1678,12 @@ export class DeploymentGateway
         return;
       }
 
-      this.logEmitEvent(
-        DeploymentEvents.TERMINAL_OUTPUT,
-        `sessionId=${sessionId}`,
-      );
       ns.to(terminalRoom(sessionId)).emit(DeploymentEvents.TERMINAL_OUTPUT, {
         sessionId,
         data,
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to broadcast terminal output: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.broadcast_terminal_output", error);
     }
   }
 
@@ -1640,9 +1694,7 @@ export class DeploymentGateway
     try {
       return this.terminalSessionsById.get(sessionId);
     } catch (error) {
-      this.logger.error(
-        `Failed to get terminal session: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.get_terminal_session", error);
       return undefined;
     }
   }
@@ -1677,6 +1729,12 @@ export class DeploymentGateway
         const timer = setTimeout(() => {
           this.pendingContainerLogsStarts.delete(requestId);
           this.containerLogsSessionsById.delete(sessionId);
+          logSocketTimeout(this.logger, "socket.container_logs_start", {
+            serverId,
+            requestId,
+            sessionId,
+            containerId,
+          });
           reject(
             new Error(
               WEBSOCKET_ERROR_MESSAGES.TIMEOUT.CONTAINER_LOGS_START(
@@ -1709,10 +1767,13 @@ export class DeploymentGateway
           containerId,
         );
 
-        this.logEmitEvent(
-          DeploymentEvents.CONTAINER_LOGS_START,
-          `agentSocket=${client.id} serverId=${serverId} containerId=${containerId} sessionId=${sessionId} requestId=${requestId}`,
-        );
+        logSocketEmit(this.logger, DeploymentEvents.CONTAINER_LOGS_START, {
+          agentSocket: client.id,
+          serverId,
+          containerId,
+          sessionId,
+          requestId,
+        });
 
         client.emit(DeploymentEvents.CONTAINER_LOGS_START, payload);
       } catch (error) {
@@ -1738,9 +1799,7 @@ export class DeploymentGateway
         containerId,
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to register container logs session: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.register_container_logs_session", error);
     }
   }
 
@@ -1753,9 +1812,7 @@ export class DeploymentGateway
     try {
       return this.containerLogsSessionsById.get(sessionId);
     } catch (error) {
-      this.logger.error(
-        `Failed to get container logs session: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.get_container_logs_session", error);
       return undefined;
     }
   }
@@ -1779,28 +1836,27 @@ export class DeploymentGateway
         const agent = this.agentsByServerId.get(session.serverId);
         if (agent?.connected) {
           const payload: ContainerLogsStopPayload = { sessionId };
-          this.logEmitEvent(
-            DeploymentEvents.CONTAINER_LOGS_STOP,
-            `sessionId=${sessionId} target=agent serverId=${session.serverId}`,
-          );
+          logSocketEmit(this.logger, DeploymentEvents.CONTAINER_LOGS_STOP, {
+            sessionId,
+            serverId: session.serverId,
+            target: "agent",
+          });
           agent.emit(DeploymentEvents.CONTAINER_LOGS_STOP, payload);
         }
       }
 
       const ns = this.getNamespaceServer();
       const payload: ContainerLogsStopPayload = { sessionId };
-      this.logEmitEvent(
-        DeploymentEvents.CONTAINER_LOGS_STOP,
-        `sessionId=${sessionId} target=console`,
-      );
+      logSocketEmit(this.logger, DeploymentEvents.CONTAINER_LOGS_STOP, {
+        sessionId,
+        target: "console",
+      });
       ns?.to(containerLogsRoom(sessionId)).emit(
         DeploymentEvents.CONTAINER_LOGS_STOP,
         payload,
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to close container logs session: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.close_container_logs_session", error);
     }
   }
 
@@ -1817,15 +1873,14 @@ export class DeploymentGateway
       }
 
       const payload: ContainerLogsStopPayload = { sessionId };
-      this.logEmitEvent(
-        DeploymentEvents.CONTAINER_LOGS_STOP,
-        `sessionId=${sessionId} target=agent serverId=${serverId}`,
-      );
+      logSocketEmit(this.logger, DeploymentEvents.CONTAINER_LOGS_STOP, {
+        sessionId,
+        serverId,
+        target: "agent",
+      });
       agent.emit(DeploymentEvents.CONTAINER_LOGS_STOP, payload);
     } catch (error) {
-      this.logger.error(
-        `Failed to notify agent container logs stop: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.notify_container_logs_stop", error);
     }
   }
 
@@ -1859,10 +1914,11 @@ export class DeploymentGateway
           const agent = this.agentsByServerId.get(session.serverId);
           if (agent?.connected) {
             const payload: TerminalDisconnectPayload = { sessionId };
-            this.logEmitEvent(
-              DeploymentEvents.TERMINAL_DISCONNECT,
-              `sessionId=${sessionId} target=agent serverId=${session.serverId}`,
-            );
+            logSocketEmit(this.logger, DeploymentEvents.TERMINAL_DISCONNECT, {
+              sessionId,
+              serverId: session.serverId,
+              target: "agent",
+            });
             agent.emit(DeploymentEvents.TERMINAL_DISCONNECT, payload);
           }
         }
@@ -1870,18 +1926,16 @@ export class DeploymentGateway
 
       const ns = this.getNamespaceServer();
       const payload: TerminalDisconnectPayload = { sessionId };
-      this.logEmitEvent(
-        DeploymentEvents.TERMINAL_DISCONNECT,
-        `sessionId=${sessionId} target=console`,
-      );
+      logSocketEmit(this.logger, DeploymentEvents.TERMINAL_DISCONNECT, {
+        sessionId,
+        target: "console",
+      });
       ns?.to(terminalRoom(sessionId)).emit(
         DeploymentEvents.TERMINAL_DISCONNECT,
         payload,
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to close terminal session: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.close_terminal_session", error);
     }
   }
 
@@ -1898,15 +1952,14 @@ export class DeploymentGateway
       }
 
       const payload: TerminalDisconnectPayload = { sessionId };
-      this.logEmitEvent(
-        DeploymentEvents.TERMINAL_DISCONNECT,
-        `sessionId=${sessionId} target=agent serverId=${serverId}`,
-      );
+      logSocketEmit(this.logger, DeploymentEvents.TERMINAL_DISCONNECT, {
+        sessionId,
+        serverId,
+        target: "agent",
+      });
       agent.emit(DeploymentEvents.TERMINAL_DISCONNECT, payload);
     } catch (error) {
-      this.logger.error(
-        `Failed to notify agent terminal disconnect: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.notify_terminal_disconnect", error);
     }
   }
 
@@ -1932,6 +1985,10 @@ export class DeploymentGateway
 
         const timer = setTimeout(() => {
           this.pendingContainerDiscovery.delete(requestId);
+          logSocketTimeout(this.logger, "socket.container_discover", {
+            serverId,
+            requestId,
+          });
           reject(
             new Error(
               WEBSOCKET_ERROR_MESSAGES.TIMEOUT.CONTAINER_DISCOVER(
@@ -1949,10 +2006,11 @@ export class DeploymentGateway
           timer,
         });
 
-        this.logEmitEvent(
-          DeploymentEvents.CONTAINER_DISCOVER,
-          `agentSocket=${client.id} serverId=${serverId} requestId=${requestId}`,
-        );
+        logSocketEmit(this.logger, DeploymentEvents.CONTAINER_DISCOVER, {
+          agentSocket: client.id,
+          serverId,
+          requestId,
+        });
 
         client.emit(DeploymentEvents.CONTAINER_DISCOVER, payload);
       } catch (error) {
@@ -2041,9 +2099,7 @@ export class DeploymentGateway
         },
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to attach agent inbound handlers: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.attach_agent_handlers", error);
     }
   }
 
@@ -2070,9 +2126,7 @@ export class DeploymentGateway
         skipTransportClose: true,
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to process agent terminal disconnect: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.process_agent_terminal_disconnect", error);
     }
   }
 
@@ -2124,9 +2178,7 @@ export class DeploymentGateway
       );
       pending.resolve(sessionId);
     } catch (error) {
-      this.logger.error(
-        `Failed to process terminal connect result: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.process_terminal_connect_result", error);
     }
   }
 
@@ -2154,18 +2206,12 @@ export class DeploymentGateway
         return;
       }
 
-      this.logEmitEvent(
-        DeploymentEvents.TERMINAL_OUTPUT,
-        `sessionId=${sessionId} target=console`,
-      );
       ns.to(terminalRoom(sessionId)).emit(DeploymentEvents.TERMINAL_OUTPUT, {
         sessionId,
         data,
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to relay terminal output: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.relay_terminal_output", error);
     }
   }
 
@@ -2208,11 +2254,8 @@ export class DeploymentGateway
       }
 
       agent.emit(event, payload);
-      this.logEmitEvent(event, `sessionId=${sessionId} target=agent`);
     } catch (error) {
-      this.logger.error(
-        `Failed to forward terminal event ${event}: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.forward_terminal_event", error, { event });
     }
   }
 
@@ -2233,9 +2276,7 @@ export class DeploymentGateway
         pending.reject(new Error(reason));
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to reject pending terminal connects: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.reject_pending_terminal_connects", error);
     }
   }
 
@@ -2253,9 +2294,7 @@ export class DeploymentGateway
         });
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to close terminal sessions for server: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.close_terminal_sessions_for_server", error);
     }
   }
 
@@ -2277,8 +2316,9 @@ export class DeploymentGateway
         pending.reject(new Error(reason));
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to reject pending container logs starts: ${error instanceof Error ? error.message : String(error)}`,
+      this.logHandlerError(
+        "socket.reject_pending_container_logs_starts",
+        error,
       );
     }
   }
@@ -2295,8 +2335,9 @@ export class DeploymentGateway
         this.closeContainerLogsSession(sessionId, { notifyAgent: false });
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to close container logs sessions for server: ${error instanceof Error ? error.message : String(error)}`,
+      this.logHandlerError(
+        "socket.close_container_logs_sessions_for_server",
+        error,
       );
     }
   }
@@ -2345,9 +2386,7 @@ export class DeploymentGateway
 
       pending.resolve(sessionId);
     } catch (error) {
-      this.logger.error(
-        `Failed to process container logs start result: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.process_container_logs_start_result", error);
     }
   }
 
@@ -2375,18 +2414,12 @@ export class DeploymentGateway
         return;
       }
 
-      this.logEmitEvent(
-        DeploymentEvents.CONTAINER_LOGS_DATA,
-        `sessionId=${sessionId} target=console`,
-      );
       ns.to(containerLogsRoom(sessionId)).emit(
         DeploymentEvents.CONTAINER_LOGS_DATA,
         { sessionId, data },
       );
     } catch (error) {
-      this.logger.error(
-        `Failed to relay container logs data: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.relay_container_logs_data", error);
     }
   }
 
@@ -2414,10 +2447,11 @@ export class DeploymentGateway
         return;
       }
 
-      this.logEmitEvent(
-        DeploymentEvents.CONTAINER_LOGS_ERROR,
-        `sessionId=${sessionId} target=console`,
-      );
+      logSocketEmit(this.logger, DeploymentEvents.CONTAINER_LOGS_ERROR, {
+        sessionId,
+        target: "console",
+        error,
+      });
       ns.to(containerLogsRoom(sessionId)).emit(
         DeploymentEvents.CONTAINER_LOGS_ERROR,
         { sessionId, error },
@@ -2425,9 +2459,7 @@ export class DeploymentGateway
 
       this.closeContainerLogsSession(sessionId, { notifyAgent: false });
     } catch (error) {
-      this.logger.error(
-        `Failed to relay container logs error: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.relay_container_logs_error", error);
     }
   }
 
@@ -2451,9 +2483,7 @@ export class DeploymentGateway
 
       this.closeContainerLogsSession(sessionId, { notifyAgent: false });
     } catch (error) {
-      this.logger.error(
-        `Failed to process agent container logs stop: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.process_agent_container_logs_stop", error);
     }
   }
 
@@ -2474,9 +2504,7 @@ export class DeploymentGateway
         pending.reject(new Error(reason));
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to reject pending container discovery: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.reject_pending_container_discovery", error);
     }
   }
 
@@ -2497,8 +2525,9 @@ export class DeploymentGateway
         pending.reject(new Error(reason));
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to reject pending deployment validations: ${error instanceof Error ? error.message : String(error)}`,
+      this.logHandlerError(
+        "socket.reject_pending_deployment_validations",
+        error,
       );
     }
   }
@@ -2520,9 +2549,7 @@ export class DeploymentGateway
         pending.reject(new Error(reason));
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to reject pending server resources: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.reject_pending_server_resources", error);
     }
   }
 
@@ -2543,9 +2570,7 @@ export class DeploymentGateway
         pending.reject(new Error(reason));
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to reject pending container actions: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.reject_pending_container_actions", error);
     }
   }
 
@@ -2566,9 +2591,7 @@ export class DeploymentGateway
         pending.reject(new Error(reason));
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to reject pending deployment removes: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.reject_pending_deployment_removes", error);
     }
   }
 
@@ -2589,9 +2612,7 @@ export class DeploymentGateway
         pending.reject(new Error(reason));
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to reject pending agent removes: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.reject_pending_agent_removes", error);
     }
   }
 
@@ -2603,9 +2624,9 @@ export class DeploymentGateway
       const client = this.agentsByServerId.get(serverId);
       return Boolean(client?.connected);
     } catch (error) {
-      this.logger.error(
-        `Failed to check agent for server '${serverId}': ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.check_agent_for_server", error, {
+        serverId,
+      });
       return false;
     }
   }
@@ -2618,9 +2639,7 @@ export class DeploymentGateway
       const capabilities = this.agentCapabilitiesByServerId.get(serverId);
       return Boolean(capabilities?.has(capability));
     } catch (error) {
-      this.logger.error(
-        `Failed to check agent capability: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.check_agent_capability", error);
       return false;
     }
   }
@@ -2632,9 +2651,7 @@ export class DeploymentGateway
     try {
       return this.agentVersionsByServerId.get(serverId) ?? null;
     } catch (error) {
-      this.logger.error(
-        `Failed to get agent version: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.get_agent_version", error);
       return null;
     }
   }
@@ -2652,9 +2669,7 @@ export class DeploymentGateway
         this.agentVersionsByServerId.set(serverId, version);
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to process agent hello: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.process_agent_hello", error);
     }
   }
 
@@ -2666,9 +2681,7 @@ export class DeploymentGateway
       this.agentCapabilitiesByServerId.delete(serverId);
       this.agentVersionsByServerId.delete(serverId);
     } catch (error) {
-      this.logger.error(
-        `Failed to clear agent metadata: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.clear_agent_metadata", error);
     }
   }
 
@@ -2679,9 +2692,7 @@ export class DeploymentGateway
     try {
       return Array.from(this.connectedAgents.keys());
     } catch (error) {
-      this.logger.error(
-        `Failed to get connected agents: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.get_connected_agents", error);
       return [];
     }
   }
@@ -2693,9 +2704,7 @@ export class DeploymentGateway
     try {
       return this.connectedAgents.size;
     } catch (error) {
-      this.logger.error(
-        `Failed to get connected agents count: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.get_connected_agents_count", error);
       return 0;
     }
   }
@@ -2710,9 +2719,7 @@ export class DeploymentGateway
 
       return publicIp || null;
     } catch (error) {
-      this.logger.error(
-        `Failed to get primary agent public IP: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.get_primary_agent_public_ip", error);
       return null;
     }
   }
@@ -2749,9 +2756,7 @@ export class DeploymentGateway
 
       return raw || null;
     } catch (error) {
-      this.logger.error(
-        `Failed to parse server id from handshake: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.parse_server_id_from_handshake", error);
       return null;
     }
   }
@@ -2924,9 +2929,9 @@ export class DeploymentGateway
       }
       this.serverIdBySocketId.delete(socketId);
     } catch (error) {
-      this.logger.error(
-        `Failed to unregister server binding for socket ${socketId}: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logHandlerError("socket.unregister_server_binding", error, {
+        socketId,
+      });
     }
   }
 }

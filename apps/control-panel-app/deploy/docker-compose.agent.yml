@@ -1,10 +1,10 @@
-# Kubeara agent — pull image from Docker Hub (no source code required).
+# Kubeara agent — image tag is set by the control panel (KUBEARA_AGENT_IMAGE) at install time.
 # Requires Docker on the host: mount docker.sock so the agent can run compose deployments.
 #
 # Usage:
 #   cp .env.agent.example .env.agent
 #   docker compose -f docker-compose.agent.yml --env-file .env.agent pull
-#   docker compose -f docker-compose.agent.yml --env-file .env.agent up -d
+#   docker compose -f docker-compose.agent.yml --env-file .env.agent up -d --pull always
 
 services:
   agent-app:
@@ -21,6 +21,7 @@ services:
       PORT: ${AGENT_PORT:-3001}
       CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:?Set CONTROL_PANEL_URL in .env.agent}
       ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?Set ENCRYPTION_SECRET in .env.agent}
+      KUBEARA_SERVER_ID: ${KUBEARA_SERVER_ID:?Set KUBEARA_SERVER_ID in .env.agent}
       AGENT_PUBLIC_IP: ${AGENT_PUBLIC_IP:-}
       TRAEFIK_ENABLED: ${TRAEFIK_ENABLED:-false}
     volumes:

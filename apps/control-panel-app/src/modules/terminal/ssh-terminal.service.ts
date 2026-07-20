@@ -10,6 +10,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { IsNull, Repository } from "typeorm";
 import { randomUUID } from "node:crypto";
 import { SshConnectionManager, SshConnectionOptions } from "@shared/ssh";
+import { logStructured, logStructuredError } from "@shared/common";
 import {
   SSH_TERMINAL_CONNECTION_ID_PREFIX,
   SSH_TERMINAL_WINDOW_PIXELS,
@@ -140,9 +141,12 @@ export class SshTerminalService {
                 TerminalTransport.SSH,
               );
 
-              this.logger.log(
-                `[TERMINAL] SSH fallback session created sessionId=${sessionId} serverId=${serverId}`,
-              );
+              logStructured(this.logger, "log", "terminal.session", "started", {
+                module: "SshTerminalService",
+                sessionId,
+                serverId,
+                transport: "ssh",
+              });
 
               resolve(sessionId);
             },
@@ -152,9 +156,10 @@ export class SshTerminalService {
         }
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to create SSH terminal session for server '${serverId}': ${error instanceof Error ? error.message : String(error)}`,
-      );
+      logStructuredError(this.logger, "terminal.session.create", error, {
+        module: "SshTerminalService",
+        serverId,
+      });
       throw error;
     }
   }
@@ -242,9 +247,12 @@ export class SshTerminalService {
       });
     }
 
-    this.logger.log(
-      `[TERMINAL] SSH fallback session closed sessionId=${sessionId}`,
-    );
+    logStructured(this.logger, "log", "terminal.session", "succeeded", {
+      module: "SshTerminalService",
+      sessionId,
+      action: "closed",
+      transport: "ssh",
+    });
   }
 
   private buildSshOptions(
