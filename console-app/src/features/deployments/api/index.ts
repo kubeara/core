@@ -146,6 +146,18 @@ export async function stopContainerLogs(
   );
 }
 
+export async function discardDeploymentRecord(
+  deploymentId: string,
+): Promise<{ deploymentId: string; message: string }> {
+  const response = await apiClient.delete(
+    `/deployments/${encodeURIComponent(deploymentId)}/record`,
+  );
+  return unwrapServerApiData<{ deploymentId: string; message: string }>(
+    responseBody(response),
+    "Failed to remove deployment record",
+  );
+}
+
 export async function fetchServerDeployments(
   serverId: string,
 ): Promise<ServerDeploymentSummary[]> {

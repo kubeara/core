@@ -48,6 +48,7 @@ import {
   AgentInstallResult,
   AgentInstallService,
 } from "./agent-install.service";
+import { AgentServerBindingService } from "./agent-server-binding.service";
 import { RemoteAgentInstallService } from "./remote-agent-install.service";
 import { ServerType } from "../enums/server-type.enum";
 import {
@@ -142,6 +143,7 @@ export class ServerConnectionsService {
     private readonly sshManager: SshConnectionManager,
     private readonly remoteAgentInstall: RemoteAgentInstallService,
     private readonly agentInstall: AgentInstallService,
+    private readonly agentServerBinding: AgentServerBindingService,
     @Inject(forwardRef(() => DeploymentGateway))
     private readonly deploymentGateway: DeploymentGateway,
     @Inject(forwardRef(() => DeploymentsService))
@@ -175,6 +177,14 @@ export class ServerConnectionsService {
           success: false,
           logs: [],
           error: ERROR_MESSAGES.SERVER.INACTIVE_OR_MISSING,
+        };
+      }
+
+      if (await this.attachToExistingHostAgentIfOnline(server)) {
+        return {
+          success: true,
+          logs: [SERVER_ONBOARD_LOGS.AGENT_REUSED_EXISTING],
+          skipped: true,
         };
       }
 
@@ -986,6 +996,18 @@ export class ServerConnectionsService {
     }
 
     try {
+      const reused = await this.attachToExistingHostAgentIfOnline(
+        params.server,
+      );
+      if (reused) {
+        params.logs.push(SERVER_ONBOARD_LOGS.AGENT_REUSED_EXISTING);
+        return {
+          success: true,
+          logs: [SERVER_ONBOARD_LOGS.AGENT_REUSED_EXISTING],
+          skipped: true,
+        };
+      }
+
       const result = await this.remoteAgentInstall.install({
         connection: this.buildSshOptions(
           params.server,
@@ -999,6 +1021,43 @@ export class ServerConnectionsService {
       return result;
     } finally {
       this.sshManager.disconnect(params.server.id);
+    }
+  }
+
+  /**
+   * Reuses an online agent on the same host instead of installing again.
+   * Returns true when this server is attached to that agent.
+   */
+  private async attachToExistingHostAgentIfOnline(
+    server: Pick<ServerEntity, "id" | "host">,
+  ): Promise<boolean> {
+    try {
+      if (this.deploymentGateway.isAgentConnectedForServer(server.id)) {
+        return true;
+      }
+
+      const siblingIds =
+        await this.agentServerBinding.listActiveServerIdsForHost(server.host);
+
+      for (const siblingId of siblingIds) {
+        if (siblingId === server.id) {
+          continue;
+        }
+        if (!this.deploymentGateway.isAgentConnectedForServer(siblingId)) {
+          continue;
+        }
+        return this.deploymentGateway.attachServerToExistingAgent(
+          server.id,
+          siblingId,
+        );
+      }
+
+      return false;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to reuse shared agent for server '${server.id}': ${toErrorMessage(error)}`,
+      );
+      return false;
     }
   }
 
@@ -1252,13 +1311,30 @@ export class ServerConnectionsService {
   private async findExistingServer(
     input: ExistingServerCheck,
   ): Promise<ServerEntity | null> {
-    return this.serverRepository.findOne({
+    const matches = await this.serverRepository.find({
       where: {
         host: input.host,
-        username: input.username,
         userId: input.userId,
       },
     });
+
+    if (matches.length === 0) {
+      return null;
+    }
+
+    const active = matches.find(
+      (server) => server.status === EntityStatus.ACTIVE && !server.deletedAt,
+    );
+    if (active) {
+      return active;
+    }
+
+    return (
+      matches.find(
+        (server) =>
+          server.status === EntityStatus.INACTIVE && !!server.deletedAt,
+      ) ?? matches[0]
+    );
   }
 
   /**
@@ -1437,7 +1513,6 @@ export class ServerConnectionsService {
   ): Promise<ServiceResponse<OnboardSuccessData>> {
     const existingServer = await this.findExistingServer({
       host: input.server.host,
-      username: input.server.username,
       userId,
     });
 

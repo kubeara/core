@@ -113,11 +113,14 @@ function sortContainers(
 
 /**
  * Merges discovered containers with deployments and returns a list of server containers.
+ * Host-wide deployments are used for name/logo on shared hosts; only the viewer's
+ * deployments are Kubeara-managed. Other users' platform deploys appear as self-managed
+ * with template name/logo. Offline stubs are limited to the viewer's deployments.
  */
 export function mergeDiscoveredContainersWithDeployments(
   discovered: DiscoveredContainerPayload[],
   deployments: DeploymentMatchRecord[],
-  serverId: string,
+  viewerServerId: string,
 ): ServerContainerDto[] {
   const matchedDeploymentIds = new Set<string>();
   const rows: ServerContainerDto[] = [];
@@ -129,11 +132,13 @@ export function mergeDiscoveredContainersWithDeployments(
     }
 
     const deployment = findDeploymentForContainer(container, deployments);
-    if (deployment) {
+    const isViewerDeployment = deployment?.ownerServerId === viewerServerId;
+    if (isViewerDeployment && deployment) {
       matchedDeploymentIds.add(deployment.id);
     }
 
     const isAgent = isKubearaAgentContainer(containerName);
+    const isKubearaManaged = isAgent || isViewerDeployment;
 
     rows.push({
       containerId: container.containerId,
@@ -142,21 +147,24 @@ export function mergeDiscoveredContainersWithDeployments(
       status: container.status,
       ports: container.ports,
       runningSince: container.runningSince,
-      managedType:
-        deployment || isAgent
-          ? ManagedType.KUBEARA_MANAGED
-          : ManagedType.SELF_MANAGED,
-      deploymentId: deployment?.id ?? null,
+      managedType: isKubearaManaged
+        ? ManagedType.KUBEARA_MANAGED
+        : ManagedType.SELF_MANAGED,
+      deploymentId: isViewerDeployment ? (deployment?.id ?? null) : null,
       templateId: deployment?.templateSlug ?? null,
       serviceName:
         deployment?.serviceName ?? (isAgent ? "Kubeara Agent" : null),
-      serverId,
+      serverId: viewerServerId,
       isOnline: true,
     });
   }
 
   for (const deployment of deployments) {
     if (matchedDeploymentIds.has(deployment.id)) {
+      continue;
+    }
+    // Do not show other users' offline deployments on a shared host.
+    if (deployment.ownerServerId !== viewerServerId) {
       continue;
     }
 
@@ -171,7 +179,7 @@ export function mergeDiscoveredContainersWithDeployments(
       deploymentId: deployment.id,
       templateId: deployment.templateSlug,
       serviceName: deployment.serviceName,
-      serverId,
+      serverId: viewerServerId,
       isOnline: false,
     });
   }
