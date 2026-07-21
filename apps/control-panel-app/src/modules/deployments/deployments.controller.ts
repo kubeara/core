@@ -535,6 +535,27 @@ export class DeploymentsController {
   }
 
   /**
+   * Soft-deletes a deployment owned by the caller without agent teardown.
+   */
+  @Delete(":deploymentId/record")
+  async discardDeploymentRecord(
+    @Req() req: { user: UserEntity },
+    @Param("deploymentId") deploymentId: string,
+  ) {
+    try {
+      return await this.deploymentsService.discardOwnedDeploymentRecord(
+        deploymentId,
+        req.user.id,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Discard deployment record failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
    * Removes a deployment and its Docker resources on the connected agent.
    * The DB record is soft-deleted once the agent confirms teardown.
    */

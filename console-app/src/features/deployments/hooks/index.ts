@@ -4,6 +4,7 @@ import { showErrorToast, showSuccessToast } from "@/lib/toast";
 import { QUERY_KEYS } from "@/constants/query-keys";
 import {
   executeContainerAction,
+  discardDeploymentRecord,
   fetchDeployment,
   fetchServerContainers,
   fetchServerDeployments,
@@ -102,7 +103,7 @@ export function useDeploymentQuery(deploymentId: string | undefined) {
  */
 type ContainerActionInput = {
   serverId: string;
-  containerId: string;
+  containerId?: string | null;
   containerName: string;
   action: ContainerActionType;
   deploymentId?: string | null;
@@ -120,6 +121,25 @@ export function useContainerActionMutation() {
       deploymentId,
     }) => {
       try {
+        // Offline managed stub: delete uses the same action via deployment record API.
+        if (action === "delete" && !containerId && deploymentId) {
+          await discardDeploymentRecord(deploymentId);
+          return {
+            success: true,
+            action,
+            containerId: "",
+            stdout: "",
+            stderr: "",
+            exitCode: 0,
+            executedVia: "host",
+            message: getContainerActionSuccessMessage(action, containerName),
+          };
+        }
+
+        if (!containerId) {
+          throw new Error("Container id is required for this action");
+        }
+
         return await executeContainerAction(serverId, containerId, action, {
           deploymentId,
           containerName,

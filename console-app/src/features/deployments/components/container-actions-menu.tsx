@@ -7,25 +7,28 @@ import {
 } from "../constants/container-action-messages";
 import { CONTAINER_LOGS_LABEL } from "../constants/container-logs-messages";
 import type { ContainerActionType, ServerContainer } from "../types";
-import { isContainerRunning } from "@/features/servers/components/server-detail/utils/container-display";
+import {
+  canDeleteOfflineManagedContainer,
+  isContainerRunning,
+} from "@/features/servers/components/server-detail/utils/container-display";
 
-/**
- * The props for the ContainerActionsMenu component.
- */
 type ContainerActionsMenuProps = {
   container: ServerContainer;
   isPending: boolean;
   pendingAction: {
     containerId: string | null;
+    deploymentId?: string | null;
     action: ContainerActionType;
   } | null;
   onAction: (container: ServerContainer, action: ContainerActionType) => void;
   onViewLogs?: (container: ServerContainer) => void;
 };
 
-/**
- * The ContainerActionsMenu component.
- */
+type MenuAction = {
+  action: ContainerActionType;
+  danger?: boolean;
+};
+
 export function ContainerActionsMenu({
   container,
   isPending,
@@ -33,8 +36,9 @@ export function ContainerActionsMenu({
   onAction,
   onViewLogs,
 }: ContainerActionsMenuProps) {
-  const containerId = container.containerId!;
-  const showStop = isContainerRunning(container);
+  const offlineDeleteOnly = canDeleteOfflineManagedContainer(container);
+  const containerId = container.containerId;
+  const showStop = !offlineDeleteOnly && isContainerRunning(container);
   const menuId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -44,6 +48,14 @@ export function ContainerActionsMenu({
     left: number;
     minWidth: number;
   } | null>(null);
+
+  const lifecycleActions: MenuAction[] = offlineDeleteOnly
+    ? [{ action: "delete", danger: true }]
+    : [
+        { action: showStop ? "stop" : "start" },
+        { action: "restart" },
+        { action: "delete", danger: true },
+      ];
 
   useEffect(() => {
     if (!open) {
@@ -111,12 +123,24 @@ export function ContainerActionsMenu({
     onViewLogs?.(container);
   }
 
-  const actionLabel = (action: ContainerActionType): string => {
-    if (pendingAction?.containerId !== containerId) {
-      return CONTAINER_ACTION_LABELS[action];
+  function isActionPending(action: ContainerActionType): boolean {
+    if (pendingAction?.action !== action) {
+      return false;
     }
-    return CONTAINER_ACTION_PENDING_LABELS[action];
-  };
+    if (containerId && pendingAction.containerId === containerId) {
+      return true;
+    }
+    return Boolean(
+      container.deploymentId &&
+        pendingAction.deploymentId === container.deploymentId,
+    );
+  }
+
+  function actionLabel(action: ContainerActionType): string {
+    return isActionPending(action)
+      ? CONTAINER_ACTION_PENDING_LABELS[action]
+      : CONTAINER_ACTION_LABELS[action];
+  }
 
   const dropdown =
     open && menuPosition
@@ -132,7 +156,7 @@ export function ContainerActionsMenu({
               minWidth: menuPosition.minWidth,
             }}
           >
-            {onViewLogs ? (
+            {!offlineDeleteOnly && onViewLogs ? (
               <button
                 type="button"
                 role="menuitem"
@@ -146,57 +170,23 @@ export function ContainerActionsMenu({
                 {CONTAINER_LOGS_LABEL}
               </button>
             ) : null}
-            {showStop ? (
+            {lifecycleActions.map(({ action, danger }) => (
               <button
+                key={action}
                 type="button"
                 role="menuitem"
-                className="container-actions-menu-item"
+                className={`container-actions-menu-item${danger ? " container-actions-menu-item--danger" : ""}`}
                 disabled={isPending}
-                onClick={() => runAction("stop")}
+                onClick={() => runAction(action)}
               >
-                <span className="container-actions-menu-item-icon container-actions-menu-item-icon--stop">
-                  <ContainerActionIcon action="stop" />
+                <span
+                  className={`container-actions-menu-item-icon${danger ? "" : ` container-actions-menu-item-icon--${action}`}`}
+                >
+                  <ContainerActionIcon action={action} />
                 </span>
-                {actionLabel("stop")}
+                {actionLabel(action)}
               </button>
-            ) : (
-              <button
-                type="button"
-                role="menuitem"
-                className="container-actions-menu-item"
-                disabled={isPending}
-                onClick={() => runAction("start")}
-              >
-                <span className="container-actions-menu-item-icon container-actions-menu-item-icon--start">
-                  <ContainerActionIcon action="start" />
-                </span>
-                {actionLabel("start")}
-              </button>
-            )}
-            <button
-              type="button"
-              role="menuitem"
-              className="container-actions-menu-item"
-              disabled={isPending}
-              onClick={() => runAction("restart")}
-            >
-              <span className="container-actions-menu-item-icon container-actions-menu-item-icon--restart">
-                <ContainerActionIcon action="restart" />
-              </span>
-              {actionLabel("restart")}
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              className="container-actions-menu-item container-actions-menu-item--danger"
-              disabled={isPending}
-              onClick={() => runAction("delete")}
-            >
-              <span className="container-actions-menu-item-icon">
-                <ContainerActionIcon action="delete" />
-              </span>
-              {actionLabel("delete")}
-            </button>
+            ))}
           </div>,
           document.body,
         )

@@ -19,6 +19,7 @@ import { ServerDetailSectionHeader } from "../server-detail-section-header";
 import { ConnectedServiceCard } from "../connected-service-card";
 import {
   CONTAINER_STATUS_FILTER_OPTIONS,
+  canDeleteOfflineManagedContainer,
   getContainerDisplayName,
   getContainerServiceName,
   isKubearaAgentContainer,
@@ -61,6 +62,7 @@ export function ServerOverviewTab({
   const [statusFilter, setStatusFilter] = useState<ContainerStatusFilter>("");
   const [pendingAction, setPendingAction] = useState<{
     containerId: string | null;
+    deploymentId?: string | null;
     action: ContainerActionType;
   } | null>(null);
   const [confirmAction, setConfirmAction] = useState<{
@@ -72,8 +74,12 @@ export function ServerOverviewTab({
 
   const isConfirmPending = Boolean(
     confirmAction &&
-    pendingAction?.containerId === confirmAction.container.containerId &&
-    pendingAction.action === confirmAction.action,
+      pendingAction?.action === confirmAction.action &&
+      ((confirmAction.container.containerId &&
+        pendingAction.containerId === confirmAction.container.containerId) ||
+        (confirmAction.container.deploymentId &&
+          pendingAction.deploymentId ===
+            confirmAction.container.deploymentId)),
   );
 
   const filteredContainers = useMemo(
@@ -119,18 +125,30 @@ export function ServerOverviewTab({
   }
 
   async function handleContainerActionConfirm() {
-    if (!confirmAction?.container.containerId) {
+    if (!confirmAction) {
       return;
     }
 
     const { container, action } = confirmAction;
-    const containerId = container.containerId;
+    const isOfflineDelete = canDeleteOfflineManagedContainer(container);
 
-    setPendingAction({ containerId, action });
+    if (isOfflineDelete && action !== "delete") {
+      return;
+    }
+
+    if (!isOfflineDelete && !container.containerId) {
+      return;
+    }
+
+    setPendingAction({
+      containerId: container.containerId,
+      deploymentId: container.deploymentId,
+      action,
+    });
     try {
       await containerActionMutation.mutateAsync({
         serverId,
-        containerId: containerId ?? "",
+        containerId: container.containerId,
         containerName: getContainerDisplayName(container),
         deploymentId: container.deploymentId,
         action,

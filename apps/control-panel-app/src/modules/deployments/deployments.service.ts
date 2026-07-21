@@ -49,6 +49,7 @@ import { mapSshTestErrorCode } from "@control-panel/modules/server-connections/u
 import { LocalServerService } from "@control-panel/modules/server-connections/services/local-server.service";
 import { AGENT_INSTALL } from "@control-panel/modules/server-connections/constants/agent-install.constants";
 import { ServerConnectionsService } from "@control-panel/modules/server-connections/services/server-connections.service";
+import { AgentServerBindingService } from "@control-panel/modules/server-connections/services/agent-server-binding.service";
 import { EnvironmentVariableEntity } from "./entities/environment-variable.entity";
 import { ServiceDeploymentEntity } from "./entities/service-deployment.entity";
 import { ServiceTemplateEntity } from "@control-panel/modules/service-template/entities/service-template.entity";
@@ -100,6 +101,7 @@ export class DeploymentsService {
     @InjectRepository(ServerSshCredentialEntity)
     private readonly serverCredentialRepository: Repository<ServerSshCredentialEntity>,
     private readonly serverConnectionsService: ServerConnectionsService,
+    private readonly agentServerBinding: AgentServerBindingService,
     private readonly localServerService: LocalServerService,
     private readonly templatePayloadService: TemplatePayloadService,
     private readonly templateConfigService: TemplateConfigService,
@@ -1031,21 +1033,27 @@ export class DeploymentsService {
 
   /**
    * Lists runtime containers on a server merged with Kubeara deployment records.
-   * Discovery is not persisted; failed deployments are omitted from the overview.
+   * On shared hosts, matches any platform deployment on that host for name/logo.
+   * Offline stubs remain limited to the viewing user's own deployments.
    */
   async listServerContainers(
     serverId: string,
     userId: string,
   ): Promise<ServerContainerDto[]> {
     try {
-      await this.assertActiveServerForUser(serverId, userId);
+      const server = await this.assertActiveServerForUser(serverId, userId);
 
       const discovered =
         await this.serverConnectionsService.discoverContainers(serverId);
 
+      const hostServerIds =
+        await this.agentServerBinding.listActiveServerIdsForHost(server.host);
+      const matchServerIds =
+        hostServerIds.length > 0 ? hostServerIds : [serverId];
+
       const deploymentRows = await this.deploymentRepository.find({
         where: {
-          serverId,
+          serverId: In(matchServerIds),
           deletedAt: IsNull(),
           deploymentStatus: Not(
             In(DeploymentsService.OVERVIEW_EXCLUDED_STATUSES),
@@ -1060,6 +1068,7 @@ export class DeploymentsService {
         templateSlug: deployment.templateSlug,
         serviceName: deployment.template?.name?.trim() || null,
         composeProject: sanitizeDeploymentProjectName(deployment.id),
+        ownerServerId: deployment.serverId ?? serverId,
       }));
 
       return mergeDiscoveredContainersWithDeployments(
@@ -2079,6 +2088,45 @@ export class DeploymentsService {
     } catch (error) {
       this.logger.error(
         `Remove deployment '${deploymentId}' failed: ${toErrorMessage(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Soft-deletes a deployment owned by the caller (no agent teardown).
+   * Used for offline managed stubs where only the DB row remains.
+   */
+  async discardOwnedDeploymentRecord(
+    deploymentId: string,
+    userId: string,
+  ): Promise<{ deploymentId: string; message: string }> {
+    try {
+      const deployment = await this.deploymentRepository.findOne({
+        where: {
+          id: deploymentId,
+          userId,
+          deletedAt: IsNull(),
+        },
+      });
+
+      if (!deployment) {
+        throw new NotFoundException(
+          `Deployment '${deploymentId}' not found or not owned by you`,
+        );
+      }
+
+      await this.softDeleteDeploymentRecord(deploymentId, {
+        message: DEPLOYMENT_MESSAGES.ORPHANED_RECORD_DISCARDED,
+      });
+
+      return {
+        deploymentId,
+        message: DEPLOYMENT_MESSAGES.ORPHANED_RECORD_DISCARDED,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Discard deployment record '${deploymentId}' failed: ${toErrorMessage(error)}`,
       );
       throw error;
     }

@@ -11,4 +11,5 @@ export const SERVER_ONBOARD_LOGS = {
   CREDENTIALS_MISSING_AFTER_RESTORE:
     "SSH ok but credentials missing after restore",
   AGENT_INSTALL_SKIPPED: "Agent install skipped (installAgent=false)",
+  AGENT_REUSED_EXISTING: "Existing host agent reused (no reinstall)",
 } as const;

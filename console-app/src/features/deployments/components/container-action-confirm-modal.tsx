@@ -15,7 +15,7 @@ type ContainerActionConfirmModalProps = {
 };
 
 /**
- * The props for the ContainerActionConfirmModal component.
+ * Confirms a container lifecycle action.
  */
 export function ContainerActionConfirmModal({
   containerName,

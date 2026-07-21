@@ -129,9 +129,15 @@ export class DeploymentGateway
   /** Agent socket registry: socketId → socket (multiple agents). */
   private connectedAgents = new Map<string, Socket>();
   private agentPublicIps = new Map<string, string>();
-  /** serverId → agent socket (one active agent per server). */
+  /**
+   * serverId → live agent socket.
+   * One socket may be registered under many serverIds (shared host).
+   */
   private agentsByServerId = new Map<string, Socket>();
+  /** socketId → primary serverId (for logs / legacy single-id paths). */
   private serverIdBySocketId = new Map<string, string>();
+  /** socketId → all serverIds this agent currently serves. */
+  private serverIdsBySocketId = new Map<string, Set<string>>();
   private readonly pendingContainerDiscovery = new Map<
     string,
     PendingContainerDiscovery
@@ -202,63 +208,53 @@ export class DeploymentGateway
   async handleConnection(client: Socket): Promise<void> {
     try {
       const socketId = client.id;
-      const publicIp = this.extractPublicIpFromHandshake(client);
-      const explicitServerId = this.extractServerIdFromHandshake(client);
-
-      const serverId = await this.agentServerBinding.resolveServerIdForAgent({
-        explicitServerId,
-        reportedPublicIp: publicIp || null,
-      });
-
       const isAgent = this.isLikelyAgentClient(client);
 
-      if (isAgent) {
-        this.connectedAgents.set(socketId, client);
-        if (publicIp) {
-          this.agentPublicIps.set(socketId, publicIp);
-        }
-
-        if (serverId) {
-          const previous = this.agentsByServerId.get(serverId);
-          if (previous && previous.id !== socketId) {
-            this.unregisterServerBinding(previous.id);
-            previous.disconnect(true);
-          }
-
-          this.clearAgentMetadataForServer(serverId);
-          this.agentsByServerId.set(serverId, client);
-          this.serverIdBySocketId.set(socketId, serverId);
-        }
-
-        this.attachAgentInboundHandlers(client);
-
-        client.on(
-          DeploymentEvents.DEPLOYMENT_LOG,
-          (payload: DeploymentLogPayload) => {
-            this.processAgentLog(client, payload);
-          },
-        );
-        client.on(
-          DeploymentEvents.DEPLOYMENT_STATUS,
-          (payload: DeploymentStatusPayload) => {
-            void this.processDeploymentStatus(client, payload);
-          },
-        );
+      if (!isAgent) {
+        return;
       }
 
+      const publicIp = this.extractPublicIpFromHandshake(client);
+      const explicitServerId = this.extractServerIdFromHandshake(client);
+      const serverIds =
+        await this.agentServerBinding.resolveSharedHostServerIds({
+          explicitServerId,
+          reportedPublicIp: publicIp || null,
+        });
+
+      this.connectedAgents.set(socketId, client);
+      if (publicIp) {
+        this.agentPublicIps.set(socketId, publicIp);
+      }
+
+      if (serverIds.length > 0) {
+        this.registerAgentSocketForServers(client, serverIds);
+      }
+
+      this.attachAgentInboundHandlers(client);
+      client.on(
+        DeploymentEvents.DEPLOYMENT_LOG,
+        (payload: DeploymentLogPayload) => {
+          this.processAgentLog(client, payload);
+        },
+      );
+      client.on(
+        DeploymentEvents.DEPLOYMENT_STATUS,
+        (payload: DeploymentStatusPayload) => {
+          void this.processDeploymentStatus(client, payload);
+        },
+      );
+
+      // Announce each bound server so every sharing user sees the agent online.
       const ns = this.getNamespaceServer();
-      if (isAgent) {
-        const payload = {
+      const announceIds = serverIds.length > 0 ? serverIds : [undefined];
+      for (const boundServerId of announceIds) {
+        ns?.emit(DeploymentEvents.AGENT_CONNECTED, {
           agentId: socketId,
-          serverId: serverId ?? undefined,
+          serverId: boundServerId,
           timestamp: new Date().toISOString(),
           totalAgents: this.connectedAgents.size,
-        };
-        this.logEmitEvent(
-          DeploymentEvents.AGENT_CONNECTED,
-          `agentSocket=${socketId}${serverId ? ` serverId=${serverId}` : ""} totalAgents=${this.connectedAgents.size}`,
-        );
-        ns?.emit(DeploymentEvents.AGENT_CONNECTED, payload);
+        });
       }
     } catch (error) {
       this.logger.error(
@@ -277,63 +273,28 @@ export class DeploymentGateway
     try {
       const socketId = client.id;
       const wasAgent = this.connectedAgents.has(socketId);
-      const serverId = this.serverIdBySocketId.get(socketId);
+      const serverIds = this.getBoundServerIds(socketId);
 
       this.connectedAgents.delete(socketId);
       this.agentPublicIps.delete(socketId);
       this.unregisterServerBinding(socketId);
 
-      if (wasAgent) {
-        if (serverId) {
-          this.clearAgentMetadataForServer(serverId);
-          this.rejectPendingDiscoveryForServer(
-            serverId,
-            WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.CONTAINER_DISCOVERY,
-          );
-          this.rejectPendingResourcesForServer(
-            serverId,
-            WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.SERVER_RESOURCES,
-          );
-          this.rejectPendingDeploymentValidatesForServer(
-            serverId,
-            WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.DEPLOYMENT_VALIDATION,
-          );
-          this.rejectPendingContainerActionsForServer(
-            serverId,
-            WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.CONTAINER_ACTION,
-          );
-          this.rejectPendingDeploymentRemovesForServer(
-            serverId,
-            WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.DEPLOYMENT_REMOVAL,
-          );
-          this.rejectPendingAgentRemovesForServer(
-            serverId,
-            WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.AGENT_REMOVAL,
-          );
-          this.rejectPendingTerminalConnectsForServer(
-            serverId,
-            WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.TERMINAL_CONNECT,
-          );
-          this.rejectPendingContainerLogsStartsForServer(
-            serverId,
-            WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.CONTAINER_LOGS_START,
-          );
-          this.closeTerminalSessionsForServer(serverId);
-          this.closeContainerLogsSessionsForServer(serverId);
-        }
+      if (!wasAgent) {
+        return;
+      }
 
-        const ns = this.getNamespaceServer();
-        const payload = {
+      this.clearPendingOpsForBoundServers(serverIds);
+
+      const ns = this.getNamespaceServer();
+      for (const boundServerId of serverIds.length > 0
+        ? serverIds
+        : [undefined]) {
+        ns?.emit(DeploymentEvents.AGENT_DISCONNECTED, {
           agentId: socketId,
-          serverId: serverId ?? undefined,
+          serverId: boundServerId,
           timestamp: new Date().toISOString(),
           totalAgents: this.connectedAgents.size,
-        };
-        this.logEmitEvent(
-          DeploymentEvents.AGENT_DISCONNECTED,
-          `agentSocket=${socketId}${serverId ? ` serverId=${serverId}` : ""} totalAgents=${this.connectedAgents.size}`,
-        );
-        ns?.emit(DeploymentEvents.AGENT_DISCONNECTED, payload);
+        });
       }
     } catch (error) {
       this.logger.error(
@@ -424,8 +385,7 @@ export class DeploymentGateway
         return;
       }
 
-      const serverId = this.serverIdBySocketId.get(client.id);
-      if (serverId && serverId !== pending.serverId) {
+      if (!this.isSocketServingServer(client, pending.serverId)) {
         return;
       }
 
@@ -476,8 +436,7 @@ export class DeploymentGateway
         return;
       }
 
-      const serverId = this.serverIdBySocketId.get(client.id);
-      if (serverId && serverId !== pending.serverId) {
+      if (!this.isSocketServingServer(client, pending.serverId)) {
         return;
       }
 
@@ -513,8 +472,7 @@ export class DeploymentGateway
         return;
       }
 
-      const serverId = this.serverIdBySocketId.get(client.id);
-      if (serverId && serverId !== pending.serverId) {
+      if (!this.isSocketServingServer(client, pending.serverId)) {
         return;
       }
 
@@ -561,8 +519,7 @@ export class DeploymentGateway
         return;
       }
 
-      const serverId = this.serverIdBySocketId.get(client.id);
-      if (serverId && serverId !== pending.serverId) {
+      if (!this.isSocketServingServer(client, pending.serverId)) {
         return;
       }
 
@@ -598,8 +555,7 @@ export class DeploymentGateway
         return;
       }
 
-      const serverId = this.serverIdBySocketId.get(client.id);
-      if (serverId && serverId !== pending.serverId) {
+      if (!this.isSocketServingServer(client, pending.serverId)) {
         return;
       }
 
@@ -2105,8 +2061,7 @@ export class DeploymentGateway
       }
 
       const session = this.terminalSessionsById.get(sessionId);
-      const serverId = this.serverIdBySocketId.get(client.id);
-      if (session && serverId && serverId !== session.serverId) {
+      if (session && !this.isSocketServingServer(client, session.serverId)) {
         return;
       }
 
@@ -2139,8 +2094,7 @@ export class DeploymentGateway
         return;
       }
 
-      const serverId = this.serverIdBySocketId.get(client.id);
-      if (serverId && serverId !== pending.serverId) {
+      if (!this.isSocketServingServer(client, pending.serverId)) {
         return;
       }
 
@@ -2190,9 +2144,8 @@ export class DeploymentGateway
         return;
       }
 
-      const serverId = this.serverIdBySocketId.get(client.id);
       const session = this.terminalSessionsById.get(sessionId);
-      if (!session || (serverId && serverId !== session.serverId)) {
+      if (!session || !this.isSocketServingServer(client, session.serverId)) {
         return;
       }
 
@@ -2366,8 +2319,7 @@ export class DeploymentGateway
         return;
       }
 
-      const serverId = this.serverIdBySocketId.get(client.id);
-      if (serverId && serverId !== pending.serverId) {
+      if (!this.isSocketServingServer(client, pending.serverId)) {
         return;
       }
 
@@ -2413,9 +2365,8 @@ export class DeploymentGateway
         return;
       }
 
-      const serverId = this.serverIdBySocketId.get(client.id);
       const session = this.containerLogsSessionsById.get(sessionId);
-      if (!session || (serverId && serverId !== session.serverId)) {
+      if (!session || !this.isSocketServingServer(client, session.serverId)) {
         return;
       }
 
@@ -2453,9 +2404,8 @@ export class DeploymentGateway
         return;
       }
 
-      const serverId = this.serverIdBySocketId.get(client.id);
       const session = this.containerLogsSessionsById.get(sessionId);
-      if (!session || (serverId && serverId !== session.serverId)) {
+      if (!session || !this.isSocketServingServer(client, session.serverId)) {
         return;
       }
 
@@ -2495,8 +2445,7 @@ export class DeploymentGateway
       }
 
       const session = this.containerLogsSessionsById.get(sessionId);
-      const serverId = this.serverIdBySocketId.get(client.id);
-      if (session && serverId && serverId !== session.serverId) {
+      if (session && !this.isSocketServingServer(client, session.serverId)) {
         return;
       }
 
@@ -2695,11 +2644,10 @@ export class DeploymentGateway
    */
   private processAgentHello(client: Socket, payload: AgentHelloPayload): void {
     try {
-      const serverId = this.serverIdBySocketId.get(client.id);
       const capabilities = new Set(payload?.capabilities ?? []);
       const version = payload?.version?.trim() || "unknown";
 
-      if (serverId) {
+      for (const serverId of this.getBoundServerIds(client.id)) {
         this.agentCapabilitiesByServerId.set(serverId, capabilities);
         this.agentVersionsByServerId.set(serverId, version);
       }
@@ -2809,18 +2757,172 @@ export class DeploymentGateway
   }
 
   /**
-   * Unregisters a server binding.
+   * Returns true if this socket owns the server binding (or the server has no agent yet).
+   */
+  private isSocketServingServer(client: Socket, serverId: string): boolean {
+    const owner = this.agentsByServerId.get(serverId);
+    return !owner || owner.id === client.id;
+  }
+
+  /** Server ids currently served by this agent socket. */
+  private getBoundServerIds(socketId: string): string[] {
+    const bound = this.serverIdsBySocketId.get(socketId);
+    return bound ? [...bound] : [];
+  }
+
+  /**
+   * Rejects in-flight agent requests and closes sessions for the given servers.
+   */
+  private clearPendingOpsForBoundServers(serverIds: string[]): void {
+    for (const serverId of serverIds) {
+      this.clearAgentMetadataForServer(serverId);
+      this.rejectPendingDiscoveryForServer(
+        serverId,
+        WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.CONTAINER_DISCOVERY,
+      );
+      this.rejectPendingResourcesForServer(
+        serverId,
+        WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.SERVER_RESOURCES,
+      );
+      this.rejectPendingDeploymentValidatesForServer(
+        serverId,
+        WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.DEPLOYMENT_VALIDATION,
+      );
+      this.rejectPendingContainerActionsForServer(
+        serverId,
+        WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.CONTAINER_ACTION,
+      );
+      this.rejectPendingDeploymentRemovesForServer(
+        serverId,
+        WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.DEPLOYMENT_REMOVAL,
+      );
+      this.rejectPendingAgentRemovesForServer(
+        serverId,
+        WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.AGENT_REMOVAL,
+      );
+      this.rejectPendingTerminalConnectsForServer(
+        serverId,
+        WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.TERMINAL_CONNECT,
+      );
+      this.rejectPendingContainerLogsStartsForServer(
+        serverId,
+        WEBSOCKET_ERROR_MESSAGES.AGENT_DISCONNECTED.CONTAINER_LOGS_START,
+      );
+      this.closeTerminalSessionsForServer(serverId);
+      this.closeContainerLogsSessionsForServer(serverId);
+    }
+  }
+
+  /**
+   * Registers one agent socket for all server ids that share the host.
+   * Disconnects any previous agent that owned overlapping bindings.
+   */
+  private registerAgentSocketForServers(
+    client: Socket,
+    serverIds: string[],
+  ): void {
+    const socketId = client.id;
+    const previousSockets = new Map<string, Socket>();
+    const bound = new Set<string>();
+
+    for (const serverId of serverIds) {
+      if (!serverId) {
+        continue;
+      }
+      const previous = this.agentsByServerId.get(serverId);
+      if (previous && previous.id !== socketId) {
+        previousSockets.set(previous.id, previous);
+      }
+      bound.add(serverId);
+    }
+
+    if (bound.size === 0) {
+      return;
+    }
+
+    for (const previous of previousSockets.values()) {
+      this.unregisterServerBinding(previous.id);
+      previous.disconnect(true);
+    }
+
+    for (const serverId of bound) {
+      this.clearAgentMetadataForServer(serverId);
+      this.agentsByServerId.set(serverId, client);
+    }
+    this.serverIdsBySocketId.set(socketId, bound);
+    this.serverIdBySocketId.set(socketId, [...bound][0]);
+  }
+
+  /**
+   * Lets a newly onboarded server use an agent already connected for the same host.
+   * No new socket is created — the existing agent is reused.
+   */
+  attachServerToExistingAgent(
+    serverId: string,
+    siblingServerId: string,
+  ): boolean {
+    try {
+      if (
+        serverId === siblingServerId ||
+        this.agentsByServerId.get(serverId)?.connected
+      ) {
+        return this.isAgentConnectedForServer(serverId);
+      }
+
+      const client = this.agentsByServerId.get(siblingServerId);
+      if (!client?.connected) {
+        return false;
+      }
+
+      this.agentsByServerId.set(serverId, client);
+      const bound =
+        this.serverIdsBySocketId.get(client.id) ?? new Set<string>();
+      bound.add(serverId);
+      this.serverIdsBySocketId.set(client.id, bound);
+      this.serverIdBySocketId.set(
+        client.id,
+        this.serverIdBySocketId.get(client.id) ?? serverId,
+      );
+
+      const caps = this.agentCapabilitiesByServerId.get(siblingServerId);
+      if (caps) {
+        this.agentCapabilitiesByServerId.set(serverId, new Set(caps));
+      }
+      const version = this.agentVersionsByServerId.get(siblingServerId);
+      if (version) {
+        this.agentVersionsByServerId.set(serverId, version);
+      }
+
+      this.getNamespaceServer()?.emit(DeploymentEvents.AGENT_CONNECTED, {
+        agentId: client.id,
+        serverId,
+        timestamp: new Date().toISOString(),
+        totalAgents: this.connectedAgents.size,
+      });
+      return true;
+    } catch (error) {
+      this.logger.error(
+        `Failed to share agent with server ${serverId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
+  }
+
+  /**
+   * Removes all serverId → socket mappings for a disconnected agent.
    */
   private unregisterServerBinding(socketId: string): void {
     try {
-      const serverId = this.serverIdBySocketId.get(socketId);
-      if (serverId) {
-        const bound = this.agentsByServerId.get(serverId);
-        if (bound?.id === socketId) {
-          this.agentsByServerId.delete(serverId);
+      const bound = this.serverIdsBySocketId.get(socketId);
+      if (bound) {
+        for (const serverId of bound) {
+          if (this.agentsByServerId.get(serverId)?.id === socketId) {
+            this.agentsByServerId.delete(serverId);
+          }
         }
-        this.serverIdBySocketId.delete(socketId);
+        this.serverIdsBySocketId.delete(socketId);
       }
+      this.serverIdBySocketId.delete(socketId);
     } catch (error) {
       this.logger.error(
         `Failed to unregister server binding for socket ${socketId}: ${error instanceof Error ? error.message : String(error)}`,
