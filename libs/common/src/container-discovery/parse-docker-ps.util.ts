@@ -23,18 +23,36 @@ export function deriveLastRestartedFromDockerStatus(status: string): string {
     return "";
   }
 
-  const upMatch = trimmed.match(/^Up\s+(.+)/i);
-  if (upMatch?.[1]) {
-    const uptime = upMatch[1].replace(/\s*\([^)]*\)\s*$/g, "").trim();
+  if (trimmed.toLowerCase().startsWith("up ")) {
+    let uptime = trimmed.slice(3).trim();
+
+    const healthcheckStart = uptime.lastIndexOf("(");
+    if (healthcheckStart !== -1 && uptime.endsWith(")")) {
+      uptime = uptime.slice(0, healthcheckStart).trim();
+    }
+
     return formatDockerDurationAsAgo(uptime);
   }
 
-  const restartingMatch = trimmed.match(/^Restarting\s*\((.+)\)/i);
-  if (restartingMatch?.[1]) {
-    return formatDockerDurationAsAgo(restartingMatch[1].trim());
+  if (trimmed.toLowerCase().startsWith("restarting")) {
+    const openingParen = trimmed.indexOf("(");
+    const closingParen = trimmed.lastIndexOf(")");
+
+    if (
+      openingParen !== -1 &&
+      closingParen > openingParen &&
+      closingParen === trimmed.length - 1
+    ) {
+      const duration = trimmed.slice(openingParen + 1, closingParen).trim();
+
+      return formatDockerDurationAsAgo(duration);
+    }
   }
 
-  if (/^Exited/i.test(trimmed) || /^Created/i.test(trimmed)) {
+  if (
+    trimmed.toLowerCase().startsWith("exited") ||
+    trimmed.toLowerCase().startsWith("created")
+  ) {
     return "";
   }
 
@@ -42,32 +60,88 @@ export function deriveLastRestartedFromDockerStatus(status: string): string {
 }
 
 function formatDockerDurationAsAgo(duration: string): string {
-  let text = duration
-    .trim()
-    .replace(/\s+ago\s*$/i, "")
-    .trim();
+  let text = duration.trim();
+
   if (!text) {
     return "";
   }
 
-  text = text
-    .replace(/^about a minute$/i, "1 min")
-    .replace(/^about an hour$/i, "1 hour")
-    .replace(/^less than a second$/i, "<1 sec")
-    .replace(/^(\d+)\s+seconds?$/i, "$1 sec")
-    .replace(/^(\d+)\s+minutes?$/i, "$1 min")
-    .replace(/^(\d+)\s+hours?$/i, "$1 hour")
-    .replace(/^(\d+)\s+days?$/i, "$1 day")
-    .replace(/^(\d+)\s+weeks?$/i, "$1 week")
-    .replace(/^(\d+)\s+months?$/i, "$1 month")
-    .replace(/^(\d+)\s+years?$/i, "$1 year")
-    .replace(/^(\d+)s$/i, "$1 sec")
-    .replace(/^(\d+)m$/i, "$1 min")
-    .replace(/^(\d+)h$/i, "$1 hour")
-    .replace(/^(\d+)d$/i, "$1 day")
-    .replace(/^<1s$/i, "<1 sec");
+  if (text.toLowerCase().endsWith(" ago")) {
+    text = text.slice(0, -4).trim();
+  }
 
-  return `${text} ago`;
+  const normalizedDuration = normalizeDockerDuration(text);
+
+  return `${normalizedDuration} ago`;
+}
+
+function normalizeDockerDuration(duration: string): string {
+  const lowerDuration = duration.toLowerCase();
+
+  if (lowerDuration === "about a minute") {
+    return "1 min";
+  }
+
+  if (lowerDuration === "about an hour") {
+    return "1 hour";
+  }
+
+  if (lowerDuration === "less than a second") {
+    return "<1 sec";
+  }
+
+  const parts = duration.split(/\s+/);
+
+  if (parts.length === 2 && /^\d+$/.test(parts[0])) {
+    const value = parts[0];
+    const unit = parts[1].toLowerCase();
+
+    switch (unit) {
+      case "second":
+      case "seconds":
+        return `${value} sec`;
+      case "minute":
+      case "minutes":
+        return `${value} min`;
+      case "hour":
+      case "hours":
+        return `${value} hour`;
+      case "day":
+      case "days":
+        return `${value} day`;
+      case "week":
+      case "weeks":
+        return `${value} week`;
+      case "month":
+      case "months":
+        return `${value} month`;
+      case "year":
+      case "years":
+        return `${value} year`;
+    }
+  }
+
+  if (/^\d+[smhd]$/i.test(duration)) {
+    const value = duration.slice(0, -1);
+    const unit = duration.slice(-1).toLowerCase();
+
+    switch (unit) {
+      case "s":
+        return `${value} sec`;
+      case "m":
+        return `${value} min`;
+      case "h":
+        return `${value} hour`;
+      case "d":
+        return `${value} day`;
+    }
+  }
+
+  if (lowerDuration === "<1s") {
+    return "<1 sec";
+  }
+
+  return duration;
 }
 
 export function parseComposeProjectFromLabels(
@@ -82,8 +156,10 @@ export function parseComposeProjectFromLabels(
     if (equalsIndex === -1) {
       continue;
     }
+
     const key = segment.slice(0, equalsIndex).trim();
     const value = segment.slice(equalsIndex + 1).trim();
+
     if (key === "com.docker.compose.project" && value) {
       return value;
     }
@@ -102,11 +178,13 @@ export function parseDockerPsStdout(
 
   for (const line of stdout.split("\n")) {
     const trimmed = line.trim();
+
     if (!trimmed) {
       continue;
     }
 
     let parsed: DockerPsNativeLine;
+
     try {
       parsed = JSON.parse(trimmed) as DockerPsNativeLine;
     } catch {
@@ -115,6 +193,7 @@ export function parseDockerPsStdout(
 
     const containerId = parsed.ID?.trim();
     const containerName = parsed.Names?.trim();
+
     if (!containerId || !containerName) {
       continue;
     }
@@ -123,6 +202,7 @@ export function parseDockerPsStdout(
       parsed.Status?.trim() ??
       (parsed as { status?: string }).status?.trim() ??
       "";
+
     const runningSince =
       parsed.RunningFor?.trim() ??
       (parsed as { runningFor?: string }).runningFor?.trim() ??
