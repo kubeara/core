@@ -47,7 +47,7 @@ function appendContext(parts: string[], context?: LogContext): void {
 function formatContextValue(value: string | number | boolean): string {
   const raw = String(value);
   if (/[\s="]/.test(raw)) {
-    return `"${raw.replace(/"/g, '\\"')}"`;
+    return `"${raw.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
   }
   return raw;
 }
