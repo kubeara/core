@@ -8,6 +8,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import {
   ArrayContains,
   ArrayOverlap,
+  FindManyOptions,
+  FindOneOptions,
   FindOptionsWhere,
   ILike,
   Repository,
@@ -31,35 +33,14 @@ import {
   DEFAULT_TEMPLATE_LIST_PAGE,
 } from "../constants/template-list.constants";
 import { ListTemplatesQueryDto } from "../dto/list-templates-query.dto";
-import {
-  PUBLIC_TEMPLATE_DETAIL_FIELDS,
-  PUBLIC_TEMPLATE_LIST_FIELDS,
-  TEMPLATE_LIST_FIELDS,
-  type PublicTemplateDetailsDto,
-  type PublicTemplateListItemDto,
-  type TemplateListField,
-  type TemplateListItemPick,
+import type {
+  PublicTemplateDetailsDto,
+  PublicTemplateListItemDto,
 } from "../dto/template-list-fields";
 import type {
   TemplateDetailsDto,
   TemplateListItemDto,
 } from "../dto/template-marketplace.dto";
-
-type ComposeJson = Record<string, unknown>;
-
-interface ListTemplatesOptions {
-  category?: string;
-}
-
-export type TemplateResponse =
-  | {
-      slug: string;
-      compose: string;
-    }
-  | {
-      slug: string;
-      compose: ComposeJson;
-    };
 
 @Injectable()
 export class ServiceTemplateService {
@@ -70,12 +51,82 @@ export class ServiceTemplateService {
   ) {}
 
   /**
-   * Gets the template by slug and format.
+   * Finds a single template record using TypeORM find options.
+   * @param options - TypeORM find-one options (where, relations, etc.).
+   * @returns The matching template entity, or null if not found.
    */
-  async getTemplate(
-    slug: string,
-    format: string = "yml",
-  ): Promise<TemplateResponse> {
+  private async findOne(options: FindOneOptions<ServiceTemplateEntity>) {
+    try {
+      return await this.serviceTemplateRepository.findOne(options);
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to find template: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Finds multiple template records using TypeORM find options.
+   * @param options - TypeORM find-many options (where, order, select, etc.).
+   * @returns Matching template entities.
+   */
+  private async findMany(options: FindManyOptions<ServiceTemplateEntity>) {
+    try {
+      return await this.serviceTemplateRepository.find(options);
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to find templates: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Builds TypeORM where clauses for listing active templates.
+   * Applies optional category and search filters at the database level.
+   * @param category - Optional category slug to filter by.
+   * @param search - Optional search term matched against name, slug, description, and tags.
+   * @returns A single where clause or an array of OR conditions for search.
+   */
+  private buildActiveListWhere(
+    category?: string,
+    search?: string,
+  ):
+    | FindOptionsWhere<ServiceTemplateEntity>
+    | FindOptionsWhere<ServiceTemplateEntity>[] {
+    if (category !== undefined && category.trim() === "") {
+      throw new BadRequestException("category query parameter cannot be empty");
+    }
+
+    const baseWhere: FindOptionsWhere<ServiceTemplateEntity> = {
+      isActive: true,
+    };
+
+    if (category?.trim()) {
+      baseWhere.category = ArrayContains([category.trim().toLowerCase()]);
+    }
+
+    if (!search?.trim()) {
+      return baseWhere;
+    }
+
+    const searchTerm = search.trim();
+    const searchPattern = ILike(`%${searchTerm}%`);
+
+    return [
+      { ...baseWhere, name: searchPattern },
+      { ...baseWhere, slug: searchPattern },
+      { ...baseWhere, shortDescription: searchPattern },
+      { ...baseWhere, tags: ArrayOverlap([searchTerm]) },
+    ];
+  }
+
+  /**
+   * Gets a template compose payload in the requested format.
+   * @param slug - Template slug identifier.
+   * @param format - Output format: yml, yaml, json, or base64.
+   * @returns Template slug and compose content in the requested format.
+   */
+  async getTemplate(slug: string, format: string = "yml") {
     try {
       const template = await this.getTemplateEntity(slug);
       const normalizedFormat = format.toLowerCase();
@@ -100,10 +151,7 @@ export class ServiceTemplateService {
               this.templatePayloadService.decodeBase64ToObject(
                 template.compose,
               ),
-              {
-                lineWidth: -1,
-                noRefs: true,
-              },
+              { lineWidth: -1, noRefs: true },
             ),
           };
 
@@ -125,11 +173,15 @@ export class ServiceTemplateService {
     }
   }
 
+  /**
+   * Loads a template entity by slug.
+   * @param slug - Template slug identifier.
+   * @returns The template entity.
+   * @throws NotFoundException when no template exists for the slug.
+   */
   async getTemplateEntity(slug: string): Promise<ServiceTemplateEntity> {
     try {
-      const template = await this.serviceTemplateRepository.findOne({
-        where: { slug },
-      });
+      const template = await this.findOne({ where: { slug } });
 
       if (!template) {
         throw new NotFoundException(`Template '${slug}' not found`);
@@ -146,14 +198,47 @@ export class ServiceTemplateService {
     }
   }
 
+  /**
+   * Lists marketing-safe templates for the public catalog.
+   * Supports optional category and search filters applied in the database query.
+   * @param category - Optional category slug to filter by.
+   * @param search - Optional search term matched against name, slug, description, and tags.
+   * @returns Public template list items without compose or deployment details.
+   */
   async listPublicTemplates(
     category?: string,
+    search?: string,
   ): Promise<PublicTemplateListItemDto[]> {
-    return this.listTemplates(PUBLIC_TEMPLATE_LIST_FIELDS, { category });
+    try {
+      const templates = await this.findMany({
+        where: this.buildActiveListWhere(category, search),
+        order: { name: "ASC" },
+      });
+
+      return templates.map((template) => {
+        const item = this.toTemplateListItem(template);
+        return {
+          slug: item.slug,
+          name: item.name,
+          shortDescription: item.shortDescription,
+          category: item.category,
+          logo: item.logo,
+        };
+      });
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        `Failed to list public templates: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
-   * Lists templates with pagination.
+   * Lists active templates with pagination, search, and category filtering.
+   * @param query - Pagination, search, and category query parameters.
+   * @returns A paginated service response of full template list items.
    */
   async listTemplatesPaginated(
     query: ListTemplatesQueryDto,
@@ -162,56 +247,22 @@ export class ServiceTemplateService {
     const limit = query.limit ?? DEFAULT_TEMPLATE_LIST_LIMIT;
     const skip = (page - 1) * limit;
 
-    if (query.category !== undefined && query.category.trim() === "") {
-      throw new BadRequestException("category query parameter cannot be empty");
-    }
-
-    const baseWhere: FindOptionsWhere<ServiceTemplateEntity> = {
-      isActive: true,
-    };
-
-    if (query.category?.trim()) {
-      baseWhere.category = ArrayContains([query.category.trim().toLowerCase()]);
-    }
-
-    let where:
-      | FindOptionsWhere<ServiceTemplateEntity>
-      | FindOptionsWhere<ServiceTemplateEntity>[];
-
-    if (query.search?.trim()) {
-      const searchTerm = query.search.trim();
-      const search = ILike(`%${searchTerm}%`);
-
-      where = [
-        { ...baseWhere, name: search },
-        { ...baseWhere, slug: search },
-        { ...baseWhere, shortDescription: search },
-        { ...baseWhere, tags: ArrayOverlap([searchTerm]) },
-      ];
-    } else {
-      where = baseWhere;
-    }
-
     try {
       const [templates, total] =
         await this.serviceTemplateRepository.findAndCount({
-          where,
+          where: this.buildActiveListWhere(query.category, query.search),
           order: { name: "ASC" },
           skip,
           take: limit,
         });
+
       const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
 
       return {
         message: SUCCESS_MESSAGES.TEMPLATE.LIST,
         data: {
           data: templates.map((template) => this.toTemplateListItem(template)),
-          pagination: {
-            page,
-            limit,
-            total,
-            totalPages,
-          },
+          pagination: { page, limit, total, totalPages },
         },
       };
     } catch (error) {
@@ -225,19 +276,16 @@ export class ServiceTemplateService {
   }
 
   /**
-   * Lists unique template categories.
+   * Lists unique template categories wrapped in a service response.
+   * @returns A service response containing sorted unique category names.
    */
   async listTemplateCategories(): Promise<ServiceResponse<string[]>> {
     try {
-      const categories = await this.listUniqueCategories();
       return {
         message: SUCCESS_MESSAGES.TEMPLATE.CATEGORIES,
-        data: categories,
+        data: await this.listUniqueCategories(),
       };
     } catch (error) {
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
       throw new InternalServerErrorException(
         `Failed to list template categories: ${error instanceof Error ? error.message : String(error)}`,
       );
@@ -245,75 +293,76 @@ export class ServiceTemplateService {
   }
 
   /**
-   * Lists unique template categories.
+   * Collects unique category names from all active templates.
+   * @returns Sorted list of distinct category names.
    */
   async listUniqueCategories(): Promise<string[]> {
-    const templates = await this.listTemplates(["category"]);
-    const categories = new Set<string>();
+    try {
+      const templates = await this.findMany({
+        where: { isActive: true },
+        select: { category: true },
+      });
 
-    for (const template of templates) {
-      for (const category of template.category) {
-        const trimmed = category.trim();
-        if (trimmed) {
-          categories.add(trimmed);
+      const categories = new Set<string>();
+
+      for (const template of templates) {
+        for (const value of template.category ?? []) {
+          const trimmed = value.trim();
+          if (trimmed) {
+            categories.add(trimmed);
+          }
         }
       }
-    }
 
-    return Array.from(categories).sort((a, b) => a.localeCompare(b));
+      return Array.from(categories).sort((a, b) => a.localeCompare(b));
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to list unique categories: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
-   * Gets the template details for the public template.
+   * Gets marketing-safe template details for the public catalog.
+   * Excludes compose content and deployment variables.
+   * @param slug - Template slug identifier.
+   * @returns Public template details.
    */
   async getPublicTemplateDetails(
     slug: string,
   ): Promise<PublicTemplateDetailsDto> {
-    const template = await this.getTemplateDetails(slug);
-    return this.pickTemplateFields(template, PUBLIC_TEMPLATE_DETAIL_FIELDS);
-  }
-
-  async listTemplates(): Promise<TemplateListItemDto[]>;
-  async listTemplates<F extends TemplateListField>(
-    fields: readonly F[],
-    options?: ListTemplatesOptions,
-  ): Promise<Array<TemplateListItemPick<F>>>;
-  async listTemplates<F extends TemplateListField>(
-    fields?: readonly F[],
-    options?: ListTemplatesOptions,
-  ): Promise<Array<TemplateListItemPick<F>> | TemplateListItemDto[]> {
     try {
-      const resolvedFields = fields ?? TEMPLATE_LIST_FIELDS;
-      const templates = await this.serviceTemplateRepository.find({
-        where: { isActive: true },
-        order: { name: "ASC" },
-      });
-
-      const items = templates.map((template) =>
-        this.toTemplateListItem(template),
-      );
-      const filtered = this.filterTemplatesByCategory(items, options?.category);
-
-      return filtered.map((template) =>
-        this.pickTemplateFields(template, resolvedFields),
-      );
+      const template = await this.getTemplateDetails(slug);
+      return {
+        slug: template.slug,
+        name: template.name,
+        shortDescription: template.shortDescription,
+        category: template.category,
+        logo: template.logo,
+        longDescription: template.longDescription,
+      };
     } catch (error) {
-      if (error instanceof BadRequestException) {
+      if (error instanceof NotFoundException) {
         throw error;
       }
       throw new InternalServerErrorException(
-        `Failed to list templates: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to retrieve public template "${slug}": ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
 
   /**
-   * Gets the template details.
+   * Gets full template details including parsed deployment variables.
+   * @param slug - Template slug identifier.
+   * @returns Template metadata and compose variables.
    */
   async getTemplateDetails(slug: string): Promise<TemplateDetailsDto> {
     try {
       const template = await this.getTemplateEntity(slug);
-      const composeYaml = this.getComposeYaml(template);
+      const composeYaml = yaml.dump(
+        this.templatePayloadService.decodeBase64ToObject(template.compose),
+        { lineWidth: -1, noRefs: true },
+      );
       const commentMetadata = parseTemplateCommentMetadata(composeYaml);
 
       return {
@@ -330,49 +379,13 @@ export class ServiceTemplateService {
     }
   }
 
-  private getComposeYaml(template: ServiceTemplateEntity): string {
-    return yaml.dump(
-      this.templatePayloadService.decodeBase64ToObject(template.compose),
-      {
-        lineWidth: -1,
-        noRefs: true,
-      },
-    );
-  }
-
-  private filterTemplatesByCategory(
-    templates: TemplateListItemDto[],
-    category?: string,
-  ): TemplateListItemDto[] {
-    if (!category) {
-      return templates;
-    }
-
-    const normalizedCategory = category.trim().toLowerCase();
-    if (!normalizedCategory) {
-      throw new BadRequestException("category query parameter cannot be empty");
-    }
-
-    return templates.filter((template) =>
-      template.category.some(
-        (value) => value.trim().toLowerCase() === normalizedCategory,
-      ),
-    );
-  }
-
-  private pickTemplateFields<F extends TemplateListField>(
-    template: TemplateListItemDto,
-    fields: readonly F[],
-  ): TemplateListItemPick<F> {
-    const result = {} as TemplateListItemPick<F>;
-
-    for (const field of fields) {
-      result[field] = template[field];
-    }
-
-    return result;
-  }
-
+  /**
+   * Maps a template entity to a list item DTO.
+   * Falls back to compose comment metadata when database fields are empty.
+   * @param template - Template entity from the database.
+   * @param commentMetadata - Optional metadata parsed from compose YAML comments.
+   * @returns Normalized template list item.
+   */
   private toTemplateListItem(
     template: ServiceTemplateEntity,
     commentMetadata?: ReturnType<typeof parseTemplateCommentMetadata>,

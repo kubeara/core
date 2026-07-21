@@ -78,7 +78,7 @@ function formatBoolean(value: boolean): string {
 
 function formatMcpAccess(value: McpAccess): string {
   if (value === "none") return "None";
-  if (value === "read") return "Read";
+  if (value === "read") return "Read and Write";
   return "Full";
 }
 
@@ -237,9 +237,7 @@ export function getPlanFeatureRows(
         row("teams", "Teams", formatLimit(features.teams)),
         row("teamMembers", "Team members", formatLimit(features.teamMembers)),
         row("rbac", "RBAC", formatBoolean(features.rbac)),
-        row("mcpAccess", "MCP server", formatMcpAccess(features.mcpAccess), {
-          accent: features.mcpAccess === "read",
-        }),
+        row("mcpAccess", "MCP server", formatMcpAccess(features.mcpAccess)),
         row("support", "Support", formatSupport(features.support)),
       ];
     case "pro":
