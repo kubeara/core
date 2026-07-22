@@ -32,9 +32,13 @@ export class TemplatesController {
   @Header("Cache-Control", "public, max-age=300")
   async listTemplates(
     @Query("category") category?: string,
+    @Query("search") search?: string,
   ): Promise<PublicTemplateListItemDto[]> {
     try {
-      return await this.serviceTemplateService.listPublicTemplates(category);
+      return await this.serviceTemplateService.listPublicTemplates(
+        category,
+        search,
+      );
     } catch (error) {
       this.logger.error(
         `List public templates failed: ${toErrorMessage(error)}`,
