@@ -111,9 +111,7 @@ export function buildZohoTicketDescription(
           },
           {
             label: "Email",
-            value: escapeHtml(
-              (input as SubmitSupportRequestDto).email.trim(),
-            ),
+            value: escapeHtml((input as SubmitSupportRequestDto).email.trim()),
             isEmail: true,
           },
           {
@@ -124,9 +122,7 @@ export function buildZohoTicketDescription(
       : [
           {
             label: "Email",
-            value: escapeHtml(
-              (input as SubmitServiceRequestDto).email.trim(),
-            ),
+            value: escapeHtml((input as SubmitServiceRequestDto).email.trim()),
             isEmail: true,
           },
           {
