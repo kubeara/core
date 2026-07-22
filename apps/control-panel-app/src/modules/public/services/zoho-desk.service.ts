@@ -11,7 +11,10 @@ import { ServiceResponse } from "@control-panel/common/interfaces/success-respon
 import { toErrorMessage } from "@control-panel/common/utils/error.util";
 
 import { PUBLIC_MESSAGES } from "../constants/public-messages.constants";
-import { ZOHO_TICKET_CATEGORIES } from "../constants/zoho-ticket.constants";
+import {
+  ZOHO_TICKET_CATEGORIES,
+  ZOHO_TICKET_TYPE_CONFIG,
+} from "../constants/zoho-ticket.constants";
 import { SubmitServiceRequestDto } from "../dto/submit-service-request.dto";
 import { SubmitSupportRequestDto } from "../dto/submit-support-request.dto";
 import {
@@ -59,7 +62,7 @@ export class ZohoDeskService {
 
     return this.createTicket(
       {
-        subject: `[Support] ${input.topic}`,
+        subject: ZOHO_TICKET_TYPE_CONFIG.support.subject,
         departmentId:
           this.configService.getOrThrow<string>("ZOHO_DEPARTMENT_ID"),
         description: buildZohoTicketDescription("support", input, brandName),
@@ -85,7 +88,7 @@ export class ZohoDeskService {
 
     return this.createTicket(
       {
-        subject: "Request a service",
+        subject: ZOHO_TICKET_TYPE_CONFIG.service_request.subject,
         departmentId:
           this.configService.getOrThrow<string>("ZOHO_DEPARTMENT_ID"),
         description: buildZohoTicketDescription(

@@ -8,6 +8,7 @@ import {
 
 import {
   ZOHO_TICKET_FOOTER,
+  ZOHO_TICKET_LOGO_URL,
   ZOHO_TICKET_SOCIAL_LINKS,
   ZOHO_TICKET_THEME,
   ZOHO_TICKET_TYPE_CONFIG,
@@ -19,7 +20,6 @@ import { SubmitSupportRequestDto } from "../dto/submit-support-request.dto";
 const TEMPLATE_FILE = "zoho-ticket-description.html";
 
 let cachedTemplate: string | null = null;
-let cachedLogoDataUri: string | null = null;
 
 interface ZohoTicketDetailRow {
   label: string;
@@ -38,19 +38,6 @@ function loadTemplate(): string {
   );
 
   return cachedTemplate;
-}
-
-function getLogoDataUri(): string {
-  if (cachedLogoDataUri) {
-    return cachedLogoDataUri;
-  }
-
-  const logoBuffer = fs.readFileSync(
-    path.join(__dirname, "../assets", ZOHO_TICKET_THEME.logoFile),
-  );
-  cachedLogoDataUri = `data:image/webp;base64,${logoBuffer.toString("base64")}`;
-
-  return cachedLogoDataUri;
 }
 
 function buildDetailsRows(details: ZohoTicketDetailRow[]): string {
@@ -84,10 +71,8 @@ function buildSocialIcons(): string {
 
     return [
       `<td style="padding-left:${paddingLeft};">`,
-      `<a href="${escapeHtml(link.href)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(link.label)}" style="display:inline-block;width:36px;height:36px;line-height:36px;text-align:center;background-color:${theme.socialIconBackground};border:1px solid ${theme.socialIconBorder};border-radius:8px;text-decoration:none;">`,
-      `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="${theme.socialIconFill}" style="vertical-align:middle;">`,
-      `<path d="${link.iconPath}"></path>`,
-      "</svg>",
+      `<a href="${escapeHtml(link.href)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeHtml(link.label)}" style="display:inline-block;width:36px;height:36px;padding:9px;background-color:${theme.socialIconBackground};border:1px solid ${theme.socialIconBorder};border-radius:8px;text-decoration:none;box-sizing:border-box;">`,
+      `<img src="${escapeHtml(link.iconUrl)}" alt="${escapeHtml(link.label)}" width="18" height="18" style="display:block;width:18px;height:18px;border:0;" />`,
       "</a>",
       "</td>",
     ].join("");
@@ -140,9 +125,7 @@ export function buildZohoTicketDescription(
 
   return renderEmailTemplate(loadTemplate(), {
     brandName: escapeHtml(brandName),
-    logoDataUri: getLogoDataUri(),
-    headerSubtitle: escapeHtml(config.headerSubtitle),
-    headerSubtitleColor: theme.headerSubtitleColor,
+    logoUrl: escapeHtml(ZOHO_TICKET_LOGO_URL),
     outerBackground: theme.outerBackground,
     cardBackground: theme.cardBackground,
     cardBorder: theme.cardBorder,
@@ -161,6 +144,5 @@ export function buildZohoTicketDescription(
     socialIcons: buildSocialIcons(),
     copyrightLine1: escapeHtml(ZOHO_TICKET_FOOTER.copyrightLine1),
     copyrightLine2: escapeHtml(ZOHO_TICKET_FOOTER.copyrightLine2),
-    submittedAt: new Date().toISOString().replace("T", " ").slice(0, 16),
   });
 }
