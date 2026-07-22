@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.0.10](https://github.com/kubeara/core/compare/v0.0.9...v0.0.10) (2026-07-22)
+
+
+### Features
+
+* support multiple users on the same server with a single agent ([e74bce5](https://github.com/kubeara/core/commit/e74bce5c514d2bd1b7c0b33e7e6dfc19b4855b3c))
+
 ## [0.0.9](https://github.com/kubeara/core/compare/v0.0.8...v0.0.9) (2026-07-20)
 
 
