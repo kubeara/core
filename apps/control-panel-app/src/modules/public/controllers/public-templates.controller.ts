@@ -10,17 +10,16 @@ import {
 
 import { KubearaPublicOriginGuard } from "@control-panel/common/guards/kubeara-public-origin.guard";
 import { toErrorMessage } from "@control-panel/common/utils/error.util";
-
 import type {
   PublicTemplateDetailsDto,
   PublicTemplateListItemDto,
-} from "../dto/template-list-fields";
-import { ServiceTemplateService } from "../services/service-template.service";
+} from "@control-panel/modules/service-template/dto/template-list-fields";
+import { ServiceTemplateService } from "@control-panel/modules/service-template/services/service-template.service";
 
 @UseGuards(KubearaPublicOriginGuard)
 @Controller("public/templates")
-export class PublicServiceTemplateController {
-  private readonly logger = new Logger(PublicServiceTemplateController.name);
+export class TemplatesController {
+  private readonly logger = new Logger(TemplatesController.name);
 
   constructor(
     private readonly serviceTemplateService: ServiceTemplateService,
@@ -44,6 +43,9 @@ export class PublicServiceTemplateController {
     }
   }
 
+  /**
+   * List of unique template categories.
+   */
   @Get("categories")
   @Header("Cache-Control", "public, max-age=300")
   async listCategories(): Promise<string[]> {
