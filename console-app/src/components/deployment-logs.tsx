@@ -322,7 +322,7 @@ export function DeploymentLogs({
   }, [isFullscreen, logView]);
 
   return (
-    <div className={`deploy-logs-page ${isFullscreen ? "is-fullscreen" : ""}`}>
+    <div className={`service-detail-page deploy-logs-page ${isFullscreen ? "is-fullscreen" : ""}`}>
       <BackLink to={backHref} label="Back" />
 
       <article className="deploy-service-card">

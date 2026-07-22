@@ -7,6 +7,7 @@ export interface ServerContainerDto {
   status: string;
   ports: string;
   runningSince: string;
+  lastRestarted: string;
   managedType: ManagedType;
   deploymentId: string | null;
   templateId: string | null;

@@ -97,6 +97,48 @@
 
 .overview-container-card .marketplace-card-headline {
   padding-right: 2.25rem;
+  min-width: 0;
+}
+
+.overview-container-card .marketplace-card-headline-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+  margin-bottom: 0.2rem;
+}
+
+.overview-container-card .marketplace-card-headline-row .marketplace-card-category {
+  margin: 0;
+  min-width: 0;
+}
+
+.overview-container-card .marketplace-card-headline-row .marketplace-card-deployed-badge,
+.overview-container-card .marketplace-card-headline-row .marketplace-card-status-badge {
+  flex-shrink: 0;
+}
+
+.overview-container-card .marketplace-card-name {
+  display: block;
+  min-width: 0;
+}
+
+.overview-container-card .marketplace-card-name-text {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-container-card .marketplace-card-meta-item dd code {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
 }
 
 .container-port-link {
@@ -157,6 +199,8 @@
 .container-actions-menu-dropdown--portal {
   position: fixed;
   z-index: 1200;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   box-shadow:
     var(--shadow),
     0 12px 40px rgb(0 0 0 / 14%);

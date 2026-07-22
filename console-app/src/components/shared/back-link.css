@@ -57,3 +57,14 @@
   height: 2.25rem;
   padding: 0;
 }
+
+.service-detail-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.service-detail-page > .back-link {
+  align-self: flex-start;
+  margin-bottom: 0;
+}

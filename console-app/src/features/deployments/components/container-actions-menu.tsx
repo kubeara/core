@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ContainerActionIcon } from "./container-action-icons";
 import {
@@ -29,6 +29,60 @@ type MenuAction = {
   danger?: boolean;
 };
 
+type MenuPosition = {
+  top: number;
+  left: number;
+  minWidth: number;
+  maxHeight: number;
+};
+
+const MENU_GAP = 6;
+const VIEWPORT_PADDING = 8;
+const MENU_MIN_WIDTH = 172;
+const ESTIMATED_MENU_ITEM_HEIGHT = 40;
+
+function computeMenuPosition(
+  trigger: HTMLElement,
+  menu: HTMLElement | null,
+  menuItemCount: number,
+): MenuPosition {
+  const rect = trigger.getBoundingClientRect();
+  const left = Math.min(
+    Math.max(VIEWPORT_PADDING, rect.right - MENU_MIN_WIDTH),
+    window.innerWidth - MENU_MIN_WIDTH - VIEWPORT_PADDING,
+  );
+
+  const estimatedHeight = menuItemCount * ESTIMATED_MENU_ITEM_HEIGHT + 16;
+  const menuHeight = menu?.offsetHeight ?? estimatedHeight;
+  const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_PADDING;
+  const spaceAbove = rect.top - VIEWPORT_PADDING;
+
+  let top: number;
+  if (spaceBelow >= menuHeight + MENU_GAP) {
+    top = rect.bottom + MENU_GAP;
+  } else if (spaceAbove >= menuHeight + MENU_GAP) {
+    top = rect.top - menuHeight - MENU_GAP;
+  } else {
+    top =
+      spaceBelow >= spaceAbove
+        ? rect.bottom + MENU_GAP
+        : rect.top - menuHeight - MENU_GAP;
+  }
+
+  const maxHeight = window.innerHeight - VIEWPORT_PADDING * 2;
+  top = Math.max(
+    VIEWPORT_PADDING,
+    Math.min(top, window.innerHeight - Math.min(menuHeight, maxHeight) - VIEWPORT_PADDING),
+  );
+
+  return {
+    top,
+    left,
+    minWidth: MENU_MIN_WIDTH,
+    maxHeight,
+  };
+}
+
 export function ContainerActionsMenu({
   container,
   isPending,
@@ -43,11 +97,7 @@ export function ContainerActionsMenu({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState<{
-    top: number;
-    left: number;
-    minWidth: number;
-  } | null>(null);
+  const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
 
   const lifecycleActions: MenuAction[] = offlineDeleteOnly
     ? [{ action: "delete", danger: true }]
@@ -57,10 +107,16 @@ export function ContainerActionsMenu({
         { action: "delete", danger: true },
       ];
 
-  useEffect(() => {
+  const menuItemCount =
+    lifecycleActions.length + (!offlineDeleteOnly && onViewLogs ? 1 : 0);
+
+  useLayoutEffect(() => {
     if (!open) {
+      setMenuPosition(null);
       return;
     }
+
+    let rafId = 0;
 
     function updatePosition() {
       const trigger = triggerRef.current;
@@ -68,23 +124,28 @@ export function ContainerActionsMenu({
         return;
       }
 
-      const rect = trigger.getBoundingClientRect();
-      const minWidth = 172;
-      const left = Math.min(
-        Math.max(8, rect.right - minWidth),
-        window.innerWidth - minWidth - 8,
+      setMenuPosition(
+        computeMenuPosition(trigger, menuRef.current, menuItemCount),
       );
-
-      setMenuPosition({
-        top: rect.bottom + 6,
-        left,
-        minWidth,
-      });
     }
 
     updatePosition();
+    rafId = window.requestAnimationFrame(updatePosition);
+
     window.addEventListener("resize", updatePosition);
     window.addEventListener("scroll", updatePosition, true);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open, menuItemCount]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
 
     function handlePointerDown(event: MouseEvent) {
       const target = event.target as Node;
@@ -106,8 +167,6 @@ export function ContainerActionsMenu({
     document.addEventListener("keydown", handleEscape);
 
     return () => {
-      window.removeEventListener("resize", updatePosition);
-      window.removeEventListener("scroll", updatePosition, true);
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleEscape);
     };
@@ -154,6 +213,7 @@ export function ContainerActionsMenu({
               top: menuPosition.top,
               left: menuPosition.left,
               minWidth: menuPosition.minWidth,
+              maxHeight: menuPosition.maxHeight,
             }}
           >
             {!offlineDeleteOnly && onViewLogs ? (

@@ -8,6 +8,7 @@ import { getErrorMessage } from "@/api/api-error";
 import { Dropdown } from "@/components/shared/dropdown";
 import { FormErrorsSummary } from "@/components/shared/form-errors-summary";
 import { FormFieldLabel } from "@/components/shared/form-field-label";
+import { SensitiveHost } from "@/components/shared/sensitive-host";
 import { validateRequired } from "@/lib/validation";
 import type { ServerSshAuthType } from "@/features/servers/types";
 
@@ -400,7 +401,9 @@ function ServerFormContent({
               </div>
               <div className="form-field">
                 <FormFieldLabel htmlFor="server-host">Host</FormFieldLabel>
-                <input id="server-host" value={server.host} disabled />
+                <div id="server-host">
+                  <SensitiveHost host={server.host} />
+                </div>
               </div>
             </>
           )

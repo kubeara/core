@@ -275,6 +275,7 @@ export interface DiscoveredContainerPayload {
   status: string;
   ports: string;
   runningSince: string;
+  lastRestarted: string;
   composeProject?: string;
 }
 

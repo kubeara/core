@@ -53,8 +53,8 @@ export function getManagedTypeLabel(container: ServerContainer): string {
     : "Self Managed";
 }
 
-function normalizeContainerStatus(status: string): string {
-  return status.trim().toLowerCase();
+function normalizeContainerStatus(status: string | undefined | null): string {
+  return (status ?? "").trim().toLowerCase();
 }
 
 export function getContainerStatusCategory(
@@ -158,9 +158,10 @@ export function containerStatusClass(container: ServerContainer): string {
 
 export function getContainerStatusLabel(container: ServerContainer): string {
   const category = getContainerStatusCategory(container);
+  const rawStatus = container.status?.trim() ?? "";
 
-  if (category === "degraded" && container.status.trim()) {
-    return container.status;
+  if (category === "degraded" && rawStatus) {
+    return rawStatus;
   }
 
   return CONTAINER_STATUS_LABELS[category];
@@ -191,14 +192,13 @@ export function getContainerHostPorts(ports: string): number[] {
 }
 
 export function getContainerPortsTooltip(
-  serverHost: string,
+  _serverHost: string,
   ports: string,
 ): string | undefined {
-  const host = serverHost.trim();
   const hostPorts = getContainerHostPorts(ports);
 
-  if (hostPorts.length > 0 && host) {
-    return hostPorts.map((port) => `${host}:${port}`).join(", ");
+  if (hostPorts.length > 0) {
+    return hostPorts.join(", ");
   }
 
   const trimmed = ports.trim();
@@ -250,6 +250,72 @@ export function getContainerDisplayName(container: ServerContainer): string {
 
 export function getContainerCardHeadline(container: ServerContainer): string {
   return getContainerDisplayName(container);
+}
+
+export function getContainerLastRestartedLabel(
+  container: ServerContainer,
+): string | null {
+  const fromApi = container.lastRestarted?.trim();
+  if (fromApi) {
+    return normalizeContainerUptimeLabel(fromApi);
+  }
+
+  if (!container.isOnline) {
+    return null;
+  }
+
+  const status = container.status?.trim() ?? "";
+  if (!status) {
+    return null;
+  }
+
+  const upMatch = status.match(/^Up\s+(.+)/i);
+  if (upMatch?.[1]) {
+    const uptime = upMatch[1].replace(/\s*\([^)]*\)\s*$/g, "").trim();
+    return formatContainerRestartTime(uptime);
+  }
+
+  const restartingMatch = status.match(/^Restarting\s*\((.+)\)/i);
+  if (restartingMatch?.[1]) {
+    return formatContainerRestartTime(restartingMatch[1].trim());
+  }
+
+  return null;
+}
+
+function normalizeContainerUptimeLabel(label: string): string {
+  return label
+    .replace(/^(\d+)s ago$/i, "$1 sec ago")
+    .replace(/^(\d+)m ago$/i, "$1 min ago")
+    .replace(/^(\d+)h ago$/i, "$1 hour ago")
+    .replace(/^(\d+)d ago$/i, "$1 day ago")
+    .replace(/^<1s ago$/i, "<1 sec ago");
+}
+
+function formatContainerRestartTime(duration: string): string | null {
+  let text = duration.trim().replace(/\s+ago\s*$/i, "").trim();
+  if (!text) {
+    return null;
+  }
+
+  text = text
+    .replace(/^about a minute$/i, "1 min")
+    .replace(/^about an hour$/i, "1 hour")
+    .replace(/^less than a second$/i, "<1 sec")
+    .replace(/^(\d+)\s+seconds?$/i, "$1 sec")
+    .replace(/^(\d+)\s+minutes?$/i, "$1 min")
+    .replace(/^(\d+)\s+hours?$/i, "$1 hour")
+    .replace(/^(\d+)\s+days?$/i, "$1 day")
+    .replace(/^(\d+)\s+weeks?$/i, "$1 week")
+    .replace(/^(\d+)\s+months?$/i, "$1 month")
+    .replace(/^(\d+)\s+years?$/i, "$1 year")
+    .replace(/^(\d+)s$/i, "$1 sec")
+    .replace(/^(\d+)m$/i, "$1 min")
+    .replace(/^(\d+)h$/i, "$1 hour")
+    .replace(/^(\d+)d$/i, "$1 day")
+    .replace(/^<1s$/i, "<1 sec");
+
+  return `${text} ago`;
 }
 
 export function getConnectedTemplateIds(

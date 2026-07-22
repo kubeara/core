@@ -14,7 +14,7 @@ export const CONTAINER_LOGS_EMPTY_MESSAGE = "No logs yet. Waiting for output…"
 export const CONTAINER_LOGS_LIVE_LABEL = "Live";
 
 export function getContainerLogsTitle(containerName: string): string {
-  return `Logs — ${containerName}`;
+  return containerName.trim() || "Container logs";
 }
 
 export function mapContainerLogsErrorMessage(errorMessage: string): string {
