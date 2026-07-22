@@ -2,13 +2,14 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getErrorMessage } from "@/api/api-error";
 import { Dropdown } from "@/components/shared/dropdown";
-import { FormFieldLabel } from "@/components/shared/form-field-label";
+import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
 import { useServersQuery } from "@/features/servers/hooks";
 import {
   isServerOperationBusy,
   mapServerApiToServer,
 } from "@/features/servers/types";
 import type { ApiTemplate } from "../types";
+import { getTemplateAccentColor } from "../utils/deploy-form-schema";
 import "./select-deploy-server-modal.css";
 
 const SERVER_LIST_LIMIT = 100;
@@ -26,16 +27,6 @@ type SelectDeployServerModalProps = {
   onClose: () => void;
   onSelectServer: (serverId: string) => void;
 };
-
-/**
- * Formats a server option label.
- * @param name 
- * @param host 
- * @returns 
- */
-function formatServerOptionLabel(name: string, host: string): string {
-  return `${name} (${host})`;
-}
 
 /**
  * Renders the content of the select deploy server modal.
@@ -76,7 +67,7 @@ function SelectDeployServerModalContent({
       { value: "", label: "Select a server…" },
       ...servers.map((server) => ({
         value: server.id,
-        label: formatServerOptionLabel(server.name, server.host),
+        label: server.name,
       })),
     ],
     [servers],
@@ -87,6 +78,7 @@ function SelectDeployServerModalContent({
     ? isServerOperationBusy(selectedServer.operationStatus)
     : false;
   const canDeploy = Boolean(selectedServerId) && !selectedServerBusy;
+  const accent = getTemplateAccentColor(template.slug);
 
   function handleDeploy() {
     if (!canDeploy) {
@@ -109,11 +101,22 @@ function SelectDeployServerModalContent({
         onClick={(event) => event.stopPropagation()}
       >
         <header className="modal-header">
-          <div className="select-deploy-server-header-text">
-            <h2 id="select-deploy-server-title">Choose a server</h2>
-            <p>
-              Select where to deploy <strong>{template.name}</strong>.
-            </p>
+          <div className="select-deploy-server-header-inner">
+            <ServiceBrandIcon
+              name={template.name}
+              logo={template.logo}
+              className="select-deploy-server-icon"
+              style={{
+                backgroundColor: `${accent}20`,
+                color: accent,
+              }}
+            />
+            <div className="select-deploy-server-header-text">
+              <h2 id="select-deploy-server-title">Choose a server</h2>
+              <p className="select-deploy-server-subtitle">
+                Select where to deploy <strong>{template.name}</strong>.
+              </p>
+            </div>
           </div>
           <button
             type="button"
@@ -142,28 +145,24 @@ function SelectDeployServerModalContent({
               </button>
             </div>
           ) : servers.length === 0 ? (
-            <div className="select-deploy-server-state">
-              <p className="select-deploy-server-state-title">No servers yet</p>
-              <p className="select-deploy-server-state-text">
-                Add a server from the Servers page before deploying.
+            <div className="select-deploy-server-empty">
+              <p className="select-deploy-server-empty-title">No servers yet</p>
+              <p className="select-deploy-server-empty-text">
+                Add a server from the Servers page before deploying{" "}
+                <strong>{template.name}</strong>.
               </p>
-              <Link to="/servers" className="btn-primary" onClick={onClose}>
-                Go to Servers
-              </Link>
             </div>
           ) : (
-            <div className="select-deploy-server-field">
-              <FormFieldLabel htmlFor="select-deploy-server-dropdown">
-                Server
-              </FormFieldLabel>
+            <div className="form-field select-deploy-server-field">
               <Dropdown
                 id="select-deploy-server-dropdown"
                 className="select-deploy-server-dropdown"
+                label="Server"
                 value={selectedServerId}
                 options={serverOptions}
                 onChange={setSelectedServerId}
                 searchable
-                searchPlaceholder="Search servers by name or host…"
+                searchPlaceholder="Search servers by name…"
                 noResultsLabel="No servers found"
                 ariaLabel="Select server"
                 pinnedOptionValue=""
@@ -181,7 +180,17 @@ function SelectDeployServerModalContent({
           <button type="button" className="btn-secondary" onClick={onClose}>
             Cancel
           </button>
-          {servers.length > 0 ? (
+          {!serversQuery.isPending &&
+          !serversQuery.isError &&
+          servers.length === 0 ? (
+            <Link
+              to="/servers"
+              className="btn-primary select-deploy-server-go-link"
+              onClick={onClose}
+            >
+              Go to Servers
+            </Link>
+          ) : servers.length > 0 ? (
             <button
               type="button"
               className="btn-primary"

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { SensitiveHost } from "@/components/shared/sensitive-host";
 import { useDisconnectServerMutation } from "@/features/servers/hooks";
 import { formatApiTimestamp } from "@/lib/unix-timestamp";
 import type { Server } from "@/types";
@@ -43,7 +44,7 @@ export function ServerSettingsTab({ server }: ServerSettingsTabProps) {
           <div>
             <dt>Host</dt>
             <dd>
-              <code>{server.host}</code>
+              <SensitiveHost host={server.host} />
             </dd>
           </div>
           <div>
@@ -96,7 +97,8 @@ export function ServerSettingsTab({ server }: ServerSettingsTabProps) {
               </button>
             </div>
             <p className="modal-body-text">
-              <strong>{server.name}</strong> ({server.host}) will be
+              <strong>{server.name}</strong> (
+              <SensitiveHost host={server.host} monospace={false} />) will be
               disconnected from Kubeara. You can reconnect it later.
             </p>
             <div className="modal-actions">

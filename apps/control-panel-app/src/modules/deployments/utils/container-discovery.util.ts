@@ -1,5 +1,6 @@
 import { APP_CONFIG } from "@shared/common";
 import type { DiscoveredContainerPayload } from "@shared/socket-events";
+import { deriveLastRestartedFromDockerStatus } from "@shared/common";
 
 import { AGENT_INSTALL } from "@control-panel/modules/server-connections/constants/agent-install.constants";
 import { ManagedType } from "../enums/managed-type.enum";
@@ -147,6 +148,9 @@ export function mergeDiscoveredContainersWithDeployments(
       status: container.status,
       ports: container.ports,
       runningSince: container.runningSince,
+      lastRestarted:
+        container.lastRestarted?.trim() ||
+        deriveLastRestartedFromDockerStatus(container.status),
       managedType: isKubearaManaged
         ? ManagedType.KUBEARA_MANAGED
         : ManagedType.SELF_MANAGED,
@@ -175,6 +179,7 @@ export function mergeDiscoveredContainersWithDeployments(
       status: "offline",
       ports: "",
       runningSince: "",
+      lastRestarted: "",
       managedType: ManagedType.KUBEARA_MANAGED,
       deploymentId: deployment.id,
       templateId: deployment.templateSlug,

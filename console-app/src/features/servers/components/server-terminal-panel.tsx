@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getErrorMessage } from "@/api/api-error";
 import { TerminalWordWrapToggle } from "@/components/shared/terminal-word-wrap-toggle";
+import { SensitiveHost } from "@/components/shared/sensitive-host";
 import { useTerminalWordWrap } from "@/components/shared/use-terminal-word-wrap";
 import { useServerTerminal } from "../hooks/use-server-terminal";
 import {
@@ -161,7 +162,7 @@ export function ServerTerminalPanel({
               <p className="server-terminal-session-host">
                 {serverName}
                 <span className="server-terminal-host-sep">·</span>
-                {serverHost}
+                <SensitiveHost host={serverHost} />
               </p>
             ) : (
               <p className="server-detail-section-desc">{introMessage}</p>

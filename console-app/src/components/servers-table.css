@@ -309,11 +309,15 @@
 
 .server-name-link {
   display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
   font-size: 0.9375rem;
   font-weight: 600;
   color: #0069ff;
   text-decoration: none;
   line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .server-name-link:hover {

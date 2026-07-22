@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CopyButton } from "@/components/shared/copy-button";
+import { SensitiveHost } from "@/components/shared/sensitive-host";
 import { TooltipHint } from "@/components/ui/tooltip";
 import {
   useDeleteServerMutation,
@@ -131,11 +131,20 @@ function ServerNameCell({ server }: { server: Server }) {
       <div className="server-name-block">
         <div className="server-name-row">
           {busy ? (
-            <span className="server-name-link is-disabled">{server.name}</span>
+            <TooltipHint content={server.name}>
+              <span className="server-name-link is-disabled tooltip-trigger-wrap--inline">
+                {server.name}
+              </span>
+            </TooltipHint>
           ) : (
-            <Link to={`/servers/${server.id}`} className="server-name-link">
-              {server.name}
-            </Link>
+            <TooltipHint content={server.name}>
+              <Link
+                to={`/servers/${server.id}`}
+                className="server-name-link tooltip-trigger-wrap--inline"
+              >
+                {server.name}
+              </Link>
+            </TooltipHint>
           )}
           {statusLabel && statusPillClass && (
             <span className={`server-tag-pill ${statusPillClass}`}>
@@ -151,10 +160,11 @@ function ServerNameCell({ server }: { server: Server }) {
 
 function HostCell({ host }: { host: string }) {
   return (
-    <div className="server-host-cell">
-      <span className="server-host-text">{host}</span>
-      <CopyButton text={host} label="Copy host" />
-    </div>
+    <SensitiveHost
+      host={host}
+      className="server-host-cell"
+      valueClassName="server-host-text"
+    />
   );
 }
 
@@ -409,14 +419,12 @@ export function ServersTable() {
                       <HostCell host={server.host} />
                     </td>
                     <td>
-                      <TooltipHint content={formatApiTimestamp(server.createdAt)}>
-                        <time
-                          className="server-created-link"
-                          dateTime={server.createdAt}
-                        >
-                          {formatApiTimestamp(server.createdAt)}
-                        </time>
-                      </TooltipHint>
+                      <time
+                        className="server-created-link"
+                        dateTime={server.createdAt}
+                      >
+                        {formatApiTimestamp(server.createdAt)}
+                      </time>
                     </td>
                     <td>
                       <div className="server-row-actions">
@@ -507,7 +515,8 @@ export function ServersTable() {
               <h2>Delete server</h2>
             </header>
             <p className="modal-body-text">
-              Delete <strong>{deleteTarget.name}</strong> ({deleteTarget.host})?
+              Delete <strong>{deleteTarget.name}</strong> (
+              <SensitiveHost host={deleteTarget.host} monospace={false} />)?
               This cannot be undone.
             </p>
             <label className="delete-server-option">

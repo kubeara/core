@@ -56,7 +56,7 @@ export function ContainerLogsPage() {
 
   if (isError) {
     return (
-      <div className="dashboard server-detail">
+      <div className="dashboard service-detail-page">
         <BackLink to={buildServerDetailHref(serverId)} label="Back" />
         <ServerFeedbackMessage
           variant="error"
@@ -74,7 +74,7 @@ export function ContainerLogsPage() {
   }
 
   return (
-    <div className="dashboard server-detail">
+    <div className="dashboard service-detail-page">
       <BackLink to={buildServerDetailHref(serverId)} label="Back" />
 
       <ContainerLogsPanel
