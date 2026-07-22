@@ -23,6 +23,7 @@ import { LokiLoggerModule } from "./modules/loki-logger";
 import { AppController } from "./app.controller";
 import { isProductionEnv } from "@control-panel/constants/env.constant";
 import { CronModule } from "./cron/cron.module";
+import { PublicModule } from "./modules/public/public.module";
 
 @Module({
   imports: [
@@ -76,6 +77,7 @@ import { CronModule } from "./cron/cron.module";
     SubscriptionsModule,
     ActivityModule,
     CronModule,
+    PublicModule,
   ],
   controllers: [AppController],
   providers: [],
