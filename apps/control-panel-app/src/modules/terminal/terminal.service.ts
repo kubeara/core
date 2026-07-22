@@ -28,6 +28,7 @@ import {
 } from "./constants/terminal.constants";
 import { SshTerminalService } from "./ssh-terminal.service";
 import { TerminalTransport } from "./enums/terminal-transport.enum";
+import { logStructured, logStructuredError } from "@shared/common";
 
 @Injectable()
 export class TerminalService {
@@ -120,17 +121,21 @@ export class TerminalService {
       } catch (error) {
         const sshDetail =
           error instanceof Error ? error.message : String(error);
-        this.logger.warn(
-          `[TERMINAL] SSH fallback failed for server '${serverId}': ${sshDetail}`,
-        );
+        logStructured(this.logger, "warn", "terminal.connect", "failed", {
+          module: "TerminalService",
+          serverId,
+          transport: "ssh",
+          error: sshDetail,
+        });
         throw new BadRequestException(
           `${ERROR_MESSAGES.TERMINAL.CONNECT_FAILED}: ${sshDetail}`,
         );
       }
     } catch (error) {
-      this.logger.error(
-        `Failed to connect terminal for server '${serverId}': ${error instanceof Error ? error.message : String(error)}`,
-      );
+      logStructuredError(this.logger, "terminal.connect", error, {
+        module: "TerminalService",
+        serverId,
+      });
       throw error;
     }
   }
@@ -224,9 +229,12 @@ export class TerminalService {
   ): Promise<string | null> {
     try {
       if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
-        this.logger.warn(
-          `[TERMINAL] no connected agent for server '${serverId}', trying SSH fallback`,
-        );
+        logStructured(this.logger, "warn", "terminal.connect", "retry", {
+          module: "TerminalService",
+          serverId,
+          reason: "no_connected_agent",
+          target: "ssh",
+        });
         return null;
       }
 
@@ -238,9 +246,13 @@ export class TerminalService {
       );
 
       if (!supportsTerminal) {
-        this.logger.warn(
-          `[TERMINAL] agent (version ${agentVersion}) does not support terminal for server '${serverId}', trying SSH fallback`,
-        );
+        logStructured(this.logger, "warn", "terminal.connect", "retry", {
+          module: "TerminalService",
+          serverId,
+          agentVersion,
+          reason: "agent_does_not_support_terminal",
+          target: "ssh",
+        });
         return null;
       }
 
@@ -252,9 +264,12 @@ export class TerminalService {
       );
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      this.logger.warn(
-        `[TERMINAL] agent socket connect failed for server '${serverId}': ${detail}`,
-      );
+      logStructured(this.logger, "warn", "terminal.connect", "retry", {
+        module: "TerminalService",
+        serverId,
+        error: detail,
+        target: "ssh",
+      });
       return null;
     }
   }

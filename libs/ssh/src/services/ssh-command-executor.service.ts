@@ -4,6 +4,11 @@ import { ExecuteResult } from "../types/execute-result.interface";
 import { Client } from "ssh2";
 import { SSH_DEFAULTS } from "../constants/ssh.constants";
 import { SshCommandError } from "../errors/ssh-command.error";
+import {
+  logStructured,
+  logStructuredError,
+  sanitizeSshCommand,
+} from "@shared/common";
 
 @Injectable()
 export class SshCommandExecutorService {
@@ -30,7 +35,12 @@ export class SshCommandExecutorService {
         let exitCode: number | null = null;
 
         const onError = (err: Error) => {
-          this.logger.warn(`SSH exec error: ${err.message}`);
+          logStructuredError(
+            this.logger,
+            "ssh.exec_stream",
+            err,
+            this.buildExecContext(clientOrId, command, Date.now() - start),
+          );
           reject(new SshCommandError(err.message));
         };
 
@@ -82,9 +92,31 @@ export class SshCommandExecutorService {
     try {
       return await execOnClient(client);
     } catch (err) {
-      this.logger.warn(`Command execution failed: ${(err as Error).message}`);
+      logStructuredError(
+        this.logger,
+        "ssh.exec_stream",
+        err,
+        this.buildExecContext(clientOrId, command, Date.now() - start),
+      );
       throw err;
     }
+  }
+
+  private buildExecContext(
+    clientOrId: Client | string,
+    command: string,
+    durationMs: number,
+    result?: ExecuteResult,
+  ) {
+    return {
+      module: "SshCommandExecutorService",
+      serverId: typeof clientOrId === "string" ? clientOrId : undefined,
+      command: sanitizeSshCommand(command),
+      durationMs,
+      exitCode: result?.exitCode,
+      stdoutLen: result?.stdout.length,
+      stderrLen: result?.stderr.length,
+    };
   }
 
   async executeCommand(
@@ -101,7 +133,12 @@ export class SshCommandExecutorService {
         let exitCode: number | null = null;
 
         const onError = (err: Error) => {
-          this.logger.warn(`SSH exec error: ${err.message}`);
+          logStructuredError(
+            this.logger,
+            "ssh.exec",
+            err,
+            this.buildExecContext(clientOrId, command, Date.now() - start),
+          );
           reject(new SshCommandError(err.message));
         };
 
@@ -147,12 +184,34 @@ export class SshCommandExecutorService {
 
     try {
       const res = await execOnClient(client);
-      this.logger.log(
-        `Executed command on ssh; len_stdout=${res.stdout.length}`,
-      );
+      if (!res.success) {
+        logStructured(this.logger, "warn", "ssh.exec", "failed", {
+          ...this.buildExecContext(
+            clientOrId,
+            command,
+            res.executionTimeMs,
+            res,
+          ),
+          reason: res.stderr.trim() || `exit code ${res.exitCode ?? "unknown"}`,
+        });
+      } else {
+        logStructured(this.logger, "debug", "ssh.exec", "succeeded", {
+          ...this.buildExecContext(
+            clientOrId,
+            command,
+            res.executionTimeMs,
+            res,
+          ),
+        });
+      }
       return res;
     } catch (err) {
-      this.logger.warn(`Command execution failed: ${(err as Error).message}`);
+      logStructuredError(
+        this.logger,
+        "ssh.exec",
+        err,
+        this.buildExecContext(clientOrId, command, Date.now() - start),
+      );
       throw err;
     }
   }

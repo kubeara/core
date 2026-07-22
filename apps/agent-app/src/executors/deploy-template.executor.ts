@@ -22,6 +22,7 @@ import {
   formatDeploymentPortInUseMessage,
   maskEnvContents,
   sumComposeResourceLimitsFromYaml,
+  logStructured,
 } from "@shared/common";
 import {
   EnvFileInput,
@@ -125,9 +126,11 @@ export class DeployTemplateExecutor {
     const startedAt = new Date().toISOString();
     const projectName = this.fsService.sanitizeName(deploymentId);
 
-    this.logger.log(
-      `[DEPLOY_TRACE] executor.execute deploymentId=${deploymentId} project=${projectName}`,
-    );
+    logStructured(this.logger, "log", "deployment.execute", "started", {
+      module: "DeployTemplateExecutor",
+      deploymentId,
+      template: name,
+    });
 
     try {
       await this.runDeployment(deploymentId, {
@@ -479,9 +482,11 @@ export class DeployTemplateExecutor {
       });
 
       try {
-        this.logger.log(
-          `[DEPLOY_TRACE] compose execution starting deploymentId=${deploymentId} cwd=${dir}`,
-        );
+        logStructured(this.logger, "log", "deployment.compose", "started", {
+          module: "DeployTemplateExecutor",
+          deploymentId,
+          template: name,
+        });
         await this.executeComposeWithLiveLogs(
           dir,
           projectName,
@@ -489,9 +494,11 @@ export class DeployTemplateExecutor {
           deploymentId,
           notifier,
         );
-        this.logger.log(
-          `[DEPLOY_TRACE] compose execution finished deploymentId=${deploymentId}`,
-        );
+        logStructured(this.logger, "log", "deployment.compose", "succeeded", {
+          module: "DeployTemplateExecutor",
+          deploymentId,
+          template: name,
+        });
       } catch (err) {
         const dockerErr = err instanceof Error ? err.message : String(err);
         await this.handleDeploymentFailure(
@@ -1790,8 +1797,16 @@ export class DeployTemplateExecutor {
       1000,
     );
 
-    this.logger.log(
-      `[DEPLOY_TRACE] starting docker compose logs -f deploymentId=${deploymentId} project=${projectName} containers=${containerIds.length}`,
+    logStructured(
+      this.logger,
+      "debug",
+      "deployment.container_logs",
+      "started",
+      {
+        module: "DeployTemplateExecutor",
+        deploymentId,
+        containerCount: containerIds.length,
+      },
     );
 
     notifier.sendLog({
@@ -1996,8 +2011,16 @@ export class DeployTemplateExecutor {
         if (settled) return;
 
         if (code === 0) {
-          this.logger.log(
-            `[DEPLOY_TRACE] compose up exited 0, starting container logs deploymentId=${deploymentId}`,
+          logStructured(
+            this.logger,
+            "debug",
+            "deployment.container_logs",
+            "started",
+            {
+              module: "DeployTemplateExecutor",
+              deploymentId,
+              reason: "compose_up_exited_0",
+            },
           );
           void (async () => {
             try {

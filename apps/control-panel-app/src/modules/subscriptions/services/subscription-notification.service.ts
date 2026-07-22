@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { logStructured } from "@shared/common";
 
 @Injectable()
 export class SubscriptionNotificationService {
@@ -37,8 +38,17 @@ export class SubscriptionNotificationService {
     previousPlan: string;
     newPlan: string;
   }): void {
-    this.logger.log(
-      `[notification:placeholder] Plan changed for org ${payload.organizationId}: ${payload.previousPlan} → ${payload.newPlan}`,
+    logStructured(
+      this.logger,
+      "log",
+      "subscription.plan_changed",
+      "succeeded",
+      {
+        module: "SubscriptionNotificationService",
+        organizationId: payload.organizationId,
+        previousPlan: payload.previousPlan,
+        newPlan: payload.newPlan,
+      },
     );
   }
 }

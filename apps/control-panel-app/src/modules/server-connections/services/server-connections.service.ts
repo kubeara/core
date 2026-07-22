@@ -35,7 +35,11 @@ import {
 import { DeploymentGateway } from "@control-panel/websocket/websocket.gateway";
 import { ServerSshCredentialEntity } from "../entities/server-ssh-credential.entity";
 import { ServerEntity } from "../entities/server.entity";
-import { EncryptionService } from "@shared/common";
+import {
+  EncryptionService,
+  logStructured,
+  logStructuredError,
+} from "@shared/common";
 import {
   SshHealthCheckService,
   SshCommandExecutorService,
@@ -295,13 +299,15 @@ export class ServerConnectionsService {
         );
 
         if (runningAgents.length > 0) {
-          this.logger.log(
-            `Agent container is running but socket disconnected on server '${serverId}' — waiting for reconnect`,
-          );
+          logStructured(this.logger, "log", "agent.recovery", "skipped", {
+            module: "ServerConnectionsService",
+            serverId,
+            reason: "container_running_awaiting_websocket",
+          });
           return {
             success: true,
             logs: [
-              "Agent container is running — waiting for WebSocket reconnect",
+              "Agent container is running, waiting for WebSocket reconnect",
             ],
             skipped: true,
           };
@@ -346,24 +352,30 @@ export class ServerConnectionsService {
             }
           }
 
-          this.logger.warn(
-            `Failed to start stopped agent on server '${serverId}' — reinstalling`,
-          );
+          logStructured(this.logger, "warn", "agent.recovery", "retry", {
+            module: "ServerConnectionsService",
+            serverId,
+            reason: "failed_to_start_stopped_container",
+          });
         }
 
-        this.logger.log(
-          startableAgents.length > 0 || brokenAgents.length > 0
-            ? `Reinstalling agent on server '${serverId}' after cleanup`
-            : `No agent container found on server '${serverId}' — installing`,
-        );
+        logStructured(this.logger, "log", "agent.recovery", "started", {
+          module: "ServerConnectionsService",
+          serverId,
+          reason:
+            startableAgents.length > 0 || brokenAgents.length > 0
+              ? "reinstall_after_cleanup"
+              : "no_agent_container_found",
+        });
         return await this.ensureAgentInstalledForServer(serverId, options);
       } finally {
         await this.setRecoveryInProgress(serverId, false);
       }
     } catch (error) {
-      this.logger.error(
-        `Recover agent failed for server '${serverId}': ${toErrorMessage(error)}`,
-      );
+      logStructuredError(this.logger, "agent.recovery", error, {
+        module: "ServerConnectionsService",
+        serverId,
+      });
       throw error;
     }
   }
@@ -396,44 +408,63 @@ export class ServerConnectionsService {
           DeploymentEvents.CONTAINER_DISCOVER,
         );
 
-        this.logger.log(
-          `[CONTAINER_DISCOVER] serverId=${serverId} agentVersion=${agentVersion} supportsContainerDiscover=${supportsDiscovery}`,
-        );
+        logStructured(this.logger, "log", "container.discover", "started", {
+          module: "ServerConnectionsService",
+          serverId,
+          agentVersion,
+          supportsContainerDiscover: supportsDiscovery,
+        });
 
         if (!supportsDiscovery) {
           socketError = `Connected agent (version ${agentVersion}) does not support container discovery`;
-          this.logger.warn(
-            `[CONTAINER_DISCOVER] skipping socket for server '${serverId}': ${socketError}`,
-          );
+          logStructured(this.logger, "warn", "container.discover", "skipped", {
+            module: "ServerConnectionsService",
+            serverId,
+            reason: socketError,
+          });
         } else {
           try {
             discovered = await this.deploymentGateway.requestContainerDiscovery(
               serverId,
               SERVER_CONNECTIONS.SOCKET_CONTAINER_DISCOVER_ATTEMPT_MS,
             );
-            this.logger.log(
-              `[CONTAINER_DISCOVER] agent returned ${discovered.length} container(s) for server '${serverId}'`,
+            logStructured(
+              this.logger,
+              "log",
+              "container.discover",
+              "succeeded",
+              {
+                module: "ServerConnectionsService",
+                serverId,
+                containerCount: discovered.length,
+              },
             );
           } catch (error) {
             socketError =
               error instanceof Error ? error.message : String(error);
-            this.logger.warn(
-              `[CONTAINER_DISCOVER] agent socket failed for server '${serverId}': ${socketError}`,
-            );
+            logStructured(this.logger, "warn", "container.discover", "failed", {
+              module: "ServerConnectionsService",
+              serverId,
+              error: socketError,
+            });
           }
         }
       } else {
         socketError = `No connected agent for server '${serverId}'`;
-        this.logger.warn(
-          `[CONTAINER_DISCOVER] no connected agent for server '${serverId}'`,
-        );
+        logStructured(this.logger, "warn", "container.discover", "failed", {
+          module: "ServerConnectionsService",
+          serverId,
+          reason: "no_connected_agent",
+        });
       }
 
       if (!discovered) {
-        this.logger.warn(
-          `[CONTAINER_DISCOVER] using host fallback for server '${serverId}'` +
-            (socketError ? `: ${socketError}` : ""),
-        );
+        logStructured(this.logger, "warn", "container.discover", "retry", {
+          module: "ServerConnectionsService",
+          serverId,
+          reason: socketError ?? "agent_unavailable",
+          target: "host",
+        });
         return this.discoverContainersOnHost(serverId);
       }
 
@@ -571,9 +602,14 @@ export class ServerConnectionsService {
       }
 
       const command = buildHostContainerActionCommand(action, containerId);
-      this.logger.log(
-        `[CONTAINER_ACTION] host fallback executing '${command}' on serverId=${serverId}`,
-      );
+      logStructured(this.logger, "log", "container.action", "retry", {
+        module: "ServerConnectionsService",
+        serverId,
+        action,
+        containerId,
+        target: "host",
+        command,
+      });
       let result: ExecuteResult;
 
       if (server.serverType === ServerType.LOCAL) {
@@ -821,44 +857,56 @@ export class ServerConnectionsService {
           DeploymentEvents.SERVER_GET_RESOURCES,
         );
 
-        this.logger.log(
-          `[SERVER_RESOURCES] serverId=${serverId} agentVersion=${agentVersion} supportsServerResources=${supportsResources}`,
-        );
+        logStructured(this.logger, "log", "server.resources", "started", {
+          module: "ServerConnectionsService",
+          serverId,
+          agentVersion,
+          supportsServerResources: supportsResources,
+        });
 
         if (!supportsResources) {
           socketError = `Connected agent (version ${agentVersion}) does not support server resource collection`;
-          this.logger.warn(
-            `[SERVER_RESOURCES] skipping socket for server '${serverId}': ${socketError}`,
-          );
+          logStructured(this.logger, "warn", "server.resources", "skipped", {
+            module: "ServerConnectionsService",
+            serverId,
+            reason: socketError,
+          });
         } else {
           try {
             resources = await this.deploymentGateway.requestServerResources(
               serverId,
               SERVER_CONNECTIONS.SOCKET_RESOURCES_ATTEMPT_MS,
             );
-            this.logger.log(
-              `[SERVER_RESOURCES] agent returned metrics for server '${serverId}'`,
-            );
+            logStructured(this.logger, "log", "server.resources", "succeeded", {
+              module: "ServerConnectionsService",
+              serverId,
+            });
           } catch (error) {
             socketError =
               error instanceof Error ? error.message : String(error);
-            this.logger.warn(
-              `[SERVER_RESOURCES] agent socket failed for server '${serverId}': ${socketError}`,
-            );
+            logStructured(this.logger, "warn", "server.resources", "failed", {
+              module: "ServerConnectionsService",
+              serverId,
+              error: socketError,
+            });
           }
         }
       } else {
         socketError = `No connected agent for server '${serverId}'`;
-        this.logger.warn(
-          `[SERVER_RESOURCES] no connected agent for server '${serverId}'`,
-        );
+        logStructured(this.logger, "warn", "server.resources", "failed", {
+          module: "ServerConnectionsService",
+          serverId,
+          reason: "no_connected_agent",
+        });
       }
 
       if (!resources) {
-        this.logger.warn(
-          `[SERVER_RESOURCES] using host fallback for server '${serverId}'` +
-            (socketError ? `: ${socketError}` : ""),
-        );
+        logStructured(this.logger, "warn", "server.resources", "retry", {
+          module: "ServerConnectionsService",
+          serverId,
+          reason: socketError ?? "agent_unavailable",
+          target: "host",
+        });
         try {
           resources = await this.collectResourcesOnHost(serverId);
         } catch (error) {
@@ -2116,14 +2164,23 @@ export class ServerConnectionsService {
         const result = await this.recoverAgentForServer(serverId);
 
         if (!result.success) {
-          this.logger.warn(
-            `Background agent recovery failed for server '${serverId}': ${result.error ?? "unknown error"}`,
+          logStructured(
+            this.logger,
+            "warn",
+            "agent.recovery.background",
+            "failed",
+            {
+              module: "ServerConnectionsService",
+              serverId,
+              error: result.error ?? "unknown error",
+            },
           );
         }
       } catch (error) {
-        this.logger.error(
-          `Background agent recovery failed for server '${serverId}': ${toErrorMessage(error)}`,
-        );
+        logStructuredError(this.logger, "agent.recovery.background", error, {
+          module: "ServerConnectionsService",
+          serverId,
+        });
       }
     })();
   }

@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { Cron, CronExpression, SchedulerRegistry } from "@nestjs/schedule";
 import axios from "axios";
-import { toErrorMessage } from "@control-panel/common/utils/error.util";
+import { logStructured, logStructuredError } from "@shared/common";
 import { CRON_AUTH_TOKEN_HEADER } from "./utils/cron-auth.util";
 const CRON_AGENT_HEALTH_PATH = "/api/servers/cron/agent-health";
 const CRON_JOB_AGENT_HEALTH = "agent-health-check";
@@ -26,7 +26,10 @@ export class CronService {
     try {
       const isCronServer =
         this.configService.get<string>("IS_CRON_SERVER") === "true";
-      this.logger.log(`isCronServer: `, isCronServer);
+      logStructured(this.logger, "log", "cron.bootstrap", "started", {
+        module: "CronService",
+        isCronServer,
+      });
 
       if (!isCronServer) {
         const jobNames = [...this.schedulerRegistry.getCronJobs().keys()];
@@ -35,28 +38,34 @@ export class CronService {
           this.schedulerRegistry.deleteCronJob(jobName);
         }
 
-        this.logger.log(
-          "Cron jobs skipped (set IS_CRON_SERVER=true to enable scheduling)",
-        );
+        logStructured(this.logger, "log", "cron.bootstrap", "skipped", {
+          module: "CronService",
+          reason: "IS_CRON_SERVER_not_true",
+        });
       } else {
         const skipAgentHealthCheck =
           this.configService.get<string>("SKIP_CRON_AGENT_HEALTH_CHECK") ===
           "true";
 
-        this.logger.log(`skipAgentHealthCheck: ${skipAgentHealthCheck}`);
         if (skipAgentHealthCheck) {
           if (this.schedulerRegistry.getCronJobs().has(CRON_JOB_AGENT_HEALTH)) {
             this.schedulerRegistry.deleteCronJob(CRON_JOB_AGENT_HEALTH);
-            this.logger.log(
-              `Cron job "${CRON_JOB_AGENT_HEALTH}" skipped (SKIP_CRON_AGENT_HEALTH_CHECK=true)`,
-            );
+            logStructured(this.logger, "log", "cron.agent_health", "skipped", {
+              module: "CronService",
+              reason: "SKIP_CRON_AGENT_HEALTH_CHECK_true",
+            });
           }
         } else {
-          this.logger.log(`job: ${CRON_JOB_AGENT_HEALTH} -> `);
+          logStructured(this.logger, "log", "cron.agent_health", "started", {
+            module: "CronService",
+            job: CRON_JOB_AGENT_HEALTH,
+          });
         }
       }
     } catch (error) {
-      this.logger.error(`Failed to skip cron jobs: ${toErrorMessage(error)}`);
+      logStructuredError(this.logger, "cron.bootstrap", error, {
+        module: "CronService",
+      });
       throw error;
     }
   }
@@ -82,9 +91,9 @@ export class CronService {
         },
       );
     } catch (error) {
-      this.logger.error(
-        `Agent health cron request failed: ${toErrorMessage(error)}`,
-      );
+      logStructuredError(this.logger, "cron.agent_health_request", error, {
+        module: "CronService",
+      });
     }
   }
 }

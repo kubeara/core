@@ -43,6 +43,8 @@ import {
   DEFAULT_TERMINAL_COLS,
   DEFAULT_TERMINAL_ROWS,
   SOCKET_ERROR_MESSAGES,
+  logStructured,
+  logStructuredError,
 } from "@shared/common";
 import * as yaml from "js-yaml";
 import * as os from "os";
@@ -109,7 +111,10 @@ export class SocketClientService {
   private async connectAsync(): Promise<void> {
     try {
       if (this.connected || this.socket) {
-        this.logger.warn("Socket already connected or connecting");
+        logStructured(this.logger, "warn", "socket.connect", "skipped", {
+          module: "SocketClientService",
+          reason: "already_connected_or_connecting",
+        });
         return;
       }
 
@@ -120,12 +125,16 @@ export class SocketClientService {
       if (!publicIp) {
         publicIp = await detectOutboundPublicIp();
         if (publicIp) {
-          this.logger.log(`Detected outbound public IP: ${publicIp}`);
+          logStructured(this.logger, "log", "agent.registration", "succeeded", {
+            module: "SocketClientService",
+            reason: "detected_outbound_public_ip",
+          });
         } else {
           publicIp = localLoopbackHost();
-          this.logger.log(
-            `Using ${publicIp} for registration (local / no outbound detect)`,
-          );
+          logStructured(this.logger, "log", "agent.registration", "succeeded", {
+            module: "SocketClientService",
+            reason: "using_loopback_for_local_registration",
+          });
         }
       }
 
@@ -133,7 +142,10 @@ export class SocketClientService {
         .get<string>("KUBEARA_SERVER_ID")
         ?.trim();
 
-      this.logger.log(`Connecting to control panel at ${controlPanelUrl}`);
+      logStructured(this.logger, "log", "socket.connect", "started", {
+        module: "SocketClientService",
+        target: controlPanelUrl,
+      });
 
       this.socket = io(`${controlPanelUrl}/deployments`, {
         reconnection: true,
@@ -155,9 +167,9 @@ export class SocketClientService {
 
       this.setupEventListeners();
     } catch (error) {
-      this.logger.error(
-        `Failed to initialize websocket connection: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      logStructuredError(this.logger, "socket.connect", error, {
+        module: "SocketClientService",
+      });
       throw error;
     }
   }
@@ -172,7 +184,16 @@ export class SocketClientService {
 
       this.socket.on("connect", () => {
         this.connected = true;
-        this.logger.log(`Connected with socket ID: ${this.socket?.id}`);
+        logStructured(
+          this.logger,
+          "log",
+          "socket.client_connected",
+          "succeeded",
+          {
+            module: "SocketClientService",
+            socketId: this.socket?.id,
+          },
+        );
         this.attachInboundHandlers();
         this.emitAgentHello();
         this.flushPendingStatuses();
@@ -181,11 +202,22 @@ export class SocketClientService {
 
       this.socket.on("disconnect", (reason) => {
         this.connected = false;
-        this.logger.log(`Disconnected: ${reason}`);
+        logStructured(
+          this.logger,
+          "log",
+          "socket.client_disconnected",
+          "succeeded",
+          {
+            module: "SocketClientService",
+            reason,
+          },
+        );
       });
 
       this.socket.on("connect_error", (error) => {
-        this.logger.error(`Connection error: ${error.message}`);
+        logStructuredError(this.logger, "socket.connect", error, {
+          module: "SocketClientService",
+        });
       });
 
       this.attachInboundHandlers();
@@ -227,8 +259,18 @@ export class SocketClientService {
     this.socket.on(
       DeploymentEvents.CONTAINER_ACTION,
       (payload: ContainerActionRequestPayload) => {
-        this.logger.log(
-          `[CONTAINER_ACTION] socket event received payload=${JSON.stringify(payload)}`,
+        logStructured(
+          this.logger,
+          "log",
+          "socket.request_received",
+          "started",
+          {
+            module: "SocketClientService",
+            event: DeploymentEvents.CONTAINER_ACTION,
+            requestId: payload?.requestId,
+            containerId: payload?.containerId,
+            action: payload?.action,
+          },
         );
         void this.handleContainerAction(payload);
       },
@@ -237,8 +279,16 @@ export class SocketClientService {
     this.socket.on(
       DeploymentEvents.CONTAINER_DISCOVER,
       (payload: ContainerDiscoverRequestPayload) => {
-        this.logger.log(
-          `[CONTAINER_DISCOVER] socket event received payload=${JSON.stringify(payload)}`,
+        logStructured(
+          this.logger,
+          "log",
+          "socket.request_received",
+          "started",
+          {
+            module: "SocketClientService",
+            event: DeploymentEvents.CONTAINER_DISCOVER,
+            requestId: payload?.requestId,
+          },
         );
         void this.handleContainerDiscover(payload);
       },
@@ -247,8 +297,16 @@ export class SocketClientService {
     this.socket.on(
       DeploymentEvents.SERVER_GET_RESOURCES,
       (payload: ServerGetResourcesRequestPayload) => {
-        this.logger.log(
-          `[SERVER_RESOURCES] socket event received payload=${JSON.stringify(payload)}`,
+        logStructured(
+          this.logger,
+          "log",
+          "socket.request_received",
+          "started",
+          {
+            module: "SocketClientService",
+            event: DeploymentEvents.SERVER_GET_RESOURCES,
+            requestId: payload?.requestId,
+          },
         );
         void this.handleServerGetResources(payload);
       },
@@ -257,8 +315,17 @@ export class SocketClientService {
     this.socket.on(
       DeploymentEvents.DEPLOYMENT_VALIDATE,
       (payload: DeploymentValidateRequestPayload) => {
-        this.logger.log(
-          `[DEPLOYMENT_VALIDATE] socket event received requestId=${payload?.requestId ?? "unknown"} template=${payload?.templateSlug ?? "unknown"}`,
+        logStructured(
+          this.logger,
+          "log",
+          "socket.request_received",
+          "started",
+          {
+            module: "SocketClientService",
+            event: DeploymentEvents.DEPLOYMENT_VALIDATE,
+            requestId: payload?.requestId,
+            template: payload?.templateSlug,
+          },
         );
         void this.handleDeploymentValidate(payload);
       },
@@ -313,8 +380,14 @@ export class SocketClientService {
       },
     );
 
-    this.logger.log(
-      `[AgentCapabilities] inbound handlers registered: deploy, remove, ${DeploymentEvents.CONTAINER_ACTION}, ${DeploymentEvents.CONTAINER_DISCOVER}, ${DeploymentEvents.SERVER_GET_RESOURCES}, ${DeploymentEvents.TERMINAL_CONNECT}, ${DeploymentEvents.CONTAINER_LOGS_START}, ${DeploymentEvents.AGENT_REMOVE}`,
+    logStructured(
+      this.logger,
+      "debug",
+      "socket.handlers_registered",
+      "succeeded",
+      {
+        module: "SocketClientService",
+      },
     );
   }
 
@@ -346,9 +419,11 @@ export class SocketClientService {
     };
 
     this.socket.emit(DeploymentEvents.AGENT_HELLO, payload);
-    this.logger.log(
-      `[AgentHello] sent version=${version} capabilities=[${payload.capabilities.join(", ")}] socketId=${this.socket.id}`,
-    );
+    logStructured(this.logger, "log", "agent.hello", "succeeded", {
+      module: "SocketClientService",
+      socketId: this.socket.id,
+      version,
+    });
   }
 
   private async handleDeployAction(
@@ -367,13 +442,29 @@ export class SocketClientService {
     } = message.payload;
     const deploymentId = providedId || this.generateDeploymentId();
 
-    this.logger.log(
-      `[DEPLOY_TRACE] deploy received deploymentId=${deploymentId} template=${name}`,
+    logStructured(
+      this.logger,
+      "log",
+      "deployment.request_received",
+      "started",
+      {
+        module: "SocketClientService",
+        deploymentId,
+        template: name,
+      },
     );
 
     if (this.inFlightDeployments.has(deploymentId)) {
-      this.logger.warn(
-        `Ignoring duplicate DEPLOY socket message for ${deploymentId}`,
+      logStructured(
+        this.logger,
+        "warn",
+        "deployment.request_received",
+        "skipped",
+        {
+          module: "SocketClientService",
+          deploymentId,
+          reason: "duplicate_in_flight",
+        },
       );
       return;
     }
@@ -420,9 +511,11 @@ export class SocketClientService {
         throw new Error(SOCKET_ERROR_MESSAGES.MISSING_DEPLOYMENT_SCHEMA(name));
       }
 
-      this.logger.log(
-        `[DEPLOY_TRACE] starting deployment execution deploymentId=${deploymentId}`,
-      );
+      logStructured(this.logger, "log", "deployment.execute", "started", {
+        module: "SocketClientService",
+        deploymentId,
+        template: name,
+      });
       await this.executor.execute({
         name,
         compose: composeYaml,
@@ -436,7 +529,11 @@ export class SocketClientService {
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Deployment initialization failed: ${msg}`);
+      logStructuredError(this.logger, "deployment.initialize", err, {
+        module: "SocketClientService",
+        deploymentId,
+        template: name,
+      });
 
       this.sendLog({
         deployment: name,
@@ -1092,9 +1189,12 @@ export class SocketClientService {
    * Queues a deployment log for sending when the socket is connected.
    */
   private queuePendingLog(payload: DeploymentLogPayload): void {
-    this.logger.warn(
-      `[DEPLOY_TRACE] log queued (socket disconnected) deploymentId=${payload.deploymentId ?? "n/a"} bytes=${payload.message?.length ?? 0}`,
-    );
+    logStructured(this.logger, "warn", "deployment.log_stream", "retry", {
+      module: "SocketClientService",
+      deploymentId: payload.deploymentId ?? undefined,
+      reason: "socket_disconnected",
+      bytes: payload.message?.length ?? 0,
+    });
     this.pendingLogs.push(payload);
     if (this.pendingLogs.length > SocketClientService.MAX_PENDING_LOGS) {
       this.pendingLogs.shift();
@@ -1125,9 +1225,11 @@ export class SocketClientService {
    */
   private emitDeploymentLog(payload: DeploymentLogPayload): void {
     if (!payload.deploymentId) {
-      this.logger.warn(
-        `[stream] sendLog skipped: missing deploymentId (deployment=${payload.deployment})`,
-      );
+      logStructured(this.logger, "warn", "deployment.log_stream", "skipped", {
+        module: "SocketClientService",
+        deployment: payload.deployment,
+        reason: "missing_deployment_id",
+      });
       return;
     }
 
@@ -1141,9 +1243,12 @@ export class SocketClientService {
       timestamp: payload.timestamp ?? new Date().toISOString(),
     };
 
-    this.logger.debug(
-      `[stream] log → control panel deploymentId=${outbound.deploymentId} source=${source} bytes=${outbound.message.length}`,
-    );
+    logStructured(this.logger, "debug", "deployment.log_stream", "started", {
+      module: "SocketClientService",
+      deploymentId: outbound.deploymentId,
+      source,
+      bytes: outbound.message.length,
+    });
     this.socket?.emit(DeploymentEvents.DEPLOYMENT_LOG, outbound);
   }
 
