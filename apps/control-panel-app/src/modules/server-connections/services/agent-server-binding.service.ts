@@ -4,6 +4,7 @@ import { In, IsNull, Repository } from "typeorm";
 
 import { EntityStatus } from "@control-panel/common/entity/base.entity";
 import { normalizeServerHostForUrls } from "@control-panel/modules/deployments/utils/deployment-server.util";
+import { logStructured, logStructuredError } from "@shared/common";
 
 import { LOCAL_SERVER } from "../constants/local-server.constants";
 import { ServerEntity } from "../entities/server.entity";
@@ -40,17 +41,42 @@ export class AgentServerBindingService {
       if (explicit) {
         const server = await this.findActiveServerById(explicit);
         if (server) {
-          return this.listActiveServerIdsForHost(server.host);
+          const serverIds = await this.listActiveServerIdsForHost(server.host);
+          logStructured(
+            this.logger,
+            "log",
+            "agent.server_binding",
+            "succeeded",
+            {
+              module: "AgentServerBindingService",
+              serverId: explicit,
+              reason: "install_id",
+            },
+          );
+          return serverIds;
         }
-        this.logger.warn(
-          `Agent sent server id ${explicit} but no active server was found`,
-        );
+        logStructured(this.logger, "warn", "agent.server_binding", "failed", {
+          module: "AgentServerBindingService",
+          serverId: explicit,
+          reason: "no_active_server_for_install_id",
+        });
       }
 
       const reportedIp = input.reportedPublicIp?.trim();
       if (reportedIp) {
         const byHost = await this.listActiveServerIdsForHost(reportedIp);
         if (byHost.length > 0) {
+          logStructured(
+            this.logger,
+            "log",
+            "agent.server_binding",
+            "succeeded",
+            {
+              module: "AgentServerBindingService",
+              serverId: byHost[0],
+              reason: "host_match",
+            },
+          );
           return byHost;
         }
       }
@@ -62,18 +88,34 @@ export class AgentServerBindingService {
         reportedIp === "localhost";
 
       if (isLocalAgent) {
-        return this.listActiveServerIdsForHost(LOCAL_SERVER.HOST);
+        const localIds = await this.listActiveServerIdsForHost(
+          LOCAL_SERVER.HOST,
+        );
+        if (localIds.length > 0) {
+          logStructured(
+            this.logger,
+            "log",
+            "agent.server_binding",
+            "succeeded",
+            {
+              module: "AgentServerBindingService",
+              serverId: localIds[0],
+              reason: "local_server_fallback",
+            },
+          );
+        }
+        return localIds;
       }
 
-      this.logger.warn(
-        "Agent connected without a resolvable server binding. " +
-          "Onboard the host or ensure AGENT_PUBLIC_IP matches servers.host.",
-      );
+      logStructured(this.logger, "warn", "agent.server_binding", "failed", {
+        module: "AgentServerBindingService",
+        reason: "unresolvable_binding",
+      });
       return [];
     } catch (error) {
-      this.logger.error(
-        `Failed to resolve agent server binding: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      logStructuredError(this.logger, "agent.server_binding", error, {
+        module: "AgentServerBindingService",
+      });
       return [];
     }
   }
@@ -104,8 +146,13 @@ export class AgentServerBindingService {
 
       return servers.map((server) => server.id);
     } catch (error) {
-      this.logger.error(
-        `Failed to list servers by host: ${error instanceof Error ? error.message : String(error)}`,
+      logStructuredError(
+        this.logger,
+        "agent.server_binding.list_by_host",
+        error,
+        {
+          module: "AgentServerBindingService",
+        },
       );
       return [];
     }
@@ -128,8 +175,14 @@ export class AgentServerBindingService {
         },
       });
     } catch (error) {
-      this.logger.error(
-        `Failed to load server ${serverId}: ${error instanceof Error ? error.message : String(error)}`,
+      logStructuredError(
+        this.logger,
+        "agent.server_binding.load_server",
+        error,
+        {
+          module: "AgentServerBindingService",
+          serverId,
+        },
       );
       return null;
     }

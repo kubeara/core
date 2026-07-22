@@ -9,6 +9,7 @@ import {
 } from "@nestjs/common";
 import { Request, Response } from "express";
 import { ErrorResponse } from "../interfaces/error-response.interface";
+import { logStructured, logStructuredError } from "@shared/common";
 
 const GENERIC_HTTP_ERRORS = new Set([
   "Bad Request",
@@ -89,14 +90,19 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message = exception.message;
     }
 
-    const logContext = `[${request.method}] ${request.url} → ${status}`;
+    const logContext = {
+      module: "HttpExceptionFilter",
+      method: request.method,
+      path: request.url,
+      statusCode: status,
+    };
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
-      this.logger.error(
-        logContext,
-        exception instanceof Error ? exception.stack : String(exception),
-      );
+      logStructuredError(this.logger, "http.request", exception, logContext);
     } else {
-      this.logger.warn(`${logContext}: ${message}`);
+      logStructured(this.logger, "warn", "http.request", "failed", {
+        ...logContext,
+        error: message,
+      });
     }
 
     const body: ErrorResponse = {

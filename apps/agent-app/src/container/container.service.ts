@@ -1,6 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { spawn } from "child_process";
-import { parseDockerPsStdout } from "@shared/common";
+import {
+  parseDockerPsStdout,
+  logStructured,
+  logStructuredError,
+} from "@shared/common";
 import type {
   ContainerActionResponsePayload,
   ContainerActionType,
@@ -80,9 +84,11 @@ export class ContainerService {
         resolvedId.length >= 12 ? resolvedId.slice(0, 12) : trimmedId;
 
       const args = CONTAINER_LOGS_COMMAND(logsTarget);
-      this.logger.log(
-        `[CONTAINER_LOGS] starting docker ${args.join(" ")} sessionId=${sessionId}`,
-      );
+      logStructured(this.logger, "log", "container.logs", "started", {
+        module: "ContainerService",
+        sessionId,
+        command: args.join(" "),
+      });
 
       const child = spawn("docker", args, { cwd: process.cwd() });
       const session: ContainerLogSession = {
@@ -95,9 +101,10 @@ export class ContainerService {
 
       child.on("error", (err) => {
         const message = this.classifyDockerError(err.message);
-        this.logger.error(
-          `[CONTAINER_LOGS] failed to start docker logs sessionId=${sessionId}: ${message}`,
-        );
+        logStructuredError(this.logger, "container.logs.start", err, {
+          module: "ContainerService",
+          sessionId,
+        });
         this.cleanupLogSession(sessionId, message);
       });
 
@@ -127,18 +134,22 @@ export class ContainerService {
         }
 
         this.closeHandler?.(sessionId);
-        this.logger.log(
-          `[CONTAINER_LOGS] stream closed sessionId=${sessionId} exitCode=${code ?? "null"} stopping=${activeSession.stopping}`,
-        );
+        logStructured(this.logger, "log", "container.logs", "succeeded", {
+          module: "ContainerService",
+          sessionId,
+          exitCode: code ?? null,
+          stopping: activeSession.stopping,
+        });
       });
 
       this.logSessions.set(sessionId, session);
 
       return null;
     } catch (error) {
-      this.logger.error(
-        `[CONTAINER_LOGS] start log stream failed sessionId=${sessionId}: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      logStructuredError(this.logger, "container.logs.start", error, {
+        module: "ContainerService",
+        sessionId,
+      });
       throw error;
     }
   }
@@ -156,12 +167,18 @@ export class ContainerService {
     try {
       session.child.kill("SIGTERM");
     } catch (error) {
-      this.logger.warn(
-        `[CONTAINER_LOGS] failed to kill log process sessionId=${sessionId}: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      logStructured(this.logger, "warn", "container.logs.stop", "failed", {
+        module: "ContainerService",
+        sessionId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
 
-    this.logger.log(`[CONTAINER_LOGS] stopping stream sessionId=${sessionId}`);
+    logStructured(this.logger, "log", "container.logs", "started", {
+      module: "ContainerService",
+      sessionId,
+      action: "stop",
+    });
   }
 
   /**
@@ -259,9 +276,11 @@ export class ContainerService {
       }
 
       const args = buildDockerActionArgs(action, trimmedId);
-      this.logger.log(
-        `[CONTAINER_ACTION] executing docker ${args.join(" ")} requestId=${requestId}`,
-      );
+      logStructured(this.logger, "log", "container.action", "started", {
+        module: "ContainerService",
+        requestId,
+        command: args.join(" "),
+      });
       const result = await this.execCapture(
         "docker",
         args,
@@ -312,9 +331,12 @@ export class ContainerService {
     requestId: string,
     containerId: string,
   ): Promise<ContainerActionResponsePayload> {
-    this.logger.log(
-      `[CONTAINER_ACTION] deleting container with image/network cleanup containerId=${containerId} requestId=${requestId}`,
-    );
+    logStructured(this.logger, "log", "container.action", "started", {
+      module: "ContainerService",
+      requestId,
+      containerId,
+      action: "delete_with_cleanup",
+    });
 
     const imageInspect = await this.execCapture(
       "docker",

@@ -10,6 +10,7 @@ import {
   SshConnectionOptions,
   ExecuteResult,
 } from "@shared/ssh";
+import { logStructured } from "@shared/common";
 
 import { LocalAgentHostAdapter } from "../adapters/local-agent-host.adapter";
 import { SshAgentHostAdapter } from "../adapters/ssh-agent-host.adapter";
@@ -127,7 +128,10 @@ export class AgentInstallService {
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.warn(`Remote agent install failed: ${message}`);
+      logStructured(this.logger, "warn", "agent.install", "failed", {
+        module: "AgentInstallService",
+        error: message,
+      });
       return {
         success: false,
         logs,
@@ -170,9 +174,11 @@ export class AgentInstallService {
       }
 
       this.pushLog(logs, `Agent image: ${envBuild.agentImage}`, onLogLine);
-      this.logger.log(
-        `Agent install using image=${envBuild.agentImage} serverId=${input.serverId} host=${host.label}`,
-      );
+      logStructured(this.logger, "log", "agent.install", "started", {
+        module: "AgentInstallService",
+        serverId: input.serverId,
+        target: host.label,
+      });
 
       let composeContent: string;
       try {
@@ -236,21 +242,25 @@ export class AgentInstallService {
       if (agentAlreadyRunning) {
         this.pushLog(
           logs,
-          `Agent container ${AGENT_INSTALL.CONTAINER_NAME} is already running — refreshing config and upgrading image`,
+          `Agent container ${AGENT_INSTALL.CONTAINER_NAME} is already running, refreshing config and upgrading image`,
           onLogLine,
         );
-        this.logger.log(
-          `Agent upgrade (already running) serverId=${input.serverId} image=${envBuild.agentImage} dir=${installDir}`,
-        );
+        logStructured(this.logger, "log", "agent.install", "started", {
+          module: "AgentInstallService",
+          serverId: input.serverId,
+          reason: "upgrade_already_running",
+        });
       } else if (agentContainerPresent) {
         this.pushLog(
           logs,
-          `Agent container exists but is not running — recreating`,
+          `Agent container exists but is not running, recreating`,
           onLogLine,
         );
-        this.logger.log(
-          `Agent recreate (stopped) serverId=${input.serverId} image=${envBuild.agentImage} dir=${installDir}`,
-        );
+        logStructured(this.logger, "log", "agent.install", "started", {
+          module: "AgentInstallService",
+          serverId: input.serverId,
+          reason: "recreate_stopped_container",
+        });
         await this.cleanupStoppedCanonicalAgent(
           host,
           installDir,
@@ -283,22 +293,44 @@ export class AgentInstallService {
       }
       this.pushLog(logs, `Wrote ${envPath}`, onLogLine);
 
-      const skipPull =
-        this.configService.get<string>("KUBEARA_AGENT_SKIP_PULL") === "true";
+      const pullResult = await this.pullLatestAgentImage(
+        host,
+        installDir,
+        composeCmd,
+        envBuild.agentImage,
+        logs,
+        onLogLine,
+      );
+      if (!pullResult.ok) {
+        return { success: false, logs, error: pullResult.error };
+      }
 
-      if (skipPull) {
+      const upArgs = agentAlreadyRunning
+        ? "up -d --force-recreate --pull always"
+        : agentContainerPresent
+          ? "up -d --force-recreate --remove-orphans --pull always"
+          : "up -d --pull always";
+
+      let up = await host.executeCommand(
+        this.buildComposeCommand(installDir, composeCmd, upArgs),
+        AGENT_INSTALL.PULL_TIMEOUT_MS,
+      );
+      this.appendCommandOutput(logs, up, onLogLine);
+
+      if (!up.success && this.isMissingAgentImageError(up)) {
         this.pushLog(
           logs,
-          "Skipping docker compose pull (KUBEARA_AGENT_SKIP_PULL=true — use a locally loaded image)",
+          `Agent image missing during compose up, pulling ${envBuild.agentImage} and retrying`,
           onLogLine,
         );
-      } else {
-        const pull = await host.executeCommand(
-          this.buildComposeCommand(installDir, composeCmd, "pull"),
-          AGENT_INSTALL.PULL_TIMEOUT_MS,
+        const retryPull = await this.pullAgentImage(
+          host,
+          installDir,
+          composeCmd,
+          logs,
+          onLogLine,
         );
-        this.appendCommandOutput(logs, pull, onLogLine);
-        if (!pull.success) {
+        if (!retryPull.success) {
           const imageExists = await this.isAgentImagePresentOnHost(
             host,
             composeCmd,
@@ -308,36 +340,22 @@ export class AgentInstallService {
             return this.failFromCommand(
               logs,
               "docker compose pull",
-              pull,
+              retryPull,
               onLogLine,
             );
           }
-          this.pushLog(
-            logs,
-            `Pull failed but image ${envBuild.agentImage} exists locally — continuing`,
-            onLogLine,
-          );
-        } else {
-          this.pushLog(logs, "Pulled agent image", onLogLine);
         }
+        up = await host.executeCommand(
+          this.buildComposeCommand(
+            installDir,
+            composeCmd,
+            "up -d --pull always",
+          ),
+          AGENT_INSTALL.PULL_TIMEOUT_MS,
+        );
+        this.appendCommandOutput(logs, up, onLogLine);
       }
 
-      /**
-       * The compose up arguments.
-       */
-      const upArgs = agentAlreadyRunning
-        ? "up -d --force-recreate --pull never"
-        : agentContainerPresent
-          ? "up -d --force-recreate --remove-orphans --pull never"
-          : skipPull
-            ? "up -d --pull never"
-            : "up -d";
-
-      const up = await host.executeCommand(
-        this.buildComposeCommand(installDir, composeCmd, upArgs),
-        AGENT_INSTALL.PULL_TIMEOUT_MS,
-      );
-      this.appendCommandOutput(logs, up, onLogLine);
       if (!up.success) {
         return this.failFromCommand(logs, "docker compose up", up, onLogLine);
       }
@@ -351,14 +369,25 @@ export class AgentInstallService {
         onLogLine,
       );
 
-      this.logger.log(
-        `Agent ${agentAlreadyRunning ? "upgraded" : agentContainerPresent ? "recreated" : "installed"} serverId=${input.serverId} image=${envBuild.agentImage} dir=${installDir} host=${host.label}`,
-      );
+      logStructured(this.logger, "log", "agent.install", "succeeded", {
+        module: "AgentInstallService",
+        serverId: input.serverId,
+        target: host.label,
+        reason: agentAlreadyRunning
+          ? "upgraded"
+          : agentContainerPresent
+            ? "recreated"
+            : "installed",
+      });
 
       return { success: true, logs };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.warn(`Agent install failed: ${message}`);
+      logStructured(this.logger, "warn", "agent.install", "failed", {
+        module: "AgentInstallService",
+        serverId: input.serverId,
+        error: message,
+      });
       return {
         success: false,
         logs,
@@ -373,6 +402,16 @@ export class AgentInstallService {
   ):
     | { ok: true; content: string; agentImage: string }
     | { ok: false; error: string } {
+    const normalizedServerId = serverId?.trim();
+    if (!normalizedServerId) {
+      return {
+        ok: false,
+        error:
+          "Cannot install agent without a server id. " +
+          "Ensure the server record exists before provisioning the agent.",
+      };
+    }
+
     const controlPanelUrl = this.configService.get<string>(
       AGENT_INSTALL_ENV_KEYS.CONTROL_PANEL_URL,
     );
@@ -405,7 +444,7 @@ export class AgentInstallService {
       `AGENT_PORT=${AGENT_INSTALL.DEFAULT_PORT}`,
       `CONTROL_PANEL_URL=${controlPanelUrl.trim()}`,
       `ENCRYPTION_SECRET=${encryptionSecret}`,
-      `KUBEARA_SERVER_ID=${serverId}`,
+      `KUBEARA_SERVER_ID=${normalizedServerId}`,
       `AGENT_PUBLIC_IP=${serverHost.trim()}`,
       "TRAEFIK_ENABLED=false",
       "DOCKER_PLATFORM=linux/amd64",
@@ -413,6 +452,85 @@ export class AgentInstallService {
     ].join("\n");
 
     return { ok: true, content, agentImage };
+  }
+
+  /**
+   * Pulls the latest agent image from the registry before compose up.
+   * Image tag comes from control panel KUBEARA_AGENT_IMAGE (written to remote .env.agent).
+   */
+  private async pullLatestAgentImage(
+    host: AgentHostAdapter,
+    installDir: string,
+    composeCmd: string,
+    agentImage: string,
+    logs: string[],
+    onLogLine?: AgentInstallLogCallback,
+  ): Promise<{ ok: true } | { ok: false; error: string }> {
+    this.pushLog(
+      logs,
+      `Pulling latest agent image ${agentImage} from registry`,
+      onLogLine,
+    );
+
+    const pull = await this.pullAgentImage(
+      host,
+      installDir,
+      composeCmd,
+      logs,
+      onLogLine,
+    );
+    if (!pull.success) {
+      const stillMissing = !(await this.isAgentImagePresentOnHost(
+        host,
+        composeCmd,
+        agentImage,
+      ));
+      if (stillMissing) {
+        const pullDetail = [pull.stderr, pull.stdout]
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .join(" ");
+        return {
+          ok: false,
+          error:
+            `Failed to pull agent image ${agentImage}.` +
+            (pullDetail ? ` ${pullDetail}` : ""),
+        };
+      }
+      this.pushLog(
+        logs,
+        `Pull failed but image ${agentImage} exists locally, continuing with recreate`,
+        onLogLine,
+      );
+      return { ok: true };
+    }
+
+    this.pushLog(logs, "Pulled latest agent image", onLogLine);
+    return { ok: true };
+  }
+
+  private async pullAgentImage(
+    host: AgentHostAdapter,
+    installDir: string,
+    composeCmd: string,
+    logs: string[],
+    onLogLine?: AgentInstallLogCallback,
+  ): Promise<ExecuteResult> {
+    const pull = await host.executeCommand(
+      this.buildComposeCommand(installDir, composeCmd, "pull"),
+      AGENT_INSTALL.PULL_TIMEOUT_MS,
+    );
+    this.appendCommandOutput(logs, pull, onLogLine);
+    return pull;
+  }
+
+  private isMissingAgentImageError(result: ExecuteResult): boolean {
+    const combined = `${result.stderr}\n${result.stdout}`.toLowerCase();
+    return (
+      combined.includes("no such image") ||
+      combined.includes("manifest unknown") ||
+      combined.includes("pull access denied")
+    );
   }
 
   private async isAgentImagePresentOnHost(

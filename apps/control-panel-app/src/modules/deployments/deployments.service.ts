@@ -21,6 +21,8 @@ import {
   TemplateConfigService,
   TemplatePayloadService,
   maskEnvMap,
+  logStructured,
+  logStructuredError,
 } from "@shared/common";
 import {
   ContainerActionResponsePayload,
@@ -282,8 +284,17 @@ export class DeploymentsService {
         }
       };
 
-      this.logger.log(
-        `No agent WebSocket for server '${serverId}'; ensuring agent is running on host...`,
+      logStructured(
+        this.logger,
+        "log",
+        "deployment.agent_availability",
+        "started",
+        {
+          module: "DeploymentsService",
+          serverId,
+          deploymentId: options?.deploymentId,
+          reason: "no_agent_websocket",
+        },
       );
 
       if (deploymentId) {
@@ -468,9 +479,12 @@ export class DeploymentsService {
       await this.ensureAgentConnectedForServer(prepared.serverId, {
         deploymentId: prepared.deploymentId,
       });
-      this.logger.log(
-        `[DEPLOY_TRACE] emitPreparedDeployment calling emitDeploy deploymentId=${prepared.deploymentId} serverId=${prepared.serverId}`,
-      );
+      logStructured(this.logger, "log", "deployment.send_to_agent", "started", {
+        module: "DeploymentsService",
+        deploymentId: prepared.deploymentId,
+        serverId: prepared.serverId,
+        template: prepared.templateSlug,
+      });
       this.deploymentGateway.emitDeploy(message, prepared.serverId);
 
       this.deploymentGateway.broadcastDeploymentLog({
@@ -523,9 +537,11 @@ export class DeploymentsService {
     try {
       await this.emitPreparedDeployment(prepared, isRedeploy, options);
     } catch (error: unknown) {
-      this.logger.error(
-        `Background deployment ${prepared.deploymentId} failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      logStructuredError(this.logger, "deployment.background_emit", error, {
+        module: "DeploymentsService",
+        deploymentId: prepared.deploymentId,
+        serverId: prepared.serverId,
+      });
     }
 
     return {
@@ -638,15 +654,19 @@ export class DeploymentsService {
         await this.serverConnectionsService.isAgentInstalledOnServer(serverId);
 
       if (!agentInstalled) {
-        this.logger.log(
-          `Skipping pre-deploy validation for server '${serverId}': agent is not installed`,
-        );
+        logStructured(this.logger, "log", "deployment.validation", "skipped", {
+          module: "DeploymentsService",
+          serverId,
+          reason: "agent_not_installed",
+        });
         return { available: true };
       }
 
-      this.logger.log(
-        `Agent installed on server '${serverId}' but socket disconnected — waiting for connection before validation`,
-      );
+      logStructured(this.logger, "log", "deployment.validation", "started", {
+        module: "DeploymentsService",
+        serverId,
+        reason: "agent_installed_awaiting_connection",
+      });
       await this.waitForAgentConnection(serverId);
 
       if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
@@ -1181,15 +1201,22 @@ export class DeploymentsService {
           DeploymentEvents.CONTAINER_ACTION,
         );
 
-        this.logger.log(
-          `[CONTAINER_ACTION] serverId=${serverId} agentVersion=${agentVersion} supportsContainerAction=${supportsContainerAction}`,
-        );
+        logStructured(this.logger, "log", "container.action", "started", {
+          module: "DeploymentsService",
+          serverId,
+          action,
+          containerId: safeContainerId,
+          agentVersion,
+          supportsContainerAction,
+        });
 
         if (!supportsContainerAction) {
           socketError = `Connected agent (version ${agentVersion}) does not support container actions — rebuild or update the agent image to include the container:action handler`;
-          this.logger.warn(
-            `[CONTAINER_ACTION] skipping socket for server '${serverId}': ${socketError}`,
-          );
+          logStructured(this.logger, "warn", "container.action", "skipped", {
+            module: "DeploymentsService",
+            serverId,
+            reason: socketError,
+          });
         } else {
           try {
             result = await this.deploymentGateway.requestContainerAction(
@@ -1197,29 +1224,42 @@ export class DeploymentsService {
               safeContainerId,
               action,
             );
-            this.logger.log(
-              `[CONTAINER_ACTION] agent completed action=${action} containerId=${safeContainerId} serverId=${serverId} success=${result.success}`,
-            );
+            logStructured(this.logger, "log", "container.action", "succeeded", {
+              module: "DeploymentsService",
+              serverId,
+              action,
+              containerId: safeContainerId,
+              success: result.success,
+            });
           } catch (error) {
             socketError =
               error instanceof Error ? error.message : String(error);
-            this.logger.warn(
-              `[CONTAINER_ACTION] agent socket failed for server '${serverId}': ${socketError}`,
-            );
+            logStructured(this.logger, "warn", "container.action", "failed", {
+              module: "DeploymentsService",
+              serverId,
+              action,
+              containerId: safeContainerId,
+              error: socketError,
+            });
           }
         }
       } else {
         socketError = `No connected agent for server '${serverId}'`;
-        this.logger.warn(
-          `[CONTAINER_ACTION] no connected agent for server '${serverId}'`,
-        );
+        logStructured(this.logger, "warn", "container.action", "failed", {
+          module: "DeploymentsService",
+          serverId,
+          error: socketError,
+        });
       }
 
       if (!result) {
-        this.logger.warn(
-          `[CONTAINER_ACTION] using host fallback for ${action} on server '${serverId}'` +
-            (socketError ? `: ${socketError}` : ""),
-        );
+        logStructured(this.logger, "warn", "container.action", "retry", {
+          module: "DeploymentsService",
+          serverId,
+          action,
+          containerId: safeContainerId,
+          reason: socketError ?? "agent_unavailable",
+        });
         executedVia = "host";
         try {
           result =
