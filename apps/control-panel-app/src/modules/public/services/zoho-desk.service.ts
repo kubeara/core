@@ -20,10 +20,7 @@ import {
   ZohoDeskTicketResponse,
   ZohoTokenResponse,
 } from "../interfaces/zoho-desk.interface";
-import {
-  buildServiceRequestTicketDescription,
-  buildSupportTicketDescription,
-} from "../utils/zoho-ticket-template.util";
+import { buildZohoTicketDescription } from "../utils/zoho-ticket-template.util";
 
 const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 
@@ -65,7 +62,7 @@ export class ZohoDeskService {
         subject: `[Support] ${input.topic}`,
         departmentId:
           this.configService.getOrThrow<string>("ZOHO_DEPARTMENT_ID"),
-        description: buildSupportTicketDescription(input, brandName),
+        description: buildZohoTicketDescription("support", input, brandName),
         email: input.email.trim(),
         channel: "Web",
         status: "Open",
@@ -91,7 +88,11 @@ export class ZohoDeskService {
         subject: "Request a service",
         departmentId:
           this.configService.getOrThrow<string>("ZOHO_DEPARTMENT_ID"),
-        description: buildServiceRequestTicketDescription(input, brandName),
+        description: buildZohoTicketDescription(
+          "service_request",
+          input,
+          brandName,
+        ),
         email: input.email.trim(),
         channel: "Web",
         status: "Open",
