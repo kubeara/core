@@ -11,7 +11,10 @@ import { ServiceResponse } from "@control-panel/common/interfaces/success-respon
 import { toErrorMessage } from "@control-panel/common/utils/error.util";
 
 import { PUBLIC_MESSAGES } from "../constants/public-messages.constants";
-import { ZOHO_TICKET_CATEGORIES } from "../constants/zoho-ticket.constants";
+import {
+  ZOHO_TICKET_CATEGORIES,
+  ZOHO_TICKET_TYPE_CONFIG,
+} from "../constants/zoho-ticket.constants";
 import { SubmitServiceRequestDto } from "../dto/submit-service-request.dto";
 import { SubmitSupportRequestDto } from "../dto/submit-support-request.dto";
 import {
@@ -20,10 +23,7 @@ import {
   ZohoDeskTicketResponse,
   ZohoTokenResponse,
 } from "../interfaces/zoho-desk.interface";
-import {
-  buildServiceRequestTicketDescription,
-  buildSupportTicketDescription,
-} from "../utils/zoho-ticket-template.util";
+import { buildZohoTicketDescription } from "../utils/zoho-ticket-template.util";
 
 const TOKEN_EXPIRY_BUFFER_MS = 60_000;
 
@@ -62,10 +62,10 @@ export class ZohoDeskService {
 
     return this.createTicket(
       {
-        subject: `[Support] ${input.topic}`,
+        subject: ZOHO_TICKET_TYPE_CONFIG.support.subject,
         departmentId:
           this.configService.getOrThrow<string>("ZOHO_DEPARTMENT_ID"),
-        description: buildSupportTicketDescription(input, brandName),
+        description: buildZohoTicketDescription("support", input, brandName),
         email: input.email.trim(),
         channel: "Web",
         status: "Open",
@@ -88,10 +88,14 @@ export class ZohoDeskService {
 
     return this.createTicket(
       {
-        subject: "Request a service",
+        subject: ZOHO_TICKET_TYPE_CONFIG.service_request.subject,
         departmentId:
           this.configService.getOrThrow<string>("ZOHO_DEPARTMENT_ID"),
-        description: buildServiceRequestTicketDescription(input, brandName),
+        description: buildZohoTicketDescription(
+          "service_request",
+          input,
+          brandName,
+        ),
         email: input.email.trim(),
         channel: "Web",
         status: "Open",
