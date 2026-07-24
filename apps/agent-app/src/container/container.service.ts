@@ -1,9 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { spawn } from "child_process";
 import {
-  parseDockerPsStdout,
   logStructured,
   logStructuredError,
+  parseDockerPsStdout,
 } from "@shared/common";
 import type {
   ContainerActionResponsePayload,
@@ -12,14 +12,21 @@ import type {
 } from "@shared/socket-events";
 
 import {
-  BUILTIN_DOCKER_NETWORKS,
   buildDockerActionArgs,
   CONTAINER_ACTION_TIMEOUT_MS,
   CONTAINER_LOGS_COMMAND,
-  DOCKER_NAME_PATTERN,
   DOCKER_PS_COMMAND,
   DOCKER_PS_TIMEOUT_MS,
 } from "../common/constants/container.constant";
+import {
+  buildContainerDeletePlan,
+  CONTAINER_DELETE_INSPECT,
+  formatCleanupLine,
+  isContainerAlreadyStopped,
+  readDockerCommandDetail,
+  type ContainerDeleteCleanupResult,
+  type DockerExecResult,
+} from "./utils/container-delete.util";
 import type { ContainerLogSession } from "./interfaces/container-log-session.interface";
 import type {
   ContainerLogsCloseHandler,
@@ -325,135 +332,263 @@ export class ContainerService {
   }
 
   /**
-   * Executes the delete container action on the host machine.
+   * Stops and removes the container plus its image, mounted volumes, and
+   * attached user-defined networks. Individual cleanup steps are best-effort
+   * after the container itself has been removed.
    */
   private async executeDelete(
     requestId: string,
     containerId: string,
   ): Promise<ContainerActionResponsePayload> {
-    logStructured(this.logger, "log", "container.action", "started", {
-      module: "ContainerService",
-      requestId,
-      containerId,
-      action: "delete_with_cleanup",
-    });
+    try {
+      logStructured(this.logger, "log", "container.action", "started", {
+        module: "ContainerService",
+        requestId,
+        containerId,
+        action: "delete_with_cleanup",
+      });
 
-    const imageInspect = await this.execCapture(
-      "docker",
-      ["inspect", "-f", "{{.Image}}", containerId],
-      CONTAINER_ACTION_TIMEOUT_MS,
+      const planResult = await this.collectContainerDeletePlan(
+        requestId,
+        containerId,
+      );
+      if (!planResult.ok) {
+        return planResult.response;
+      }
+
+      const stopResult = await this.execCapture(
+        "docker",
+        ["stop", containerId],
+        CONTAINER_ACTION_TIMEOUT_MS,
+      );
+      if (
+        stopResult.exitCode !== 0 &&
+        !isContainerAlreadyStopped(readDockerCommandDetail(stopResult))
+      ) {
+        return this.buildResponse(
+          requestId,
+          containerId,
+          "delete",
+          stopResult,
+          "docker stop",
+        );
+      }
+
+      const rmResult = await this.execCapture(
+        "docker",
+        ["rm", "-f", "-v", containerId],
+        CONTAINER_ACTION_TIMEOUT_MS,
+      );
+      if (rmResult.exitCode !== 0) {
+        return this.buildResponse(
+          requestId,
+          containerId,
+          "delete",
+          rmResult,
+          "docker rm",
+        );
+      }
+
+      const cleanup = await this.cleanupDeletedContainerResources(
+        planResult.plan,
+      );
+
+      const logLines = ["Container stopped and removed", ...cleanup.logLines];
+      this.logger.log(
+        `Container delete succeeded containerId=${containerId} requestId=${requestId}: ${logLines.join("; ")}`,
+      );
+
+      return {
+        requestId,
+        containerId,
+        action: "delete",
+        success: true,
+        stdout:
+          `${logLines.join("\n")}\n${stopResult.stdout}${rmResult.stdout}${cleanup.stdout}`.trim(),
+        stderr:
+          `${stopResult.stderr}${rmResult.stderr}${cleanup.stderr}`.trim(),
+        exitCode: 0,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logStructuredError(this.logger, "container.delete", error, {
+        module: "ContainerService",
+        requestId,
+        containerId,
+      });
+      return this.failure(requestId, containerId, "delete", message);
+    }
+  }
+
+  /**
+   * Inspects the container before deletion and returns the resources that
+   * should be cleaned up afterward.
+   */
+  private async collectContainerDeletePlan(
+    requestId: string,
+    containerId: string,
+  ): Promise<
+    | { ok: true; plan: ReturnType<typeof buildContainerDeletePlan> }
+    | { ok: false; response: ContainerActionResponsePayload }
+  > {
+    const imageInspect = await this.dockerInspect(
+      containerId,
+      CONTAINER_DELETE_INSPECT.image,
     );
     if (imageInspect.exitCode !== 0) {
-      return this.buildResponse(
-        requestId,
-        containerId,
-        "delete",
-        imageInspect,
-        "docker inspect (image)",
-      );
+      return {
+        ok: false,
+        response: this.buildInspectFailure(
+          requestId,
+          containerId,
+          imageInspect,
+          "docker inspect (image)",
+        ),
+      };
     }
 
-    const networksInspect = await this.execCapture(
-      "docker",
-      [
-        "inspect",
-        "-f",
-        "{{range $k,$v := .NetworkSettings.Networks}}{{$k}}\n{{end}}",
-        containerId,
-      ],
-      CONTAINER_ACTION_TIMEOUT_MS,
+    const mountsInspect = await this.dockerInspect(
+      containerId,
+      CONTAINER_DELETE_INSPECT.mounts,
+    );
+    if (mountsInspect.exitCode !== 0) {
+      return {
+        ok: false,
+        response: this.buildInspectFailure(
+          requestId,
+          containerId,
+          mountsInspect,
+          "docker inspect (mounts)",
+        ),
+      };
+    }
+
+    const networksInspect = await this.dockerInspect(
+      containerId,
+      CONTAINER_DELETE_INSPECT.networks,
     );
     if (networksInspect.exitCode !== 0) {
-      return this.buildResponse(
-        requestId,
-        containerId,
-        "delete",
-        networksInspect,
-        "docker inspect (networks)",
-      );
+      return {
+        ok: false,
+        response: this.buildInspectFailure(
+          requestId,
+          containerId,
+          networksInspect,
+          "docker inspect (networks)",
+        ),
+      };
     }
-
-    const imageId = imageInspect.stdout.trim();
-    const networks = this.parseNetworkNames(networksInspect.stdout);
-
-    const rmResult = await this.execCapture(
-      "docker",
-      ["rm", "-f", containerId],
-      CONTAINER_ACTION_TIMEOUT_MS,
-    );
-    if (rmResult.exitCode !== 0) {
-      return this.buildResponse(
-        requestId,
-        containerId,
-        "delete",
-        rmResult,
-        "docker rm",
-      );
-    }
-
-    const logLines = ["Container removed"];
-    let combinedStdout = rmResult.stdout;
-    let combinedStderr = rmResult.stderr;
-
-    if (imageId) {
-      const rmiResult = await this.execCapture(
-        "docker",
-        ["rmi", imageId],
-        CONTAINER_ACTION_TIMEOUT_MS,
-      );
-      combinedStdout += rmiResult.stdout;
-      combinedStderr += rmiResult.stderr;
-      logLines.push(
-        rmiResult.exitCode === 0
-          ? "Image removed"
-          : `Image kept (may be in use elsewhere): ${rmiResult.stderr.trim() || rmiResult.stdout.trim()}`,
-      );
-    }
-
-    for (const network of networks) {
-      const networkRm = await this.execCapture(
-        "docker",
-        ["network", "rm", network],
-        CONTAINER_ACTION_TIMEOUT_MS,
-      );
-      combinedStdout += networkRm.stdout;
-      combinedStderr += networkRm.stderr;
-      logLines.push(
-        networkRm.exitCode === 0
-          ? `Network '${network}' removed`
-          : `Network '${network}' kept (may be in use elsewhere)`,
-      );
-    }
-
-    this.logger.log(
-      `Container delete succeeded containerId=${containerId} requestId=${requestId}: ${logLines.join("; ")}`,
-    );
 
     return {
-      requestId,
-      containerId,
-      action: "delete",
-      success: true,
-      stdout: `${logLines.join("\n")}\n${combinedStdout}`.trim(),
-      stderr: combinedStderr.trim(),
-      exitCode: 0,
+      ok: true,
+      plan: buildContainerDeletePlan({
+        imageInspectStdout: imageInspect.stdout,
+        mountsInspectStdout: mountsInspect.stdout,
+        networksInspectStdout: networksInspect.stdout,
+      }),
     };
   }
 
-  private parseNetworkNames(raw: string): string[] {
-    const names = new Set<string>();
-    for (const line of raw.split(/\r?\n/)) {
-      const name = line.trim();
-      if (!name || BUILTIN_DOCKER_NETWORKS.has(name)) {
-        continue;
-      }
-      if (!DOCKER_NAME_PATTERN.test(name)) {
-        this.logger.warn(`Skipping unsafe network name from inspect: ${name}`);
-        continue;
-      }
-      names.add(name);
+  /**
+   * Removes the container image, volumes, and networks after the container has
+   * already been deleted. Failures are logged but do not fail the action.
+   */
+  private async cleanupDeletedContainerResources(plan: {
+    imageId: string;
+    volumeNames: string[];
+    networkNames: string[];
+  }): Promise<ContainerDeleteCleanupResult> {
+    const logLines: string[] = [];
+    let stdout = "";
+    let stderr = "";
+
+    if (plan.imageId) {
+      const rmiResult = await this.execCapture(
+        "docker",
+        ["rmi", "-f", plan.imageId],
+        CONTAINER_ACTION_TIMEOUT_MS,
+      );
+      stdout += rmiResult.stdout;
+      stderr += rmiResult.stderr;
+      logLines.push(
+        formatCleanupLine(
+          "Image",
+          null,
+          rmiResult.exitCode === 0,
+          readDockerCommandDetail(rmiResult),
+        ),
+      );
     }
-    return [...names];
+
+    for (const volumeName of plan.volumeNames) {
+      const volumeResult = await this.execCapture(
+        "docker",
+        ["volume", "rm", "-f", volumeName],
+        CONTAINER_ACTION_TIMEOUT_MS,
+      );
+      stdout += volumeResult.stdout;
+      stderr += volumeResult.stderr;
+      logLines.push(
+        formatCleanupLine(
+          "Volume",
+          volumeName,
+          volumeResult.exitCode === 0,
+          readDockerCommandDetail(volumeResult),
+        ),
+      );
+    }
+
+    for (const networkName of plan.networkNames) {
+      const networkResult = await this.execCapture(
+        "docker",
+        ["network", "rm", networkName],
+        CONTAINER_ACTION_TIMEOUT_MS,
+      );
+      stdout += networkResult.stdout;
+      stderr += networkResult.stderr;
+      logLines.push(
+        formatCleanupLine(
+          "Network",
+          networkName,
+          networkResult.exitCode === 0,
+          readDockerCommandDetail(networkResult),
+        ),
+      );
+    }
+
+    return { logLines, stdout, stderr };
+  }
+
+  /**
+   * Runs `docker inspect -f <format>` for a container.
+   */
+  private async dockerInspect(
+    containerId: string,
+    format: string,
+  ): Promise<DockerExecResult> {
+    return this.execCapture(
+      "docker",
+      ["inspect", "-f", format, containerId],
+      CONTAINER_ACTION_TIMEOUT_MS,
+    );
+  }
+
+  /**
+   * Builds a failed delete response when pre-delete inspect commands fail.
+   */
+  private buildInspectFailure(
+    requestId: string,
+    containerId: string,
+    result: DockerExecResult,
+    commandLabel: string,
+  ): ContainerActionResponsePayload {
+    return this.buildResponse(
+      requestId,
+      containerId,
+      "delete",
+      result,
+      commandLabel,
+    );
   }
 
   /**

@@ -24,23 +24,33 @@ export function useTerminalScrollDown(
       viewport = host.querySelector(".xterm-viewport");
       if (!viewport) return false;
 
+      let pendingVisibilityFrame = 0;
+
       const updateVisibility = () => {
         const distanceFromBottom =
           viewport!.scrollHeight - viewport!.scrollTop - viewport!.clientHeight;
         setVisible(distanceFromBottom >= SCROLL_THRESHOLD_PX);
       };
 
-      updateVisibility();
-      viewport.addEventListener("scroll", updateVisibility, { passive: true });
+      const scheduleVisibilityUpdate = () => {
+        cancelAnimationFrame(pendingVisibilityFrame);
+        pendingVisibilityFrame = requestAnimationFrame(updateVisibility);
+      };
 
-      const observer = new MutationObserver(updateVisibility);
+      updateVisibility();
+      viewport.addEventListener("scroll", scheduleVisibilityUpdate, {
+        passive: true,
+      });
+
+      const observer = new MutationObserver(scheduleVisibilityUpdate);
       observer.observe(viewport, { childList: true, subtree: true });
 
-      const resizeObserver = new ResizeObserver(updateVisibility);
+      const resizeObserver = new ResizeObserver(scheduleVisibilityUpdate);
       resizeObserver.observe(viewport);
 
       cleanup = () => {
-        viewport?.removeEventListener("scroll", updateVisibility);
+        cancelAnimationFrame(pendingVisibilityFrame);
+        viewport?.removeEventListener("scroll", scheduleVisibilityUpdate);
         observer.disconnect();
         resizeObserver.disconnect();
       };

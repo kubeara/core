@@ -382,7 +382,16 @@ export function ServersTable() {
             <thead>
               <tr>
                 {TABLE_COLUMNS.map(({ key, label, pill }) => (
-                  <th key={key}>
+                  <th
+                    key={key}
+                    className={
+                      key === "name"
+                        ? "servers-col-name"
+                        : key === "host"
+                          ? "servers-col-host"
+                          : "servers-col-created"
+                    }
+                  >
                     <SortHeader
                       label={label}
                       sortKey={key}
@@ -412,13 +421,13 @@ export function ServersTable() {
 
                   return (
                   <tr key={server.id} className={busy ? "server-row-busy" : undefined}>
-                    <td>
+                    <td className="servers-col-name">
                       <ServerNameCell server={server} />
                     </td>
-                    <td>
+                    <td className="servers-col-host">
                       <HostCell host={server.host} />
                     </td>
-                    <td>
+                    <td className="servers-col-created">
                       <time
                         className="server-created-link"
                         dateTime={server.createdAt}

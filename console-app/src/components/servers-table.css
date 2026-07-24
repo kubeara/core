@@ -124,7 +124,21 @@
 .servers-table-do {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   font-size: 0.875rem;
+}
+
+.servers-col-name {
+  width: 42%;
+}
+
+.servers-col-host {
+  width: 28%;
+  overflow: hidden;
+}
+
+.servers-col-created {
+  width: 22%;
 }
 
 .servers-table-do thead th {
@@ -360,12 +374,6 @@
 }
 
 /* Host cell */
-.server-host-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
 .server-host-text {
   font-size: 0.875rem;
   color: #334155;
