@@ -22,6 +22,37 @@
   max-height: none;
 }
 
+.deploy-logs-page .server-terminal-window {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+}
+
+.deploy-logs-page .server-terminal-log-pane {
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.deploy-logs-page .server-terminal-log-pane.is-active {
+  visibility: visible;
+  pointer-events: auto;
+  z-index: 1;
+}
+
+.deploy-logs-page .server-terminal-log-pane > .server-terminal-log-viewer {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+}
+
 .deploy-logs-page .back-link {
   align-self: flex-start;
 }

@@ -19,7 +19,7 @@
   overflow-y: hidden;
   overscroll-behavior: contain;
   scrollbar-color: rgb(255 153 0 / 45%) transparent;
-  padding: 0.65rem 0.8rem 0.8rem;
+  padding: 0.75rem 0.85rem 1.25rem;
   box-sizing: border-box;
 }
 
@@ -47,12 +47,19 @@
 .terminal-viewer-frame .xterm-viewport {
   overflow-y: auto !important;
   overscroll-behavior: contain;
+  scroll-padding-bottom: 1.25rem;
+  scroll-behavior: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.server-terminal-log-viewer .xterm-rows {
+  padding-bottom: 1.25rem;
 }
 
 .terminal-scroll-down-anchor {
   position: absolute;
   right: 1rem;
-  bottom: 1rem;
+  bottom: 1.35rem;
   z-index: 40;
   display: flex;
   flex-direction: column;

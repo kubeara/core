@@ -19,11 +19,14 @@ import { formatDeploymentLogAnsi } from "@/features/deployments/utils/format-dep
 
 const SCROLL_STICK_THRESHOLD_PX = 48;
 
+function scrollTerminalToBottom(term: Terminal): void {
+  term.scrollToBottom();
+}
+
 type DeploymentTerminalViewerProps = {
   lines: DeploymentLogLine[];
   isActive: boolean;
   emptyMessage?: string;
-  isLive?: boolean;
   wordWrap?: boolean;
 };
 
@@ -31,7 +34,6 @@ export function DeploymentTerminalViewer({
   lines,
   isActive,
   emptyMessage = "Waiting for logs…",
-  isLive = false,
   wordWrap = true,
 }: DeploymentTerminalViewerProps) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -60,7 +62,7 @@ export function DeploymentTerminalViewer({
       disableStdin: true,
       scrollback: 10000,
       convertEol: true,
-      smoothScrollDuration: 80,
+      smoothScrollDuration: 20,
     });
 
     const fitAddon = new FitAddon();
@@ -138,8 +140,12 @@ export function DeploymentTerminalViewer({
       }
     };
 
-    const timer = window.setTimeout(fit, 0);
-    return () => window.clearTimeout(timer);
+    const frameId = requestAnimationFrame(() => {
+      fit();
+      requestAnimationFrame(fit);
+    });
+
+    return () => cancelAnimationFrame(frameId);
   }, [isActive, wordWrap]);
 
   useEffect(() => {
@@ -182,18 +188,20 @@ export function DeploymentTerminalViewer({
       });
     }
 
-    const shouldAutoScroll = stickToBottomRef.current || isLive;
-    if (shouldAutoScroll) {
-      stickToBottomRef.current = true;
+    const shouldAutoScroll = stickToBottomRef.current;
+    if (shouldAutoScroll && isActive) {
       requestAnimationFrame(() => {
-        term.scrollToBottom();
+        scrollTerminalToBottom(term);
       });
     }
-  }, [isLive, lines]);
+  }, [isActive, lines]);
 
   const scrollToBottom = useCallback(() => {
     stickToBottomRef.current = true;
-    termRef.current?.scrollToBottom();
+    const term = termRef.current;
+    if (term) {
+      scrollTerminalToBottom(term);
+    }
   }, []);
 
   const { visible: showScrollDown, handleClick: handleScrollDown } =

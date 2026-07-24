@@ -99,10 +99,9 @@ export function TemplatesMarketplacePanel({
   const rangeStart = total === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const rangeEnd = Math.min(currentPage * PAGE_SIZE, total);
   const hasFilters = searchInput.trim() !== "" || category !== "";
-  const categories = categoriesQuery.data ?? [];
   const categoryOptions = useMemo(
-    () => buildTemplateCategoryFilterOptions(categories),
-    [categories],
+    () => buildTemplateCategoryFilterOptions(categoriesQuery.data ?? []),
+    [categoriesQuery.data],
   );
   const loading = templatesQuery.isPending;
   const hasLoadedOnce = templatesQuery.data !== undefined;
