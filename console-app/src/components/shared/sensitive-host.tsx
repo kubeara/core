@@ -94,7 +94,7 @@ export function SensitiveHost({
         >
           {visible ? <EyeOffIcon /> : <EyeIcon />}
         </button>
-        {visible ? <CopyButton text={trimmed} label="Copy host" /> : null}
+        <CopyButton text={trimmed} label="Copy host" />
       </span>
     </span>
   );

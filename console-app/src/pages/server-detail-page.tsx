@@ -67,13 +67,13 @@ export function ServerDetailPage() {
         <div className="server-detail-header-main">
           <h1>{server.name}</h1>
           <p>
+            {server.username} · {" "} 
             <span className="server-detail-host-row">
               <SensitiveHost
                 host={server.host}
                 className="server-detail-host-row"
               />
-            </span>{" "}
-            · {server.username}
+            </span>
           </p>
           {operationLabel && (
             <span

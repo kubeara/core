@@ -303,10 +303,10 @@ export function ServersTableSkeleton({ rows = 8 }: { rows?: number }) {
               </div>
             </div>
           </td>
-          <td>
-            <Skeleton className="skeleton-table-cell" style={{ maxWidth: "10rem" }} />
+          <td className="servers-col-host">
+            <Skeleton className="skeleton-table-cell skeleton-table-cell-host" />
           </td>
-          <td>
+          <td className="servers-col-created">
             <Skeleton
               className="skeleton-table-cell skeleton-table-cell-short"
             />

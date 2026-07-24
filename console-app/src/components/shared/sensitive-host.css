@@ -68,7 +68,18 @@
 }
 
 .sensitive-host.server-host-cell {
+  display: inline-flex;
+  align-items: center;
   gap: 0.5rem;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sensitive-host.server-host-cell .sensitive-host-value {
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 .sensitive-host.server-host-cell .sensitive-host-value--mono code,
