@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.0.10](https://github.com/kubeara/core/compare/v0.0.9...v0.0.10) (2026-07-22)
+
+
+### Features
+
+* support multiple users on the same server with a single agent ([e74bce5](https://github.com/kubeara/core/commit/e74bce5c514d2bd1b7c0b33e7e6dfc19b4855b3c))
+
+## [0.0.9](https://github.com/kubeara/core/compare/v0.0.8...v0.0.9) (2026-07-20)
+
+
+### Features
+
+* Add 'baggage' and 'sentry-trace' headers to CORS options ([e027a6e](https://github.com/kubeara/core/commit/e027a6e23c3ebf1c63e07f6ca2f09b02085d5246))
+* Enhance billing and plans seeders to support SSL in production environment ([6fd7086](https://github.com/kubeara/core/commit/6fd70864c0f97b617d4e11d166ae36193f16e4f1))
+* support multiple users on the same server with a single agent ([2b0e1a5](https://github.com/kubeara/core/commit/2b0e1a565200982f8818f7888e1ee75425187c0a))
+
+
+### Bug Fixes
+
+* Added few logs to debug the cron job flow ([aa7e0ca](https://github.com/kubeara/core/commit/aa7e0cac7f227bbe099efb332921389ffff30e82))
+* Added few logs to debug the cron job flow ([6181b19](https://github.com/kubeara/core/commit/6181b19a5310ba652fe9fe9318bb41daaa4901e1))
+* Done minor UI changes ([76ba3a2](https://github.com/kubeara/core/commit/76ba3a2689b6fb871d394c4303bc6b9ee63f2d17))
+* Standardize capitalization of Kubeara in setup guides and configuration files ([3d1e831](https://github.com/kubeara/core/commit/3d1e8317efd42dfa9a69834f3288f0e7cf4e42f1))
+* Update references from Kubera to Kubeara across multiple components and pages ([1f9a28d](https://github.com/kubeara/core/commit/1f9a28d015343da19436f321efc65c1c72598d8f))
+* Updated the package-lock file by installing dependencies ([8930a13](https://github.com/kubeara/core/commit/8930a1363a41268a0e035156758f7273cf7c37c0))
+
+
+### Refactoring
+
+* remove session revocation and commented out terminal connection logic ([f3237bd](https://github.com/kubeara/core/commit/f3237bdb681681d58159cdd6937b2afa2634c439))
+
 ## [0.0.8](https://github.com/kubeara/core/compare/v0.0.7...v0.0.8) (2026-07-14)
 
 

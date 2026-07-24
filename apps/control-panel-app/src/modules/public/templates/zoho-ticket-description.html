@@ -1,25 +1,30 @@
-<div style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;line-height:1.5;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;">
+<div style="margin:0;padding:24px 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:{{contentColor}};line-height:1.5;background-color:{{outerBackground}};">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;margin:0 auto;border:1px solid {{cardBorder}};border-radius:12px;overflow:hidden;background-color:{{cardBackground}};">
     <tr>
-      <td style="padding:24px 24px 20px;border-bottom:3px solid #2563eb;background-color:#ffffff;">
-        <img src="{{logoDataUri}}" alt="{{brandName}}" width="140" height="auto" style="display:block;max-width:140px;height:auto;border:0;" />
-        <p style="margin:14px 0 0;font-size:15px;font-weight:600;color:#2563eb;">{{headerSubtitle}}</p>
+      <td style="padding:28px 32px;background-color:{{cardBackground}};border-bottom:1px solid {{cardBorder}};">
+        <img src="{{logoUrl}}" alt="{{brandName}}" width="140" height="auto" style="display:block;max-width:140px;height:auto;border:0;" />
       </td>
     </tr>
     <tr>
-      <td style="padding:24px;">
-        <p style="margin:0 0 12px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#6b7280;">Details</p>
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+      <td style="padding:28px 32px;background-color:{{cardBackground}};">
+        <p style="margin:0 0 12px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:{{sectionLabelColor}};">Details</p>
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid {{detailsBorder}};border-radius:8px;overflow:hidden;">
           {{detailsRows}}
         </table>
 
-        <p style="margin:24px 0 12px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#6b7280;">{{contentLabel}}</p>
-        <div style="padding:16px;background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;font-size:14px;color:#111827;white-space:pre-wrap;word-break:break-word;">{{content}}</div>
+        <p style="margin:24px 0 12px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:{{sectionLabelColor}};">{{contentLabel}}</p>
+        <div style="padding:16px;background-color:{{contentBackground}};border:1px solid {{contentBorder}};border-radius:8px;font-size:14px;color:{{contentColor}};white-space:pre-wrap;word-break:break-word;">{{content}}</div>
       </td>
     </tr>
     <tr>
-      <td style="padding:14px 24px;background-color:#f9fafb;border-top:1px solid #e5e7eb;">
-        <p style="margin:0;font-size:12px;color:#9ca3af;">Submitted via {{brandName}} website · {{submittedAt}} UTC</p>
+      <td style="padding:24px 32px 20px;background-color:{{footerBackground}};border-top:1px solid {{footerBorder}};text-align:center;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 16px;">
+          <tr>
+            {{socialIcons}}
+          </tr>
+        </table>
+        <p style="margin:0 0 4px;font-size:12px;line-height:1.6;color:{{footerTextColor}};">{{copyrightLine1}}</p>
+        <p style="margin:0 0 16px;font-size:12px;line-height:1.6;color:{{footerTextColor}};">{{copyrightLine2}}</p>
       </td>
     </tr>
   </table>
