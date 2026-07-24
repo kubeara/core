@@ -98,6 +98,11 @@
   max-width: 7rem;
 }
 
+.skeleton-table-cell-host {
+  width: 70%;
+  max-width: 12rem;
+}
+
 .skeleton-table-cell-actions {
   width: 4rem;
   margin-left: auto;

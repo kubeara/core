@@ -1,3 +1,4 @@
+import { ConfettiSideCannons } from "@/components/confetti-side-cannons";
 import { BackLink } from "@/components/shared/back-link";
 import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
 import { TerminalWordWrapToggle } from "@/components/shared/terminal-word-wrap-toggle";
@@ -12,12 +13,12 @@ import {
 } from "@/features/deployments/hooks";
 import type { StreamStatus } from "@/features/deployments/types";
 import {
-  countDeploymentLogsByView,
   filterDeploymentLogsByView,
   hasContainerDeploymentLogs,
   type DeploymentLogView,
 } from "@/features/deployments/utils/deployment-log-filters";
 import { mapDeploymentFailureMessage } from "@/features/deployments/constants/deployment-failure-messages";
+import { shouldCelebrateDeploymentSuccess } from "@/features/deployments/utils/should-celebrate-deployment-success";
 import { DeploymentStatus } from "@/constants/deployment-events";
 import type { Template } from "@/types";
 import "./deployment-logs.css";
@@ -178,6 +179,9 @@ export function DeploymentLogs({
 }: DeploymentLogsProps) {
   const terminalRef = useRef<HTMLElement>(null);
   const failureHandledRef = useRef(false);
+  const previousSocketStatusRef = useRef<DeploymentStatus | null>(null);
+  const successCelebratedRef = useRef<string | null>(null);
+  const [showSuccessConfetti, setShowSuccessConfetti] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [logView, setLogView] = useState<DeploymentLogView>("installation");
   const { wordWrap, toggleWordWrap } = useTerminalWordWrap();
@@ -210,7 +214,33 @@ export function DeploymentLogs({
 
   useEffect(() => {
     failureHandledRef.current = false;
+    previousSocketStatusRef.current = null;
+    successCelebratedRef.current = null;
+    setShowSuccessConfetti(false);
   }, [deploymentId]);
+
+  useEffect(() => {
+    const previousSocketStatus = previousSocketStatusRef.current;
+
+    if (hasReceivedStatus && deploymentStatus) {
+      previousSocketStatusRef.current = deploymentStatus;
+    }
+
+    if (
+      !shouldCelebrateDeploymentSuccess(
+        deploymentId,
+        hasReceivedStatus,
+        deploymentStatus,
+        previousSocketStatus,
+        successCelebratedRef.current,
+      )
+    ) {
+      return;
+    }
+
+    successCelebratedRef.current = deploymentId ?? null;
+    setShowSuccessConfetti(true);
+  }, [deploymentId, deploymentStatus, hasReceivedStatus]);
 
   useEffect(() => {
     if (!onDeploymentFailed || failureHandledRef.current) {
@@ -252,42 +282,44 @@ export function DeploymentLogs({
     );
   }, [liveDeploymentStatus, logs]);
 
-  const filteredLogs = useMemo(
-    () => filterDeploymentLogsByView(logs, logView),
-    [logs, logView],
-  );
-
-  const installationLineCount = useMemo(
-    () => countDeploymentLogsByView(logs, "installation"),
+  const installationLogs = useMemo(
+    () => filterDeploymentLogsByView(logs, "installation"),
     [logs],
   );
 
-  const containerLineCount = useMemo(
-    () => countDeploymentLogsByView(logs, "container"),
+  const containerLogs = useMemo(
+    () => filterDeploymentLogsByView(logs, "container"),
     [logs],
   );
 
-  const filteredLineCount = filteredLogs.length;
+  const installationLineCount = installationLogs.length;
+
+  const containerLineCount = containerLogs.length;
+
+  const activeLineCount =
+    logView === "container" ? containerLineCount : installationLineCount;
+
+  const isStreaming = status === "connecting" || status === "streaming";
+
+  const installationEmptyMessage =
+    startError ??
+    (isStarting && !deploymentId
+      ? "Starting deployment and connecting to live log stream…"
+      : isStreaming
+        ? "Installation and deploy output will appear here…"
+        : "No installation or deploy logs captured for this deployment yet.");
+
+  const containerEmptyMessage =
+    startError ??
+    (isStreaming
+      ? "Waiting for service output. Logs appear once the service is running."
+      : "No container logs captured for this deployment.");
 
   useEffect(() => {
     if (logView === "container" && !containerLogsAvailable) {
       setLogView("installation");
     }
   }, [containerLogsAvailable, logView]);
-
-  const isStreaming = status === "connecting" || status === "streaming";
-
-  const emptyMessage =
-    startError ??
-    (isStarting && !deploymentId
-      ? "Starting deployment and connecting to live log stream…"
-      : logView === "container"
-        ? isStreaming
-          ? "Waiting for service output. Logs appear once the service is running."
-          : "No container logs captured for this deployment."
-        : isStreaming
-          ? "Installation and deploy output will appear here…"
-          : "No installation or deploy logs captured for this deployment yet.");
 
   const toggleFullscreen = useCallback(async () => {
     const element = terminalRef.current;
@@ -319,10 +351,13 @@ export function DeploymentLogs({
       window.dispatchEvent(new Event("resize"));
     }, 50);
     return () => window.clearTimeout(timer);
-  }, [isFullscreen, logView]);
+  }, [isFullscreen]);
 
   return (
     <div className={`service-detail-page deploy-logs-page ${isFullscreen ? "is-fullscreen" : ""}`}>
+      {showSuccessConfetti && deploymentId ? (
+        <ConfettiSideCannons key={deploymentId} />
+      ) : null}
       <BackLink to={backHref} label="Back" />
 
       <article className="deploy-service-card">
@@ -371,7 +406,7 @@ export function DeploymentLogs({
         <div className="server-terminal-card has-session">
           <DeploymentLogsIntro
             title={`${template.name} — live logs`}
-            lineCount={filteredLineCount}
+            lineCount={activeLineCount}
             logView={logView}
             installationLineCount={installationLineCount}
             containerLineCount={containerLineCount}
@@ -385,7 +420,7 @@ export function DeploymentLogs({
           />
 
           <div className="server-terminal-window">
-            {isStreaming && filteredLineCount === 0 && (
+            {isStreaming && activeLineCount === 0 && (
               <div
                 className="server-terminal-connecting-overlay"
                 aria-live="polite"
@@ -394,17 +429,33 @@ export function DeploymentLogs({
                   className="server-terminal-connecting-spinner"
                   aria-hidden
                 />
-                {emptyMessage}
+                {logView === "container"
+                  ? containerEmptyMessage
+                  : installationEmptyMessage}
               </div>
             )}
-            <DeploymentTerminalViewer
-              key={logView}
-              lines={filteredLogs}
-              isActive
-              emptyMessage={emptyMessage}
-              isLive={isStreaming}
-              wordWrap={wordWrap}
-            />
+            <div
+              className={`server-terminal-log-pane${logView === "installation" ? " is-active" : ""}`}
+              aria-hidden={logView !== "installation"}
+            >
+              <DeploymentTerminalViewer
+                lines={installationLogs}
+                isActive={logView === "installation"}
+                emptyMessage={installationEmptyMessage}
+                wordWrap={wordWrap}
+              />
+            </div>
+            <div
+              className={`server-terminal-log-pane${logView === "container" ? " is-active" : ""}`}
+              aria-hidden={logView !== "container"}
+            >
+              <DeploymentTerminalViewer
+                lines={containerLogs}
+                isActive={logView === "container"}
+                emptyMessage={containerEmptyMessage}
+                wordWrap={wordWrap}
+              />
+            </div>
           </div>
         </div>
       </section>

@@ -55,10 +55,12 @@ export function setCurrentSubscriptionCache(
 export function useCheckoutSetupQuery(
   planSlug: PlanSlug,
   billingCycle: BillingCycleSlug = "monthly",
+  enabled = true,
 ) {
   return useQuery({
     queryKey: QUERY_KEYS.subscriptions.checkout(planSlug, billingCycle),
     queryFn: () => createCheckoutPayment({ planSlug, billingCycle }),
+    enabled,
     staleTime: 0,
     refetchOnWindowFocus: false,
     retry: 1,

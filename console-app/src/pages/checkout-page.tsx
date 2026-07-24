@@ -30,7 +30,7 @@ import type {
 import "@/features/subscriptions/checkout-ui.css";
 import "@/features/subscriptions/subscriptions-ui.css";
 
-import { isPaidPlanSlug } from "@/features/subscriptions/plan-slug.util";
+import { isPaidPlanSlug, getPlanBillingCycleFromSlug } from "@/features/subscriptions/plan-slug.util";
 
 function formatCardBrand(brand: string): string {
   if (brand === "amex") return "American Express";
@@ -394,7 +394,12 @@ export function CheckoutPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { planSlug } = useParams<{ planSlug: PlanSlug }>();
+  const { planSlug: planSlugParam } = useParams<{ planSlug: PlanSlug }>();
+  const isValidCheckout = Boolean(
+    planSlugParam && isPaidPlanSlug(planSlugParam),
+  );
+  const planSlug = (isValidCheckout ? planSlugParam : "starter-monthly") as PlanSlug;
+  const billingCycle = getPlanBillingCycleFromSlug(planSlug);
   const [paymentSetup, setPaymentSetup] = useState<CheckoutResponse | null>(
     null,
   );
@@ -407,19 +412,10 @@ export function CheckoutPage() {
   const [promoError, setPromoError] = useState<string | null>(null);
   const [isApplyingPromo, setIsApplyingPromo] = useState(false);
   const [isRemovingPromo, setIsRemovingPromo] = useState(false);
-
-  if (!planSlug || !isPaidPlanSlug(planSlug)) {
-    return <Navigate to="/plans" replace />;
-  }
-
-  const billingCycle = planSlug.endsWith("-yearly")
-    ? "yearly"
-    : planSlug.endsWith("-quarterly")
-      ? "quarterly"
-      : "monthly";
+  const [isConfirmingImmediate, setIsConfirmingImmediate] = useState(false);
 
   const { data: preview, isPending, isFetching, isError, error, refetch } =
-    useCheckoutSetupQuery(planSlug, billingCycle);
+    useCheckoutSetupQuery(planSlug, billingCycle, isValidCheckout);
 
   const data = paymentSetup ?? preview;
 
@@ -428,16 +424,20 @@ export function CheckoutPage() {
     !data?.clientSecret &&
     !data?.immediate;
 
-  const [isConfirmingImmediate, setIsConfirmingImmediate] = useState(false);
-
   useEffect(() => {
-    if (!data?.immediate || !planSlug || paymentSetup || isConfirmingImmediate) {
+    if (
+      !isValidCheckout ||
+      !data?.immediate ||
+      !planSlugParam ||
+      paymentSetup ||
+      isConfirmingImmediate
+    ) {
       return;
     }
 
     setIsConfirmingImmediate(true);
 
-    confirmCheckoutPayment({ planSlug, billingCycle })
+    confirmCheckoutPayment({ planSlug: planSlugParam, billingCycle })
       .then(async ({ subscription, message }) => {
         setCurrentSubscriptionCache(queryClient, subscription);
         await queryClient.refetchQueries({
@@ -453,12 +453,14 @@ export function CheckoutPage() {
         setIsConfirmingImmediate(false);
       });
   }, [
+    billingCycle,
     data?.immediate,
     isConfirmingImmediate,
+    isValidCheckout,
     navigate,
     paymentSetup,
-    planSlug,
-    billingCycle,
+    planSlugParam,
+    queryClient,
   ]);
 
   const stripePromise = useMemo(
@@ -488,6 +490,10 @@ export function CheckoutPage() {
       },
     };
   }, [data?.clientSecret, user]);
+
+  if (!isValidCheckout) {
+    return <Navigate to="/plans" replace />;
+  }
 
   async function handleApplyPromo() {
     if (!planSlug || !promoInput.trim()) return;

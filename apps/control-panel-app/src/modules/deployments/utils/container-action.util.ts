@@ -24,20 +24,30 @@ export function assertValidContainerId(containerId: string): string {
 }
 
 /**
- * Builds the host container delete command using a Bash script.
+ * Builds the host fallback delete command.
+ * Stops and removes the container, then best-effort removes its image,
+ * mounted volumes, and attached user-defined networks.
  */
 function buildHostContainerDeleteCommand(containerId: string): string {
   const script = [
     `ID=${JSON.stringify(containerId)}`,
     `IMAGE=$(docker inspect -f '{{.Image}}' "$ID")`,
-    `NETWORKS=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$ID")`,
-    `docker rm -f "$ID"`,
-    `[ -n "$IMAGE" ] && docker rmi "$IMAGE" 2>/dev/null || true`,
-    `for net in $NETWORKS; do`,
-    `  case "$net" in bridge|host|none|"") continue ;; esac`,
-    `  docker network rm "$net" 2>/dev/null || true`,
+    `mapfile -t VOLUME_LINES < <(docker inspect -f '{{range .Mounts}}{{if eq .Type "volume"}}{{if .Name}}{{.Name}}{{else}}{{.Source}}{{end}}{{"\n"}}{{end}}{{end}}' "$ID")`,
+    `mapfile -t NETWORK_LINES < <(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{"\n"}}{{end}}' "$ID")`,
+    `docker stop "$ID" 2>/dev/null || true`,
+    `docker rm -fv "$ID"`,
+    `[ -n "$IMAGE" ] && docker rmi -f "$IMAGE" 2>/dev/null || true`,
+    `for line in "${"$"}{VOLUME_LINES[@]}"; do`,
+    `  vol="$line"`,
+    `  if [[ "$line" == *"/volumes/"* ]]; then`,
+    `    vol=$(sed -n 's|.*/volumes/\\([^/]*\\)/_data.*|\\1|p' <<< "$line")`,
+    `  fi`,
+    `  [ -n "$vol" ] && docker volume rm -f "$vol" 2>/dev/null || true`,
     `done`,
-    `printf 'Container, image, and networks cleaned up\\n'`,
+    `for net in "${"$"}{NETWORK_LINES[@]}"; do`,
+    `  [[ -n "$net" && "$net" != "bridge" && "$net" != "host" && "$net" != "none" ]] && docker network rm "$net" 2>/dev/null || true`,
+    `done`,
+    `printf 'Container stopped, removed, image deleted, and mounted volumes and networks removed\\n'`,
   ].join("\n");
 
   return `bash -lc ${JSON.stringify(script)}`;

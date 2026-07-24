@@ -35,7 +35,7 @@ export const CONTAINER_ACTION_CONFIRM_MESSAGES: Record<
   start: "The container will start running on this server.",
   restart: "The container will shut down and start again. It may be briefly unavailable.",
   delete:
-    "This removes the container and its resources from the server. This cannot be undone.",
+    "This stops and removes the container, its image, and mounted data volumes. Docker networks are kept on the server.",
 };
 
 export const CONTAINER_ACTION_CONFIRM_BUTTONS: Record<
@@ -99,7 +99,7 @@ export function getContainerActionSuccessMessage(
     stop: `Container "${containerName}" was stopped successfully.`,
     start: `Container "${containerName}" was started successfully.`,
     restart: `Container "${containerName}" was restarted successfully.`,
-    delete: `Container "${containerName}" and its resources were removed successfully.`,
+    delete: `Container "${containerName}", its image, mounted volumes, and networks were removed.`,
   };
   return messages[action];
 }
