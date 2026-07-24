@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.0.11](https://github.com/kubeara/core/compare/v0.0.10...v0.0.11) (2026-07-24)
+
+
+### Features
+
+* add confetti celebration on successful deployment ([7c628c5](https://github.com/kubeara/core/commit/7c628c5dee081171bf9cb5e931f0b269a025e8da))
+
+
+### Bug Fixes
+
+* linting issue ([879c294](https://github.com/kubeara/core/commit/879c29469f1b80bc36aa743a3a34f35c5303084a))
+* template design and logo from r2 bucket ([356ce04](https://github.com/kubeara/core/commit/356ce0410a67174b822ca386b564970ec7c215fe))
+
+
+### Refactoring
+
+* enhance container deletion process and cleanup ([0a86b6a](https://github.com/kubeara/core/commit/0a86b6a861188d9c027f0732b8bf627a3b5f2e77))
+* update Zoho ticket handling and template structure ([4b58193](https://github.com/kubeara/core/commit/4b58193d8297e3f338b01c047c207da952ccc886))
+
 ## [0.0.10](https://github.com/kubeara/core/compare/v0.0.9...v0.0.10) (2026-07-22)
 
 
