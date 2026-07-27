@@ -29,22 +29,39 @@ export function CustomComposeConfigurePage() {
   const composeYaml = locationState?.composeYaml;
   const templateSlug = locationState?.templateSlug;
 
-  const serviceLabel = templateSlug
-    ? formatCustomComposeTemplateSlugLabel(templateSlug)
-    : "Custom Compose";
+  const serviceLabel = (() => {
+    try {
+      return templateSlug
+        ? formatCustomComposeTemplateSlugLabel(templateSlug)
+        : "Custom Compose";
+    } catch {
+      return "Custom Compose";
+    }
+  })();
 
-  const syntheticTemplate = useMemo<ApiTemplate>(
-    () => ({
-      slug: templateSlug ?? "custom-compose",
-      name: serviceLabel,
-      shortDescription: "User-uploaded Docker Compose stack",
-      category: ["custom"],
-      tags: ["custom", "compose"],
-      port: null,
-      variables: locationState?.variables ?? [],
-    }),
-    [locationState?.variables, serviceLabel, templateSlug],
-  );
+  const syntheticTemplate = useMemo<ApiTemplate>(() => {
+    try {
+      return {
+        slug: templateSlug ?? "custom-compose",
+        name: serviceLabel,
+        shortDescription: "User-uploaded Docker Compose stack",
+        category: ["custom"],
+        tags: ["custom", "compose"],
+        port: null,
+        variables: locationState?.variables ?? [],
+      };
+    } catch {
+      return {
+        slug: templateSlug ?? "custom-compose",
+        name: serviceLabel,
+        shortDescription: "User-uploaded Docker Compose stack",
+        category: ["custom"],
+        tags: ["custom", "compose"],
+        port: null,
+        variables: [],
+      };
+    }
+  }, [locationState?.variables, serviceLabel, templateSlug]);
 
   if (!serverId) {
     return <Navigate to="/servers" replace />;

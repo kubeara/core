@@ -265,6 +265,7 @@ export function DeployConfigurationForm({
                   control={form.control}
                   variables={variables}
                   isEditing={isReadOnly ? false : isEditing}
+                  showOptionalInline={Boolean(customCompose)}
                 />
               )}
             </div>

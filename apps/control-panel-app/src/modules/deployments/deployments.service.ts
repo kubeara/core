@@ -1087,161 +1087,180 @@ export class DeploymentsService {
   async prepareCustomComposeDeployment(
     input: PrepareCustomComposeDeploymentInput,
   ): Promise<PreparedDeployment> {
-    const {
-      composeYaml,
-      templateSlug: rawTemplateSlug,
-      serverId,
-      userId,
-      requestEnv = {},
-      requestPorts = {},
-      existingDeploymentId,
-      serverUrlContext: serverUrlContextInput,
-    } = input;
-
-    const slugError =
-      getCustomComposeTemplateSlugValidationError(rawTemplateSlug);
-    if (slugError) {
-      throw new BadRequestException(slugError);
-    }
-
-    const templateSlug = normalizeCustomComposeTemplateSlug(rawTemplateSlug);
-
-    const validation = validateUploadedCustomCompose(composeYaml);
-    if (!validation.valid) {
-      const summary = validation.issues
-        .slice(0, 3)
-        .map((issue) => `${issue.path}: ${issue.message}`)
-        .join("; ");
-      throw new BadRequestException(summary || "Invalid Docker Compose file");
-    }
-
-    let encodedCompose: string;
     try {
-      encodedCompose = encodeComposeYamlToPayload(validation.composeYaml);
-    } catch (error) {
-      throw new BadRequestException(
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-
-    const deploymentId = existingDeploymentId ?? this.generateDeploymentId();
-    const shouldPersist = input.persist !== false;
-    const serverUrlContext: ServerUrlContext | undefined = serverUrlContextInput
-      ? { ...serverUrlContextInput, deploymentId }
-      : undefined;
-
-    if (shouldPersist) {
-      await this.upsertDeploymentRecord({
-        deploymentId,
-        templateSlug,
+      const {
+        composeYaml,
+        templateSlug: rawTemplateSlug,
         serverId,
         userId,
-        deploymentStatus: DeploymentStatus.PENDING,
-        deploymentType: DeploymentType.CUSTOM_SERVICE,
-      });
-      await this.updateStatus(deploymentId, DeploymentStatus.VALIDATING, {
-        message: "Validating deployment configuration",
-      });
-    }
+        requestEnv = {},
+        requestPorts = {},
+        existingDeploymentId,
+        serverUrlContext: serverUrlContextInput,
+      } = input;
 
-    try {
-      let baseEnv: Record<string, unknown> = { ...requestEnv };
-      let basePorts: Record<string, unknown> = { ...requestPorts };
-
-      if (existingDeploymentId) {
-        const stored = await this.loadStoredVariables(existingDeploymentId, []);
-        baseEnv = { ...stored.env, ...requestEnv };
-        basePorts = { ...stored.ports, ...requestPorts };
+      const slugError =
+        getCustomComposeTemplateSlugValidationError(rawTemplateSlug);
+      if (slugError) {
+        throw new BadRequestException(slugError);
       }
 
-      const customResolved = resolveCustomComposeDeploymentVariables(
-        validation.composeYaml,
-        baseEnv,
-        basePorts,
-      );
+      const templateSlug = normalizeCustomComposeTemplateSlug(rawTemplateSlug);
 
-      const declaredPortVars = this.composeParserService.listPortVariables(
-        validation.composeYaml,
-      );
-      if (declaredPortVars.length > 0) {
-        const unknownPortKeys = this.composeParserService.findUnknownPortKeys(
-          validation.composeYaml,
-          requestPorts,
-        );
-        if (unknownPortKeys.length > 0) {
-          throw new BadRequestException(
-            `Unknown port keys: ${unknownPortKeys.join(", ")}. Expected: ${declaredPortVars.join(", ")}`,
-          );
-        }
+      const validation = validateUploadedCustomCompose(composeYaml);
+      if (!validation.valid) {
+        const summary = validation.issues
+          .slice(0, 3)
+          .map((issue) => `${issue.path}: ${issue.message}`)
+          .join("; ");
+        throw new BadRequestException(summary || "Invalid Docker Compose file");
       }
 
-      let parsedFromCompose;
+      let encodedCompose: string;
       try {
-        parsedFromCompose = this.composeParserService.resolveFromCompose({
-          compose: validation.composeYaml,
-          userEnv: customResolved.env,
-          userPorts: customResolved.ports,
-          serverUrlContext,
-        });
+        encodedCompose = encodeComposeYamlToPayload(validation.composeYaml);
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
         throw new BadRequestException(
-          `Failed to resolve custom compose variables: ${message}`,
+          error instanceof Error ? error.message : String(error),
         );
       }
 
-      const mergedEnv = parsedFromCompose.env;
-      const mergedPorts = parsedFromCompose.ports;
-      const requiredKeys = customResolved.requiredKeys;
+      const deploymentId = existingDeploymentId ?? this.generateDeploymentId();
+      const shouldPersist = input.persist !== false;
+      const serverUrlContext: ServerUrlContext | undefined =
+        serverUrlContextInput
+          ? { ...serverUrlContextInput, deploymentId }
+          : undefined;
 
       if (shouldPersist) {
-        await this.persistEnvironmentVariables({
+        await this.upsertDeploymentRecord({
           deploymentId,
-          env: mergedEnv,
-          ports: mergedPorts,
-          generatedKeys: parsedFromCompose.generatedKeys,
-          requiredKeys,
+          templateSlug,
+          serverId,
+          userId,
+          deploymentStatus: DeploymentStatus.PENDING,
+          deploymentType: DeploymentType.CUSTOM_SERVICE,
         });
-        await this.persistEncryptedDeployedCompose(
-          deploymentId,
+        await this.updateStatus(deploymentId, DeploymentStatus.VALIDATING, {
+          message: "Validating deployment configuration",
+        });
+      }
+
+      try {
+        let baseEnv: Record<string, unknown> = { ...requestEnv };
+        let basePorts: Record<string, unknown> = { ...requestPorts };
+
+        if (existingDeploymentId) {
+          const stored = await this.loadStoredVariables(
+            existingDeploymentId,
+            [],
+          );
+          baseEnv = { ...stored.env, ...requestEnv };
+          basePorts = { ...stored.ports, ...requestPorts };
+        }
+
+        const customResolved = resolveCustomComposeDeploymentVariables(
           validation.composeYaml,
+          baseEnv,
+          basePorts,
+        );
+
+        const declaredPortVars = this.composeParserService.listPortVariables(
+          validation.composeYaml,
+        );
+        if (declaredPortVars.length > 0) {
+          const unknownPortKeys = this.composeParserService.findUnknownPortKeys(
+            validation.composeYaml,
+            requestPorts,
+          );
+          if (unknownPortKeys.length > 0) {
+            throw new BadRequestException(
+              `Unknown port keys: ${unknownPortKeys.join(", ")}. Expected: ${declaredPortVars.join(", ")}`,
+            );
+          }
+        }
+
+        let parsedFromCompose;
+        try {
+          parsedFromCompose = this.composeParserService.resolveFromCompose({
+            compose: validation.composeYaml,
+            userEnv: customResolved.env,
+            userPorts: customResolved.ports,
+            serverUrlContext,
+          });
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          throw new BadRequestException(
+            `Failed to resolve custom compose variables: ${message}`,
+          );
+        }
+
+        const mergedEnv = parsedFromCompose.env;
+        const mergedPorts = parsedFromCompose.ports;
+        const requiredKeys = customResolved.requiredKeys;
+
+        if (shouldPersist) {
+          await this.persistEnvironmentVariables({
+            deploymentId,
+            env: mergedEnv,
+            ports: mergedPorts,
+            generatedKeys: parsedFromCompose.generatedKeys,
+            requiredKeys,
+          });
+          await this.persistEncryptedDeployedCompose(
+            deploymentId,
+            validation.composeYaml,
+            mergedEnv,
+            mergedPorts,
+          );
+          await this.updateStatus(deploymentId, DeploymentStatus.PENDING, {
+            message: "Deployment prepared",
+          });
+
+          if (parsedFromCompose.generatedKeys.length > 0) {
+            this.logger.log(
+              `Stored auto-generated variables for '${deploymentId}': ${parsedFromCompose.generatedKeys.join(", ")}`,
+            );
+          }
+        }
+
+        const useTraefik = this.resolveUseTraefikForCompose(
+          validation.composeYaml,
+          serverUrlContext?.useTraefik,
+          templateSlug,
+        );
+
+        return {
+          deploymentId,
+          serverId,
+          userId,
+          templateSlug,
+          encodedCompose,
           mergedEnv,
           mergedPorts,
-        );
-        await this.updateStatus(deploymentId, DeploymentStatus.PENDING, {
-          message: "Deployment prepared",
-        });
-
-        if (parsedFromCompose.generatedKeys.length > 0) {
-          this.logger.log(
-            `Stored auto-generated variables for '${deploymentId}': ${parsedFromCompose.generatedKeys.join(", ")}`,
-          );
+          generatedKeys: parsedFromCompose.generatedKeys,
+          composeOnly: true,
+          useTraefik,
+        };
+      } catch (error) {
+        if (shouldPersist) {
+          await this.markDeploymentFailed(deploymentId, error);
         }
+        throw error;
       }
-
-      const useTraefik = this.resolveUseTraefikForCompose(
-        validation.composeYaml,
-        serverUrlContext?.useTraefik,
-        templateSlug,
-      );
-
-      return {
-        deploymentId,
-        serverId,
-        userId,
-        templateSlug,
-        encodedCompose,
-        mergedEnv,
-        mergedPorts,
-        generatedKeys: parsedFromCompose.generatedKeys,
-        composeOnly: true,
-        useTraefik,
-      };
     } catch (error) {
-      if (shouldPersist) {
-        await this.markDeploymentFailed(deploymentId, error);
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ConflictException
+      ) {
+        throw error;
       }
-      throw error;
+
+      throw new BadRequestException(
+        `Failed to prepare custom compose deployment: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
@@ -1262,143 +1281,164 @@ export class DeploymentsService {
     | { available: true }
     | { available: false; warning: DeploymentResourceWarning }
   > {
-    const { serverId, userId } = await this.resolveDeploymentTarget({
-      userId: input.userId,
-      serverId: input.serverId,
-      deployOnLocal: input.deployOnLocal,
-    });
-
-    const server = await this.assertActiveServerForUser(serverId, userId);
-
-    if (server.serverType !== ServerType.LOCAL) {
-      const credential = await this.serverCredentialRepository.findOne({
-        where: {
-          serverId,
-          status: EntityStatus.ACTIVE,
-          deletedAt: IsNull(),
-        },
+    try {
+      const { serverId, userId } = await this.resolveDeploymentTarget({
+        userId: input.userId,
+        serverId: input.serverId,
+        deployOnLocal: input.deployOnLocal,
       });
 
-      if (!credential) {
-        throw new NotFoundException(
-          ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
-        );
-      }
+      const server = await this.assertActiveServerForUser(serverId, userId);
 
-      const sshResult = await runSshHealthTestWithTimeout(this.sshHealthCheck, {
-        serverId: server.id,
-        host: server.host,
-        port: server.port,
-        username: server.username,
-        authType: credential.authType,
-        encryptedPassword: credential.encryptedPassword ?? null,
-        encryptedPrivateKey: credential.encryptedPrivateKey ?? null,
-        privateKeyPassphrase: credential.privateKeyPassphrase ?? null,
-      });
+      if (server.serverType !== ServerType.LOCAL) {
+        const credential = await this.serverCredentialRepository.findOne({
+          where: {
+            serverId,
+            status: EntityStatus.ACTIVE,
+            deletedAt: IsNull(),
+          },
+        });
 
-      if (!sshResult.success) {
-        this.sshConnectionManager.disconnect(server.id);
-        throw new OperationFailedException(
-          ERROR_MESSAGES.SERVER.SSH_CONNECTION_FAILED,
-          sshResult.message || ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
-          HttpStatus.BAD_REQUEST,
+        if (!credential) {
+          throw new NotFoundException(
+            ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
+          );
+        }
+
+        const sshResult = await runSshHealthTestWithTimeout(
+          this.sshHealthCheck,
           {
-            errorCode: sshResult.code ?? mapSshTestErrorCode(sshResult.message),
+            serverId: server.id,
+            host: server.host,
+            port: server.port,
+            username: server.username,
+            authType: credential.authType,
+            encryptedPassword: credential.encryptedPassword ?? null,
+            encryptedPrivateKey: credential.encryptedPrivateKey ?? null,
+            privateKeyPassphrase: credential.privateKeyPassphrase ?? null,
           },
         );
+
+        if (!sshResult.success) {
+          this.sshConnectionManager.disconnect(server.id);
+          throw new OperationFailedException(
+            ERROR_MESSAGES.SERVER.SSH_CONNECTION_FAILED,
+            sshResult.message || ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
+            HttpStatus.BAD_REQUEST,
+            {
+              errorCode:
+                sshResult.code ?? mapSshTestErrorCode(sshResult.message),
+            },
+          );
+        }
+
+        this.sshConnectionManager.disconnect(server.id);
       }
-
-      this.sshConnectionManager.disconnect(server.id);
-    }
-
-    if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
-      const agentInstalled =
-        await this.serverConnectionsService.isAgentInstalledOnServer(serverId);
-
-      if (!agentInstalled) {
-        return { available: true };
-      }
-
-      await this.waitForAgentConnection(serverId);
 
       if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
-        throw new ConflictException(
-          `Agent is installed on server '${serverId}' but is not connected. Cannot validate deployment resources.`,
-        );
+        const agentInstalled =
+          await this.serverConnectionsService.isAgentInstalledOnServer(
+            serverId,
+          );
+
+        if (!agentInstalled) {
+          return { available: true };
+        }
+
+        await this.waitForAgentConnection(serverId);
+
+        if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+          throw new ConflictException(
+            `Agent is installed on server '${serverId}' but is not connected. Cannot validate deployment resources.`,
+          );
+        }
       }
-    }
 
-    const serverUrlContext = await this.buildServerUrlContext({
-      userId,
-      serverId,
-      useTraefikRequest: input.useTraefikRequest,
-      requestEnv: input.requestEnv,
-      requestPorts: input.requestPorts,
-    });
-
-    const prepared = await this.prepareCustomComposeDeployment({
-      composeYaml: input.composeYaml,
-      templateSlug: input.templateSlug,
-      serverId,
-      userId,
-      requestEnv: input.requestEnv,
-      requestPorts: input.requestPorts,
-      serverUrlContext,
-      persist: false,
-    });
-
-    const encryptedCompose = this.encryptionService.encrypt(
-      prepared.encodedCompose,
-    );
-    const encryptedEnv = this.encryptionService.encrypt(
-      JSON.stringify(prepared.mergedEnv),
-    );
-    const encryptedPorts = this.encryptionService.encrypt(
-      JSON.stringify(prepared.mergedPorts),
-    );
-
-    const result = await this.deploymentGateway
-      .requestDeploymentValidate(serverId, {
-        requestId: randomUUID(),
-        templateSlug: prepared.templateSlug,
-        compose: encryptedCompose,
-        env: encryptedEnv,
-        ports: encryptedPorts,
-        composeOnly: prepared.composeOnly,
-        useTraefik: prepared.useTraefik,
-      })
-      .catch((error: unknown) => {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Deployment resource validation failed";
-        throw new ConflictException(message);
-      });
-
-    if (!result.available) {
-      const reason =
-        result.warning?.message?.trim() ||
-        result.error?.trim() ||
-        "Deployment validation failed";
-
-      await this.activityService.recordActivity({
+      const serverUrlContext = await this.buildServerUrlContext({
         userId,
         serverId,
-        type: ActivityType.DEPLOYMENT_VALIDATION_STOPPED,
-        title: `Deploy blocked · ${prepared.templateSlug}`,
-        message: `Resource validation stopped deployment: ${reason}`,
-        templateSlug: prepared.templateSlug,
-        operationStatus: DeploymentStatus.FAILED,
+        useTraefikRequest: input.useTraefikRequest,
+        requestEnv: input.requestEnv,
+        requestPorts: input.requestPorts,
       });
 
-      if (result.warning) {
-        return { available: false, warning: result.warning };
+      const prepared = await this.prepareCustomComposeDeployment({
+        composeYaml: input.composeYaml,
+        templateSlug: input.templateSlug,
+        serverId,
+        userId,
+        requestEnv: input.requestEnv,
+        requestPorts: input.requestPorts,
+        serverUrlContext,
+        persist: false,
+      });
+
+      const encryptedCompose = this.encryptionService.encrypt(
+        prepared.encodedCompose,
+      );
+      const encryptedEnv = this.encryptionService.encrypt(
+        JSON.stringify(prepared.mergedEnv),
+      );
+      const encryptedPorts = this.encryptionService.encrypt(
+        JSON.stringify(prepared.mergedPorts),
+      );
+
+      const result = await this.deploymentGateway
+        .requestDeploymentValidate(serverId, {
+          requestId: randomUUID(),
+          templateSlug: prepared.templateSlug,
+          compose: encryptedCompose,
+          env: encryptedEnv,
+          ports: encryptedPorts,
+          composeOnly: prepared.composeOnly,
+          useTraefik: prepared.useTraefik,
+        })
+        .catch((error: unknown) => {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Deployment resource validation failed";
+          throw new ConflictException(message);
+        });
+
+      if (!result.available) {
+        const reason =
+          result.warning?.message?.trim() ||
+          result.error?.trim() ||
+          "Deployment validation failed";
+
+        await this.activityService.recordActivity({
+          userId,
+          serverId,
+          type: ActivityType.DEPLOYMENT_VALIDATION_STOPPED,
+          title: `Deploy blocked · ${prepared.templateSlug}`,
+          message: `Resource validation stopped deployment: ${reason}`,
+          templateSlug: prepared.templateSlug,
+          operationStatus: DeploymentStatus.FAILED,
+        });
+
+        if (result.warning) {
+          return { available: false, warning: result.warning };
+        }
+
+        throw new ConflictException(reason);
       }
 
-      throw new ConflictException(reason);
-    }
+      return { available: true };
+    } catch (error) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException ||
+        error instanceof ConflictException ||
+        error instanceof OperationFailedException
+      ) {
+        throw error;
+      }
 
-    return { available: true };
+      throw new BadRequestException(
+        `Failed to validate custom compose resources: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   private static readonly OVERVIEW_EXCLUDED_STATUSES: DeploymentStatus[] = [

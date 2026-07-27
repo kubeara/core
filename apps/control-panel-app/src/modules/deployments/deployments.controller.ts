@@ -32,6 +32,7 @@ import {
 } from "./dto/custom-compose.dto";
 import { DeploymentsService } from "./deployments.service";
 import { UpdateEnvironmentVariablesDto } from "./dto/update-environment-variables.dto";
+import { DeploymentMode } from "./enums/deployment-type.enum";
 
 @Controller("deployments")
 @UseGuards(AccessTokenGuard)
@@ -135,7 +136,7 @@ export class DeploymentsController {
     template: string;
     deploymentId: string;
     serverId: string;
-    mode: "custom-compose";
+    mode: DeploymentMode.CUSTOM_COMPOSE;
     publicUrl?: string;
   }> {
     try {
@@ -184,7 +185,7 @@ export class DeploymentsController {
         prepared.templateSlug,
       );
 
-      return { ...result, mode: "custom-compose", publicUrl };
+      return { ...result, mode: DeploymentMode.CUSTOM_COMPOSE, publicUrl };
     } catch (error) {
       this.logger.error(
         `Custom compose deploy failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -269,7 +270,7 @@ export class DeploymentsController {
         prepared.templateSlug,
       );
 
-      return { ...result, mode: "compose", publicUrl };
+      return { ...result, mode: DeploymentMode.COMPOSE, publicUrl };
     } catch (error) {
       this.logger.error(
         `Compose deploy failed: ${error instanceof Error ? error.message : String(error)}`,

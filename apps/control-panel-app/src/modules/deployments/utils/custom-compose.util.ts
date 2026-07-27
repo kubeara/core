@@ -34,70 +34,85 @@ export type CustomComposeValidationResult =
 export function validateUploadedCustomCompose(
   composeYaml: string,
 ): CustomComposeValidationResult {
-  const trimmed = composeYaml.trim();
-
-  if (!trimmed) {
-    return {
-      valid: false,
-      issues: [{ path: "root", message: "Compose file is empty" }],
-    };
-  }
-
-  const byteLength = Buffer.byteLength(trimmed, "utf8");
-  if (byteLength > CUSTOM_COMPOSE_MAX_BYTES) {
-    return {
-      valid: false,
-      issues: [
-        {
-          path: "root",
-          message: `Compose file exceeds maximum size of ${CUSTOM_COMPOSE_MAX_BYTES} bytes`,
-        },
-      ],
-    };
-  }
-
-  const issues = validateCustomComposeStructure(trimmed);
-  if (issues.length > 0) {
-    return { valid: false, issues };
-  }
-
-  let variables: TemplateVariableDefinition[];
   try {
-    variables = parseCustomComposeEnvironmentVariables(trimmed);
+    const trimmed = composeYaml.trim();
+
+    if (!trimmed) {
+      return {
+        valid: false,
+        issues: [{ path: "root", message: "Compose file is empty" }],
+      };
+    }
+
+    const byteLength = Buffer.byteLength(trimmed, "utf8");
+    if (byteLength > CUSTOM_COMPOSE_MAX_BYTES) {
+      return {
+        valid: false,
+        issues: [
+          {
+            path: "root",
+            message: `Compose file exceeds maximum size of ${CUSTOM_COMPOSE_MAX_BYTES} bytes`,
+          },
+        ],
+      };
+    }
+
+    const issues = validateCustomComposeStructure(trimmed);
+    if (issues.length > 0) {
+      return { valid: false, issues };
+    }
+
+    let variables: TemplateVariableDefinition[];
+    try {
+      variables = parseCustomComposeEnvironmentVariables(trimmed);
+    } catch (error) {
+      return {
+        valid: false,
+        issues: [
+          {
+            path: "variables",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Failed to extract environment variables from compose file",
+          },
+        ],
+      };
+    }
+
+    const serviceSlugs = listCustomComposeServiceSlugs(trimmed);
+    if (serviceSlugs.length === 0) {
+      return {
+        valid: false,
+        issues: [
+          {
+            path: "services",
+            message: "Compose file must define at least one service",
+          },
+        ],
+      };
+    }
+
+    return {
+      valid: true,
+      composeYaml: trimmed,
+      suggestedTemplateSlug: deriveCustomComposeTemplateSlug(serviceSlugs),
+      variables,
+    };
   } catch (error) {
     return {
       valid: false,
       issues: [
         {
-          path: "variables",
+          path: "root",
           message:
             error instanceof Error
               ? error.message
-              : "Failed to extract environment variables from compose file",
+              : "Failed to validate compose file",
         },
       ],
     };
   }
-
-  const serviceSlugs = listCustomComposeServiceSlugs(trimmed);
-  if (serviceSlugs.length === 0) {
-    return {
-      valid: false,
-      issues: [
-        {
-          path: "services",
-          message: "Compose file must define at least one service",
-        },
-      ],
-    };
-  }
-
-  return {
-    valid: true,
-    composeYaml: trimmed,
-    suggestedTemplateSlug: deriveCustomComposeTemplateSlug(serviceSlugs),
-    variables,
-  };
 }
 
 /**
@@ -110,68 +125,90 @@ export function validateCustomComposeStructure(
 ): CustomComposeValidationIssue[] {
   const issues: CustomComposeValidationIssue[] = [];
 
-  let parsed: Record<string, unknown>;
   try {
-    const loaded = yaml.load(composeYaml);
-    if (!loaded || typeof loaded !== "object" || Array.isArray(loaded)) {
+    let parsed: Record<string, unknown>;
+    try {
+      const loaded = yaml.load(composeYaml);
+      if (!loaded || typeof loaded !== "object" || Array.isArray(loaded)) {
+        issues.push({
+          path: "root",
+          message: "Compose YAML must resolve to an object",
+        });
+        return issues;
+      }
+      parsed = loaded as Record<string, unknown>;
+    } catch (error) {
       issues.push({
         path: "root",
-        message: "Compose YAML must resolve to an object",
+        message: `Invalid YAML syntax: ${error instanceof Error ? error.message : String(error)}`,
       });
       return issues;
     }
-    parsed = loaded as Record<string, unknown>;
+
+    const services = parsed.services;
+    if (!services || typeof services !== "object" || Array.isArray(services)) {
+      issues.push({
+        path: "services",
+        message: "Compose file must define a non-empty services map",
+      });
+      return issues;
+    }
+
+    const serviceEntries = Object.entries(services);
+    if (serviceEntries.length === 0) {
+      issues.push({
+        path: "services",
+        message: "Compose file must define at least one service",
+      });
+      return issues;
+    }
+
+    for (const [serviceName, serviceDefinition] of serviceEntries) {
+      try {
+        const basePath = `services.${serviceName}`;
+
+        if (
+          !serviceDefinition ||
+          typeof serviceDefinition !== "object" ||
+          Array.isArray(serviceDefinition)
+        ) {
+          issues.push({
+            path: basePath,
+            message: "Service definition must be an object",
+          });
+          continue;
+        }
+
+        const service = serviceDefinition as Record<string, unknown>;
+        if (!serviceHasRunnableDefinition(service)) {
+          issues.push({
+            path: basePath,
+            message: "Service must define image, build, or extends",
+          });
+        }
+      } catch (error) {
+        issues.push({
+          path: `services.${serviceName}`,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to validate service definition",
+        });
+      }
+    }
+
+    return issues;
   } catch (error) {
-    issues.push({
-      path: "root",
-      message: `Invalid YAML syntax: ${error instanceof Error ? error.message : String(error)}`,
-    });
-    return issues;
+    return [
+      {
+        path: "root",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Failed to validate compose structure",
+      },
+    ];
   }
-
-  const services = parsed.services;
-  if (!services || typeof services !== "object" || Array.isArray(services)) {
-    issues.push({
-      path: "services",
-      message: "Compose file must define a non-empty services map",
-    });
-    return issues;
-  }
-
-  const serviceEntries = Object.entries(services);
-  if (serviceEntries.length === 0) {
-    issues.push({
-      path: "services",
-      message: "Compose file must define at least one service",
-    });
-    return issues;
-  }
-
-  for (const [serviceName, serviceDefinition] of serviceEntries) {
-    const basePath = `services.${serviceName}`;
-
-    if (
-      !serviceDefinition ||
-      typeof serviceDefinition !== "object" ||
-      Array.isArray(serviceDefinition)
-    ) {
-      issues.push({
-        path: basePath,
-        message: "Service definition must be an object",
-      });
-      continue;
-    }
-
-    const service = serviceDefinition as Record<string, unknown>;
-    if (!serviceHasRunnableDefinition(service)) {
-      issues.push({
-        path: basePath,
-        message: "Service must define image, build, or extends",
-      });
-    }
-  }
-
-  return issues;
 }
 
 /**
@@ -199,15 +236,21 @@ export function listCustomComposeServiceSlugs(composeYaml: string): string[] {
 export function deriveCustomComposeTemplateSlug(
   serviceSlugs: string[],
 ): string {
-  const segments = serviceSlugs
-    .map((slug) => slug.trim())
-    .filter((slug) => slug.length > 0);
+  try {
+    const segments = serviceSlugs
+      .map((slug) => slug.trim())
+      .filter((slug) => slug.length > 0);
 
-  if (segments.length === 0) {
-    throw new Error("Compose file must define at least one service");
+    if (segments.length === 0) {
+      throw new Error("Compose file must define at least one service");
+    }
+
+    return segments.join("-").slice(0, 255);
+  } catch (error) {
+    throw new Error(
+      `Failed to derive custom compose template slug: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
-
-  return segments.join("-").slice(0, 255);
 }
 
 /**
@@ -215,17 +258,23 @@ export function deriveCustomComposeTemplateSlug(
  * Preserves letter casing; only trims, hyphenates spaces, and strips invalid characters.
  */
 export function normalizeCustomComposeTemplateSlug(value: string): string {
-  const cleaned = value
-    .trim()
-    .replace(/[\s_]+/g, "-")
-    .replace(/[^a-zA-Z0-9-]+/g, "");
+  try {
+    const cleaned = value
+      .trim()
+      .replace(/[\s_]+/g, "-")
+      .replace(/[^a-zA-Z0-9-]+/g, "");
 
-  // Avoid /-+/ ReDoS on user input: collapse/trim hyphens in linear time.
-  return cleaned
-    .split("-")
-    .filter((segment) => segment.length > 0)
-    .join("-")
-    .slice(0, 255);
+    // Avoid /-+/ ReDoS on user input: collapse/trim hyphens in linear time.
+    return cleaned
+      .split("-")
+      .filter((segment) => segment.length > 0)
+      .join("-")
+      .slice(0, 255);
+  } catch (error) {
+    throw new Error(
+      `Failed to normalize custom compose template slug: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 }
 
 /**
@@ -234,21 +283,25 @@ export function normalizeCustomComposeTemplateSlug(value: string): string {
 export function getCustomComposeTemplateSlugValidationError(
   value: string,
 ): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return "Deployment name is required";
-  }
+  try {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return "Deployment name is required";
+    }
 
-  const normalized = normalizeCustomComposeTemplateSlug(trimmed);
-  if (!normalized) {
-    return "Deployment name must include letters or numbers";
-  }
+    const normalized = normalizeCustomComposeTemplateSlug(trimmed);
+    if (!normalized) {
+      return "Deployment name must include letters or numbers";
+    }
 
-  if (normalized.length < 2) {
-    return "Deployment name must be at least 2 characters";
-  }
+    if (normalized.length < 2) {
+      return "Deployment name must be at least 2 characters";
+    }
 
-  return null;
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "Invalid deployment name";
+  }
 }
 
 /**
@@ -257,12 +310,16 @@ export function getCustomComposeTemplateSlugValidationError(
 export function formatCustomComposeTemplateSlugLabel(
   templateSlug: string,
 ): string {
-  const trimmed = templateSlug.trim();
-  if (!trimmed) {
+  try {
+    const trimmed = templateSlug.trim();
+    if (!trimmed) {
+      return "Custom Compose";
+    }
+
+    return trimmed.replace(/-/g, " ");
+  } catch {
     return "Custom Compose";
   }
-
-  return trimmed.replace(/-/g, " ");
 }
 
 /**
@@ -271,32 +328,36 @@ export function formatCustomComposeTemplateSlugLabel(
 function serviceHasRunnableDefinition(
   service: Record<string, unknown>,
 ): boolean {
-  const image = service.image;
-  if (typeof image === "string" && image.trim().length > 0) {
-    return true;
-  }
+  try {
+    const image = service.image;
+    if (typeof image === "string" && image.trim().length > 0) {
+      return true;
+    }
 
-  const build = service.build;
-  if (typeof build === "string" && build.trim().length > 0) {
-    return true;
-  }
-  if (build && typeof build === "object" && !Array.isArray(build)) {
-    return true;
-  }
+    const build = service.build;
+    if (typeof build === "string" && build.trim().length > 0) {
+      return true;
+    }
+    if (build && typeof build === "object" && !Array.isArray(build)) {
+      return true;
+    }
 
-  const extendsTarget = service.extends;
-  if (typeof extendsTarget === "string" && extendsTarget.trim().length > 0) {
-    return true;
-  }
-  if (
-    extendsTarget &&
-    typeof extendsTarget === "object" &&
-    !Array.isArray(extendsTarget)
-  ) {
-    return true;
-  }
+    const extendsTarget = service.extends;
+    if (typeof extendsTarget === "string" && extendsTarget.trim().length > 0) {
+      return true;
+    }
+    if (
+      extendsTarget &&
+      typeof extendsTarget === "object" &&
+      !Array.isArray(extendsTarget)
+    ) {
+      return true;
+    }
 
-  return false;
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -305,38 +366,46 @@ function serviceHasRunnableDefinition(
 function listCustomComposeServiceNames(
   parsed: Record<string, unknown>,
 ): string[] {
-  const services = parsed.services;
+  try {
+    const services = parsed.services;
 
-  if (!services || typeof services !== "object" || Array.isArray(services)) {
+    if (!services || typeof services !== "object" || Array.isArray(services)) {
+      return [];
+    }
+
+    return Object.keys(services).sort();
+  } catch {
     return [];
   }
-
-  return Object.keys(services).sort();
 }
 
 /**
  * Normalizes a compose service name to a safe slug segment.
  */
 function sanitizeComposeServiceSlug(serviceName: string): string {
-  const trimmed = serviceName.trim();
-  if (!trimmed) {
+  try {
+    const trimmed = serviceName.trim();
+    if (!trimmed) {
+      return "";
+    }
+
+    const normalized = trimmed.toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
+
+    // Avoid /-+/ ReDoS: trim leading/trailing hyphens in linear time.
+    let start = 0;
+    let end = normalized.length;
+    while (start < end && normalized[start] === "-") {
+      start += 1;
+    }
+    while (end > start && normalized[end - 1] === "-") {
+      end -= 1;
+    }
+
+    const trimmedHyphens = normalized.slice(start, end);
+    return (trimmedHyphens || trimmed).slice(0, 64);
+  } catch {
     return "";
   }
-
-  const normalized = trimmed.toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
-
-  // Avoid /-+/ ReDoS: trim leading/trailing hyphens in linear time.
-  let start = 0;
-  let end = normalized.length;
-  while (start < end && normalized[start] === "-") {
-    start += 1;
-  }
-  while (end > start && normalized[end - 1] === "-") {
-    end -= 1;
-  }
-
-  const trimmedHyphens = normalized.slice(start, end);
-  return (trimmedHyphens || trimmed).slice(0, 64);
 }
 
 /**
