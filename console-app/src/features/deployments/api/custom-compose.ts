@@ -49,12 +49,16 @@ function responseBody(response: { data: unknown }): Record<string, unknown> {
  * Preserves letter casing; only trims, hyphenates spaces, and strips invalid characters.
  */
 export function normalizeCustomComposeTemplateSlug(value: string): string {
-  return value
+  const cleaned = value
     .trim()
     .replace(/[\s_]+/g, "-")
-    .replace(/[^a-zA-Z0-9-]+/g, "")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/[^a-zA-Z0-9-]+/g, "");
+
+  // Avoid /-+/ ReDoS on user input: collapse/trim hyphens in linear time.
+  return cleaned
+    .split("-")
+    .filter((segment) => segment.length > 0)
+    .join("-")
     .slice(0, 255);
 }
 

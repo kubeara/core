@@ -215,12 +215,16 @@ export function deriveCustomComposeTemplateSlug(
  * Preserves letter casing; only trims, hyphenates spaces, and strips invalid characters.
  */
 export function normalizeCustomComposeTemplateSlug(value: string): string {
-  return value
+  const cleaned = value
     .trim()
     .replace(/[\s_]+/g, "-")
-    .replace(/[^a-zA-Z0-9-]+/g, "")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/[^a-zA-Z0-9-]+/g, "");
+
+  // Avoid /-+/ ReDoS on user input: collapse/trim hyphens in linear time.
+  return cleaned
+    .split("-")
+    .filter((segment) => segment.length > 0)
+    .join("-")
     .slice(0, 255);
 }
 
@@ -319,12 +323,20 @@ function sanitizeComposeServiceSlug(serviceName: string): string {
     return "";
   }
 
-  const normalized = trimmed
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  const normalized = trimmed.toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
 
-  return (normalized || trimmed).slice(0, 64);
+  // Avoid /-+/ ReDoS: trim leading/trailing hyphens in linear time.
+  let start = 0;
+  let end = normalized.length;
+  while (start < end && normalized[start] === "-") {
+    start += 1;
+  }
+  while (end > start && normalized[end - 1] === "-") {
+    end -= 1;
+  }
+
+  const trimmedHyphens = normalized.slice(start, end);
+  return (trimmedHyphens || trimmed).slice(0, 64);
 }
 
 /**
