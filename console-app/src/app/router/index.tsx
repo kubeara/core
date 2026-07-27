@@ -6,6 +6,8 @@ import { GuestRoute, HomeRedirect, ProtectedRoute } from "@/features/auth/routes
 import { McpOAuthAuthorizeRoute } from "@/features/mcp-oauth/routes/mcp-oauth-authorize-route";
 import { DeployConfigurePage } from "@/pages/deploy-configure-page";
 import { DeployLogsPage } from "@/pages/deploy-logs-page";
+import { CustomComposeUploadPage } from "@/pages/custom-compose-upload-page";
+import { CustomComposeConfigurePage } from "@/pages/custom-compose-configure-page";
 import { ContainerLogsPage } from "@/pages/container-logs-page";
 import { ForgotPasswordPage } from "@/pages/forgot-password-page";
 import { ForgotPasswordVerifyPage } from "@/pages/forgot-password-verify-page";
@@ -69,6 +71,14 @@ export function AppRoutes() {
           <Route
             path="/servers/:serverId/deploy/:templateSlug/logs"
             element={<DeployLogsPage />}
+          />
+          <Route
+            path="/servers/:serverId/custom-compose/upload"
+            element={<CustomComposeUploadPage />}
+          />
+          <Route
+            path="/servers/:serverId/custom-compose/configure"
+            element={<CustomComposeConfigurePage />}
           />
           <Route
             path="/servers/:serverId/containers/:containerId/logs"

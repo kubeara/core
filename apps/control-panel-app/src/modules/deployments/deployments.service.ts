@@ -20,6 +20,7 @@ import {
   SUCCESS_MESSAGES,
   TemplateConfigService,
   TemplatePayloadService,
+  buildDeployedComposeYaml,
   maskEnvMap,
   logStructured,
   logStructuredError,
@@ -57,12 +58,23 @@ import { ServiceDeploymentEntity } from "./entities/service-deployment.entity";
 import { ServiceTemplateEntity } from "@control-panel/modules/service-template/entities/service-template.entity";
 import {
   BuildServerUrlContextInput,
+  PrepareCustomComposeDeploymentInput,
   PrepareDeploymentInput,
   PreparedDeployment,
   ResolveDeploymentServerInput,
   ResolvedDeploymentTarget,
 } from "./dto/deployment.types";
 import { DEPLOYMENT_MESSAGES } from "./constants/deployment-messages.constants";
+import { DeploymentType } from "./enums/deployment-type.enum";
+import { resolveCustomComposeDeploymentVariables } from "./utils/custom-compose-env.util";
+import {
+  encodeComposeYamlToPayload,
+  formatCustomComposeTemplateSlugLabel,
+  getCustomComposeTemplateSlugValidationError,
+  normalizeCustomComposeTemplateSlug,
+  validateUploadedCustomCompose,
+  type CustomComposeValidationResult,
+} from "./utils/custom-compose.util";
 import { normalizeServerHostForUrls } from "./utils/deployment-server.util";
 import type { ContainerActionResponseDto } from "./dto/container-action-response.dto";
 import type { ContainerLogsStartResponseDto } from "./dto/container-logs.dto";
@@ -827,6 +839,12 @@ export class DeploymentsService {
           generatedKeys: parsedFromCompose.generatedKeys,
           schema,
         });
+        await this.persistEncryptedDeployedCompose(
+          deploymentId,
+          composeYaml,
+          mergedEnv,
+          mergedPorts,
+        );
         await this.updateStatus(deploymentId, DeploymentStatus.PENDING, {
           message: "Deployment prepared",
         });
@@ -1002,6 +1020,12 @@ export class DeploymentsService {
           generatedKeys: parsedFromCompose.generatedKeys,
           requiredKeys,
         });
+        await this.persistEncryptedDeployedCompose(
+          deploymentId,
+          composeYaml,
+          mergedEnv,
+          mergedPorts,
+        );
         await this.updateStatus(deploymentId, DeploymentStatus.PENDING, {
           message: "Deployment prepared",
         });
@@ -1037,6 +1061,344 @@ export class DeploymentsService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Validates user-uploaded Docker Compose YAML and returns extracted variables.
+   * Does not persist compose content or create deployment records.
+   */
+  validateCustomComposeUpload(
+    composeYaml: string,
+  ): CustomComposeValidationResult {
+    try {
+      return validateUploadedCustomCompose(composeYaml);
+    } catch (error) {
+      throw new BadRequestException(
+        `Failed to validate compose file: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Prepares a custom Docker Compose deployment using uploaded YAML instead of a
+   * marketplace template. Encrypts compose content at rest and reuses compose-only
+   * env/port resolution from {@link prepareComposeDeployment}.
+   */
+  async prepareCustomComposeDeployment(
+    input: PrepareCustomComposeDeploymentInput,
+  ): Promise<PreparedDeployment> {
+    const {
+      composeYaml,
+      templateSlug: rawTemplateSlug,
+      serverId,
+      userId,
+      requestEnv = {},
+      requestPorts = {},
+      existingDeploymentId,
+      serverUrlContext: serverUrlContextInput,
+    } = input;
+
+    const slugError =
+      getCustomComposeTemplateSlugValidationError(rawTemplateSlug);
+    if (slugError) {
+      throw new BadRequestException(slugError);
+    }
+
+    const templateSlug = normalizeCustomComposeTemplateSlug(rawTemplateSlug);
+
+    const validation = validateUploadedCustomCompose(composeYaml);
+    if (!validation.valid) {
+      const summary = validation.issues
+        .slice(0, 3)
+        .map((issue) => `${issue.path}: ${issue.message}`)
+        .join("; ");
+      throw new BadRequestException(summary || "Invalid Docker Compose file");
+    }
+
+    let encodedCompose: string;
+    try {
+      encodedCompose = encodeComposeYamlToPayload(validation.composeYaml);
+    } catch (error) {
+      throw new BadRequestException(
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+
+    const deploymentId = existingDeploymentId ?? this.generateDeploymentId();
+    const shouldPersist = input.persist !== false;
+    const serverUrlContext: ServerUrlContext | undefined = serverUrlContextInput
+      ? { ...serverUrlContextInput, deploymentId }
+      : undefined;
+
+    if (shouldPersist) {
+      await this.upsertDeploymentRecord({
+        deploymentId,
+        templateSlug,
+        serverId,
+        userId,
+        deploymentStatus: DeploymentStatus.PENDING,
+        deploymentType: DeploymentType.CUSTOM_SERVICE,
+      });
+      await this.updateStatus(deploymentId, DeploymentStatus.VALIDATING, {
+        message: "Validating deployment configuration",
+      });
+    }
+
+    try {
+      let baseEnv: Record<string, unknown> = { ...requestEnv };
+      let basePorts: Record<string, unknown> = { ...requestPorts };
+
+      if (existingDeploymentId) {
+        const stored = await this.loadStoredVariables(existingDeploymentId, []);
+        baseEnv = { ...stored.env, ...requestEnv };
+        basePorts = { ...stored.ports, ...requestPorts };
+      }
+
+      const customResolved = resolveCustomComposeDeploymentVariables(
+        validation.composeYaml,
+        baseEnv,
+        basePorts,
+      );
+
+      const declaredPortVars = this.composeParserService.listPortVariables(
+        validation.composeYaml,
+      );
+      if (declaredPortVars.length > 0) {
+        const unknownPortKeys = this.composeParserService.findUnknownPortKeys(
+          validation.composeYaml,
+          requestPorts,
+        );
+        if (unknownPortKeys.length > 0) {
+          throw new BadRequestException(
+            `Unknown port keys: ${unknownPortKeys.join(", ")}. Expected: ${declaredPortVars.join(", ")}`,
+          );
+        }
+      }
+
+      let parsedFromCompose;
+      try {
+        parsedFromCompose = this.composeParserService.resolveFromCompose({
+          compose: validation.composeYaml,
+          userEnv: customResolved.env,
+          userPorts: customResolved.ports,
+          serverUrlContext,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new BadRequestException(
+          `Failed to resolve custom compose variables: ${message}`,
+        );
+      }
+
+      const mergedEnv = parsedFromCompose.env;
+      const mergedPorts = parsedFromCompose.ports;
+      const requiredKeys = customResolved.requiredKeys;
+
+      if (shouldPersist) {
+        await this.persistEnvironmentVariables({
+          deploymentId,
+          env: mergedEnv,
+          ports: mergedPorts,
+          generatedKeys: parsedFromCompose.generatedKeys,
+          requiredKeys,
+        });
+        await this.persistEncryptedDeployedCompose(
+          deploymentId,
+          validation.composeYaml,
+          mergedEnv,
+          mergedPorts,
+        );
+        await this.updateStatus(deploymentId, DeploymentStatus.PENDING, {
+          message: "Deployment prepared",
+        });
+
+        if (parsedFromCompose.generatedKeys.length > 0) {
+          this.logger.log(
+            `Stored auto-generated variables for '${deploymentId}': ${parsedFromCompose.generatedKeys.join(", ")}`,
+          );
+        }
+      }
+
+      const useTraefik = this.resolveUseTraefikForCompose(
+        validation.composeYaml,
+        serverUrlContext?.useTraefik,
+        templateSlug,
+      );
+
+      return {
+        deploymentId,
+        serverId,
+        userId,
+        templateSlug,
+        encodedCompose,
+        mergedEnv,
+        mergedPorts,
+        generatedKeys: parsedFromCompose.generatedKeys,
+        composeOnly: true,
+        useTraefik,
+      };
+    } catch (error) {
+      if (shouldPersist) {
+        await this.markDeploymentFailed(deploymentId, error);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Verifies agent resources for a custom compose deployment before deploy.
+   * Reuses the standard validation socket flow with uploaded compose content.
+   */
+  async validateCustomComposeBeforeDeploy(input: {
+    userId: string;
+    serverId?: string;
+    deployOnLocal?: boolean;
+    composeYaml: string;
+    templateSlug: string;
+    requestEnv?: Record<string, unknown>;
+    requestPorts?: Record<string, unknown>;
+    useTraefikRequest?: boolean;
+  }): Promise<
+    | { available: true }
+    | { available: false; warning: DeploymentResourceWarning }
+  > {
+    const { serverId, userId } = await this.resolveDeploymentTarget({
+      userId: input.userId,
+      serverId: input.serverId,
+      deployOnLocal: input.deployOnLocal,
+    });
+
+    const server = await this.assertActiveServerForUser(serverId, userId);
+
+    if (server.serverType !== ServerType.LOCAL) {
+      const credential = await this.serverCredentialRepository.findOne({
+        where: {
+          serverId,
+          status: EntityStatus.ACTIVE,
+          deletedAt: IsNull(),
+        },
+      });
+
+      if (!credential) {
+        throw new NotFoundException(
+          ERROR_MESSAGES.SERVER.CREDENTIALS_NOT_FOUND,
+        );
+      }
+
+      const sshResult = await runSshHealthTestWithTimeout(this.sshHealthCheck, {
+        serverId: server.id,
+        host: server.host,
+        port: server.port,
+        username: server.username,
+        authType: credential.authType,
+        encryptedPassword: credential.encryptedPassword ?? null,
+        encryptedPrivateKey: credential.encryptedPrivateKey ?? null,
+        privateKeyPassphrase: credential.privateKeyPassphrase ?? null,
+      });
+
+      if (!sshResult.success) {
+        this.sshConnectionManager.disconnect(server.id);
+        throw new OperationFailedException(
+          ERROR_MESSAGES.SERVER.SSH_CONNECTION_FAILED,
+          sshResult.message || ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
+          HttpStatus.BAD_REQUEST,
+          {
+            errorCode: sshResult.code ?? mapSshTestErrorCode(sshResult.message),
+          },
+        );
+      }
+
+      this.sshConnectionManager.disconnect(server.id);
+    }
+
+    if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+      const agentInstalled =
+        await this.serverConnectionsService.isAgentInstalledOnServer(serverId);
+
+      if (!agentInstalled) {
+        return { available: true };
+      }
+
+      await this.waitForAgentConnection(serverId);
+
+      if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+        throw new ConflictException(
+          `Agent is installed on server '${serverId}' but is not connected. Cannot validate deployment resources.`,
+        );
+      }
+    }
+
+    const serverUrlContext = await this.buildServerUrlContext({
+      userId,
+      serverId,
+      useTraefikRequest: input.useTraefikRequest,
+      requestEnv: input.requestEnv,
+      requestPorts: input.requestPorts,
+    });
+
+    const prepared = await this.prepareCustomComposeDeployment({
+      composeYaml: input.composeYaml,
+      templateSlug: input.templateSlug,
+      serverId,
+      userId,
+      requestEnv: input.requestEnv,
+      requestPorts: input.requestPorts,
+      serverUrlContext,
+      persist: false,
+    });
+
+    const encryptedCompose = this.encryptionService.encrypt(
+      prepared.encodedCompose,
+    );
+    const encryptedEnv = this.encryptionService.encrypt(
+      JSON.stringify(prepared.mergedEnv),
+    );
+    const encryptedPorts = this.encryptionService.encrypt(
+      JSON.stringify(prepared.mergedPorts),
+    );
+
+    const result = await this.deploymentGateway
+      .requestDeploymentValidate(serverId, {
+        requestId: randomUUID(),
+        templateSlug: prepared.templateSlug,
+        compose: encryptedCompose,
+        env: encryptedEnv,
+        ports: encryptedPorts,
+        composeOnly: prepared.composeOnly,
+        useTraefik: prepared.useTraefik,
+      })
+      .catch((error: unknown) => {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Deployment resource validation failed";
+        throw new ConflictException(message);
+      });
+
+    if (!result.available) {
+      const reason =
+        result.warning?.message?.trim() ||
+        result.error?.trim() ||
+        "Deployment validation failed";
+
+      await this.activityService.recordActivity({
+        userId,
+        serverId,
+        type: ActivityType.DEPLOYMENT_VALIDATION_STOPPED,
+        title: `Deploy blocked · ${prepared.templateSlug}`,
+        message: `Resource validation stopped deployment: ${reason}`,
+        templateSlug: prepared.templateSlug,
+        operationStatus: DeploymentStatus.FAILED,
+      });
+
+      if (result.warning) {
+        return { available: false, warning: result.warning };
+      }
+
+      throw new ConflictException(reason);
+    }
+
+    return { available: true };
   }
 
   private static readonly OVERVIEW_EXCLUDED_STATUSES: DeploymentStatus[] = [
@@ -1086,7 +1448,7 @@ export class DeploymentsService {
       const deployments = deploymentRows.map((deployment) => ({
         id: deployment.id,
         templateSlug: deployment.templateSlug,
-        serviceName: deployment.template?.name?.trim() || null,
+        serviceName: this.resolveDeploymentServiceName(deployment),
         composeProject: sanitizeDeploymentProjectName(deployment.id),
         ownerServerId: deployment.serverId ?? serverId,
       }));
@@ -1632,6 +1994,13 @@ export class DeploymentsService {
   ): Promise<EnvironmentVariableView[]> {
     try {
       const deployment = await this.getDeployment(deploymentId);
+
+      if (deployment.deploymentType === DeploymentType.CUSTOM_SERVICE) {
+        throw new BadRequestException(
+          "Environment variables for custom compose deployments cannot be edited. Re-upload the compose file to change them.",
+        );
+      }
+
       const template = await this.templateRepository.findOne({
         where: { slug: deployment.templateSlug },
       });
@@ -1679,6 +2048,13 @@ export class DeploymentsService {
         generatedKeys: [],
         schema,
       });
+
+      await this.persistEncryptedDeployedCompose(
+        deploymentId,
+        composeYaml,
+        validatedEnv,
+        validatedPorts,
+      );
 
       return this.listEnvironmentVariables(deploymentId);
     } catch (error) {
@@ -1836,6 +2212,8 @@ export class DeploymentsService {
     serverId: string;
     userId: string;
     deploymentStatus: DeploymentStatus;
+    deploymentType?: DeploymentType;
+    encryptedComposeContent?: string | null;
   }): Promise<void> {
     try {
       const existing = await this.deploymentRepository.findOne({
@@ -1847,6 +2225,12 @@ export class DeploymentsService {
         existing.serverId = opts.serverId;
         existing.userId = opts.userId;
         existing.deploymentStatus = opts.deploymentStatus;
+        if (opts.deploymentType !== undefined) {
+          existing.deploymentType = opts.deploymentType;
+        }
+        if (opts.encryptedComposeContent !== undefined) {
+          existing.encryptedComposeContent = opts.encryptedComposeContent;
+        }
         await this.deploymentRepository.save(existing);
         return;
       }
@@ -1859,6 +2243,8 @@ export class DeploymentsService {
         deploymentStatus: opts.deploymentStatus,
         statusMessage: null,
         lastError: null,
+        deploymentType: opts.deploymentType ?? DeploymentType.PLATFORM_SERVICE,
+        encryptedComposeContent: opts.encryptedComposeContent ?? null,
       });
 
       await this.deploymentRepository.save(deployment);
@@ -1867,6 +2253,47 @@ export class DeploymentsService {
         `Failed to persist deployment record: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  /**
+   * Encrypts and stores the resolved compose YAML that reflects deployed env/port values.
+   */
+  private async persistEncryptedDeployedCompose(
+    deploymentId: string,
+    composeYaml: string,
+    mergedEnv: Record<string, string>,
+    mergedPorts: Record<string, number>,
+  ): Promise<void> {
+    try {
+      const deployedYaml = buildDeployedComposeYaml(
+        composeYaml,
+        mergedEnv,
+        mergedPorts,
+      );
+      const encryptedComposeContent =
+        this.encryptionService.encrypt(deployedYaml);
+
+      await this.deploymentRepository.update(deploymentId, {
+        encryptedComposeContent,
+      });
+    } catch (error) {
+      throw new BadRequestException(
+        `Failed to encrypt compose content: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * Resolves a human-readable service label for container overview rows.
+   */
+  private resolveDeploymentServiceName(
+    deployment: ServiceDeploymentEntity,
+  ): string | null {
+    if (deployment.deploymentType === DeploymentType.CUSTOM_SERVICE) {
+      return formatCustomComposeTemplateSlugLabel(deployment.templateSlug);
+    }
+
+    return deployment.template?.name?.trim() || null;
   }
 
   private async persistEnvironmentVariables(opts: {

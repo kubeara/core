@@ -226,8 +226,8 @@ export function ServerOverviewTab({
         description="Containers discovered on this server, including Kubeara deployments and self-managed workloads."
       />
 
-      {!isLoading && !isError && containers.length > 0 ? (
-        <div className="server-templates-toolbar connected-services-toolbar">
+      <div className="server-templates-toolbar connected-services-toolbar">
+        {!isLoading && !isError && containers.length > 0 ? (
           <div className="server-templates-filters">
             <div className="server-templates-filter-row">
               <Dropdown
@@ -247,8 +247,22 @@ export function ServerOverviewTab({
               ) : null}
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : (
+          <div className="connected-services-toolbar-spacer" aria-hidden="true" />
+        )}
+
+        <button
+          type="button"
+          className="btn-primary connected-services-upload-btn"
+          onClick={() =>
+            navigate(
+              `/servers/${encodeURIComponent(serverId)}/custom-compose/upload`,
+            )
+          }
+        >
+          Upload custom yml
+        </button>
+      </div>
 
       {isLoading ? (
         <SkeletonMarketplaceGrid count={3} label="Loading containers…" variant="overview" />

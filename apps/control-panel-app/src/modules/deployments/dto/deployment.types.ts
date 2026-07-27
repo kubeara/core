@@ -15,6 +15,10 @@ export interface PrepareDeploymentInput {
   serverUrlContext?: Omit<ServerUrlContext, "deploymentId">;
 }
 
+export interface PrepareCustomComposeDeploymentInput extends PrepareDeploymentInput {
+  composeYaml: string;
+}
+
 export interface BuildServerUrlContextInput {
   userId: string;
   serverId: string;

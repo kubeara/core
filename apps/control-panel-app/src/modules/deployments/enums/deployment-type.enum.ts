@@ -1,0 +1,4 @@
+export enum DeploymentType {
+  PLATFORM_SERVICE = "PLATFORM_SERVICE",
+  CUSTOM_SERVICE = "CUSTOM_SERVICE",
+}

@@ -14,6 +14,8 @@ import { ServerEntity } from "@control-panel/modules/server-connections/entities
 import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
 import { DeploymentStatus } from "@shared/socket-events";
 
+import { DeploymentType } from "../enums/deployment-type.enum";
+
 @Entity("serviceDeployments")
 export class ServiceDeploymentEntity extends AuditableEntity {
   @PrimaryColumn({ type: "varchar", length: 128 })
@@ -36,9 +38,9 @@ export class ServiceDeploymentEntity extends AuditableEntity {
   @JoinColumn({ name: "userId" })
   user?: UserEntity | null;
 
-  @ManyToOne(() => ServiceTemplateEntity)
+  @ManyToOne(() => ServiceTemplateEntity, { nullable: true })
   @JoinColumn({ name: "templateSlug", referencedColumnName: "slug" })
-  template?: ServiceTemplateEntity;
+  template?: ServiceTemplateEntity | null;
 
   @Column({
     type: "varchar",
@@ -52,6 +54,16 @@ export class ServiceDeploymentEntity extends AuditableEntity {
 
   @Column({ type: "text", nullable: true })
   lastError!: string | null;
+
+  @Column({
+    type: "varchar",
+    length: 32,
+    default: DeploymentType.PLATFORM_SERVICE,
+  })
+  deploymentType!: DeploymentType;
+
+  @Column({ type: "text", nullable: true })
+  encryptedComposeContent!: string | null;
 
   @OneToMany(
     () => EnvironmentVariableEntity,

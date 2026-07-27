@@ -16,23 +16,35 @@ import { groupTemplateVariables } from "../utils/field-utils";
 import { getDeploymentSocket } from "@/lib/socket/deployment-socket-client";
 import { showErrorToast } from "@/lib/toast";
 import { validateDeploymentResources } from "@/features/deployments/api";
+import { validateCustomComposeResources } from "@/features/deployments/api/custom-compose";
 import { DeployResourceWarningConfirmModal } from "@/features/deployments/components/deploy-resource-warning-confirm-modal";
 import { DEPLOYMENT_VALIDATION_IN_PROGRESS_MESSAGE } from "@/features/deployments/constants/deployment-validation-messages";
 import type { DeploymentResourceWarningCode } from "@/features/deployments/types";
+import { buildServerDetailHref } from "@/features/servers/components/server-detail/utils/server-detail-tab-url";
 import { DynamicDeployFields } from "./dynamic-deploy-fields";
 import { DeployServiceSummaryCard } from "./deploy-service-summary-card";
 import type { DeployServiceSummaryStatus } from "./deploy-service-summary-card";
+
+type CustomComposeDeployConfig = {
+  composeYaml: string;
+};
 
 type DeployConfigurationFormProps = {
   template: ApiTemplate;
   serverId: string;
   serverName?: string;
+  /**
+   * When set, runs the custom-compose validate/deploy path and keeps env fields
+   * read-only (values come from the uploaded file).
+   */
+  customCompose?: CustomComposeDeployConfig;
 };
 
 export function DeployConfigurationForm({
   template,
   serverId,
   serverName,
+  customCompose,
 }: DeployConfigurationFormProps) {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,9 +58,14 @@ export function DeployConfigurationForm({
     useState<DeployServiceSummaryStatus | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const editSnapshotRef = useRef<Record<string, unknown>>({});
-  const detailsQuery = useTemplateDetailsQuery(template.slug);
-  const resolvedTemplate = detailsQuery.data ?? template;
+  const detailsQuery = useTemplateDetailsQuery(
+    customCompose ? undefined : template.slug,
+  );
+  const resolvedTemplate = customCompose
+    ? template
+    : (detailsQuery.data ?? template);
   const variables = resolvedTemplate.variables ?? [];
+  const isReadOnly = Boolean(customCompose);
 
   const schema = useMemo(
     () => buildDeployFormSchema(resolvedTemplate),
@@ -71,7 +88,8 @@ export function DeployConfigurationForm({
     getDeploymentSocket();
   }, []);
 
-  const isLoadingFields = detailsQuery.isPending && !detailsQuery.data;
+  const isLoadingFields =
+    !customCompose && detailsQuery.isPending && !detailsQuery.data;
   const { ports, required, optional } = groupTemplateVariables(variables);
   const fieldCount = ports.length + required.length + optional.length;
 
@@ -105,17 +123,26 @@ export function DeployConfigurationForm({
     portValues: Record<string, string>,
     acknowledgeResourceWarning = false,
   ) {
-    navigate(`/servers/${serverId}/deploy/${template.slug}/logs`, {
-      state: {
-        deployRequest: {
-          serverId,
-          templateSlug: template.slug,
-          env,
-          ports: portValues,
-          acknowledgeResourceWarning,
+    navigate(
+      `/servers/${serverId}/deploy/${encodeURIComponent(template.slug)}/logs`,
+      {
+        state: {
+          deployRequest: {
+            serverId,
+            templateSlug: template.slug,
+            env,
+            ports: portValues,
+            acknowledgeResourceWarning,
+            ...(customCompose
+              ? { composeYaml: customCompose.composeYaml }
+              : {}),
+          },
+          ...(customCompose
+            ? { backHref: buildServerDetailHref(serverId, "overview") }
+            : {}),
         },
       },
-    });
+    );
   }
 
   async function handleSubmit(values: Record<string, unknown>) {
@@ -127,12 +154,20 @@ export function DeployConfigurationForm({
     const { env, ports: portValues } = splitDeployFormValues(variables, values);
 
     try {
-      const validation = await validateDeploymentResources({
-        templateSlug: template.slug,
-        serverId,
-        env,
-        ports: portValues,
-      });
+      const validation = customCompose
+        ? await validateCustomComposeResources({
+            composeYaml: customCompose.composeYaml,
+            templateSlug: template.slug,
+            serverId,
+            env,
+            ports: portValues,
+          })
+        : await validateDeploymentResources({
+            templateSlug: template.slug,
+            serverId,
+            env,
+            ports: portValues,
+          });
 
       if (!validation.ok) {
         setPendingDeployValues({ env, ports: portValues });
@@ -191,11 +226,13 @@ export function DeployConfigurationForm({
           <div>
             <h1>Configure deployment</h1>
             <p>
-              Review environment variables and ports for this template. Edit to
-              change values, then save to return to read-only view before deploying.
+              {customCompose
+                ? "Review environment variables from your compose file, then deploy."
+                : "Review environment variables and ports for this template. Edit to change values, then save to return to read-only view before deploying."}
             </p>
           </div>
-          {!isLoadingFields &&
+          {!isReadOnly &&
+            !isLoadingFields &&
             !detailsQuery.isError &&
             variables.length > 0 &&
             !isEditing && (
@@ -215,7 +252,7 @@ export function DeployConfigurationForm({
             onSubmit={form.handleSubmit(handleSubmit)}
           >
             <div className="deploy-configure-form-content">
-              {detailsQuery.isError ? (
+              {!customCompose && detailsQuery.isError ? (
                 <p className="deploy-form-error" role="alert">
                   {getErrorMessage(detailsQuery.error)}
                 </p>
@@ -227,13 +264,13 @@ export function DeployConfigurationForm({
                 <DynamicDeployFields
                   control={form.control}
                   variables={variables}
-                  isEditing={isEditing}
+                  isEditing={isReadOnly ? false : isEditing}
                 />
               )}
             </div>
 
             <footer className="deploy-configure-actions">
-              {isEditing ? (
+              {isEditing && !isReadOnly ? (
                 <>
                   <button
                     type="button"
@@ -258,7 +295,9 @@ export function DeployConfigurationForm({
                   className={`btn-primary deploy-configure-action-btn${isSubmitting ? " is-loading" : ""}`}
                   onClick={() => void handleDeploy()}
                   disabled={
-                    isSubmitting || isLoadingFields || detailsQuery.isError
+                    isSubmitting ||
+                    isLoadingFields ||
+                    (!customCompose && detailsQuery.isError)
                   }
                   aria-busy={isSubmitting}
                 >
