@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import { BackLink } from "@/components/shared/back-link";
 import { DeployConfigurePageSkeleton } from "@/components/shared/skeleton";
-import { formatCustomComposeTemplateSlugLabel } from "@/features/deployments/api/custom-compose";
+import { CUSTOM_TEMPLATE_SLUG } from "@/features/deployments/api/custom-compose";
 import { DeployConfigurationForm } from "@/features/templates/components/deploy-configuration-form";
 import type { ApiTemplate, TemplateVariable } from "@/features/templates/types";
 import { useServerQuery } from "@/features/servers/hooks";
@@ -11,7 +11,7 @@ import "@/features/templates/templates-ui.css";
 
 type CustomComposeConfigureLocationState = {
   composeYaml: string;
-  templateSlug: string;
+  displayName: string;
   variables: TemplateVariable[];
   fileName?: string;
 };
@@ -27,41 +27,21 @@ export function CustomComposeConfigurePage() {
   const serverQuery = useServerQuery(serverId);
 
   const composeYaml = locationState?.composeYaml;
-  const templateSlug = locationState?.templateSlug;
-
-  const serviceLabel = (() => {
-    try {
-      return templateSlug
-        ? formatCustomComposeTemplateSlugLabel(templateSlug)
-        : "Custom Compose";
-    } catch {
-      return "Custom Compose";
-    }
-  })();
+  const displayName = locationState?.displayName;
 
   const syntheticTemplate = useMemo<ApiTemplate>(() => {
-    try {
-      return {
-        slug: templateSlug ?? "custom-compose",
-        name: serviceLabel,
-        shortDescription: "User-uploaded Docker Compose stack",
-        category: ["custom"],
-        tags: ["custom", "compose"],
-        port: null,
-        variables: locationState?.variables ?? [],
-      };
-    } catch {
-      return {
-        slug: templateSlug ?? "custom-compose",
-        name: serviceLabel,
-        shortDescription: "User-uploaded Docker Compose stack",
-        category: ["custom"],
-        tags: ["custom", "compose"],
-        port: null,
-        variables: [],
-      };
-    }
-  }, [locationState?.variables, serviceLabel, templateSlug]);
+    const resolvedName = displayName?.trim() || "Custom Compose";
+
+    return {
+      slug: CUSTOM_TEMPLATE_SLUG,
+      name: resolvedName,
+      shortDescription: "User-uploaded Docker Compose stack",
+      category: ["custom"],
+      tags: ["custom", "compose"],
+      port: null,
+      variables: locationState?.variables ?? [],
+    };
+  }, [displayName, locationState?.variables]);
 
   if (!serverId) {
     return <Navigate to="/servers" replace />;
@@ -69,7 +49,7 @@ export function CustomComposeConfigurePage() {
 
   const backHref = `/servers/${encodeURIComponent(serverId)}/custom-compose/upload`;
 
-  if (!composeYaml || !templateSlug) {
+  if (!composeYaml || !displayName) {
     return <Navigate to={backHref} replace />;
   }
 
@@ -93,7 +73,7 @@ export function CustomComposeConfigurePage() {
         template={syntheticTemplate}
         serverId={serverId}
         serverName={serverQuery.data.name}
-        customCompose={{ composeYaml }}
+        customCompose={{ composeYaml, displayName }}
       />
     </div>
   );

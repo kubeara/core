@@ -4,8 +4,8 @@ import { BackLink } from "@/components/shared/back-link";
 import { Input } from "@/components/ui/input";
 import { getErrorMessage } from "@/api/api-error";
 import {
-  getCustomComposeTemplateSlugValidationError,
-  normalizeCustomComposeTemplateSlug,
+  getCustomComposeDisplayNameValidationError,
+  normalizeCustomComposeDisplayName,
   validateCustomComposeUpload,
 } from "@/features/deployments/api/custom-compose";
 import { useServerQuery } from "@/features/servers/hooks";
@@ -101,7 +101,7 @@ export function CustomComposeUploadPage() {
 
     setComposeIssues([]);
 
-    const nameError = getCustomComposeTemplateSlugValidationError(deploymentName);
+    const nameError = getCustomComposeDisplayNameValidationError(deploymentName);
     setDeploymentNameError(nameError);
 
     const nextFileError = validateSelectedFile(selectedFile);
@@ -124,12 +124,12 @@ export function CustomComposeUploadPage() {
         return;
       }
 
-      const templateSlug = normalizeCustomComposeTemplateSlug(deploymentName);
+      const displayName = normalizeCustomComposeDisplayName(deploymentName);
 
       navigate(`/servers/${serverId}/custom-compose/configure`, {
         state: {
           composeYaml: content,
-          templateSlug,
+          displayName,
           variables: result.variables,
           fileName: selectedFile.name,
         },

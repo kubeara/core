@@ -2,8 +2,10 @@ import {
   deriveCustomComposeTemplateSlug,
   encodeComposeYamlToPayload,
   formatCustomComposeTemplateSlugLabel,
+  getCustomComposeDisplayNameValidationError,
   getCustomComposeTemplateSlugValidationError,
   listCustomComposeServiceSlugs,
+  normalizeCustomComposeDisplayName,
   normalizeCustomComposeTemplateSlug,
   validateCustomComposeStructure,
   validateUploadedCustomCompose,
@@ -85,7 +87,19 @@ services:
     ]);
   });
 
-  it("normalizes user-provided deployment names without changing case", () => {
+  it("validates user-provided custom deployment display names", () => {
+    expect(normalizeCustomComposeDisplayName(" Production API ")).toBe(
+      "Production API",
+    );
+    expect(getCustomComposeDisplayNameValidationError("")).toBe(
+      "Deployment name is required",
+    );
+    expect(getCustomComposeDisplayNameValidationError("Production API")).toBe(
+      null,
+    );
+  });
+
+  it("normalizes suggested slugs without changing case", () => {
     expect(normalizeCustomComposeTemplateSlug("Production API")).toBe(
       "Production-API",
     );

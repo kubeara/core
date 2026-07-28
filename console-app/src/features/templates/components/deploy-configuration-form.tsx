@@ -16,7 +16,9 @@ import { groupTemplateVariables } from "../utils/field-utils";
 import { getDeploymentSocket } from "@/lib/socket/deployment-socket-client";
 import { showErrorToast } from "@/lib/toast";
 import { validateDeploymentResources } from "@/features/deployments/api";
-import { validateCustomComposeResources } from "@/features/deployments/api/custom-compose";
+import {
+  validateCustomComposeResources,
+} from "@/features/deployments/api/custom-compose";
 import { DeployResourceWarningConfirmModal } from "@/features/deployments/components/deploy-resource-warning-confirm-modal";
 import { DEPLOYMENT_VALIDATION_IN_PROGRESS_MESSAGE } from "@/features/deployments/constants/deployment-validation-messages";
 import type { DeploymentResourceWarningCode } from "@/features/deployments/types";
@@ -27,6 +29,7 @@ import type { DeployServiceSummaryStatus } from "./deploy-service-summary-card";
 
 type CustomComposeDeployConfig = {
   composeYaml: string;
+  displayName: string;
 };
 
 type DeployConfigurationFormProps = {
@@ -134,7 +137,10 @@ export function DeployConfigurationForm({
             ports: portValues,
             acknowledgeResourceWarning,
             ...(customCompose
-              ? { composeYaml: customCompose.composeYaml }
+              ? {
+                  composeYaml: customCompose.composeYaml,
+                  displayName: customCompose.displayName,
+                }
               : {}),
           },
           ...(customCompose
@@ -157,7 +163,7 @@ export function DeployConfigurationForm({
       const validation = customCompose
         ? await validateCustomComposeResources({
             composeYaml: customCompose.composeYaml,
-            templateSlug: template.slug,
+            displayName: customCompose.displayName,
             serverId,
             env,
             ports: portValues,

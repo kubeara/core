@@ -21,8 +21,14 @@ export class ServiceDeploymentEntity extends AuditableEntity {
   @PrimaryColumn({ type: "varchar", length: 128 })
   id!: string;
 
+  @Column({ type: "uuid", nullable: true })
+  serviceTemplateId!: string | null;
+
   @Column({ type: "varchar", length: 255 })
   templateSlug!: string;
+
+  @Column({ type: "varchar", length: 255, nullable: true })
+  displayName!: string | null;
 
   @Column({ type: "uuid", nullable: true })
   serverId!: string | null;
@@ -39,7 +45,7 @@ export class ServiceDeploymentEntity extends AuditableEntity {
   user?: UserEntity | null;
 
   @ManyToOne(() => ServiceTemplateEntity, { nullable: true })
-  @JoinColumn({ name: "templateSlug", referencedColumnName: "slug" })
+  @JoinColumn({ name: "serviceTemplateId", referencedColumnName: "id" })
   template?: ServiceTemplateEntity | null;
 
   @Column({

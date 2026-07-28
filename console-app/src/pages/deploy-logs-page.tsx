@@ -11,8 +11,9 @@ import { DeploymentLogs } from "@/components/deployment-logs";
 import { deployTemplate } from "@/features/deployments/api";
 import {
   deployCustomCompose,
-  formatCustomComposeTemplateSlugLabel,
+  CUSTOM_TEMPLATE_SLUG,
 } from "@/features/deployments/api/custom-compose";
+import { useDeploymentQuery } from "@/features/deployments/hooks";
 import { useTemplateDetailsQuery } from "@/features/templates/hooks";
 import {
   getDeploymentSocket,
@@ -33,6 +34,7 @@ type PendingDeployLocationState = {
   > & {
     /** Present for custom compose uploads; triggers the custom deploy API. */
     composeYaml?: string;
+    displayName?: string;
   };
   /** Optional override when opening logs from Activity (or elsewhere). */
   backHref?: string;
@@ -60,9 +62,14 @@ export function DeployLogsPage() {
   const [startError, setStartError] = useState<string | null>(null);
   const locationState = location.state as PendingDeployLocationState | null;
   const pendingDeploy = locationState?.deployRequest;
-  const isCustomCompose = Boolean(pendingDeploy?.composeYaml);
+  const isCustomCompose =
+    templateSlug === CUSTOM_TEMPLATE_SLUG ||
+    Boolean(pendingDeploy?.composeYaml);
   const templateQuery = useTemplateDetailsQuery(
     isCustomCompose ? undefined : templateSlug,
+  );
+  const deploymentQuery = useDeploymentQuery(
+    isCustomCompose ? deploymentId : undefined,
   );
   const backHref =
     locationState?.backHref ??
@@ -125,7 +132,7 @@ export function DeployLogsPage() {
       ? deployCustomCompose({
           composeYaml: pendingDeploy.composeYaml,
           serverId,
-          templateSlug: pendingDeploy.templateSlug ?? templateSlug,
+          displayName: pendingDeploy.displayName ?? "Custom Compose",
           env: pendingDeploy.env,
           ports: pendingDeploy.ports,
           acknowledgeResourceWarning: pendingDeploy.acknowledgeResourceWarning,
@@ -153,9 +160,18 @@ export function DeployLogsPage() {
           `/servers/${serverId}/deploy/${encodeURIComponent(templateSlug)}/logs?deploymentId=${encodeURIComponent(id)}`,
           {
             replace: true,
-            state: locationState?.backHref
-              ? { backHref: locationState.backHref }
-              : null,
+            state: {
+              ...(locationState?.backHref
+                ? { backHref: locationState.backHref }
+                : {}),
+              ...(pendingDeploy?.displayName
+                ? {
+                    deployRequest: {
+                      displayName: pendingDeploy.displayName,
+                    },
+                  }
+                : {}),
+            },
           },
         );
       })
@@ -202,17 +218,23 @@ export function DeployLogsPage() {
   }
 
   const template = templateQuery.data;
-  const displayName = template
-    ? template.name
-    : formatCustomComposeTemplateSlugLabel(templateSlug);
-  const displayDescription =
-    template?.shortDescription ??
-    (template ? "" : "User-uploaded Docker Compose stack");
-  const displayCategory = template
-    ? (formatTemplateCategory(template.category) ?? "")
-    : "Custom";
+  const customDisplayName =
+    pendingDeploy?.displayName?.trim() ||
+    deploymentQuery.data?.displayName?.trim() ||
+    "Custom Compose";
+  const displayName = isCustomCompose
+    ? customDisplayName
+    : template
+      ? template.name
+      : templateSlug;
+  const displayDescription = isCustomCompose
+    ? "User-uploaded Docker Compose stack"
+    : (template?.shortDescription ?? "");
+  const displayCategory = isCustomCompose
+    ? "Custom"
+    : (formatTemplateCategory(template?.category) ?? "");
   const displayColor = getTemplateAccentColor(
-    template?.slug ?? templateSlug.split("-")[0] ?? templateSlug,
+    template?.slug ?? (isCustomCompose ? CUSTOM_TEMPLATE_SLUG : templateSlug),
   );
 
   return (

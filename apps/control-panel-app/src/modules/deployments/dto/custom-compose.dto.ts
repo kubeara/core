@@ -29,7 +29,7 @@ export class DeployCustomComposeDto {
   @IsString()
   @MinLength(1)
   @MaxLength(255)
-  templateSlug!: string;
+  displayName!: string;
 
   @IsOptional()
   @IsUUID()

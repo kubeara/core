@@ -108,7 +108,7 @@ export class DeploymentsController {
         serverId: body.serverId,
         deployOnLocal: body.deployOnLocal,
         composeYaml: body.composeYaml,
-        templateSlug: body.templateSlug,
+        displayName: body.displayName,
         requestEnv,
         requestPorts,
         useTraefikRequest: body.useTraefik,
@@ -163,7 +163,7 @@ export class DeploymentsController {
       const prepared =
         await this.deploymentsService.prepareCustomComposeDeployment({
           composeYaml: body.composeYaml,
-          templateSlug: body.templateSlug,
+          displayName: body.displayName,
           serverId,
           userId,
           requestEnv,
@@ -652,6 +652,7 @@ export class DeploymentsController {
       return {
         id: deployment.id,
         templateSlug: deployment.templateSlug,
+        displayName: deployment.displayName,
         deploymentType: deployment.deploymentType,
         serverId: deployment.serverId,
         userId: deployment.userId,

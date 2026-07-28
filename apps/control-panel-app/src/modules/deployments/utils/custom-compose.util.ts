@@ -254,6 +254,45 @@ export function deriveCustomComposeTemplateSlug(
 }
 
 /**
+ * Normalizes a user-provided custom deployment display name.
+ */
+export function normalizeCustomComposeDisplayName(value: string): string {
+  try {
+    return value.trim().slice(0, 255);
+  } catch (error) {
+    throw new Error(
+      `Failed to normalize custom compose display name: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+/**
+ * Returns a validation error message when a deployment display name is invalid.
+ */
+export function getCustomComposeDisplayNameValidationError(
+  value: string,
+): string | null {
+  try {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return "Deployment name is required";
+    }
+
+    if (trimmed.length < 2) {
+      return "Deployment name must be at least 2 characters";
+    }
+
+    if (!/[a-zA-Z0-9]/.test(trimmed)) {
+      return "Deployment name must include letters or numbers";
+    }
+
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "Invalid deployment name";
+  }
+}
+
+/**
  * Normalizes a user-provided custom deployment name into a templateSlug value.
  * Preserves letter casing; only trims, hyphenates spaces, and strips invalid characters.
  */

@@ -66,12 +66,12 @@ import {
 } from "./dto/deployment.types";
 import { DEPLOYMENT_MESSAGES } from "./constants/deployment-messages.constants";
 import { DeploymentType } from "./enums/deployment-type.enum";
+import { CUSTOM_TEMPLATE_SLUG } from "./constants/custom-compose.constants";
 import { resolveCustomComposeDeploymentVariables } from "./utils/custom-compose-env.util";
 import {
   encodeComposeYamlToPayload,
-  formatCustomComposeTemplateSlugLabel,
-  getCustomComposeTemplateSlugValidationError,
-  normalizeCustomComposeTemplateSlug,
+  getCustomComposeDisplayNameValidationError,
+  normalizeCustomComposeDisplayName,
   validateUploadedCustomCompose,
   type CustomComposeValidationResult,
 } from "./utils/custom-compose.util";
@@ -793,6 +793,7 @@ export class DeploymentsService {
       await this.upsertDeploymentRecord({
         deploymentId,
         templateSlug,
+        serviceTemplateId: template.id,
         serverId,
         userId,
         deploymentStatus: DeploymentStatus.PENDING,
@@ -917,6 +918,7 @@ export class DeploymentsService {
       await this.upsertDeploymentRecord({
         deploymentId,
         templateSlug,
+        serviceTemplateId: template.id,
         serverId,
         userId,
         deploymentStatus: DeploymentStatus.PENDING,
@@ -1090,7 +1092,7 @@ export class DeploymentsService {
     try {
       const {
         composeYaml,
-        templateSlug: rawTemplateSlug,
+        displayName: rawDisplayName,
         serverId,
         userId,
         requestEnv = {},
@@ -1099,13 +1101,23 @@ export class DeploymentsService {
         serverUrlContext: serverUrlContextInput,
       } = input;
 
-      const slugError =
-        getCustomComposeTemplateSlugValidationError(rawTemplateSlug);
-      if (slugError) {
-        throw new BadRequestException(slugError);
+      const displayNameError =
+        getCustomComposeDisplayNameValidationError(rawDisplayName);
+      if (displayNameError) {
+        throw new BadRequestException(displayNameError);
       }
 
-      const templateSlug = normalizeCustomComposeTemplateSlug(rawTemplateSlug);
+      const displayName = normalizeCustomComposeDisplayName(rawDisplayName);
+      const templateSlug = CUSTOM_TEMPLATE_SLUG;
+
+      const customTemplate = await this.templateRepository.findOne({
+        where: { slug: CUSTOM_TEMPLATE_SLUG },
+      });
+      if (!customTemplate) {
+        throw new NotFoundException(
+          `Custom template '${CUSTOM_TEMPLATE_SLUG}' not found`,
+        );
+      }
 
       const validation = validateUploadedCustomCompose(composeYaml);
       if (!validation.valid) {
@@ -1136,6 +1148,8 @@ export class DeploymentsService {
         await this.upsertDeploymentRecord({
           deploymentId,
           templateSlug,
+          serviceTemplateId: customTemplate.id,
+          displayName,
           serverId,
           userId,
           deploymentStatus: DeploymentStatus.PENDING,
@@ -1273,7 +1287,7 @@ export class DeploymentsService {
     serverId?: string;
     deployOnLocal?: boolean;
     composeYaml: string;
-    templateSlug: string;
+    displayName: string;
     requestEnv?: Record<string, unknown>;
     requestPorts?: Record<string, unknown>;
     useTraefikRequest?: boolean;
@@ -1362,16 +1376,16 @@ export class DeploymentsService {
         requestPorts: input.requestPorts,
       });
 
-      const prepared = await this.prepareCustomComposeDeployment({
-        composeYaml: input.composeYaml,
-        templateSlug: input.templateSlug,
-        serverId,
-        userId,
-        requestEnv: input.requestEnv,
-        requestPorts: input.requestPorts,
-        serverUrlContext,
-        persist: false,
-      });
+    const prepared = await this.prepareCustomComposeDeployment({
+      composeYaml: input.composeYaml,
+      displayName: input.displayName,
+      serverId,
+      userId,
+      requestEnv: input.requestEnv,
+      requestPorts: input.requestPorts,
+      serverUrlContext,
+      persist: false,
+    });
 
       const encryptedCompose = this.encryptionService.encrypt(
         prepared.encodedCompose,
@@ -2249,6 +2263,8 @@ export class DeploymentsService {
   private async upsertDeploymentRecord(opts: {
     deploymentId: string;
     templateSlug: string;
+    serviceTemplateId?: string | null;
+    displayName?: string | null;
     serverId: string;
     userId: string;
     deploymentStatus: DeploymentStatus;
@@ -2262,6 +2278,12 @@ export class DeploymentsService {
 
       if (existing) {
         existing.templateSlug = opts.templateSlug;
+        if (opts.serviceTemplateId !== undefined) {
+          existing.serviceTemplateId = opts.serviceTemplateId;
+        }
+        if (opts.displayName !== undefined) {
+          existing.displayName = opts.displayName;
+        }
         existing.serverId = opts.serverId;
         existing.userId = opts.userId;
         existing.deploymentStatus = opts.deploymentStatus;
@@ -2278,6 +2300,8 @@ export class DeploymentsService {
       const deployment = this.deploymentRepository.create({
         id: opts.deploymentId,
         templateSlug: opts.templateSlug,
+        serviceTemplateId: opts.serviceTemplateId ?? null,
+        displayName: opts.displayName ?? null,
         serverId: opts.serverId,
         userId: opts.userId,
         deploymentStatus: opts.deploymentStatus,
@@ -2330,7 +2354,7 @@ export class DeploymentsService {
     deployment: ServiceDeploymentEntity,
   ): string | null {
     if (deployment.deploymentType === DeploymentType.CUSTOM_SERVICE) {
-      return formatCustomComposeTemplateSlugLabel(deployment.templateSlug);
+      return deployment.displayName?.trim() || deployment.template?.name || null;
     }
 
     return deployment.template?.name?.trim() || null;

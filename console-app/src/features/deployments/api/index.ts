@@ -185,6 +185,7 @@ export async function fetchDeployment(
   return {
     id: String(data.id ?? deploymentId),
     templateSlug: String(data.templateSlug ?? ""),
+    displayName: (data.displayName as string | null) ?? null,
     serverId: (data.serverId as string | null) ?? null,
     deploymentStatus: data.deploymentStatus as DeploymentDetail["deploymentStatus"],
     statusMessage: (data.statusMessage as string | null) ?? null,

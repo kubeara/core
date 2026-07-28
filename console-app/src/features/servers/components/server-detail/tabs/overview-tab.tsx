@@ -260,7 +260,7 @@ export function ServerOverviewTab({
             )
           }
         >
-          Upload custom yml
+          Custom Deployment
         </button>
       </div>
 

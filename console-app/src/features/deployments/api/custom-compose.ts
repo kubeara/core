@@ -6,6 +6,9 @@ import type {
   ValidateDeploymentResourcesResult,
 } from "../types";
 
+/** Slug for the internal custom-compose service template (not listed in marketplace). */
+export const CUSTOM_TEMPLATE_SLUG = "custom";
+
 export interface ValidateCustomComposeResult {
   valid: true;
   suggestedTemplateSlug: string;
@@ -18,12 +21,13 @@ export interface ValidateCustomComposeError {
 }
 
 export type ValidateCustomComposeResponse =
-  ValidateCustomComposeResult | ValidateCustomComposeError;
+  | ValidateCustomComposeResult
+  | ValidateCustomComposeError;
 
 export interface DeployCustomComposeInput {
   composeYaml: string;
   serverId: string;
-  templateSlug: string;
+  displayName: string;
   env?: Record<string, string>;
   ports?: Record<string, string>;
   deploymentId?: string;
@@ -48,33 +52,22 @@ function responseBody(response: { data: unknown }): Record<string, unknown> {
 }
 
 /**
- * Normalizes a user-provided custom deployment name into a templateSlug value.
- * Preserves letter casing; only trims, hyphenates spaces, and strips invalid characters.
+ * Normalizes a user-provided custom deployment display name.
  */
-export function normalizeCustomComposeTemplateSlug(value: string): string {
+export function normalizeCustomComposeDisplayName(value: string): string {
   try {
-    const cleaned = value
-      .trim()
-      .replace(/[\s_]+/g, "-")
-      .replace(/[^a-zA-Z0-9-]+/g, "");
-
-    // Avoid /-+/ ReDoS on user input: collapse/trim hyphens in linear time.
-    return cleaned
-      .split("-")
-      .filter((segment) => segment.length > 0)
-      .join("-")
-      .slice(0, 255);
+    return value.trim().slice(0, 255);
   } catch (error) {
     throw new Error(
-      `Failed to normalize custom compose template slug: ${error instanceof Error ? error.message : String(error)}`,
+      `Failed to normalize custom compose display name: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 }
 
 /**
- * Returns a validation error message when a deployment name is invalid, or null if valid.
+ * Returns a validation error message when a deployment display name is invalid.
  */
-export function getCustomComposeTemplateSlugValidationError(
+export function getCustomComposeDisplayNameValidationError(
   value: string,
 ): string | null {
   try {
@@ -83,36 +76,17 @@ export function getCustomComposeTemplateSlugValidationError(
       return "Deployment name is required";
     }
 
-    const normalized = normalizeCustomComposeTemplateSlug(trimmed);
-    if (!normalized) {
-      return "Deployment name must include letters or numbers";
+    if (trimmed.length < 2) {
+      return "Deployment name must be at least 2 characters";
     }
 
-    if (normalized.length < 2) {
-      return "Deployment name must be at least 2 characters";
+    if (!/[a-zA-Z0-9]/.test(trimmed)) {
+      return "Deployment name must include letters or numbers";
     }
 
     return null;
   } catch (error) {
     return error instanceof Error ? error.message : "Invalid deployment name";
-  }
-}
-
-/**
- * Formats a custom compose templateSlug for display in the UI.
- */
-export function formatCustomComposeTemplateSlugLabel(
-  templateSlug: string,
-): string {
-  try {
-    const trimmed = templateSlug.trim();
-    if (!trimmed) {
-      return "Custom Compose";
-    }
-
-    return trimmed.replace(/-/g, " ");
-  } catch {
-    return "Custom Compose";
   }
 }
 
@@ -149,7 +123,7 @@ export async function validateCustomComposeUpload(input: {
 export async function validateCustomComposeResources(input: {
   composeYaml: string;
   serverId: string;
-  templateSlug: string;
+  displayName: string;
   env?: Record<string, string>;
   ports?: Record<string, string>;
 }): Promise<ValidateDeploymentResourcesResult> {
@@ -159,7 +133,7 @@ export async function validateCustomComposeResources(input: {
       {
         composeYaml: input.composeYaml,
         serverId: input.serverId,
-        templateSlug: input.templateSlug,
+        displayName: input.displayName,
         env: input.env ?? {},
         ports: input.ports ?? {},
       },
@@ -194,7 +168,7 @@ export async function deployCustomCompose(
       {
         composeYaml: input.composeYaml,
         serverId: input.serverId,
-        templateSlug: input.templateSlug,
+        displayName: input.displayName,
         env: input.env ?? {},
         ports: input.ports ?? {},
         deploymentId: input.deploymentId,
