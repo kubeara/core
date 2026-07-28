@@ -1376,16 +1376,16 @@ export class DeploymentsService {
         requestPorts: input.requestPorts,
       });
 
-    const prepared = await this.prepareCustomComposeDeployment({
-      composeYaml: input.composeYaml,
-      displayName: input.displayName,
-      serverId,
-      userId,
-      requestEnv: input.requestEnv,
-      requestPorts: input.requestPorts,
-      serverUrlContext,
-      persist: false,
-    });
+      const prepared = await this.prepareCustomComposeDeployment({
+        composeYaml: input.composeYaml,
+        displayName: input.displayName,
+        serverId,
+        userId,
+        requestEnv: input.requestEnv,
+        requestPorts: input.requestPorts,
+        serverUrlContext,
+        persist: false,
+      });
 
       const encryptedCompose = this.encryptionService.encrypt(
         prepared.encodedCompose,
@@ -2354,7 +2354,9 @@ export class DeploymentsService {
     deployment: ServiceDeploymentEntity,
   ): string | null {
     if (deployment.deploymentType === DeploymentType.CUSTOM_SERVICE) {
-      return deployment.displayName?.trim() || deployment.template?.name || null;
+      return (
+        deployment.displayName?.trim() || deployment.template?.name || null
+      );
     }
 
     return deployment.template?.name?.trim() || null;
