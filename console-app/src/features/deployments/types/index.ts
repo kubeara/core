@@ -25,6 +25,7 @@ export interface ServerDeploymentSummary {
 export interface DeploymentDetail {
   id: string;
   templateSlug: string;
+  displayName: string | null;
   serverId: string | null;
   deploymentStatus: DeploymentStatus;
   statusMessage: string | null;

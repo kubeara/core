@@ -9,6 +9,11 @@ import {
 import { getErrorMessage } from "@/api/api-error";
 import { DeploymentLogs } from "@/components/deployment-logs";
 import { deployTemplate } from "@/features/deployments/api";
+import {
+  deployCustomCompose,
+  CUSTOM_TEMPLATE_SLUG,
+} from "@/features/deployments/api/custom-compose";
+import { useDeploymentQuery } from "@/features/deployments/hooks";
 import { useTemplateDetailsQuery } from "@/features/templates/hooks";
 import {
   getDeploymentSocket,
@@ -26,17 +31,21 @@ type PendingDeployLocationState = {
   deployRequest?: Pick<
     DeployTemplateRequest,
     "env" | "ports" | "templateSlug" | "serverId" | "acknowledgeResourceWarning"
-  >;
+  > & {
+    /** Present for custom compose uploads; triggers the custom deploy API. */
+    composeYaml?: string;
+    displayName?: string;
+  };
   /** Optional override when opening logs from Activity (or elsewhere). */
   backHref?: string;
 };
 
 /**
- * Deployment logs page for a template deployment on a specific server.
+ * Deployment logs page for a template or custom-compose deployment on a server.
  *
  * URL:  /servers/:serverId/deploy/:templateSlug/logs
  * Query: ?deploymentId=... (set after deploy starts)
- * State: { deployRequest: { serverId, templateSlug, env } } for fresh deploys
+ * State: { deployRequest: { serverId, templateSlug, env, composeYaml? } }
  */
 export function DeployLogsPage() {
   const { serverId, templateSlug } = useParams<{
@@ -51,11 +60,25 @@ export function DeployLogsPage() {
   );
   const [isStarting, setIsStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
-  const templateQuery = useTemplateDetailsQuery(templateSlug);
   const locationState = location.state as PendingDeployLocationState | null;
+  const pendingDeploy = locationState?.deployRequest;
+  const isCustomCompose =
+    templateSlug === CUSTOM_TEMPLATE_SLUG ||
+    Boolean(pendingDeploy?.composeYaml);
+  const templateQuery = useTemplateDetailsQuery(
+    isCustomCompose ? undefined : templateSlug,
+  );
+  const deploymentQuery = useDeploymentQuery(
+    isCustomCompose ? deploymentId : undefined,
+  );
   const backHref =
     locationState?.backHref ??
-    (serverId ? buildServerDetailHref(serverId, "templates") : "/servers");
+    (serverId
+      ? buildServerDetailHref(
+          serverId,
+          isCustomCompose ? "overview" : "templates",
+        )
+      : "/servers");
 
   const handleDeploymentFailed = useCallback(
     (message: string) => {
@@ -65,7 +88,6 @@ export function DeployLogsPage() {
     [backHref, navigate],
   );
 
-  const pendingDeploy = locationState?.deployRequest;
   const deployStartedRef = useRef(false);
 
   useEffect(() => {
@@ -106,13 +128,24 @@ export function DeployLogsPage() {
     setIsStarting(true);
     setStartError(null);
 
-    void deployTemplate({
-      templateSlug,
-      serverId,
-      env: pendingDeploy.env,
-      ports: pendingDeploy.ports,
-      acknowledgeResourceWarning: pendingDeploy.acknowledgeResourceWarning,
-    })
+    const deployPromise = pendingDeploy.composeYaml
+      ? deployCustomCompose({
+          composeYaml: pendingDeploy.composeYaml,
+          serverId,
+          displayName: pendingDeploy.displayName ?? "Custom Compose",
+          env: pendingDeploy.env,
+          ports: pendingDeploy.ports,
+          acknowledgeResourceWarning: pendingDeploy.acknowledgeResourceWarning,
+        })
+      : deployTemplate({
+          templateSlug,
+          serverId,
+          env: pendingDeploy.env,
+          ports: pendingDeploy.ports,
+          acknowledgeResourceWarning: pendingDeploy.acknowledgeResourceWarning,
+        });
+
+    void deployPromise
       .then((result) => {
         if (cancelled) return;
         const id = result.deploymentId;
@@ -124,8 +157,22 @@ export function DeployLogsPage() {
           socket.once("connect", () => subscribeDeploymentLogs(id));
         }
         navigate(
-          `/servers/${serverId}/deploy/${templateSlug}/logs?deploymentId=${encodeURIComponent(id)}`,
-          { replace: true, state: null },
+          `/servers/${serverId}/deploy/${encodeURIComponent(templateSlug)}/logs?deploymentId=${encodeURIComponent(id)}`,
+          {
+            replace: true,
+            state: {
+              ...(locationState?.backHref
+                ? { backHref: locationState.backHref }
+                : {}),
+              ...(pendingDeploy?.displayName
+                ? {
+                    deployRequest: {
+                      displayName: pendingDeploy.displayName,
+                    },
+                  }
+                : {}),
+            },
+          },
         );
       })
       .catch((error: unknown) => {
@@ -139,31 +186,66 @@ export function DeployLogsPage() {
     return () => {
       cancelled = true;
     };
-  }, [deploymentId, navigate, pendingDeploy, serverId, templateSlug]);
+  }, [
+    deploymentId,
+    locationState?.backHref,
+    navigate,
+    pendingDeploy,
+    serverId,
+    templateSlug,
+  ]);
 
   if (!serverId || !templateSlug) {
     return <Navigate to="/servers" replace />;
   }
 
-  if (templateQuery.isPending) {
+  // Platform templates: wait for details before first paint (unless already deploying).
+  if (!isCustomCompose && !deploymentId && templateQuery.isPending) {
     return <DeployLogsPageSkeleton />;
   }
 
-  if (templateQuery.isError || !templateQuery.data) {
+  // Platform templates: missing template and no in-flight deploy.
+  if (
+    !isCustomCompose &&
+    !deploymentId &&
+    (templateQuery.isError || !templateQuery.data)
+  ) {
     return <NotFoundPage />;
   }
 
+  if (!deploymentId && pendingDeploy && isStarting) {
+    return <DeployLogsPageSkeleton />;
+  }
+
   const template = templateQuery.data;
+  const customDisplayName =
+    pendingDeploy?.displayName?.trim() ||
+    deploymentQuery.data?.displayName?.trim() ||
+    "Custom Compose";
+  const displayName = isCustomCompose
+    ? customDisplayName
+    : template
+      ? template.name
+      : templateSlug;
+  const displayDescription = isCustomCompose
+    ? "User-uploaded Docker Compose stack"
+    : (template?.shortDescription ?? "");
+  const displayCategory = isCustomCompose
+    ? "Custom"
+    : (formatTemplateCategory(template?.category) ?? "");
+  const displayColor = getTemplateAccentColor(
+    template?.slug ?? (isCustomCompose ? CUSTOM_TEMPLATE_SLUG : templateSlug),
+  );
 
   return (
     <DeploymentLogs
       template={{
-        id: template.slug,
-        name: template.name,
-        description: template.shortDescription ?? "",
-        category: formatTemplateCategory(template.category) ?? "",
-        color: getTemplateAccentColor(template.slug),
-        logo: template.logo ?? null,
+        id: template?.slug ?? templateSlug,
+        name: displayName,
+        description: displayDescription,
+        category: displayCategory,
+        color: displayColor,
+        logo: template?.logo ?? null,
       }}
       deploymentId={deploymentId}
       serverId={serverId}

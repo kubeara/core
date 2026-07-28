@@ -1,6 +1,7 @@
 import { describe, it, expect } from "@jest/globals";
 
 import {
+  buildDeployedComposeYaml,
   extractComposeVariables,
   findMissingComposeVariables,
   findUnknownPortKeys,
@@ -289,5 +290,27 @@ services:
     );
     expect(resolved.env.SERVICE_URL_N8N_5678).toBeUndefined();
     expect(resolved.ports.SERVICE_PORT_N8N).toBeUndefined();
+  });
+
+  it("buildDeployedComposeYaml substitutes resolved env and port values", () => {
+    const compose = `
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - '\${SERVICE_PORT_WEB:-8080}:80'
+    environment:
+      APP_ENV: \${APP_ENV:-production}
+`;
+
+    const deployed = buildDeployedComposeYaml(
+      compose,
+      { APP_ENV: "staging" },
+      { SERVICE_PORT_WEB: 9090 },
+    );
+
+    expect(deployed).toContain("9090:80");
+    expect(deployed).toContain("APP_ENV: staging");
+    expect(deployed).not.toContain("${");
   });
 });

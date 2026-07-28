@@ -26,8 +26,13 @@ import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
 
 import { DeployTemplateDto } from "./dto/deploy-template.dto";
 import { ContainerLogsStopDto } from "./dto/container-logs.dto";
+import {
+  DeployCustomComposeDto,
+  ValidateCustomComposeDto,
+} from "./dto/custom-compose.dto";
 import { DeploymentsService } from "./deployments.service";
 import { UpdateEnvironmentVariablesDto } from "./dto/update-environment-variables.dto";
+import { DeploymentMode } from "./enums/deployment-type.enum";
 
 @Controller("deployments")
 @UseGuards(AccessTokenGuard)
@@ -35,6 +40,159 @@ export class DeploymentsController {
   private readonly logger = new Logger(DeploymentsController.name);
 
   constructor(private readonly deploymentsService: DeploymentsService) {}
+
+  /**
+   * Validates an uploaded Docker Compose file and returns extracted variables.
+   */
+  @Post("custom-compose/validate")
+  @HttpCode(200)
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  validateCustomCompose(@Body() body: ValidateCustomComposeDto):
+    | {
+        valid: true;
+        suggestedTemplateSlug: string;
+        variables: Array<{
+          name: string;
+          type: string;
+          required: boolean;
+          defaultValue: string | number | boolean | null;
+          hasRequiredOccurrence: boolean;
+          hasDefaultSyntax: boolean;
+        }>;
+      }
+    | {
+        valid: false;
+        issues: Array<{ path: string; message: string }>;
+      } {
+    try {
+      const result = this.deploymentsService.validateCustomComposeUpload(
+        body.composeYaml,
+      );
+
+      if (!result.valid) {
+        return { valid: false, issues: result.issues };
+      }
+
+      return {
+        valid: true,
+        suggestedTemplateSlug: result.suggestedTemplateSlug,
+        variables: result.variables,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Custom compose validation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Verifies RAM, ports, and CPU for a custom compose deployment before deploy.
+   */
+  @Post("custom-compose/resources/check")
+  @HttpCode(200)
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  async validateCustomComposeBeforeDeploy(
+    @Req() req: { user: UserEntity },
+    @Body() body: DeployCustomComposeDto,
+  ): Promise<
+    | { available: true }
+    | { available: false; warning: { code: string; message: string } }
+  > {
+    try {
+      const { env: requestEnv, ports: requestPorts } =
+        normalizeDeployRequestVariables(body.env ?? {}, body.ports ?? {});
+
+      return await this.deploymentsService.validateCustomComposeBeforeDeploy({
+        userId: req.user.id,
+        serverId: body.serverId,
+        deployOnLocal: body.deployOnLocal,
+        composeYaml: body.composeYaml,
+        displayName: body.displayName,
+        requestEnv,
+        requestPorts,
+        useTraefikRequest: body.useTraefik,
+      });
+    } catch (error) {
+      this.logger.error(
+        `Custom compose resource validation failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
+
+  /**
+   * Deploys a user-uploaded Docker Compose file to a remote server.
+   */
+  @Post("custom-compose")
+  @HttpCode(202)
+  @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
+  async deployCustomCompose(
+    @Req() req: { user: UserEntity },
+    @Body() body: DeployCustomComposeDto,
+    @Query("acknowledgeResourceWarning") acknowledgeResourceWarning?: string,
+  ): Promise<{
+    message: string;
+    template: string;
+    deploymentId: string;
+    serverId: string;
+    mode: DeploymentMode.CUSTOM_COMPOSE;
+    publicUrl?: string;
+  }> {
+    try {
+      const { env: requestEnv, ports: requestPorts } =
+        normalizeDeployRequestVariables(body.env ?? {}, body.ports ?? {});
+
+      const { serverId, userId } =
+        await this.deploymentsService.resolveDeploymentTarget({
+          userId: req.user.id,
+          serverId: body.serverId,
+          deployOnLocal: body.deployOnLocal,
+          existingDeploymentId: body.deploymentId,
+        });
+
+      const serverUrlContext =
+        await this.deploymentsService.buildServerUrlContext({
+          userId: req.user.id,
+          serverId,
+          useTraefikRequest: body.useTraefik,
+          requestEnv,
+          requestPorts,
+        });
+
+      const prepared =
+        await this.deploymentsService.prepareCustomComposeDeployment({
+          composeYaml: body.composeYaml,
+          displayName: body.displayName,
+          serverId,
+          userId,
+          requestEnv,
+          requestPorts,
+          existingDeploymentId: body.deploymentId,
+          serverUrlContext,
+        });
+
+      const result = await this.deploymentsService.schedulePreparedDeployment(
+        prepared,
+        Boolean(body.deploymentId),
+        {
+          skipResourceValidation: acknowledgeResourceWarning === "true",
+        },
+      );
+
+      const publicUrl = resolvePrimaryServicePublicUrl(
+        prepared.mergedEnv,
+        prepared.templateSlug,
+      );
+
+      return { ...result, mode: DeploymentMode.CUSTOM_COMPOSE, publicUrl };
+    } catch (error) {
+      this.logger.error(
+        `Custom compose deploy failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      throw error;
+    }
+  }
 
   /**
    * Coolify-style deploy: compose is the single source of truth for env/ports.
@@ -112,7 +270,7 @@ export class DeploymentsController {
         prepared.templateSlug,
       );
 
-      return { ...result, mode: "compose", publicUrl };
+      return { ...result, mode: DeploymentMode.COMPOSE, publicUrl };
     } catch (error) {
       this.logger.error(
         `Compose deploy failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -494,6 +652,8 @@ export class DeploymentsController {
       return {
         id: deployment.id,
         templateSlug: deployment.templateSlug,
+        displayName: deployment.displayName,
+        deploymentType: deployment.deploymentType,
         serverId: deployment.serverId,
         userId: deployment.userId,
         status: deployment.status,

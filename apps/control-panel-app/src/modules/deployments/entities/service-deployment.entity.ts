@@ -14,13 +14,21 @@ import { ServerEntity } from "@control-panel/modules/server-connections/entities
 import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
 import { DeploymentStatus } from "@shared/socket-events";
 
+import { DeploymentType } from "../enums/deployment-type.enum";
+
 @Entity("serviceDeployments")
 export class ServiceDeploymentEntity extends AuditableEntity {
   @PrimaryColumn({ type: "varchar", length: 128 })
   id!: string;
 
+  @Column({ type: "uuid", nullable: true })
+  serviceTemplateId!: string | null;
+
   @Column({ type: "varchar", length: 255 })
   templateSlug!: string;
+
+  @Column({ type: "varchar", length: 255, nullable: true })
+  displayName!: string | null;
 
   @Column({ type: "uuid", nullable: true })
   serverId!: string | null;
@@ -36,9 +44,9 @@ export class ServiceDeploymentEntity extends AuditableEntity {
   @JoinColumn({ name: "userId" })
   user?: UserEntity | null;
 
-  @ManyToOne(() => ServiceTemplateEntity)
-  @JoinColumn({ name: "templateSlug", referencedColumnName: "slug" })
-  template?: ServiceTemplateEntity;
+  @ManyToOne(() => ServiceTemplateEntity, { nullable: true })
+  @JoinColumn({ name: "serviceTemplateId", referencedColumnName: "id" })
+  template?: ServiceTemplateEntity | null;
 
   @Column({
     type: "varchar",
@@ -52,6 +60,16 @@ export class ServiceDeploymentEntity extends AuditableEntity {
 
   @Column({ type: "text", nullable: true })
   lastError!: string | null;
+
+  @Column({
+    type: "varchar",
+    length: 32,
+    default: DeploymentType.PLATFORM_SERVICE,
+  })
+  deploymentType!: DeploymentType;
+
+  @Column({ type: "text", nullable: true })
+  encryptedComposeContent!: string | null;
 
   @OneToMany(
     () => EnvironmentVariableEntity,

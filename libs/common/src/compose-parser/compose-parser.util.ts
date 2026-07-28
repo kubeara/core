@@ -592,6 +592,105 @@ export function findMissingComposeVariables(
   return missing;
 }
 
+/**
+ * Builds compose YAML with resolved environment and port values substituted in place.
+ * Used to persist the configuration that is actually deployed (placeholders replaced).
+ */
+export function buildDeployedComposeYaml(
+  compose: string,
+  env: Record<string, string>,
+  ports: Record<string, number>,
+): string {
+  const lookup: Record<string, string> = { ...env };
+  for (const [key, value] of Object.entries(ports)) {
+    if (lookup[key] === undefined) {
+      lookup[key] = String(value);
+    }
+  }
+
+  let result = "";
+  let index = 0;
+
+  while (index < compose.length) {
+    const dollarIndex = compose.indexOf("$", index);
+    if (dollarIndex === -1) {
+      result += compose.slice(index);
+      break;
+    }
+
+    result += compose.slice(index, dollarIndex);
+
+    if (compose[dollarIndex + 1] === "$") {
+      result += "$$";
+      index = dollarIndex + 2;
+      continue;
+    }
+
+    if (compose[dollarIndex + 1] === "{") {
+      const contentStart = dollarIndex + 2;
+      const closeIndex = findBalancedBraceClose(compose, contentStart);
+      if (closeIndex === -1) {
+        result += compose[dollarIndex];
+        index = dollarIndex + 1;
+        continue;
+      }
+
+      const raw = compose.slice(contentStart, closeIndex).trim();
+      const parsed = parsePlaceholderContent(raw);
+      const value = resolveComposeSubstitutionValue(parsed, lookup);
+      if (value !== undefined) {
+        result += value;
+      } else {
+        result += compose.slice(dollarIndex, closeIndex + 1);
+      }
+      index = closeIndex + 1;
+      continue;
+    }
+
+    const nameStart = dollarIndex + 1;
+    if (isIdentifierStart(compose[nameStart] ?? "")) {
+      let nameEnd = nameStart + 1;
+      while (
+        nameEnd < compose.length &&
+        isIdentifierPart(compose[nameEnd] ?? "")
+      ) {
+        nameEnd += 1;
+      }
+
+      const name = compose.slice(nameStart, nameEnd);
+      const value = lookup[name];
+      if (value !== undefined) {
+        result += value;
+      } else {
+        result += compose.slice(dollarIndex, nameEnd);
+      }
+      index = nameEnd;
+      continue;
+    }
+
+    result += compose[dollarIndex];
+    index = dollarIndex + 1;
+  }
+
+  return result;
+}
+
+function resolveComposeSubstitutionValue(
+  variable: ComposeVariableRef,
+  lookup: Record<string, string>,
+): string | undefined {
+  const direct = lookup[variable.name];
+  if (direct !== undefined) {
+    return direct;
+  }
+
+  if (variable.hasDefaultSyntax && variable.defaultValue !== undefined) {
+    return variable.defaultValue;
+  }
+
+  return undefined;
+}
+
 export function resolveAndValidateComposeEnvironment(
   options: ResolveComposeEnvOptions,
 ): ResolvedComposeEnv {
