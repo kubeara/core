@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.0.12](https://github.com/kubeara/core/compare/v0.0.11...v0.0.12) (2026-07-28)
+
+
+### Features
+
+* enhance custom compose deployment with display name support ([5f0ce7f](https://github.com/kubeara/core/commit/5f0ce7f561f520ee56a152c31a944bcbd348c471))
+* implement custom Docker Compose deployment features ([dd3dcf7](https://github.com/kubeara/core/commit/dd3dcf745f08810103adfed4d838a942533d5774))
+
+
+### Bug Fixes
+
+* lint erros ([3a2ba58](https://github.com/kubeara/core/commit/3a2ba58a2ce89063e82fd100ec754f1d5f1b8dff))
+* optimize slug normalization functions and resolve codeql errors ([d3f9d29](https://github.com/kubeara/core/commit/d3f9d29defd07ad9a3a5f990e21a9a510063dd19))
+* resolve comments and fix env configuration form for always showing env variables ([53655c0](https://github.com/kubeara/core/commit/53655c00191c424b98e4aef39201f0643ef96ed5))
+
 ## [0.0.11](https://github.com/kubeara/core/compare/v0.0.10...v0.0.11) (2026-07-24)
 
 
