@@ -1,4 +1,5 @@
 import { apiClient } from "@/api/axios";
+import { extractMessageFromBody, toApiError } from "@/api/api-error";
 import { unwrapServerApiData } from "@/features/servers/utils/server-api-error";
 import type { TemplateVariable } from "@/features/templates/types";
 import type {
@@ -90,6 +91,32 @@ export function getCustomComposeDisplayNameValidationError(
   }
 }
 
+function parseComposeValidationSummary(
+  message: string,
+): Array<{ path: string; message: string }> {
+  const trimmed = message.trim();
+  if (!trimmed) {
+    return [{ path: "root", message: "Docker Compose validation failed" }];
+  }
+
+  const parts = trimmed.split("; ").filter(Boolean);
+  if (parts.length === 0) {
+    return [{ path: "root", message: trimmed }];
+  }
+
+  return parts.map((part) => {
+    const separator = part.indexOf(": ");
+    if (separator === -1) {
+      return { path: "root", message: part };
+    }
+
+    return {
+      path: part.slice(0, separator),
+      message: part.slice(separator + 2),
+    };
+  });
+}
+
 /**
  * Validates uploaded Docker Compose YAML and returns extracted variables.
  */
@@ -106,14 +133,24 @@ export async function validateCustomComposeUpload(input: {
       },
     );
 
-    return unwrapServerApiData<ValidateCustomComposeResponse>(
+    return unwrapServerApiData<ValidateCustomComposeResult>(
       responseBody(response),
       "Failed to validate compose file",
     );
   } catch (error) {
-    throw error instanceof Error
-      ? error
-      : new Error("Failed to validate compose file");
+    const apiError = toApiError(error);
+    if (apiError.status === 400) {
+      const message =
+        extractMessageFromBody(apiError.body) ??
+        apiError.message ??
+        "Docker Compose validation failed";
+      return {
+        valid: false,
+        issues: parseComposeValidationSummary(message),
+      };
+    }
+
+    throw apiError;
   }
 }
 

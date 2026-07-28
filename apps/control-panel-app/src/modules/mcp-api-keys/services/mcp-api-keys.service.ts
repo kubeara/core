@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 
 import {
+  HttpException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -67,7 +68,7 @@ export class McpApiKeysService {
         },
       };
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (error instanceof HttpException) {
         throw error;
       }
       throw new InternalServerErrorException(

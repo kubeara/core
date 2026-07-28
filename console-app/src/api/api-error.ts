@@ -70,12 +70,8 @@ function looksTechnical(message: string): boolean {
     return TECHNICAL_MESSAGE_PATTERNS.some((pattern) => pattern.test(trimmed));
 }
 
-function sanitizeForDisplay(message: string, status?: number): string {
+function sanitizeForDisplay(message: string): string {
     const normalized = normalizeValidationMessage(message);
-
-    if (status !== undefined && isServerErrorStatus(status)) {
-        return API_ERROR_MESSAGES.GENERIC;
-    }
 
     if (looksTechnical(normalized)) {
         return API_ERROR_MESSAGES.GENERIC;
@@ -167,12 +163,16 @@ export function extractRetryAfterSeconds(
 /**
  * Extract a user-facing error message from various error types.
  *
- * Server and infrastructure failures always return a generic message.
- * Client errors (4xx) may still surface intentional validation or auth text.
+ * Technical or infrastructure failures return a generic message.
+ * Intentional backend messages (including structured 5xx responses) are shown.
  */
 export function getErrorMessage(error: unknown): string {
     if (error instanceof ApiError) {
-        return sanitizeForDisplay(error.message, error.status);
+        const fromBody = extractMessageFromBody(error.body);
+        if (fromBody) {
+            return sanitizeForDisplay(fromBody);
+        }
+        return sanitizeForDisplay(error.message);
     }
 
     if (error instanceof AxiosError) {
@@ -184,16 +184,18 @@ export function getErrorMessage(error: unknown): string {
         }
 
         const status = error.response.status;
-
-        if (isServerErrorStatus(status)) {
-            return API_ERROR_MESSAGES.GENERIC;
-        }
-
         const extracted = extractMessageFromBody(
             error.response.data as Record<string, unknown> | undefined,
         );
         if (extracted) {
-            return sanitizeForDisplay(extracted, status);
+            const sanitized = sanitizeForDisplay(extracted);
+            if (sanitized !== API_ERROR_MESSAGES.GENERIC) {
+                return sanitized;
+            }
+        }
+
+        if (isServerErrorStatus(status)) {
+            return API_ERROR_MESSAGES.GENERIC;
         }
 
         if (status === 401) {

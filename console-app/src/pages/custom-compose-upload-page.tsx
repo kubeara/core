@@ -100,6 +100,7 @@ export function CustomComposeUploadPage() {
     event.preventDefault();
 
     setComposeIssues([]);
+    setFileError(null);
 
     const nameError = getCustomComposeDisplayNameValidationError(deploymentName);
     setDeploymentNameError(nameError);

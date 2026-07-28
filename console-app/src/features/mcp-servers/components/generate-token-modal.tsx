@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CopyButton } from "@/components/shared/copy-button";
-import { API_ERROR_MESSAGES } from "@/constants/error-messages";
+import { getErrorMessage } from "@/api/api-error";
 import { FormFieldLabel } from "@/components/shared/form-field-label";
 import { validateRequired } from "@/lib/validation";
 import { useCreateMcpApiKeyMutation } from "../hooks";
@@ -34,8 +34,8 @@ function GenerateTokenModalContent({ onClose }: GenerateTokenModalContentProps) 
         try {
             const result = await createMutation.mutateAsync({ name: name.trim() });
             setGeneratedToken(result.token);
-        } catch {
-            setSubmitError(API_ERROR_MESSAGES.GENERIC);
+        } catch (error) {
+            setSubmitError(getErrorMessage(error));
         }
     }
 
