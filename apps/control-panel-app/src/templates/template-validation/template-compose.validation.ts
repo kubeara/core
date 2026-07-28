@@ -92,7 +92,17 @@ export function validateTemplateComposeFile(
 
   validateComposeStructure(parsed, issues);
   validateHeaderMetadata(context.composeYaml, issues);
-  validateServices(parsed, policy, context, issues);
+
+  const services = parsed.services;
+  if (
+    services &&
+    typeof services === "object" &&
+    !Array.isArray(services) &&
+    Object.keys(services).length > 0
+  ) {
+    validateServices(parsed, policy, context, issues);
+  }
+
   validateSchemaPortKeysInCompose(context, issues);
   validateEnvironmentRules(context, issues);
 

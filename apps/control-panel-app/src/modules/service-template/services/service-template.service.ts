@@ -7,11 +7,14 @@ import {
 import { InjectRepository } from "@nestjs/typeorm";
 import {
   ArrayContains,
+  And,
   ArrayOverlap,
   FindManyOptions,
   FindOneOptions,
   FindOptionsWhere,
   ILike,
+  In,
+  Not,
   Repository,
 } from "typeorm";
 import {
@@ -32,6 +35,7 @@ import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
   DEFAULT_TEMPLATE_LIST_PAGE,
 } from "../constants/template-list.constants";
+import { LISTING_EXCLUDED_TEMPLATE_SLUGS } from "@control-panel/modules/deployments/constants/custom-compose.constants";
 import { ListTemplatesQueryDto } from "../dto/list-templates-query.dto";
 import type {
   PublicTemplateDetailsDto,
@@ -97,8 +101,10 @@ export class ServiceTemplateService {
       throw new BadRequestException("category query parameter cannot be empty");
     }
 
+    const excludedSlugs = [...LISTING_EXCLUDED_TEMPLATE_SLUGS];
     const baseWhere: FindOptionsWhere<ServiceTemplateEntity> = {
       isActive: true,
+      slug: Not(In(excludedSlugs)),
     };
 
     if (category?.trim()) {
@@ -114,10 +120,26 @@ export class ServiceTemplateService {
 
     return [
       { ...baseWhere, name: searchPattern },
-      { ...baseWhere, slug: searchPattern },
+      {
+        isActive: true,
+        slug: And(Not(In(excludedSlugs)), searchPattern),
+        ...(category?.trim()
+          ? { category: ArrayContains([category.trim().toLowerCase()]) }
+          : {}),
+      },
       { ...baseWhere, shortDescription: searchPattern },
       { ...baseWhere, tags: ArrayOverlap([searchTerm]) },
     ];
+  }
+
+  private assertTemplateIsListable(slug: string): void {
+    if (
+      LISTING_EXCLUDED_TEMPLATE_SLUGS.includes(
+        slug as (typeof LISTING_EXCLUDED_TEMPLATE_SLUGS)[number],
+      )
+    ) {
+      throw new NotFoundException(`Template '${slug}' not found`);
+    }
   }
 
   /**
@@ -128,6 +150,7 @@ export class ServiceTemplateService {
    */
   async getTemplate(slug: string, format: string = "yml") {
     try {
+      this.assertTemplateIsListable(slug);
       const template = await this.getTemplateEntity(slug);
       const normalizedFormat = format.toLowerCase();
 
@@ -299,7 +322,10 @@ export class ServiceTemplateService {
   async listUniqueCategories(): Promise<string[]> {
     try {
       const templates = await this.findMany({
-        where: { isActive: true },
+        where: {
+          isActive: true,
+          slug: Not(In([...LISTING_EXCLUDED_TEMPLATE_SLUGS])),
+        },
         select: { category: true },
       });
 
@@ -332,6 +358,7 @@ export class ServiceTemplateService {
     slug: string,
   ): Promise<PublicTemplateDetailsDto> {
     try {
+      this.assertTemplateIsListable(slug);
       const template = await this.getTemplateDetails(slug);
       return {
         slug: template.slug,
@@ -358,6 +385,7 @@ export class ServiceTemplateService {
    */
   async getTemplateDetails(slug: string): Promise<TemplateDetailsDto> {
     try {
+      this.assertTemplateIsListable(slug);
       const template = await this.getTemplateEntity(slug);
       const composeYaml = yaml.dump(
         this.templatePayloadService.decodeBase64ToObject(template.compose),

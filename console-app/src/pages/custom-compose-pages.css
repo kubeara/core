@@ -1,0 +1,209 @@
+.custom-compose-upload-panel {
+  gap: 0;
+}
+
+.custom-compose-page.deploy-configure-page {
+  gap: 0.875rem;
+}
+
+.custom-compose-upload-header {
+  padding: 1.125rem 1.5rem 0.875rem;
+}
+
+.custom-compose-upload-header h1 {
+  margin-bottom: 0.25rem;
+  font-size: 1.3125rem;
+}
+
+.custom-compose-upload-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.custom-compose-upload-section {
+  border-bottom: 1px solid var(--border);
+}
+
+.custom-compose-upload-section-header {
+  padding: 0.75rem 1.5rem 0.5rem;
+}
+
+.custom-compose-upload-section-body {
+  padding: 0.75rem 1.5rem 1rem;
+}
+
+.custom-compose-upload-actions {
+  margin-top: 0;
+  padding: 0.875rem 1.5rem;
+}
+
+.custom-compose-required {
+  color: var(--danger);
+}
+
+.custom-compose-upload-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 148px;
+  padding: 1.25rem 1.25rem;
+  text-align: center;
+  background: color-mix(in srgb, var(--foreground) 2%, var(--surface));
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+.custom-compose-upload-dropzone.is-drag-active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.custom-compose-upload-dropzone.has-error {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger) 4%, var(--surface));
+}
+
+.custom-compose-upload-dropzone input[type="file"] {
+  display: none;
+}
+
+.custom-compose-upload-choose-btn {
+  min-width: 9rem;
+  cursor: pointer;
+  border-radius: 10px;
+}
+
+.custom-compose-upload-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
+}
+
+.custom-compose-upload-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.custom-compose-upload-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 34rem;
+}
+
+.custom-compose-upload-title {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.custom-compose-upload-subtitle {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.custom-compose-upload-filename,
+.custom-compose-upload-status {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.custom-compose-upload-filename strong {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.custom-compose-upload-status {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.custom-compose-validation-issues {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  list-style: none;
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+.custom-compose-name-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.custom-compose-name-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.custom-compose-name-input {
+  height: 2.5rem;
+  border-radius: 10px;
+  font-size: 0.9375rem;
+}
+
+.custom-compose-field-error {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--danger);
+}
+
+.custom-compose-validation-issues li {
+  color: var(--danger);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.custom-compose-validation-issues li + li {
+  margin-top: 0.35rem;
+}
+
+.connected-services-toolbar {
+  align-items: center;
+}
+
+.connected-services-toolbar-spacer {
+  flex: 1;
+  min-width: 0;
+}
+
+.connected-services-upload-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .connected-services-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .connected-services-upload-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
