@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router";
 import { useLogoutMutation } from "@/features/auth/hooks";
 import { getDisplayName, getUserInitials } from "@/lib/user-display";
 import type { User } from "@/types";

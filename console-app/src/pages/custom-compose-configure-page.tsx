@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Navigate, useLocation, useParams } from "react-router-dom";
+import { Navigate, useLocation, useParams } from "react-router";
 import { BackLink } from "@/components/shared/back-link";
 import { DeployConfigurePageSkeleton } from "@/components/shared/skeleton";
 import { CUSTOM_TEMPLATE_SLUG } from "@/features/deployments/api/custom-compose";

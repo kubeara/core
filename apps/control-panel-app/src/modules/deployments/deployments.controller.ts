@@ -47,30 +47,31 @@ export class DeploymentsController {
   @Post("custom-compose/validate")
   @HttpCode(200)
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-  validateCustomCompose(@Body() body: ValidateCustomComposeDto):
-    | {
-        valid: true;
-        suggestedTemplateSlug: string;
-        variables: Array<{
-          name: string;
-          type: string;
-          required: boolean;
-          defaultValue: string | number | boolean | null;
-          hasRequiredOccurrence: boolean;
-          hasDefaultSyntax: boolean;
-        }>;
-      }
-    | {
-        valid: false;
-        issues: Array<{ path: string; message: string }>;
-      } {
+  validateCustomCompose(@Body() body: ValidateCustomComposeDto): {
+    valid: true;
+    suggestedTemplateSlug: string;
+    variables: Array<{
+      name: string;
+      type: string;
+      required: boolean;
+      defaultValue: string | number | boolean | null;
+      hasRequiredOccurrence: boolean;
+      hasDefaultSyntax: boolean;
+    }>;
+  } {
     try {
       const result = this.deploymentsService.validateCustomComposeUpload(
         body.composeYaml,
       );
 
       if (!result.valid) {
-        return { valid: false, issues: result.issues };
+        const summary = result.issues
+          .slice(0, 3)
+          .map((issue) => `${issue.path}: ${issue.message}`)
+          .join("; ");
+        throw new BadRequestException(
+          summary || "Docker Compose validation failed",
+        );
       }
 
       return {

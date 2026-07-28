@@ -1,4 +1,4 @@
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useEffect, useState } from "react";
 import { AuthCard } from "@/features/auth/components/auth-card";
 import { OtpInput } from "@/features/auth/components/otp-input";

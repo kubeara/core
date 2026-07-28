@@ -5,7 +5,7 @@ import {
   useNavigate,
   useParams,
   useSearchParams,
-} from "react-router-dom";
+} from "react-router";
 import { getErrorMessage } from "@/api/api-error";
 import { DeploymentLogs } from "@/components/deployment-logs";
 import { deployTemplate } from "@/features/deployments/api";

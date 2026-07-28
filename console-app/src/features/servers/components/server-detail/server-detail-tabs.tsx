@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router";
 import { getErrorMessage } from "@/api/api-error";
 import { useServerContainersQuery } from "@/features/deployments/hooks";
 import "@/features/templates/templates-ui.css";
