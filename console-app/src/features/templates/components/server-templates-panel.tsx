@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { TemplatesMarketplacePanel } from "./templates-marketplace-panel";
 import type { ApiTemplate } from "../types";
 

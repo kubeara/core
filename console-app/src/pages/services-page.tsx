@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { TemplatesMarketplacePanel } from "@/features/templates/components/templates-marketplace-panel";
 import { SelectDeployServerModal } from "@/features/templates/components/select-deploy-server-modal";
 import type { ApiTemplate } from "@/features/templates/types";

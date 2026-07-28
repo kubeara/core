@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Dropdown } from "@/components/shared/dropdown";
 import { FilterClearButton } from "@/components/shared/filter-clear-button";
 import { ContainerActionConfirmModal } from "@/features/deployments/components/container-action-confirm-modal";

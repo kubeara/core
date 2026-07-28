@@ -4,7 +4,7 @@ import {
   matchRoutes,
   useLocation,
   useNavigationType,
-} from "react-router-dom";
+} from "react-router";
 import * as Sentry from "@sentry/react";
 
 function parseSampleRate(value: string | undefined, fallback: number): number {

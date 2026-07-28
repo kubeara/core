@@ -1,5 +1,5 @@
 import { useRef, useState, type DragEvent, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import { BackLink } from "@/components/shared/back-link";
 import { Input } from "@/components/ui/input";
 import { getErrorMessage } from "@/api/api-error";
@@ -100,6 +100,7 @@ export function CustomComposeUploadPage() {
     event.preventDefault();
 
     setComposeIssues([]);
+    setFileError(null);
 
     const nameError = getCustomComposeDisplayNameValidationError(deploymentName);
     setDeploymentNameError(nameError);

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SensitiveHost } from "@/components/shared/sensitive-host";
 import { TooltipHint } from "@/components/ui/tooltip";
@@ -525,8 +525,7 @@ export function ServersTable() {
             </header>
             <p className="modal-body-text">
               Delete <strong>{deleteTarget.name}</strong> (
-              <SensitiveHost host={deleteTarget.host} monospace={false} />)?
-              This cannot be undone.
+              {deleteTarget.host})? This cannot be undone.
             </p>
             <label className="delete-server-option">
               <input

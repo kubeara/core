@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router";
 import { KubearaLogo } from "./kubeara-logo";
 import { ProfileMenu } from "./profile-menu";
 import type { User } from "@/types";

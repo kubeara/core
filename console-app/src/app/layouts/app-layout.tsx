@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Outlet } from "react-router";
 import { TopBar } from "@/components/shared/top-bar";
 import { useAuth } from "@/features/auth/context/use-auth";
 import { useServerOperationUpdates } from "@/features/servers/hooks";
