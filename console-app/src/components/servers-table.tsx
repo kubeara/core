@@ -525,8 +525,7 @@ export function ServersTable() {
             </header>
             <p className="modal-body-text">
               Delete <strong>{deleteTarget.name}</strong> (
-              <SensitiveHost host={deleteTarget.host} monospace={false} />)?
-              This cannot be undone.
+              {deleteTarget.host})? This cannot be undone.
             </p>
             <label className="delete-server-option">
               <input
