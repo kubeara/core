@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router";
 import { AuthCard } from "@/features/auth/components/auth-card";
 import { getErrorMessage } from "@/api/api-error";
 import {

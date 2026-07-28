@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SensitiveHost } from "@/components/shared/sensitive-host";
 import { TooltipHint } from "@/components/ui/tooltip";

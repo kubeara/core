@@ -1,4 +1,4 @@
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { useState } from "react";
 import { AuthCard } from "@/features/auth/components/auth-card";
 import { PasswordField } from "@/components/shared/password-field";

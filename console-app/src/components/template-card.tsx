@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import type { CSSProperties } from "react";
 import { ServiceBrandIcon } from "@/components/shared/service-brand-icon";
 import type { Template } from "@/types";

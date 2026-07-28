@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router";
 import * as Sentry from "@sentry/react";
 import { AppLayout } from "../layouts/app-layout";
 import { AuthLayout } from "../layouts/auth-layout";

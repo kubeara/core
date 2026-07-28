@@ -1,4 +1,4 @@
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useParams } from "react-router";
 import { BackLink } from "@/components/shared/back-link";
 import { DeployConfigurationForm } from "@/features/templates/components/deploy-configuration-form";
 import { useTemplateDetailsQuery } from "@/features/templates/hooks";

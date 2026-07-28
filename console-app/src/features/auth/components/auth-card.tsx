@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { KubearaLogo } from "@/components/shared/kubeara-logo";
 
 type AuthCardProps = {

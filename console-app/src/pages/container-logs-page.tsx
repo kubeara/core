@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Navigate, useLocation, useParams } from "react-router-dom";
+import { Navigate, useLocation, useParams } from "react-router";
 import { BackLink } from "@/components/shared/back-link";
 import { ContainerLogsPanel } from "@/features/servers/components/container-logs-panel";
 import { buildServerDetailHref } from "@/features/servers/components/server-detail/utils/server-detail-tab-url";

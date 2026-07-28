@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 import { BackLink } from "@/components/shared/back-link";
 import { SensitiveHost } from "@/components/shared/sensitive-host";
 import { ServerDetailTabs } from "@/components/server-detail-tabs";
