@@ -44,3 +44,7 @@ console-app/node_modules
 
 scripts/e2e/.known_hosts
 scripts/e2e/.known_hosts.old
+
+# IDEs
+.cursor
+.cursorrules

@@ -260,7 +260,7 @@ export function ServerOverviewTab({
             )
           }
         >
-          Custom Deployment
+          Brew docker compose
         </button>
       </div>
 

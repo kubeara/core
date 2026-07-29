@@ -1361,3 +1361,92 @@
     justify-content: center;
   }
 }
+
+/* Custom compose configure page */
+.deploy-configure-page .custom-compose-editor {
+  padding-bottom: 0.25rem;
+}
+
+.deploy-configure-page .custom-compose-editor-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.125rem;
+  width: fit-content;
+  margin: 0 1.5rem 0.75rem;
+  padding: 0.1875rem;
+  background: color-mix(in srgb, var(--foreground) 4%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.deploy-configure-page .custom-compose-editor-tab {
+  border: none;
+  border-radius: 6px;
+  padding: 0.4375rem 0.875rem;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.deploy-configure-page .custom-compose-editor-tab:hover:not(:disabled) {
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--foreground) 6%, transparent);
+}
+
+.deploy-configure-page .custom-compose-editor-tab.is-active {
+  background: var(--primary);
+  color: #fff;
+}
+
+.deploy-configure-page .custom-compose-editor-tab:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.deploy-configure-page .custom-compose-editor-surface {
+  margin: 0 1.5rem 1rem;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--foreground) 2%, var(--surface));
+}
+
+.deploy-configure-page .custom-compose-editor-error {
+  margin: 0 1.5rem 0.75rem;
+}
+
+.deploy-configure-page .custom-compose-validation-issues {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.deploy-configure-page .custom-compose-validation-issues li {
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--danger);
+}
+
+.deploy-configure-page .custom-compose-env-preview-service-label {
+  padding: 0.625rem 1.5rem;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--foreground) 2%, var(--surface));
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.deploy-configure-page .custom-compose-env-preview-empty {
+  padding: 1.25rem 1.5rem;
+  text-align: left;
+}

@@ -47,21 +47,31 @@ export class DeploymentsController {
   @Post("custom-compose/validate")
   @HttpCode(200)
   @UsePipes(new ValidationPipe({ whitelist: true, transform: true }))
-  validateCustomCompose(@Body() body: ValidateCustomComposeDto): {
-    valid: true;
-    suggestedTemplateSlug: string;
-    variables: Array<{
-      name: string;
-      type: string;
-      required: boolean;
-      defaultValue: string | number | boolean | null;
-      hasRequiredOccurrence: boolean;
-      hasDefaultSyntax: boolean;
-    }>;
-  } {
+  validateCustomCompose(@Body() body: ValidateCustomComposeDto):
+    | {
+        valid: true;
+        suggestedTemplateSlug: string;
+        variables: Array<{
+          name: string;
+          type: string;
+          required: boolean;
+          defaultValue: string | number | boolean | null;
+          hasRequiredOccurrence: boolean;
+          hasDefaultSyntax: boolean;
+        }>;
+        serviceEnvironments: Array<{
+          serviceName: string;
+          env: Record<string, string>;
+        }>;
+      }
+    | {
+        valid: false;
+        issues: Array<{ path: string; message: string }>;
+      } {
     try {
       const result = this.deploymentsService.validateCustomComposeUpload(
         body.composeYaml,
+        body.envFileContent ?? "",
       );
 
       if (!result.valid) {
@@ -78,6 +88,7 @@ export class DeploymentsController {
         valid: true,
         suggestedTemplateSlug: result.suggestedTemplateSlug,
         variables: result.variables,
+        serviceEnvironments: result.serviceEnvironments,
       };
     } catch (error) {
       this.logger.error(
@@ -110,6 +121,7 @@ export class DeploymentsController {
         deployOnLocal: body.deployOnLocal,
         composeYaml: body.composeYaml,
         displayName: body.displayName,
+        envFileContent: body.envFileContent,
         requestEnv,
         requestPorts,
         useTraefikRequest: body.useTraefik,
@@ -165,6 +177,7 @@ export class DeploymentsController {
         await this.deploymentsService.prepareCustomComposeDeployment({
           composeYaml: body.composeYaml,
           displayName: body.displayName,
+          envFileContent: body.envFileContent ?? "",
           serverId,
           userId,
           requestEnv,
