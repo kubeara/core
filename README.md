@@ -1,6 +1,10 @@
 <div align="center">
 
-<img src="https://images.kubeara.dev/main_logo.png" alt="Kubeara" width="200">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://images.kubeara.dev/main_logo.png">
+  <source media="(prefers-color-scheme: light)" srcset="https://images.kubeara.dev/main_logo_dark.png">
+  <img src="https://images.kubeara.dev/main_logo.png" alt="Kubeara" width="200">
+</picture>
 
 Deploy anything on your own servers.  
 Connect a server, click deploy, done.  
