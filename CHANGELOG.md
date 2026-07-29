@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.0.14](https://github.com/kubeara/core/compare/v0.0.13...v0.0.14) (2026-07-29)
+
+
+### Features
+
+* enhance custom compose deployment with .env file support ([02da16c](https://github.com/kubeara/core/commit/02da16cd98ce400890c1cb1dfe4334985b6b2ae0))
+
+
+### Bug Fixes
+
+* Remove unit tests for custom compose environment preview utility ([b4ee946](https://github.com/kubeara/core/commit/b4ee9465e5b28be91ae3c6a563a37968fa073043))
+* update import path for react-router in custom compose configure page ([3175de7](https://github.com/kubeara/core/commit/3175de750a504c20a54212c2d9771735d7c10192))
+
 ## [0.0.13](https://github.com/kubeara/core/compare/v0.0.12...v0.0.13) (2026-07-28)
 
 
