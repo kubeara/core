@@ -1,6 +1,6 @@
 {
   "name": "kubeara",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "Open-source platform to deploy and manage services on your own servers",
   "author": "",
   "private": true,
