@@ -6,7 +6,6 @@ import { getErrorMessage } from "@/api/api-error";
 import {
   getCustomComposeDisplayNameValidationError,
   normalizeCustomComposeDisplayName,
-  validateCustomComposeUpload,
 } from "@/features/deployments/api/custom-compose";
 import { useServerQuery } from "@/features/servers/hooks";
 import { buildServerDetailHref } from "@/features/servers/components/server-detail/utils/server-detail-tab-url";
@@ -16,26 +15,33 @@ import { NotFoundPage } from "./not-found-page";
 import "./custom-compose-pages.css";
 import "@/features/templates/templates-ui.css";
 
-const ACCEPTED_EXTENSIONS = [".yml", ".yaml"];
+const COMPOSE_EXTENSIONS = [".yml", ".yaml"];
+const ENV_EXTENSIONS = [".env"];
+
+type UploadTarget = "compose" | "env";
 
 /**
- * Upload page for custom Docker Compose: deployment name + file, validated together.
+ * Upload page for custom Docker Compose: deployment name, compose file, optional .env.
  */
 export function CustomComposeUploadPage() {
   const { serverId } = useParams<{ serverId: string }>();
   const navigate = useNavigate();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const composeInputRef = useRef<HTMLInputElement>(null);
+  const envInputRef = useRef<HTMLInputElement>(null);
   const [deploymentName, setDeploymentName] = useState("");
   const [deploymentNameError, setDeploymentNameError] = useState<string | null>(
     null,
   );
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fileError, setFileError] = useState<string | null>(null);
-  const [composeIssues, setComposeIssues] = useState<
-    Array<{ path: string; message: string }>
-  >([]);
+  const [selectedComposeFile, setSelectedComposeFile] = useState<File | null>(
+    null,
+  );
+  const [selectedEnvFile, setSelectedEnvFile] = useState<File | null>(null);
+  const [composeFileError, setComposeFileError] = useState<string | null>(null);
+  const [envFileError, setEnvFileError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isDragActive, setIsDragActive] = useState(false);
+  const [activeDropTarget, setActiveDropTarget] = useState<UploadTarget | null>(
+    null,
+  );
 
   const serverQuery = useServerQuery(serverId);
 
@@ -58,81 +64,105 @@ export function CustomComposeUploadPage() {
     return <NotFoundPage />;
   }
 
-  function assignSelectedFile(file: File | null) {
-    setSelectedFile(file);
-    setFileError(null);
-    setComposeIssues([]);
-  }
-
-  function validateSelectedFile(file: File | null): string | null {
+  function validateComposeFile(file: File | null): string | null {
     if (!file) {
       return "Please select a Docker Compose file";
     }
 
     const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
-    if (!ACCEPTED_EXTENSIONS.includes(extension)) {
+    if (!COMPOSE_EXTENSIONS.includes(extension)) {
       return "Please upload a .yml or .yaml Docker Compose file";
     }
 
     return null;
   }
 
-  function handleFileInput(file: File | null) {
+  function validateEnvFile(file: File | null): string | null {
     if (!file) {
-      assignSelectedFile(null);
+      return null;
+    }
+
+    const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+    if (!ENV_EXTENSIONS.includes(extension) && file.name !== ".env") {
+      return "Please upload a .env file";
+    }
+
+    return null;
+  }
+
+  function handleComposeFileInput(file: File | null) {
+    if (!file) {
+      setSelectedComposeFile(null);
+      setComposeFileError(null);
       return;
     }
 
-    const error = validateSelectedFile(file);
+    const error = validateComposeFile(file);
     if (error) {
-      assignSelectedFile(null);
-      setFileError(error);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+      setSelectedComposeFile(null);
+      setComposeFileError(error);
+      if (composeInputRef.current) {
+        composeInputRef.current.value = "";
       }
       return;
     }
 
-    assignSelectedFile(file);
+    setSelectedComposeFile(file);
+    setComposeFileError(null);
+  }
+
+  function handleEnvFileInput(file: File | null) {
+    if (!file) {
+      setSelectedEnvFile(null);
+      setEnvFileError(null);
+      return;
+    }
+
+    const error = validateEnvFile(file);
+    if (error) {
+      setSelectedEnvFile(null);
+      setEnvFileError(error);
+      if (envInputRef.current) {
+        envInputRef.current.value = "";
+      }
+      return;
+    }
+
+    setSelectedEnvFile(file);
+    setEnvFileError(null);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    setComposeIssues([]);
-    setFileError(null);
-
     const nameError = getCustomComposeDisplayNameValidationError(deploymentName);
     setDeploymentNameError(nameError);
 
-    const nextFileError = validateSelectedFile(selectedFile);
-    setFileError(nextFileError);
+    const nextComposeError = validateComposeFile(selectedComposeFile);
+    setComposeFileError(nextComposeError);
 
-    if (nameError || nextFileError || !selectedFile) {
+    const nextEnvError = validateEnvFile(selectedEnvFile);
+    setEnvFileError(nextEnvError);
+
+    if (nameError || nextComposeError || nextEnvError || !selectedComposeFile) {
       return;
     }
 
     setIsUploading(true);
     try {
-      const content = await selectedFile.text();
-      const result = await validateCustomComposeUpload({
-        composeYaml: content,
-        fileName: selectedFile.name,
-      });
-
-      if (!result.valid) {
-        setComposeIssues(result.issues);
-        return;
-      }
-
+      const composeYaml = await selectedComposeFile.text();
+      const envFileContent = selectedEnvFile
+        ? await selectedEnvFile.text()
+        : "";
       const displayName = normalizeCustomComposeDisplayName(deploymentName);
 
       navigate(`/servers/${serverId}/custom-compose/configure`, {
         state: {
-          composeYaml: content,
+          composeYaml,
+          envFileContent,
           displayName,
-          variables: result.variables,
-          fileName: selectedFile.name,
+          composeFileName: selectedComposeFile.name,
+          envFileName: selectedEnvFile?.name,
         },
       });
     } catch (error) {
@@ -142,20 +172,25 @@ export function CustomComposeUploadPage() {
     }
   }
 
-  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+  function handleDragOver(event: DragEvent<HTMLDivElement>, target: UploadTarget) {
     event.preventDefault();
-    setIsDragActive(true);
+    setActiveDropTarget(target);
   }
 
   function handleDragLeave(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
-    setIsDragActive(false);
+    setActiveDropTarget(null);
   }
 
-  function handleDrop(event: DragEvent<HTMLDivElement>) {
+  function handleDrop(event: DragEvent<HTMLDivElement>, target: UploadTarget) {
     event.preventDefault();
-    setIsDragActive(false);
-    handleFileInput(event.dataTransfer.files?.[0] ?? null);
+    setActiveDropTarget(null);
+    const file = event.dataTransfer.files?.[0] ?? null;
+    if (target === "compose") {
+      handleComposeFileInput(file);
+      return;
+    }
+    handleEnvFileInput(file);
   }
 
   return (
@@ -165,15 +200,18 @@ export function CustomComposeUploadPage() {
       <div className="deploy-configure-main custom-compose-upload-panel">
         <header className="deploy-configure-main-header custom-compose-upload-header">
           <div>
-            <h1>Upload custom yml</h1>
+            <h1>Upload custom compose</h1>
             <p>
-              Enter a deployment name and upload a docker-compose.yml file for{" "}
-              {serverQuery.data.name}.
+              Enter a deployment name and upload docker-compose.yml with an optional .env
             </p>
           </div>
         </header>
 
-        <form className="custom-compose-upload-form" onSubmit={(event) => void handleSubmit(event)} noValidate>
+        <form
+          className="custom-compose-upload-form"
+          onSubmit={(event) => void handleSubmit(event)}
+          noValidate
+        >
           <section className="custom-compose-upload-section">
             <header className="deploy-vars-section-header custom-compose-upload-section-header">
               <h2>Deployment name</h2>
@@ -229,15 +267,15 @@ export function CustomComposeUploadPage() {
           <section className="custom-compose-upload-section">
             <header className="deploy-vars-section-header custom-compose-upload-section-header">
               <h2>Compose file</h2>
-              <p>Upload a .yml or .yaml file up to 256 KiB.</p>
+              <p>Upload a required .yml or .yaml file up to 256 KiB.</p>
             </header>
 
             <div className="custom-compose-upload-section-body">
               <div
-                className={`custom-compose-upload-dropzone${isDragActive ? " is-drag-active" : ""}${fileError ? " has-error" : ""}`}
-                onDragOver={handleDragOver}
+                className={`custom-compose-upload-dropzone${activeDropTarget === "compose" ? " is-drag-active" : ""}${composeFileError ? " has-error" : ""}`}
+                onDragOver={(event) => handleDragOver(event, "compose")}
                 onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
+                onDrop={(event) => handleDrop(event, "compose")}
               >
                 <div className="custom-compose-upload-icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" focusable="false">
@@ -254,52 +292,90 @@ export function CustomComposeUploadPage() {
 
                 <div className="custom-compose-upload-copy">
                   <p className="custom-compose-upload-title">
-                    Drag and drop your compose file here
+                    Drag and drop docker-compose.yml here
                   </p>
                   <p className="custom-compose-upload-subtitle">
-                    Or choose a file from your computer
+                    Or choose a compose file from your computer
                   </p>
                 </div>
 
                 <label className="btn-secondary custom-compose-upload-choose-btn">
-                  Choose file
+                  Choose compose file
                   <input
-                    ref={fileInputRef}
+                    ref={composeInputRef}
                     type="file"
                     accept=".yml,.yaml,application/x-yaml,text/yaml,text/x-yaml"
                     disabled={isUploading}
                     onChange={(event) => {
-                      handleFileInput(event.target.files?.[0] ?? null);
+                      handleComposeFileInput(event.target.files?.[0] ?? null);
                     }}
                   />
                 </label>
 
-                {selectedFile ? (
+                {selectedComposeFile ? (
                   <p className="custom-compose-upload-filename">
-                    Selected: <strong>{selectedFile.name}</strong>
+                    Selected: <strong>{selectedComposeFile.name}</strong>
                   </p>
                 ) : null}
               </div>
 
-              {fileError ? (
+              {composeFileError ? (
                 <p className="custom-compose-field-error" role="alert">
-                  {fileError}
+                  {composeFileError}
                 </p>
               ) : null}
             </div>
           </section>
 
-          {composeIssues.length > 0 ? (
+          <section className="custom-compose-upload-section">
+            <header className="deploy-vars-section-header custom-compose-upload-section-header">
+              <h2>.env file</h2>
+              <p>Optional environment file for ${"VARIABLE"} references.</p>
+            </header>
+
             <div className="custom-compose-upload-section-body">
-              <ul className="custom-compose-validation-issues" role="alert">
-                {composeIssues.map((issue) => (
-                  <li key={`${issue.path}-${issue.message}`}>
-                    <strong>{issue.path}</strong>: {issue.message}
-                  </li>
-                ))}
-              </ul>
+              <div
+                className={`custom-compose-upload-dropzone custom-compose-upload-dropzone-secondary${activeDropTarget === "env" ? " is-drag-active" : ""}${envFileError ? " has-error" : ""}`}
+                onDragOver={(event) => handleDragOver(event, "env")}
+                onDragLeave={handleDragLeave}
+                onDrop={(event) => handleDrop(event, "env")}
+              >
+                <div className="custom-compose-upload-copy">
+                  <p className="custom-compose-upload-title">
+                    Drag and drop .env here
+                  </p>
+                  <p className="custom-compose-upload-subtitle">
+                    Optional — skip if all values are inline in compose
+                  </p>
+                </div>
+
+                <label className="btn-secondary custom-compose-upload-choose-btn">
+                  Choose .env file
+                  <input
+                    ref={envInputRef}
+                    type="file"
+                    accept=".env,text/plain"
+                    disabled={isUploading}
+                    onChange={(event) => {
+                      handleEnvFileInput(event.target.files?.[0] ?? null);
+                    }}
+                  />
+                </label>
+
+                {selectedEnvFile ? (
+                  <p className="custom-compose-upload-filename">
+                    Selected: <strong>{selectedEnvFile.name}</strong>
+                  </p>
+                ) : null}
+              </div>
+
+              {envFileError ? (
+                <p className="custom-compose-field-error" role="alert">
+                  {envFileError}
+                </p>
+              ) : null}
             </div>
-          ) : null}
+          </section>
 
           <footer className="deploy-configure-actions custom-compose-upload-actions">
             <button
@@ -308,7 +384,7 @@ export function CustomComposeUploadPage() {
               disabled={isUploading}
               aria-busy={isUploading}
             >
-              Upload
+              Continue
             </button>
           </footer>
         </form>

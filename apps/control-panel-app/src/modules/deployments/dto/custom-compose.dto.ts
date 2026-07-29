@@ -18,6 +18,11 @@ export class ValidateCustomComposeDto {
   @IsString()
   @MaxLength(255)
   fileName?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(262_144)
+  envFileContent?: string;
 }
 
 export class DeployCustomComposeDto {
@@ -42,6 +47,11 @@ export class DeployCustomComposeDto {
   @IsOptional()
   @IsString()
   deploymentId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(262_144)
+  envFileContent?: string;
 
   @IsOptional()
   @IsObject()

@@ -161,16 +161,21 @@ function VariableRow<TFieldValues extends FieldValues>({
   isEditing,
   isRequired,
   alwaysRevealValues = false,
+  fieldKeyPrefix = "",
 }: {
   control: Control<TFieldValues>;
   variable: TemplateVariable;
   isEditing: boolean;
   isRequired: boolean;
   alwaysRevealValues?: boolean;
+  fieldKeyPrefix?: string;
 }) {
   const [revealed, setRevealed] = useState(false);
   const showRegenerate = isEditing && canRegenerateValue(variable.name);
   const showPlainValue = alwaysRevealValues || revealed;
+  const fieldName = fieldKeyPrefix
+    ? `${fieldKeyPrefix}${variable.name}`
+    : variable.name;
 
   useEffect(() => {
     setRevealed(false);
@@ -179,7 +184,7 @@ function VariableRow<TFieldValues extends FieldValues>({
   return (
     <FormField
       control={control}
-      name={variable.name as never}
+      name={fieldName as never}
       render={({ field, fieldState }) => (
         <FormItem
           className={`deploy-var-row${fieldState.error ? " deploy-var-row--error" : ""}`}
@@ -260,18 +265,20 @@ function VariableRow<TFieldValues extends FieldValues>({
   );
 }
 
-function VariableList<TFieldValues extends FieldValues>({
+export function DeployVariableList<TFieldValues extends FieldValues>({
   control,
   variables,
   isEditing,
   isRequired,
   alwaysRevealValues = false,
+  fieldKeyPrefix = "",
 }: {
   control: Control<TFieldValues>;
   variables: TemplateVariable[];
   isEditing: boolean;
   isRequired: boolean;
   alwaysRevealValues?: boolean;
+  fieldKeyPrefix?: string;
 }) {
   if (variables.length === 0) return null;
 
@@ -279,12 +286,13 @@ function VariableList<TFieldValues extends FieldValues>({
     <div className="deploy-var-list">
       {variables.map((variable) => (
         <VariableRow
-          key={variable.name}
+          key={fieldKeyPrefix ? `${fieldKeyPrefix}${variable.name}` : variable.name}
           control={control}
           variable={variable}
           isEditing={isEditing}
           isRequired={isRequired}
           alwaysRevealValues={alwaysRevealValues}
+          fieldKeyPrefix={fieldKeyPrefix}
         />
       ))}
     </div>
@@ -330,7 +338,7 @@ export function DynamicDeployFields<TFieldValues extends FieldValues>({
               : "Configuration values needed before deployment can proceed."}
           </p>
         </header>
-        <VariableList
+        <DeployVariableList
           control={control}
           variables={inlineVariables}
           isEditing={isEditing}
@@ -367,7 +375,7 @@ export function DynamicDeployFields<TFieldValues extends FieldValues>({
           </button>
 
           {advancedOpen ? (
-            <VariableList
+            <DeployVariableList
               control={control}
               variables={optional}
               isEditing={isEditing}

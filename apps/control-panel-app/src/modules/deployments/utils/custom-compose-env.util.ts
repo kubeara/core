@@ -1,17 +1,53 @@
 import {
+  buildDeployedComposeYaml,
   extractComposeVariables,
+  findMissingComposeVariables,
+  resolveComposeEnvironment,
   type ComposeVariableRef,
+  type ResolvedComposeEnv,
   type TemplateVariableDefinition,
 } from "@shared/common";
 import * as yaml from "js-yaml";
 
-const IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+import {
+  CUSTOM_COMPOSE_ENV_IDENTIFIER_PATTERN,
+  CUSTOM_ENV_MAX_BYTES,
+} from "../constants/custom-compose.constants";
+import type {
+  CustomComposeCombinedValidationResult,
+  CustomComposeEncryptedContent,
+  CustomComposeResolvedEnv,
+  CustomComposeServiceEnvironment,
+  CustomComposeValidationIssue,
+  DotEnvParseResult,
+  ParsedCustomEnvEntry,
+} from "./custom-compose.types";
 
-interface ParsedCustomEnvEntry {
-  name: string;
-  defaultValue: string | number | boolean | null;
-  hasDefaultSyntax: boolean;
-  hasRequiredOccurrence: boolean;
+/**
+ * Builds the JSON payload stored in encryptedComposeContent for custom compose
+ * deployments. Includes resolved compose YAML and optional deployed .env text.
+ */
+export function buildEncryptedCustomComposePayload(
+  composeYaml: string,
+  mergedEnv: Record<string, string>,
+  mergedPorts: Record<string, number>,
+  envFileContent?: string,
+): string {
+  const payload: CustomComposeEncryptedContent = {
+    composeYaml: buildDeployedComposeYaml(composeYaml, mergedEnv, mergedPorts),
+  };
+
+  const deployedEnvFileContent = buildDeployedEnvFileContent(
+    envFileContent,
+    mergedEnv,
+    mergedPorts,
+  ).trim();
+
+  if (deployedEnvFileContent) {
+    payload.envFileContent = deployedEnvFileContent;
+  }
+
+  return JSON.stringify(payload);
 }
 
 /**
@@ -134,7 +170,7 @@ function collectEnvironmentArrayEntries(
 
         const equalsIndex = trimmed.indexOf("=");
         if (equalsIndex === -1) {
-          if (IDENTIFIER_PATTERN.test(trimmed)) {
+          if (CUSTOM_COMPOSE_ENV_IDENTIFIER_PATTERN.test(trimmed)) {
             upsertCustomEnvEntry(byName, {
               name: trimmed,
               defaultValue: null,
@@ -147,7 +183,7 @@ function collectEnvironmentArrayEntries(
 
         const name = trimmed.slice(0, equalsIndex).trim();
         const rawValue = trimmed.slice(equalsIndex + 1).trim();
-        if (!IDENTIFIER_PATTERN.test(name)) {
+        if (!CUSTOM_COMPOSE_ENV_IDENTIFIER_PATTERN.test(name)) {
           continue;
         }
 
@@ -171,7 +207,7 @@ function collectEnvironmentMappingEntries(
   try {
     for (const [key, rawValue] of Object.entries(environment)) {
       try {
-        if (!IDENTIFIER_PATTERN.test(key)) {
+        if (!CUSTOM_COMPOSE_ENV_IDENTIFIER_PATTERN.test(key)) {
           continue;
         }
 
@@ -475,25 +511,232 @@ function formatNonStringEnvironmentValue(value: unknown): string {
   }
 }
 
-export interface CustomComposeResolvedEnv {
-  env: Record<string, string>;
-  ports: Record<string, number>;
-  generatedKeys: string[];
-  requiredKeys: Set<string>;
+/**
+ * Parses optional .env file content into key/value pairs.
+ */
+export function parseDotEnvFile(content: string): DotEnvParseResult {
+  const issues: CustomComposeValidationIssue[] = [];
+  const variables: Record<string, string> = {};
+
+  try {
+    const trimmed = content.trim();
+    if (!trimmed) {
+      return { variables, issues };
+    }
+
+    const byteLength = Buffer.byteLength(trimmed, "utf8");
+    if (byteLength > CUSTOM_ENV_MAX_BYTES) {
+      return {
+        variables,
+        issues: [
+          {
+            path: ".env",
+            message: `.env file exceeds maximum size of ${CUSTOM_ENV_MAX_BYTES} bytes`,
+          },
+        ],
+      };
+    }
+
+    const lines = trimmed.split(/\r?\n/u);
+    for (let index = 0; index < lines.length; index += 1) {
+      const lineNumber = index + 1;
+      const rawLine = lines[index];
+      const line = rawLine.trim();
+
+      if (!line || line.startsWith("#")) {
+        continue;
+      }
+
+      if (line.startsWith("export ")) {
+        issues.push({
+          path: `.env:${lineNumber}`,
+          message: "export prefix is not supported in .env files",
+        });
+        continue;
+      }
+
+      const separatorIndex = line.indexOf("=");
+      if (separatorIndex === -1) {
+        issues.push({
+          path: `.env:${lineNumber}`,
+          message: "Invalid .env line; expected KEY=VALUE format",
+        });
+        continue;
+      }
+
+      const key = line.slice(0, separatorIndex).trim();
+      const rawValue = line.slice(separatorIndex + 1).trim();
+
+      if (!CUSTOM_COMPOSE_ENV_IDENTIFIER_PATTERN.test(key)) {
+        issues.push({
+          path: `.env:${lineNumber}`,
+          message: `Invalid environment variable name "${key}"`,
+        });
+        continue;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(variables, key)) {
+        issues.push({
+          path: `.env:${lineNumber}`,
+          message: `Duplicate environment variable "${key}"`,
+        });
+        continue;
+      }
+
+      variables[key] = parseDotEnvValue(rawValue);
+    }
+
+    return { variables, issues };
+  } catch (error) {
+    return {
+      variables,
+      issues: [
+        {
+          path: ".env",
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to parse .env file",
+        },
+      ],
+    };
+  }
+}
+
+/**
+ * Validates compose and optional .env together, resolves placeholders, and
+ * returns per-service environment previews with sensitive values masked.
+ */
+export function validateCustomComposeWithEnvFile(
+  composeYaml: string,
+  envFileContent?: string,
+): CustomComposeCombinedValidationResult {
+  const issues: CustomComposeValidationIssue[] = [];
+  const dotEnvResult = parseDotEnvFile(envFileContent ?? "");
+  issues.push(...dotEnvResult.issues);
+
+  if (issues.length > 0) {
+    return {
+      issues,
+      dotEnvVariables: {},
+      resolved: { env: {}, ports: {}, generatedKeys: [] },
+      serviceEnvironments: [],
+    };
+  }
+
+  const customResolved = resolveCustomComposeDeploymentVariables(
+    composeYaml,
+    {},
+    {},
+    dotEnvResult.variables,
+  );
+
+  let resolved: ResolvedComposeEnv;
+  try {
+    resolved = resolveComposeEnvironment({
+      compose: composeYaml,
+      userEnv: customResolved.env,
+      userPorts: customResolved.ports,
+    });
+  } catch (error) {
+    issues.push({
+      path: "variables",
+      message:
+        error instanceof Error
+          ? error.message
+          : "Failed to resolve compose variables",
+    });
+    return {
+      issues,
+      dotEnvVariables: dotEnvResult.variables,
+      resolved: { env: {}, ports: {}, generatedKeys: [] },
+      serviceEnvironments: [],
+    };
+  }
+
+  const missing = findMissingComposeVariables(composeYaml, resolved);
+  if (missing.length > 0) {
+    issues.push({
+      path: "variables",
+      message: `Missing required environment variables: ${missing.join(", ")}`,
+    });
+    return {
+      issues,
+      dotEnvVariables: dotEnvResult.variables,
+      resolved,
+      serviceEnvironments: [],
+    };
+  }
+
+  const envFileIssues = validateComposeEnvFileReferences(
+    composeYaml,
+    envFileContent,
+  );
+  if (envFileIssues.length > 0) {
+    issues.push(...envFileIssues);
+    return {
+      issues,
+      dotEnvVariables: dotEnvResult.variables,
+      resolved,
+      serviceEnvironments: [],
+    };
+  }
+
+  const serviceEnvironments = buildCustomComposeServiceEnvironments(
+    composeYaml,
+    dotEnvResult.variables,
+    resolved.env,
+    resolved.ports,
+  );
+
+  return {
+    issues,
+    dotEnvVariables: dotEnvResult.variables,
+    resolved,
+    serviceEnvironments,
+  };
+}
+
+/**
+ * Builds the deployed .env file content from user input and resolved values.
+ */
+export function buildDeployedEnvFileContent(
+  envFileContent: string | undefined,
+  mergedEnv: Record<string, string>,
+  mergedPorts: Record<string, number>,
+): string {
+  const lookup = buildEnvLookup(mergedEnv, mergedPorts);
+
+  if (envFileContent?.trim()) {
+    return resolveEnvFilePlaceholders(envFileContent.trim(), lookup);
+  }
+
+  const lines: string[] = [];
+  for (const [key, value] of Object.entries(mergedEnv)) {
+    lines.push(`${key}=${serializeDotEnvValue(value)}`);
+  }
+  for (const [key, value] of Object.entries(mergedPorts)) {
+    if (mergedEnv[key] === undefined) {
+      lines.push(`${key}=${String(value)}`);
+    }
+  }
+
+  return lines.join("\n");
 }
 
 /**
  * Builds deployment env/port maps for custom compose using extracted service
- * environment values merged with any request overrides.
+ * environment values merged with any request overrides and optional .env file.
  */
 export function resolveCustomComposeDeploymentVariables(
   composeYaml: string,
   requestEnv: Record<string, unknown> = {},
   requestPorts: Record<string, unknown> = {},
+  dotEnvVariables: Record<string, string> = {},
 ): CustomComposeResolvedEnv {
   try {
     const variables = parseCustomComposeEnvironmentVariables(composeYaml);
-    const env: Record<string, string> = {};
+    const env: Record<string, string> = { ...dotEnvVariables };
     const ports: Record<string, number> = {};
     const requiredKeys = new Set<string>();
 
@@ -515,7 +758,9 @@ export function resolveCustomComposeDeploymentVariables(
           continue;
         }
 
-        env[variable.name] = String(variable.defaultValue);
+        if (env[variable.name] === undefined) {
+          env[variable.name] = String(variable.defaultValue);
+        }
       } catch {
         // Skip individual variable resolution failures.
       }
@@ -557,5 +802,412 @@ export function resolveCustomComposeDeploymentVariables(
     throw new Error(
       `Failed to resolve custom compose deployment variables: ${error instanceof Error ? error.message : String(error)}`,
     );
+  }
+}
+
+/**
+ * Parses a raw environment value from a .env file.
+ * @param rawValue
+ * @returns
+ */
+function parseDotEnvValue(rawValue: string): string {
+  if (
+    (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
+    (rawValue.startsWith("'") && rawValue.endsWith("'"))
+  ) {
+    return rawValue.slice(1, -1);
+  }
+
+  return rawValue;
+}
+
+/**
+ * Serializes a raw environment value from a .env file.
+ * @param value
+ * @returns
+ */
+function serializeDotEnvValue(value: string): string {
+  if (!/[\n\r"'#=\s]/u.test(value)) {
+    return value;
+  }
+
+  return JSON.stringify(value);
+}
+
+/**
+ * Builds an environment lookup from merged environment and port values.
+ * @param mergedEnv
+ * @param mergedPorts
+ * @returns
+ */
+function buildEnvLookup(
+  mergedEnv: Record<string, string>,
+  mergedPorts: Record<string, number>,
+): Record<string, string> {
+  const lookup: Record<string, string> = { ...mergedEnv };
+  for (const [key, value] of Object.entries(mergedPorts)) {
+    if (lookup[key] === undefined) {
+      lookup[key] = String(value);
+    }
+  }
+  return lookup;
+}
+
+/**
+ * Resolves environment file placeholders in a string.
+ * @param envFileContent
+ * @param lookup
+ * @returns
+ */
+function resolveEnvFilePlaceholders(
+  envFileContent: string,
+  lookup: Record<string, string>,
+): string {
+  const lines = envFileContent.split(/\r?\n/u);
+  const resolvedLines = lines.map((line) => {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) {
+      return line;
+    }
+
+    const separatorIndex = line.indexOf("=");
+    if (separatorIndex === -1) {
+      return line;
+    }
+
+    const key = line.slice(0, separatorIndex);
+    const rawValue = line.slice(separatorIndex + 1);
+    const resolvedValue = resolveInlineEnvValue(rawValue.trim(), lookup);
+    return `${key}=${resolvedValue}`;
+  });
+
+  return resolvedLines.join("\n");
+}
+
+/**
+ * Resolves inline environment values in a string.
+ * @param rawValue
+ * @param lookup
+ * @returns
+ */
+function resolveInlineEnvValue(
+  rawValue: string,
+  lookup: Record<string, string>,
+): string {
+  const placeholder = parseInlinePlaceholder(rawValue);
+  if (placeholder) {
+    const resolved = lookup[placeholder.name];
+    if (resolved !== undefined) {
+      return resolved;
+    }
+
+    if (
+      placeholder.hasDefaultSyntax &&
+      placeholder.defaultValue !== null &&
+      placeholder.defaultValue !== undefined
+    ) {
+      return String(placeholder.defaultValue);
+    }
+
+    return rawValue;
+  }
+
+  return resolveEnvValueSubstitutions(rawValue, lookup);
+}
+
+/**
+ * Resolves environment value substitutions in a string.
+ * @param value
+ * @param lookup
+ * @returns
+ */
+function resolveEnvValueSubstitutions(
+  value: string,
+  lookup: Record<string, string>,
+): string {
+  let result = "";
+  let index = 0;
+
+  while (index < value.length) {
+    const dollarIndex = value.indexOf("$", index);
+    if (dollarIndex === -1) {
+      result += value.slice(index);
+      break;
+    }
+
+    result += value.slice(index, dollarIndex);
+
+    if (value[dollarIndex + 1] === "$") {
+      result += "$";
+      index = dollarIndex + 2;
+      continue;
+    }
+
+    if (value[dollarIndex + 1] === "{") {
+      const contentStart = dollarIndex + 2;
+      const closeIndex = value.indexOf("}", contentStart);
+      if (closeIndex === -1) {
+        result += value.slice(dollarIndex);
+        break;
+      }
+
+      const raw = value.slice(contentStart, closeIndex).trim();
+      const defaultIndex = raw.indexOf(":-");
+      const name =
+        defaultIndex === -1 ? raw : raw.slice(0, defaultIndex).trim();
+      const defaultValue =
+        defaultIndex === -1 ? undefined : raw.slice(defaultIndex + 2);
+      const resolved = lookup[name];
+      if (resolved !== undefined) {
+        result += resolved;
+      } else if (defaultValue !== undefined) {
+        result += defaultValue;
+      } else {
+        result += value.slice(dollarIndex, closeIndex + 1);
+      }
+      index = closeIndex + 1;
+      continue;
+    }
+
+    result += value[dollarIndex];
+    index = dollarIndex + 1;
+  }
+
+  return result;
+}
+
+/**
+ * Validates environment file references in a compose YAML file.
+ * @param composeYaml
+ * @param envFileContent
+ * @returns
+ */
+function validateComposeEnvFileReferences(
+  composeYaml: string,
+  envFileContent?: string,
+): CustomComposeValidationIssue[] {
+  const issues: CustomComposeValidationIssue[] = [];
+
+  try {
+    const parsed = yaml.load(composeYaml);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return issues;
+    }
+
+    const services = (parsed as Record<string, unknown>).services;
+    if (!services || typeof services !== "object" || Array.isArray(services)) {
+      return issues;
+    }
+
+    for (const [serviceName, serviceDefinition] of Object.entries(services)) {
+      if (
+        !serviceDefinition ||
+        typeof serviceDefinition !== "object" ||
+        Array.isArray(serviceDefinition)
+      ) {
+        continue;
+      }
+
+      const envFile = (serviceDefinition as Record<string, unknown>).env_file;
+      if (envFile === undefined || envFile === null) {
+        continue;
+      }
+
+      const references = normalizeEnvFileReferences(envFile);
+      for (const reference of references) {
+        if (isUploadedEnvFileReference(reference)) {
+          if (!envFileContent?.trim()) {
+            issues.push({
+              path: `services.${serviceName}.env_file`,
+              message:
+                'Service references ".env" but no .env file was uploaded',
+            });
+          }
+          continue;
+        }
+
+        issues.push({
+          path: `services.${serviceName}.env_file`,
+          message: `Unsupported env_file reference "${reference}". Upload a ".env" file or use inline environment values`,
+        });
+      }
+    }
+
+    return issues;
+  } catch {
+    return issues;
+  }
+}
+
+/**
+ * Normalizes environment file references to an array of strings.
+ * @param envFile
+ * @returns
+ */
+function normalizeEnvFileReferences(envFile: unknown): string[] {
+  if (typeof envFile === "string") {
+    return [envFile.trim()].filter((value) => value.length > 0);
+  }
+
+  if (Array.isArray(envFile)) {
+    return envFile
+      .filter((entry): entry is string => typeof entry === "string")
+      .map((entry) => entry.trim())
+      .filter((value) => value.length > 0);
+  }
+
+  return [];
+}
+
+/**
+ * Checks if a reference is an uploaded .env file.
+ * @param reference
+ * @returns
+ */
+function isUploadedEnvFileReference(reference: string): boolean {
+  const normalized = reference.replace(/^\.\//u, "").trim();
+  return normalized === ".env" || normalized.endsWith("/.env");
+}
+
+/**
+ * Builds custom compose service environments from a compose YAML file and a .env file.
+ * @param composeYaml
+ * @param dotEnvVariables
+ * @param mergedEnv
+ * @param mergedPorts
+ * @returns
+ */
+function buildCustomComposeServiceEnvironments(
+  composeYaml: string,
+  dotEnvVariables: Record<string, string>,
+  mergedEnv: Record<string, string>,
+  mergedPorts: Record<string, number>,
+): CustomComposeServiceEnvironment[] {
+  const lookup = buildEnvLookup(mergedEnv, mergedPorts);
+  const parsed = yaml.load(composeYaml);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return [];
+  }
+
+  const services = (parsed as Record<string, unknown>).services;
+  if (!services || typeof services !== "object" || Array.isArray(services)) {
+    return [];
+  }
+
+  const previews: CustomComposeServiceEnvironment[] = [];
+
+  for (const [serviceName, serviceDefinition] of Object.entries(services)) {
+    if (
+      !serviceDefinition ||
+      typeof serviceDefinition !== "object" ||
+      Array.isArray(serviceDefinition)
+    ) {
+      continue;
+    }
+
+    const service = serviceDefinition as Record<string, unknown>;
+    const serviceEnv: Record<string, string> = {};
+
+    const envFileReferences = normalizeEnvFileReferences(service.env_file);
+    for (const reference of envFileReferences) {
+      if (isUploadedEnvFileReference(reference)) {
+        for (const [key, value] of Object.entries(dotEnvVariables)) {
+          serviceEnv[key] = resolveInlineEnvValue(value, lookup);
+        }
+      }
+    }
+
+    collectResolvedServiceEnvironment(service.environment, serviceEnv, lookup);
+
+    previews.push({
+      serviceName,
+      env: serviceEnv,
+    });
+  }
+
+  return previews.sort((left, right) =>
+    left.serviceName.localeCompare(right.serviceName),
+  );
+}
+
+/**
+ * Collects resolved service environment variables from a service definition.
+ * @param environment
+ * @param serviceEnv
+ * @param lookup
+ * @returns
+ */
+function collectResolvedServiceEnvironment(
+  environment: unknown,
+  serviceEnv: Record<string, string>,
+  lookup: Record<string, string>,
+): void {
+  if (environment === undefined || environment === null) {
+    return;
+  }
+
+  if (Array.isArray(environment)) {
+    for (const entry of environment) {
+      if (typeof entry !== "string") {
+        continue;
+      }
+
+      const trimmed = entry.trim();
+      if (!trimmed) {
+        continue;
+      }
+
+      const equalsIndex = trimmed.indexOf("=");
+      if (equalsIndex === -1) {
+        if (CUSTOM_COMPOSE_ENV_IDENTIFIER_PATTERN.test(trimmed)) {
+          const resolved = lookup[trimmed];
+          if (resolved !== undefined) {
+            serviceEnv[trimmed] = resolved;
+          }
+        }
+        continue;
+      }
+
+      const name = trimmed.slice(0, equalsIndex).trim();
+      const rawValue = trimmed.slice(equalsIndex + 1).trim();
+      if (!CUSTOM_COMPOSE_ENV_IDENTIFIER_PATTERN.test(name)) {
+        continue;
+      }
+
+      serviceEnv[name] = resolveInlineEnvValue(rawValue, lookup);
+    }
+    return;
+  }
+
+  if (!environment || typeof environment !== "object") {
+    return;
+  }
+
+  for (const [key, rawValue] of Object.entries(
+    environment as Record<string, unknown>,
+  )) {
+    if (!CUSTOM_COMPOSE_ENV_IDENTIFIER_PATTERN.test(key)) {
+      continue;
+    }
+
+    if (typeof rawValue === "string") {
+      serviceEnv[key] = resolveInlineEnvValue(rawValue, lookup);
+      continue;
+    }
+
+    if (
+      typeof rawValue === "number" ||
+      typeof rawValue === "boolean" ||
+      typeof rawValue === "bigint"
+    ) {
+      serviceEnv[key] = String(rawValue);
+      continue;
+    }
+
+    if (rawValue === null || rawValue === undefined) {
+      continue;
+    }
+
+    serviceEnv[key] = formatNonStringEnvironmentValue(rawValue);
   }
 }
