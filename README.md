@@ -1,6 +1,6 @@
 <div align="center">
 
-# Kubeara
+<img src="https://images.kubeara.dev/main_logo.png" alt="Kubeara" width="200">
 
 Deploy anything on your own servers.  
 Connect a server, click deploy, done.  
@@ -31,6 +31,16 @@ Kubeara gives you the same one-click deployment experience — on infrastructure
 ✅ No per-seat pricing surprises.  
 ✅ No vendor lock-in.  
 ✅ Free forever for self-hosted.
+
+---
+
+## See Kubeara in Action
+
+<div align="center">
+
+<img src="https://images.kubeara.dev/gifs/deploy-compressed.gif" alt="Kubeara Deployment Demo" width="640" height="360">
+
+</div>
 
 ---
 
@@ -68,6 +78,70 @@ must run on your own servers.
 | **Free cloud tier** | One server free on Kubeara Cloud. No credit card. No time limit. No other platform offers this. |
 
 ---
+
+## Feature rich
+### Add Your Server
+
+Connect your own server to Kubeara and manage it directly from the dashboard.
+
+<div align="center">
+
+<img src="https://images.kubeara.dev/screenshots/add_server.png" alt="Add Server in Kubeara" width="640" height="360">
+
+</div>
+
+### Deploy Services
+
+Deploy databases, applications, AI models, and other services with a simple deployment workflow.
+
+<div align="center">
+
+<img src="https://images.kubeara.dev/screenshots/depoyed_services.png" alt="Deployed Services in Kubeara" width="640" height="360">
+
+</div>
+
+### Real-Time Metrics
+
+Monitor server and service resources including CPU, RAM, disk, GPU, and VRAM usage.
+
+<div align="center">
+
+<img src="https://images.kubeara.dev/screenshots/metrics.png" alt="Kubeara Metrics Dashboard" width="640" height="360">
+
+</div>
+
+### Resource Validation
+
+Validate available resources before deployment to help prevent failed deployments caused by insufficient resources.
+
+<div align="center">
+
+<img src="https://images.kubeara.dev/screenshots/resource_validation.png" alt="Resource Validation in Kubeara" width="640" height="360">
+
+</div>
+
+### Activity Tracking
+
+Keep track of deployment and infrastructure activities from the dashboard.
+
+<div align="center">
+
+<img src="https://images.kubeara.dev/screenshots/activities.png" alt="Kubeara Activities" width="640" height="360">
+
+</div>
+
+### MCP Integration
+
+Manage your infrastructure through MCP-compatible AI clients such as Claude and Cursor.
+
+<div align="center">
+
+<img src="https://images.kubeara.dev/screenshots/MCP.png" alt="Kubeara MCP Integration" width="640" height="360">
+
+</div>
+
+---
+
 
 ### Who uses Kubeara
 
