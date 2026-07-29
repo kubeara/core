@@ -2,28 +2,27 @@ import type { TemplateVariableDefinition } from "@shared/common";
 import * as yaml from "js-yaml";
 
 import { CUSTOM_COMPOSE_MAX_BYTES } from "../constants/custom-compose.constants";
-import { parseCustomComposeEnvironmentVariables } from "./custom-compose-env.util";
+import {
+  parseCustomComposeEnvironmentVariables,
+  validateCustomComposeWithEnvFile,
+} from "./custom-compose-env.util";
+import type {
+  CustomComposeValidationIssue,
+  CustomComposeValidationResult,
+} from "./custom-compose.types";
 
-export interface CustomComposeValidationIssue {
-  path: string;
-  message: string;
-}
-
-export interface CustomComposeValidationSuccess {
-  valid: true;
-  composeYaml: string;
-  /** Auto-generated hint; the user chooses the final templateSlug on configure. */
-  suggestedTemplateSlug: string;
-  variables: TemplateVariableDefinition[];
-}
-
-export interface CustomComposeValidationFailure {
-  valid: false;
-  issues: CustomComposeValidationIssue[];
-}
-
-export type CustomComposeValidationResult =
-  CustomComposeValidationSuccess | CustomComposeValidationFailure;
+export type {
+  CustomComposeCombinedValidationResult,
+  CustomComposeEncryptedContent,
+  CustomComposeResolvedEnv,
+  CustomComposeServiceEnvironment,
+  CustomComposeValidationFailure,
+  CustomComposeValidationIssue,
+  CustomComposeValidationResult,
+  CustomComposeValidationSuccess,
+  DotEnvParseResult,
+  ParsedCustomEnvEntry,
+} from "./custom-compose.types";
 
 /**
  * Validates uploaded Docker Compose YAML content (not file extension).
@@ -33,6 +32,7 @@ export type CustomComposeValidationResult =
  */
 export function validateUploadedCustomCompose(
   composeYaml: string,
+  envFileContent = "",
 ): CustomComposeValidationResult {
   try {
     const trimmed = composeYaml.trim();
@@ -80,6 +80,14 @@ export function validateUploadedCustomCompose(
       };
     }
 
+    const combinedValidation = validateCustomComposeWithEnvFile(
+      trimmed,
+      envFileContent,
+    );
+    if (combinedValidation.issues.length > 0) {
+      return { valid: false, issues: combinedValidation.issues };
+    }
+
     const serviceSlugs = listCustomComposeServiceSlugs(trimmed);
     if (serviceSlugs.length === 0) {
       return {
@@ -96,8 +104,10 @@ export function validateUploadedCustomCompose(
     return {
       valid: true,
       composeYaml: trimmed,
+      envFileContent: envFileContent.trim(),
       suggestedTemplateSlug: deriveCustomComposeTemplateSlug(serviceSlugs),
       variables,
+      serviceEnvironments: combinedValidation.serviceEnvironments,
     };
   } catch (error) {
     return {

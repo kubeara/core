@@ -1,7 +1,11 @@
 import {
+  buildEncryptedCustomComposePayload,
   parseCustomComposeEnvironmentVariables,
+  parseDotEnvFile,
   resolveCustomComposeDeploymentVariables,
+  validateCustomComposeWithEnvFile,
 } from "./custom-compose-env.util";
+import type { CustomComposeEncryptedContent } from "./custom-compose.types";
 
 describe("custom-compose-env.util", () => {
   it("extracts mapping-format environment values from all services", () => {
@@ -115,5 +119,222 @@ services:
     });
     expect(resolved.ports).toEqual({});
     expect(resolved.requiredKeys.size).toBe(0);
+  });
+
+  it("merges uploaded .env values into the resolved deployment env map", () => {
+    const compose = `
+services:
+  web:
+    image: nginx:alpine
+    environment:
+      APP_ENV: \${APP_ENV}
+`;
+
+    const resolved = resolveCustomComposeDeploymentVariables(
+      compose,
+      {},
+      {},
+      { APP_ENV: "production", DB_PASSWORD: "secret" },
+    );
+
+    expect(resolved.env.APP_ENV).toBe("production");
+    expect(resolved.env.DB_PASSWORD).toBe("secret");
+  });
+});
+
+describe("parseDotEnvFile", () => {
+  it("parses KEY=VALUE lines and ignores comments", () => {
+    const result = parseDotEnvFile(`
+# comment
+APP_ENV=production
+DB_PASSWORD="secret"
+`);
+
+    expect(result.issues).toEqual([]);
+    expect(result.variables).toEqual({
+      APP_ENV: "production",
+      DB_PASSWORD: "secret",
+    });
+  });
+
+  it("reports invalid .env lines", () => {
+    const result = parseDotEnvFile("INVALID LINE");
+
+    expect(result.issues).toEqual([
+      expect.objectContaining({ path: ".env:1" }),
+    ]);
+  });
+});
+
+describe("validateCustomComposeWithEnvFile", () => {
+  it("resolves compose placeholders from uploaded .env values", () => {
+    const compose = `
+services:
+  web:
+    image: nginx:alpine
+    environment:
+      APP_ENV: \${APP_ENV}
+`;
+
+    const result = validateCustomComposeWithEnvFile(
+      compose,
+      "APP_ENV=production\n",
+    );
+
+    expect(result.issues).toEqual([]);
+    expect(result.serviceEnvironments).toEqual([
+      {
+        serviceName: "web",
+        env: { APP_ENV: "production" },
+      },
+    ]);
+  });
+
+  it("reports missing referenced variables", () => {
+    const compose = `
+services:
+  web:
+    image: nginx:alpine
+    environment:
+      APP_ENV: \${APP_ENV}
+`;
+
+    const result = validateCustomComposeWithEnvFile(compose, "");
+
+    expect(result.issues).toEqual([
+      expect.objectContaining({
+        path: "variables",
+      }),
+    ]);
+    expect(result.issues[0]?.message).toContain("APP_ENV");
+  });
+
+  it("resolves env placeholders that reference a different variable name", () => {
+    const compose = `
+services:
+  app:
+    image: nginx:alpine
+    environment:
+      DATABASE_PASSWORD: apppassword
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: \${DATABASE_PASSWORD}
+`;
+
+    const result = validateCustomComposeWithEnvFile(compose, "");
+
+    expect(result.issues).toEqual([]);
+    expect(result.serviceEnvironments).toEqual([
+      {
+        serviceName: "app",
+        env: { DATABASE_PASSWORD: "apppassword" },
+      },
+      {
+        serviceName: "postgres",
+        env: { POSTGRES_PASSWORD: "apppassword" },
+      },
+    ]);
+  });
+
+  it("resolves shared env vars independently for each service preview", () => {
+    const compose = `
+services:
+  api:
+    image: nginx:alpine
+    environment:
+      DATABASE_PASSWORD: \${DATABASE_PASSWORD}
+      API_KEY: \${API_KEY}
+  worker:
+    image: nginx:alpine
+    environment:
+      DATABASE_PASSWORD: \${DATABASE_PASSWORD}
+      WORKER_QUEUE: redis
+`;
+
+    const result = validateCustomComposeWithEnvFile(
+      compose,
+      "DATABASE_PASSWORD=shared-secret\nAPI_KEY=api-key\n",
+    );
+
+    expect(result.issues).toEqual([]);
+    expect(result.serviceEnvironments).toEqual([
+      {
+        serviceName: "api",
+        env: {
+          API_KEY: "api-key",
+          DATABASE_PASSWORD: "shared-secret",
+        },
+      },
+      {
+        serviceName: "worker",
+        env: {
+          DATABASE_PASSWORD: "shared-secret",
+          WORKER_QUEUE: "redis",
+        },
+      },
+    ]);
+  });
+
+  it("returns resolved sensitive values for client-side masking", () => {
+    const compose = `
+services:
+  web:
+    image: nginx:alpine
+    environment:
+      POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
+      DATABASE_PASSWORD: \${DATABASE_PASSWORD}
+`;
+
+    const result = validateCustomComposeWithEnvFile(
+      compose,
+      "POSTGRES_PASSWORD=super-secret\nDATABASE_PASSWORD=db-secret\n",
+    );
+
+    expect(result.serviceEnvironments[0]?.env.POSTGRES_PASSWORD).toBe(
+      "super-secret",
+    );
+    expect(result.serviceEnvironments[0]?.env.DATABASE_PASSWORD).toBe(
+      "db-secret",
+    );
+  });
+});
+
+describe("buildEncryptedCustomComposePayload", () => {
+  it("stores compose yaml and optional env file in one encrypted payload", () => {
+    const compose = `
+services:
+  web:
+    image: nginx:alpine
+    environment:
+      APP_ENV: \${APP_ENV}
+`;
+
+    const payload = JSON.parse(
+      buildEncryptedCustomComposePayload(
+        compose,
+        { APP_ENV: "production" },
+        {},
+        "APP_ENV=production\n",
+      ),
+    ) as CustomComposeEncryptedContent;
+
+    expect(payload.composeYaml).toContain("APP_ENV: production");
+    expect(payload.envFileContent).toContain("APP_ENV=production");
+  });
+
+  it("stores compose-only deployments without envFileContent", () => {
+    const compose = `
+services:
+  web:
+    image: nginx:alpine
+`;
+
+    const payload = JSON.parse(
+      buildEncryptedCustomComposePayload(compose, {}, {}, ""),
+    ) as CustomComposeEncryptedContent;
+
+    expect(payload.composeYaml).toContain("image: nginx:alpine");
+    expect(payload.envFileContent).toBeUndefined();
   });
 });

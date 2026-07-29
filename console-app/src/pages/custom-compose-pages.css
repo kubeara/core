@@ -134,13 +134,23 @@
   font-weight: 600;
 }
 
-.custom-compose-validation-issues {
-  margin: 0;
+.custom-compose-upload-panel .custom-compose-validation-issues {
+  margin: 0 1.5rem 1rem;
   padding: 0.75rem 1rem;
   list-style: none;
   border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
   border-radius: 10px;
   background: color-mix(in srgb, var(--danger) 8%, transparent);
+}
+
+.custom-compose-upload-panel .custom-compose-validation-issues li {
+  color: var(--danger);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.custom-compose-upload-panel .custom-compose-validation-issues li + li {
+  margin-top: 0.35rem;
 }
 
 .custom-compose-name-input-wrap {
@@ -169,14 +179,8 @@
   color: var(--danger);
 }
 
-.custom-compose-validation-issues li {
-  color: var(--danger);
-  font-size: 0.875rem;
-  line-height: 1.45;
-}
-
-.custom-compose-validation-issues li + li {
-  margin-top: 0.35rem;
+.custom-compose-upload-dropzone-secondary {
+  min-height: 120px;
 }
 
 .connected-services-toolbar {

@@ -21,6 +21,7 @@ export interface PrepareCustomComposeDeploymentInput extends Omit<
 > {
   composeYaml: string;
   displayName: string;
+  envFileContent?: string;
 }
 
 export interface BuildServerUrlContextInput {

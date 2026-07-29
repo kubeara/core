@@ -34,6 +34,7 @@ type PendingDeployLocationState = {
   > & {
     /** Present for custom compose uploads; triggers the custom deploy API. */
     composeYaml?: string;
+    envFileContent?: string;
     displayName?: string;
   };
   /** Optional override when opening logs from Activity (or elsewhere). */
@@ -131,6 +132,7 @@ export function DeployLogsPage() {
     const deployPromise = pendingDeploy.composeYaml
       ? deployCustomCompose({
           composeYaml: pendingDeploy.composeYaml,
+          envFileContent: pendingDeploy.envFileContent,
           serverId,
           displayName: pendingDeploy.displayName ?? "Custom Compose",
           env: pendingDeploy.env,

@@ -67,7 +67,11 @@ import {
 import { DEPLOYMENT_MESSAGES } from "./constants/deployment-messages.constants";
 import { DeploymentType } from "./enums/deployment-type.enum";
 import { CUSTOM_TEMPLATE_SLUG } from "./constants/custom-compose.constants";
-import { resolveCustomComposeDeploymentVariables } from "./utils/custom-compose-env.util";
+import {
+  resolveCustomComposeDeploymentVariables,
+  parseDotEnvFile,
+  buildEncryptedCustomComposePayload,
+} from "./utils/custom-compose-env.util";
 import {
   encodeComposeYamlToPayload,
   getCustomComposeDisplayNameValidationError,
@@ -1071,9 +1075,10 @@ export class DeploymentsService {
    */
   validateCustomComposeUpload(
     composeYaml: string,
+    envFileContent = "",
   ): CustomComposeValidationResult {
     try {
-      return validateUploadedCustomCompose(composeYaml);
+      return validateUploadedCustomCompose(composeYaml, envFileContent);
     } catch (error) {
       throw new BadRequestException(
         `Failed to validate compose file: ${error instanceof Error ? error.message : String(error)}`,
@@ -1093,6 +1098,7 @@ export class DeploymentsService {
       const {
         composeYaml,
         displayName: rawDisplayName,
+        envFileContent = "",
         serverId,
         userId,
         requestEnv = {},
@@ -1119,7 +1125,10 @@ export class DeploymentsService {
         );
       }
 
-      const validation = validateUploadedCustomCompose(composeYaml);
+      const validation = validateUploadedCustomCompose(
+        composeYaml,
+        envFileContent,
+      );
       if (!validation.valid) {
         const summary = validation.issues
           .slice(0, 3)
@@ -1173,10 +1182,15 @@ export class DeploymentsService {
           basePorts = { ...stored.ports, ...requestPorts };
         }
 
+        const dotEnvVariables = parseDotEnvFile(
+          validation.envFileContent,
+        ).variables;
+
         const customResolved = resolveCustomComposeDeploymentVariables(
           validation.composeYaml,
           baseEnv,
           basePorts,
+          dotEnvVariables,
         );
 
         const declaredPortVars = this.composeParserService.listPortVariables(
@@ -1227,6 +1241,7 @@ export class DeploymentsService {
             validation.composeYaml,
             mergedEnv,
             mergedPorts,
+            validation.envFileContent,
           );
           await this.updateStatus(deploymentId, DeploymentStatus.PENDING, {
             message: "Deployment prepared",
@@ -1288,6 +1303,7 @@ export class DeploymentsService {
     deployOnLocal?: boolean;
     composeYaml: string;
     displayName: string;
+    envFileContent?: string;
     requestEnv?: Record<string, unknown>;
     requestPorts?: Record<string, unknown>;
     useTraefikRequest?: boolean;
@@ -1379,6 +1395,7 @@ export class DeploymentsService {
       const prepared = await this.prepareCustomComposeDeployment({
         composeYaml: input.composeYaml,
         displayName: input.displayName,
+        envFileContent: input.envFileContent,
         serverId,
         userId,
         requestEnv: input.requestEnv,
@@ -2327,15 +2344,20 @@ export class DeploymentsService {
     composeYaml: string,
     mergedEnv: Record<string, string>,
     mergedPorts: Record<string, number>,
+    envFileContent?: string,
   ): Promise<void> {
     try {
-      const deployedYaml = buildDeployedComposeYaml(
-        composeYaml,
-        mergedEnv,
-        mergedPorts,
-      );
+      const contentToEncrypt =
+        envFileContent !== undefined
+          ? buildEncryptedCustomComposePayload(
+              composeYaml,
+              mergedEnv,
+              mergedPorts,
+              envFileContent,
+            )
+          : buildDeployedComposeYaml(composeYaml, mergedEnv, mergedPorts);
       const encryptedComposeContent =
-        this.encryptionService.encrypt(deployedYaml);
+        this.encryptionService.encrypt(contentToEncrypt);
 
       await this.deploymentRepository.update(deploymentId, {
         encryptedComposeContent,

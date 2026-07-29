@@ -10,10 +10,16 @@ import type {
 /** Slug for the internal custom-compose service template (not listed in marketplace). */
 export const CUSTOM_TEMPLATE_SLUG = "custom";
 
+export interface CustomComposeServiceEnvironment {
+  serviceName: string;
+  env: Record<string, string>;
+}
+
 export interface ValidateCustomComposeResult {
   valid: true;
   suggestedTemplateSlug: string;
   variables: TemplateVariable[];
+  serviceEnvironments: CustomComposeServiceEnvironment[];
 }
 
 export interface ValidateCustomComposeError {
@@ -27,6 +33,7 @@ export type ValidateCustomComposeResponse =
 
 export interface DeployCustomComposeInput {
   composeYaml: string;
+  envFileContent?: string;
   serverId: string;
   displayName: string;
   env?: Record<string, string>;
@@ -118,10 +125,11 @@ function parseComposeValidationSummary(
 }
 
 /**
- * Validates uploaded Docker Compose YAML and returns extracted variables.
+ * Validates Docker Compose YAML and optional .env content together.
  */
 export async function validateCustomComposeUpload(input: {
   composeYaml: string;
+  envFileContent?: string;
   fileName?: string;
 }): Promise<ValidateCustomComposeResponse> {
   try {
@@ -129,6 +137,7 @@ export async function validateCustomComposeUpload(input: {
       "/deployments/custom-compose/validate",
       {
         composeYaml: input.composeYaml,
+        envFileContent: input.envFileContent ?? "",
         fileName: input.fileName,
       },
     );
@@ -159,6 +168,7 @@ export async function validateCustomComposeUpload(input: {
  */
 export async function validateCustomComposeResources(input: {
   composeYaml: string;
+  envFileContent?: string;
   serverId: string;
   displayName: string;
   env?: Record<string, string>;
@@ -169,6 +179,7 @@ export async function validateCustomComposeResources(input: {
       "/deployments/custom-compose/resources/check",
       {
         composeYaml: input.composeYaml,
+        envFileContent: input.envFileContent ?? "",
         serverId: input.serverId,
         displayName: input.displayName,
         env: input.env ?? {},
@@ -204,6 +215,7 @@ export async function deployCustomCompose(
       "/deployments/custom-compose",
       {
         composeYaml: input.composeYaml,
+        envFileContent: input.envFileContent ?? "",
         serverId: input.serverId,
         displayName: input.displayName,
         env: input.env ?? {},
