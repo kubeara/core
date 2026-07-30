@@ -90,7 +90,7 @@ Connect your own server to Kubeara and manage it directly from the dashboard.
 
 <div align="center">
 
-<img src="https://images.kubeara.dev/screenshots/add_server.png" alt="Add Server in Kubeara" width="640" height="360">
+<img src="https://images.kubeara.dev/screenshots/v2/add_server.png" alt="Add Server in Kubeara" width="750" height="420">
 
 </div>
 
@@ -100,7 +100,7 @@ Deploy databases, applications, AI models, and other services with a simple depl
 
 <div align="center">
 
-<img src="https://images.kubeara.dev/screenshots/depoyed_services.png" alt="Deployed Services in Kubeara" width="640" height="360">
+<img src="https://images.kubeara.dev/screenshots/v2/overview.png" alt="Deployed Services in Kubeara" width="750" height="420">
 
 </div>
 
@@ -110,7 +110,7 @@ Monitor server and service resources including CPU, RAM, disk, GPU, and VRAM usa
 
 <div align="center">
 
-<img src="https://images.kubeara.dev/screenshots/metrics.png" alt="Kubeara Metrics Dashboard" width="640" height="360">
+<img src="https://images.kubeara.dev/screenshots/v2/metrics.png" alt="Kubeara Metrics Dashboard" width="750" height="420">
 
 </div>
 
@@ -120,7 +120,7 @@ Validate available resources before deployment to help prevent failed deployment
 
 <div align="center">
 
-<img src="https://images.kubeara.dev/screenshots/resource_validation.png" alt="Resource Validation in Kubeara" width="640" height="360">
+<img src="https://images.kubeara.dev/screenshots/resource_validation.png" alt="Resource Validation in Kubeara" width="750" height="420">
 
 </div>
 
@@ -130,7 +130,7 @@ Keep track of deployment and infrastructure activities from the dashboard.
 
 <div align="center">
 
-<img src="https://images.kubeara.dev/screenshots/activities.png" alt="Kubeara Activities" width="640" height="360">
+<img src="https://images.kubeara.dev/screenshots/v2/activities.png" alt="Kubeara Activities" width="750" height="420">
 
 </div>
 
@@ -140,7 +140,7 @@ Manage your infrastructure through MCP-compatible AI clients such as Claude and 
 
 <div align="center">
 
-<img src="https://images.kubeara.dev/screenshots/MCP.png" alt="Kubeara MCP Integration" width="640" height="360">
+<img src="https://images.kubeara.dev/screenshots/v2/MCP.png" alt="Kubeara MCP Integration" width="750" height="420">
 
 </div>
 
