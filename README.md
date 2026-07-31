@@ -83,70 +83,6 @@ must run on your own servers.
 
 ---
 
-## Feature rich
-### Add Your Server
-
-Connect your own server to Kubeara and manage it directly from the dashboard.
-
-<div align="center">
-
-<img src="https://images.kubeara.dev/screenshots/v2/add_server.png" alt="Add Server in Kubeara" width="750" height="420">
-
-</div>
-
-### Deploy Services
-
-Deploy databases, applications, AI models, and other services with a simple deployment workflow.
-
-<div align="center">
-
-<img src="https://images.kubeara.dev/screenshots/v2/overview.png" alt="Deployed Services in Kubeara" width="750" height="420">
-
-</div>
-
-### Real-Time Metrics
-
-Monitor server and service resources including CPU, RAM, disk, GPU, and VRAM usage.
-
-<div align="center">
-
-<img src="https://images.kubeara.dev/screenshots/v2/metrics.png" alt="Kubeara Metrics Dashboard" width="750" height="420">
-
-</div>
-
-### Resource Validation
-
-Validate available resources before deployment to help prevent failed deployments caused by insufficient resources.
-
-<div align="center">
-
-<img src="https://images.kubeara.dev/screenshots/resource_validation.png" alt="Resource Validation in Kubeara" width="750" height="420">
-
-</div>
-
-### Activity Tracking
-
-Keep track of deployment and infrastructure activities from the dashboard.
-
-<div align="center">
-
-<img src="https://images.kubeara.dev/screenshots/v2/activities.png" alt="Kubeara Activities" width="750" height="420">
-
-</div>
-
-### MCP Integration
-
-Manage your infrastructure through MCP-compatible AI clients such as Claude and Cursor.
-
-<div align="center">
-
-<img src="https://images.kubeara.dev/screenshots/v2/MCP.png" alt="Kubeara MCP Integration" width="750" height="420">
-
-</div>
-
----
-
-
 ### Who uses Kubeara
 
 | Use case | Why Kubeara |
@@ -222,39 +158,105 @@ Both options deploy to servers you connect. We only manage the Kubeara dashboard
 | Max | $99/month | Unlimited |
 | Enterprise | $199/month | Unlimited + SSO |
 
+---
+
 ## Features
 
-### Free forever
+### Free Forever
 
-**Deployment**
-- 🚀 One-click deployment from 200+ templates
-- 🐳 Docker Compose and Dockerfile support
-- 🌐 Automatic SSL via Let's Encrypt
-- 🔀 Custom domain configuration
-- ♻️ Automatic container restarts
-- 📦 Volume and persistent storage management
-- 🔄 Rolling updates with zero downtime
+#### 🚀 Deployment
 
-**Servers**
-- 🖥️ Connect any server via SSH
-- 🔍 Automatic server validation on connect
-- 📊 Real-time CPU, RAM, and disk monitoring
-- 🌍 Multi-region server management
-- 🔒 Agent-based security — No Plain text SSH key storage
+* One-click deployment from 200+ templates
+* Docker Compose and Dockerfile support
+* Automatic SSL via Let's Encrypt
+* Custom domain configuration
+* Automatic container restarts
+* Volume and persistent storage management
+* Rolling updates with zero downtime
 
-**AI and Models**
-- 🤖 Ollama and other AI models deployment in one click
-- ⚡ VRAM checker before every model pull
-- 📈 GPU utilization per container
-- 🌡️ GPU temperature monitoring
-- 💾 VRAM usage per service
+<div align="center">
 
-**Developer Experience**
-- 🔗 Native MCP server integration
-- 📝 Real-time deployment logs
-- 🛠️ NestJS and Next.js framework support
-- 🔑 API key management
-- 👥 Team members Management
+<img src="https://images.kubeara.dev/screenshots/v2/overview.png" alt="Deploy a service with Kubeara" width="750">
+
+</div>
+
+#### 🖥️ Servers
+
+* Connect any server via SSH
+* Automatic server validation on connect
+* Real-time CPU, RAM, and disk monitoring
+* Multi-region server management
+* Agent-based security — No plaintext SSH key storage
+
+<div align="center">
+
+<img src="https://images.kubeara.dev/screenshots/v2/add_server.png" alt="Add Your Server in Kubeara" width="750">
+
+</div>
+
+#### 📊 Real-Time Metrics
+
+* Monitor CPU, RAM, and disk usage
+* Monitor GPU utilization and temperature
+* Track VRAM usage per service
+* View real-time resource usage across your infrastructure
+
+<div align="center">
+
+<img src="https://images.kubeara.dev/screenshots/v2/metrics.png" alt="Real-Time Metrics in Kubeara" width="750">
+
+</div>
+
+#### 🛡️ Resource Validation
+
+* Validate available resources before deployment
+* Prevent failed deployments caused by insufficient resources
+* Check CPU, RAM, GPU, and VRAM availability
+
+<div align="center">
+
+<img src="https://images.kubeara.dev/screenshots/resource_validation.png" alt="Resource Validation in Kubeara" width="750">
+
+</div>
+
+#### 🤖 AI & Models
+
+* One-click Ollama and AI model deployment
+* VRAM validation before every model pull
+* GPU utilization per container
+* GPU temperature monitoring
+* VRAM usage per service
+
+<div align="center">
+
+<img width="750" alt="image" src="https://github.com/user-attachments/assets/8a10e865-629f-40a6-adc4-df81746bfbcc" />
+
+</div>
+
+#### 📋 Activity Tracking
+
+* Keep track of deployment and infrastructure activities
+* Monitor important changes across your servers and services
+
+<div align="center">
+
+<img src="https://images.kubeara.dev/screenshots/v2/activities.png" alt="Activity Tracking in Kubeara" width="750">
+
+</div>
+
+#### 🛠️ Developer Experience
+
+* Native MCP server integration
+* Real-time deployment logs
+* NestJS and Next.js framework support
+* API key management
+* Team member management
+
+<div align="center">
+
+<img src="https://images.kubeara.dev/screenshots/v2/MCP.png" alt="MCP Integration in Kubeara" width="750">
+
+</div>
 
 ---
 
