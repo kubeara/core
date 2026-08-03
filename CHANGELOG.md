@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.0.15](https://github.com/kubeara/core/compare/v0.0.14...v0.0.15) (2026-08-03)
+
+
+### Documentation
+
+* Enhance README.md with responsive logo support ([db9f4b3](https://github.com/kubeara/core/commit/db9f4b31f9b391ad531b6dca4c2b3f0837cd56a6))
+* Enhance README.md with visual content and feature descriptions ([3d345a2](https://github.com/kubeara/core/commit/3d345a2426f0685271f621230fea4d2430541a79))
+* Revise README.md to consolidate feature sections and improve layout with updated images and descriptions ([7b50008](https://github.com/kubeara/core/commit/7b50008bf5f9cb0dcff9fd5018bc2115b710ef84))
+* Update README.md with new image paths and dimensions for enhanced visuals ([fd037fc](https://github.com/kubeara/core/commit/fd037fc2de9d50723c156800251eec27d65f3089))
+
+
+### Refactoring
+
+* add random unused host port selection for agent installation ([ab67af1](https://github.com/kubeara/core/commit/ab67af12b5c66c3315cdd4c660b26a7010def0be))
+* Improve service template search functionality ([43a61bf](https://github.com/kubeara/core/commit/43a61bfef5c60cf5fe043f69c80b978689a40455))
+
 ## [0.0.14](https://github.com/kubeara/core/compare/v0.0.13...v0.0.14) (2026-07-29)
 
 
