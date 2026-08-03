@@ -85,51 +85,102 @@ export class ServiceTemplateService {
   }
 
   /**
-   * Builds TypeORM where clauses for listing active templates.
-   * Applies optional category and search filters at the database level.
-   * @param category - Optional category slug to filter by.
-   * @param search - Optional search term matched against name, slug, description, and tags.
-   * @returns A single where clause or an array of OR conditions for search.
+   * Shared filters for active marketplace templates (excludes inactive and internal slugs).
    */
-  private buildActiveListWhere(
+  private buildActiveListBaseWhere(
     category?: string,
-    search?: string,
-  ):
-    | FindOptionsWhere<ServiceTemplateEntity>
-    | FindOptionsWhere<ServiceTemplateEntity>[] {
+  ): FindOptionsWhere<ServiceTemplateEntity> {
     if (category !== undefined && category.trim() === "") {
       throw new BadRequestException("category query parameter cannot be empty");
     }
 
-    const excludedSlugs = [...LISTING_EXCLUDED_TEMPLATE_SLUGS];
     const baseWhere: FindOptionsWhere<ServiceTemplateEntity> = {
       isActive: true,
-      slug: Not(In(excludedSlugs)),
+      slug: Not(In([...LISTING_EXCLUDED_TEMPLATE_SLUGS])),
     };
 
     if (category?.trim()) {
       baseWhere.category = ArrayContains([category.trim().toLowerCase()]);
     }
 
-    if (!search?.trim()) {
-      return baseWhere;
+    return baseWhere;
+  }
+
+  /**
+   * Runs one search priority tier via TypeORM find (name, slug, descriptions, then tags).
+   */
+  private async findActiveListSearchTier(
+    baseWhere: FindOptionsWhere<ServiceTemplateEntity>,
+    tierWhere: FindOptionsWhere<ServiceTemplateEntity>,
+    excludedSlugs: string[],
+  ): Promise<ServiceTemplateEntity[]> {
+    const slugFilter =
+      tierWhere.slug !== undefined
+        ? tierWhere.slug
+        : Not(In([...LISTING_EXCLUDED_TEMPLATE_SLUGS, ...excludedSlugs]));
+
+    return this.findMany({
+      where: {
+        ...baseWhere,
+        ...tierWhere,
+        slug: slugFilter,
+      },
+      order: { name: "ASC" },
+    });
+  }
+
+  /**
+   * Loads templates using separate TypeORM queries per search field, merged in priority order.
+   */
+  private async findActiveListTemplates(
+    category?: string,
+    search?: string,
+  ): Promise<ServiceTemplateEntity[]> {
+    const baseWhere = this.buildActiveListBaseWhere(category);
+    const searchTerm = search?.trim();
+
+    if (!searchTerm) {
+      return this.findMany({
+        where: baseWhere,
+        order: { name: "ASC" },
+      });
     }
 
-    const searchTerm = search.trim();
     const searchPattern = ILike(`%${searchTerm}%`);
+    const ordered: ServiceTemplateEntity[] = [];
+    const collectedSlugs: string[] = [];
 
-    return [
-      { ...baseWhere, name: searchPattern },
-      {
-        isActive: true,
-        slug: And(Not(In(excludedSlugs)), searchPattern),
-        ...(category?.trim()
-          ? { category: ArrayContains([category.trim().toLowerCase()]) }
-          : {}),
-      },
-      { ...baseWhere, shortDescription: searchPattern },
-      { ...baseWhere, tags: ArrayOverlap([searchTerm]) },
-    ];
+    const appendTier = async (
+      tierWhere: FindOptionsWhere<ServiceTemplateEntity>,
+    ) => {
+      const tierMatches = await this.findActiveListSearchTier(
+        baseWhere,
+        tierWhere,
+        collectedSlugs,
+      );
+
+      for (const template of tierMatches) {
+        if (collectedSlugs.includes(template.slug)) {
+          continue;
+        }
+
+        collectedSlugs.push(template.slug);
+        ordered.push(template);
+      }
+    };
+
+    await appendTier({ name: searchPattern });
+    await appendTier({
+      slug: And(
+        Not(In([...LISTING_EXCLUDED_TEMPLATE_SLUGS, ...collectedSlugs])),
+        searchPattern,
+      ),
+    });
+    await appendTier({ shortDescription: searchPattern });
+    await appendTier({ longDescription: searchPattern });
+    await appendTier({ tags: ArrayOverlap([searchTerm]) });
+
+    return ordered;
   }
 
   private assertTemplateIsListable(slug: string): void {
@@ -226,6 +277,7 @@ export class ServiceTemplateService {
    * Supports optional category and search filters applied in the database query.
    * @param category - Optional category slug to filter by.
    * @param search - Optional search term matched against name, slug, description, and tags.
+   *   Name matches are listed before slug, description, and tag matches.
    * @returns Public template list items without compose or deployment details.
    */
   async listPublicTemplates(
@@ -233,10 +285,7 @@ export class ServiceTemplateService {
     search?: string,
   ): Promise<PublicTemplateListItemDto[]> {
     try {
-      const templates = await this.findMany({
-        where: this.buildActiveListWhere(category, search),
-        order: { name: "ASC" },
-      });
+      const templates = await this.findActiveListTemplates(category, search);
 
       return templates.map((template) => {
         const item = this.toTemplateListItem(template);
@@ -271,13 +320,25 @@ export class ServiceTemplateService {
     const skip = (page - 1) * limit;
 
     try {
-      const [templates, total] =
-        await this.serviceTemplateRepository.findAndCount({
-          where: this.buildActiveListWhere(query.category, query.search),
+      const trimmedSearch = query.search?.trim();
+      let templates: ServiceTemplateEntity[];
+      let total: number;
+
+      if (trimmedSearch) {
+        const allMatching = await this.findActiveListTemplates(
+          query.category,
+          query.search,
+        );
+        total = allMatching.length;
+        templates = allMatching.slice(skip, skip + limit);
+      } else {
+        [templates, total] = await this.serviceTemplateRepository.findAndCount({
+          where: this.buildActiveListBaseWhere(query.category),
           order: { name: "ASC" },
           skip,
           take: limit,
         });
+      }
 
       const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
 
