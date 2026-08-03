@@ -50,8 +50,8 @@ import {
 import {
   AgentInstallLogCallback,
   AgentInstallResult,
-  AgentInstallService,
-} from "./agent-install.service";
+} from "../interfaces/agent-install.interfaces";
+import { AgentInstallService } from "./agent-install.service";
 import { AgentServerBindingService } from "./agent-server-binding.service";
 import { RemoteAgentInstallService } from "./remote-agent-install.service";
 import { ServerType } from "../enums/server-type.enum";
