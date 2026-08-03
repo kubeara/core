@@ -13,12 +13,12 @@ services:
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: kubeara-agent
     ports:
-      - "${AGENT_PORT:-3001}:3001"
+      - "${AGENT_PORT}:3001"
     env_file:
       - .env.agent
     environment:
       NODE_ENV: production
-      PORT: ${AGENT_PORT:-3001}
+      PORT: "3001"
       CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:?Set CONTROL_PANEL_URL in .env.agent}
       ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?Set ENCRYPTION_SECRET in .env.agent}
       KUBEARA_SERVER_ID: ${KUBEARA_SERVER_ID:?Set KUBEARA_SERVER_ID in .env.agent}

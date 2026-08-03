@@ -10,7 +10,12 @@ export const AGENT_INSTALL = {
   CONTAINER_NAME: "kubeara-agent",
   /** Compose project when installed under REMOTE_DIR (basename of that path). */
   COMPOSE_PROJECT_NAME: "agent",
+  /** Agent container listen port (internal). Host mapping uses a dynamic port. */
   DEFAULT_PORT: 3001,
+  /** Inclusive range for randomly selected host ports. */
+  HOST_PORT_MIN: 1000,
+  HOST_PORT_MAX: 9999,
+  HOST_PORT_PICK_ATTEMPTS: 100,
   PULL_TIMEOUT_MS: 600_000,
   PREREQ_TIMEOUT_MS: 900_000,
   /** How long compose deploy waits for agent WebSocket after install. */

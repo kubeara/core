@@ -3,9 +3,9 @@ import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import {
   AgentInstallLogCallback,
   AgentInstallResult,
-  AgentInstallService,
   RemoteAgentInstallInput,
-} from "./agent-install.service";
+} from "../interfaces/agent-install.interfaces";
+import { AgentInstallService } from "./agent-install.service";
 
 export type { AgentInstallResult, RemoteAgentInstallInput };
 

@@ -21,36 +21,23 @@ import {
 import { LOCAL_SERVER } from "../constants/local-server.constants";
 import { AgentHostAdapter } from "../interfaces/agent-host.adapter";
 import {
+  AgentInstallLogCallback,
+  AgentInstallOnHostInput,
+  AgentInstallOptions,
+  AgentInstallResult,
+  RemoteAgentInstallInput,
+} from "../interfaces/agent-install.interfaces";
+import {
   readAgentComposeFile,
   readAgentPrereqScript,
 } from "../utils/agent-deploy-bundle.util";
 import { buildRemoveStoppedCanonicalAgentShellCommand } from "../utils/agent-host-cleanup.util";
 
-export interface RemoteAgentInstallInput {
-  connection: SshConnectionOptions;
-  serverHost: string;
-  plainPrivateKey?: string;
-}
-
-export interface AgentInstallResult {
-  success: boolean;
-  logs: string[];
-  error?: string;
-  skipped?: boolean;
-}
-
-export type AgentInstallLogCallback = (line: string) => void;
-
-interface AgentInstallOnHostInput {
-  serverId: string;
-  serverHost: string;
-  installDir: string;
-  onLogLine?: AgentInstallLogCallback;
-}
-
-interface AgentInstallOptions {
-  onLogLine?: AgentInstallLogCallback;
-}
+export type {
+  AgentInstallLogCallback,
+  AgentInstallResult,
+  RemoteAgentInstallInput,
+} from "../interfaces/agent-install.interfaces";
 
 @Injectable()
 export class AgentInstallService {
@@ -168,12 +155,6 @@ export class AgentInstallService {
     const envPath = `${installDir}/${AGENT_INSTALL.ENV_FILE}`;
 
     try {
-      const envBuild = this.buildAgentEnvFile(input.serverId, input.serverHost);
-      if (!envBuild.ok) {
-        return { success: false, logs, error: envBuild.error };
-      }
-
-      this.pushLog(logs, `Agent image: ${envBuild.agentImage}`, onLogLine);
       logStructured(this.logger, "log", "agent.install", "started", {
         module: "AgentInstallService",
         serverId: input.serverId,
@@ -239,6 +220,19 @@ export class AgentInstallService {
         agentAlreadyRunning ||
         (await this.isAgentContainerPresent(host, installDir, composeCmd));
 
+      // Resolve host port before any cleanup so docker inspect still works.
+      const agentPortResult = await this.resolveAgentHostPort(
+        host,
+        composeCmd,
+        agentAlreadyRunning || agentContainerPresent,
+        logs,
+        onLogLine,
+      );
+      if (!agentPortResult.ok) {
+        return { success: false, logs, error: agentPortResult.error };
+      }
+      let agentPort = agentPortResult.port;
+
       if (agentAlreadyRunning) {
         this.pushLog(
           logs,
@@ -270,6 +264,20 @@ export class AgentInstallService {
         );
       }
 
+      // build the agent env file with the random agent port
+      const envBuild = this.buildAgentEnvFile(
+        input.serverId,
+        input.serverHost,
+        agentPort,
+      );
+      if (!envBuild.ok) {
+        return { success: false, logs, error: envBuild.error };
+      }
+
+      this.pushLog(logs, `Agent image: ${envBuild.agentImage}`, onLogLine);
+
+      composeContent = this.prepareAgentComposeContent(composeContent);
+
       const writeCompose = await host.writeTextFile(
         composePath,
         composeContent,
@@ -282,6 +290,13 @@ export class AgentInstallService {
         };
       }
       this.pushLog(logs, `Wrote ${composePath}`, onLogLine);
+
+      this.pushLog(
+        logs,
+        `Writing AGENT_PORT=${agentPort} to ${envPath}`,
+        onLogLine,
+      );
+      this.logger.log(`Writing AGENT_PORT=${agentPort} to ${envPath}`);
 
       const writeEnv = await host.writeTextFile(envPath, envBuild.content);
       if (!writeEnv.ok) {
@@ -356,9 +371,59 @@ export class AgentInstallService {
         this.appendCommandOutput(logs, up, onLogLine);
       }
 
+      // if the compose up failed, retry with a new agent port to avoid port conflicts
+      if (!up.success) {
+        if (
+          !agentAlreadyRunning &&
+          !agentContainerPresent &&
+          this.isPortBindError(up)
+        ) {
+          const retry = await this.retryComposeUpWithNewAgentPort(
+            host,
+            installDir,
+            composeCmd,
+            envPath,
+            input.serverId,
+            input.serverHost,
+            agentPort,
+            upArgs,
+            logs,
+            onLogLine,
+          );
+          if (!retry.ok) {
+            return retry.result;
+          }
+          agentPort = retry.agentPort;
+          up = retry.up;
+        } else {
+          return this.failFromCommand(logs, "docker compose up", up, onLogLine);
+        }
+      }
+
       if (!up.success) {
         return this.failFromCommand(logs, "docker compose up", up, onLogLine);
       }
+
+      // check if the agent container is running
+      const agentRunning = await this.isAgentContainerRunning(
+        host,
+        installDir,
+        composeCmd,
+      );
+      if (!agentRunning) {
+        this.pushLog(
+          logs,
+          "Agent container is not running after docker compose up",
+          onLogLine,
+        );
+        return {
+          success: false,
+          logs,
+          error:
+            "Agent container failed to start. Check agentInstall.logs on the host (docker logs kubeara-agent).",
+        };
+      }
+
       this.pushLog(
         logs,
         agentAlreadyRunning
@@ -368,6 +433,8 @@ export class AgentInstallService {
             : "Agent container started",
         onLogLine,
       );
+      this.pushLog(logs, `Agent host port: ${agentPort}`, onLogLine);
+      this.logger.log(`Agent host port: ${agentPort}`);
 
       logStructured(this.logger, "log", "agent.install", "succeeded", {
         module: "AgentInstallService",
@@ -378,6 +445,7 @@ export class AgentInstallService {
           : agentContainerPresent
             ? "recreated"
             : "installed",
+        agentPort,
       });
 
       return { success: true, logs };
@@ -396,9 +464,450 @@ export class AgentInstallService {
     }
   }
 
+  /**
+   * Prepares the agent compose content by replacing the PORT variable with the default port.
+   * @param composeContent - The compose content to prepare.
+   * @returns The prepared compose content.
+   */
+  private prepareAgentComposeContent(composeContent: string): string {
+    return composeContent
+      .replace(
+        /PORT:\s*\$\{AGENT_PORT(?::-3001)?\}/,
+        `PORT: "${AGENT_INSTALL.DEFAULT_PORT}"`,
+      )
+      .replace(
+        /-\s*"\$\{AGENT_PORT(?::-3001)?\}:3001"/,
+        '- "${AGENT_PORT}:3001"',
+      );
+  }
+
+  /**
+   * Resolves the agent host port by detecting the existing port from Docker inspect.
+   * @param host - The agent host adapter.
+   * @param composeCmd - The compose command.
+   * @param agentExists - Whether the agent container exists.
+   * @param logs - The logs to append.
+   * @param onLogLine - The callback to log the result.
+   * @returns The resolved agent host port.
+   */
+  private async resolveAgentHostPort(
+    host: AgentHostAdapter,
+    composeCmd: string,
+    agentExists: boolean,
+    logs: string[],
+    onLogLine?: AgentInstallLogCallback,
+  ): Promise<{ ok: true; port: number } | { ok: false; error: string }> {
+    try {
+      if (agentExists) {
+        this.pushLog(
+          logs,
+          "Existing agent detected; resolving host port from Docker (3001/tcp)",
+          onLogLine,
+        );
+        this.logger.log(
+          "Existing agent detected; resolving host port from Docker (3001/tcp)",
+        );
+        const existing = await this.detectExistingAgentHostPort(
+          host,
+          composeCmd,
+        );
+        if (existing === null) {
+          this.pushLog(
+            logs,
+            "Failed to resolve existing agent host port from Docker inspect",
+            onLogLine,
+          );
+          this.logger.warn(
+            "Failed to resolve existing agent host port from Docker inspect",
+          );
+          return {
+            ok: false,
+            error:
+              "Could not detect the existing agent host port from Docker (3001/tcp mapping). Reinstall after removing the kubeara-agent container, or fix its published port binding.",
+          };
+        }
+        this.pushLog(
+          logs,
+          `Reusing existing agent host port ${existing}`,
+          onLogLine,
+        );
+        this.logger.log(`Reusing existing agent host port ${existing}`);
+        return { ok: true, port: existing };
+      }
+
+      this.pushLog(
+        logs,
+        "No existing agent; selecting a random unused host port (1000-9999)",
+        onLogLine,
+      );
+      this.logger.log(
+        "No existing agent; selecting a random unused host port (1000-9999)",
+      );
+      return await this.selectUnusedAgentHostPort(host, logs, onLogLine);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to resolve agent host port: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      return {
+        ok: false,
+        error: `Unable to resolve agent host port. ${message}`,
+      };
+    }
+  }
+
+  /**
+   * Reads the published host port for container 3001/tcp via docker inspect.
+   * Docker port bindings are the only source of truth for existing agents.
+   * Uses the same Docker CLI mode (direct / sudo / sg) as other install commands.
+   */
+  private async detectExistingAgentHostPort(
+    host: AgentHostAdapter,
+    composeCmd: string,
+  ): Promise<number | null> {
+    try {
+      const format =
+        '{{with (index .HostConfig.PortBindings "3001/tcp")}}{{(index . 0).HostPort}}{{end}}';
+      const args = `inspect -f ${JSON.stringify(format)} ${AGENT_INSTALL.CONTAINER_NAME}`;
+      const inspect = await host.executeCommand(
+        this.buildDockerCliArgsCommand(composeCmd, args),
+        15_000,
+      );
+      return this.parseHostPort(inspect.stdout);
+    } catch (error) {
+      this.logger.error(
+        "Failed to inspect existing agent host port binding.",
+        error instanceof Error ? error.stack : undefined,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Selects an unused agent host port by detecting the used ports with ss -H -lnt.
+   * @param host - The agent host adapter.
+   * @param logs - The logs to append.
+   * @param onLogLine - The callback to log the result.
+   * @param extraUsed - Additional used ports to consider.
+   * @returns The selected unused agent host port.
+   */
+  private async selectUnusedAgentHostPort(
+    host: AgentHostAdapter,
+    logs: string[],
+    onLogLine?: AgentInstallLogCallback,
+    extraUsed: number[] = [],
+  ): Promise<{ ok: true; port: number } | { ok: false; error: string }> {
+    try {
+      this.pushLog(
+        logs,
+        "Detecting used host ports with: ss -H -lnt",
+        onLogLine,
+      );
+      this.logger.log("Detecting used host ports with: ss -H -lnt");
+
+      const usedResult = await this.collectListeningHostPorts(host);
+      if (!usedResult.ok) {
+        this.pushLog(
+          logs,
+          `Used-port detection failed: ${usedResult.error}`,
+          onLogLine,
+        );
+        this.logger.warn(`Used-port detection failed: ${usedResult.error}`);
+        return { ok: false, error: usedResult.error };
+      }
+
+      const usedPorts = usedResult.ports;
+      for (const port of extraUsed) {
+        usedPorts.add(port);
+      }
+
+      const usedList = [...usedPorts].sort((a, b) => a - b);
+      const usedPortsLine = usedList.length
+        ? `List of used host ports (${usedList.length}): ${usedList.join(", ")}`
+        : "List of used host ports: (none detected)";
+      this.pushLog(logs, usedPortsLine, onLogLine);
+      this.logger.log(usedPortsLine);
+
+      this.pushLog(
+        logs,
+        `Generating random unused 4-digit host port (${AGENT_INSTALL.HOST_PORT_MIN}-${AGENT_INSTALL.HOST_PORT_MAX})`,
+        onLogLine,
+      );
+      this.logger.log(
+        `Generating random unused 4-digit host port (${AGENT_INSTALL.HOST_PORT_MIN}-${AGENT_INSTALL.HOST_PORT_MAX})`,
+      );
+
+      const port = this.pickUnusedHostPort(usedPorts);
+      if (port === null) {
+        this.pushLog(
+          logs,
+          `Could not find an unused port after ${AGENT_INSTALL.HOST_PORT_PICK_ATTEMPTS} attempts`,
+          onLogLine,
+        );
+        this.logger.warn(
+          `Could not find an unused port after ${AGENT_INSTALL.HOST_PORT_PICK_ATTEMPTS} attempts`,
+        );
+        return {
+          ok: false,
+          error: `Could not find an available host port between ${AGENT_INSTALL.HOST_PORT_MIN} and ${AGENT_INSTALL.HOST_PORT_MAX}.`,
+        };
+      }
+
+      this.pushLog(
+        logs,
+        `Randomly generated agent host port: ${port}`,
+        onLogLine,
+      );
+      this.logger.log(`Randomly generated agent host port: ${port}`);
+      return { ok: true, port };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to select unused agent host port: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      return {
+        ok: false,
+        error: `Unable to select an unused agent host port. ${message}`,
+      };
+    }
+  }
+
+  /**
+   * Collects the listening host ports using ss -H -lnt.
+   * @param host - The agent host adapter.
+   * @returns The collected listening host ports.
+   */
+  private async collectListeningHostPorts(
+    host: AgentHostAdapter,
+  ): Promise<{ ok: true; ports: Set<number> } | { ok: false; error: string }> {
+    try {
+      const result = await host.executeCommand("ss -H -lnt", 30_000);
+      if (!result.success) {
+        const detail = [result.stderr, result.stdout]
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .join(" ");
+        return {
+          ok: false,
+          error:
+            "Failed to detect listening host ports (ss -H -lnt)." +
+            (detail ? ` ${detail}` : ""),
+        };
+      }
+
+      const ports = new Set<number>();
+      for (const line of result.stdout.split(/\r?\n/)) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          continue;
+        }
+        const parts = trimmed.split(/\s+/);
+        if (parts.length < 4) {
+          continue;
+        }
+        const local = parts[3];
+        const colon = local.lastIndexOf(":");
+        if (colon < 0) {
+          continue;
+        }
+        const port = Number.parseInt(local.slice(colon + 1), 10);
+        if (Number.isFinite(port) && port >= 1 && port <= 65_535) {
+          ports.add(port);
+        }
+      }
+
+      return { ok: true, ports };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to collect listening host ports: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      return {
+        ok: false,
+        error: `Failed to detect listening host ports (ss -H -lnt). ${message}`,
+      };
+    }
+  }
+
+  /**
+   * Picks an unused host port from the given set of used ports.
+   * @param usedPorts - The set of used ports.
+   * @returns The picked unused host port.
+   */
+  private pickUnusedHostPort(usedPorts: Set<number>): number | null {
+    for (
+      let attempt = 0;
+      attempt < AGENT_INSTALL.HOST_PORT_PICK_ATTEMPTS;
+      attempt++
+    ) {
+      const port =
+        AGENT_INSTALL.HOST_PORT_MIN +
+        Math.floor(
+          Math.random() *
+            (AGENT_INSTALL.HOST_PORT_MAX - AGENT_INSTALL.HOST_PORT_MIN + 1),
+        );
+      if (!usedPorts.has(port)) {
+        return port;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Parses a host port from a raw string.
+   * @param raw - The raw string to parse.
+   * @returns The parsed host port.
+   */
+  private parseHostPort(raw: string): number | null {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const port = Number.parseInt(trimmed, 10);
+    if (!Number.isFinite(port) || port < 1 || port > 65_535) {
+      return null;
+    }
+    return port;
+  }
+
+  /**
+   * Checks if the result contains a port binding error.
+   * @param result - The result to check.
+   * @returns True if the result contains a port binding error, false otherwise.
+   */
+  private isPortBindError(result: ExecuteResult): boolean {
+    const combined = `${result.stderr}\n${result.stdout}`.toLowerCase();
+    return (
+      combined.includes("port is already allocated") ||
+      combined.includes("address already in use") ||
+      combined.includes("bind for")
+    );
+  }
+
+  /**
+   * Retries the compose up with a new agent port to avoid port conflicts.
+   * @param host - The agent host adapter.
+   * @param installDir - The install directory.
+   * @param composeCmd - The compose command.
+   * @param envPath - The environment path.
+   * @param serverId - The server id.
+   * @param serverHost - The server host.
+   * @param failedPort - The failed port.
+   * @param upArgs - The up arguments.
+   * @param logs - The logs to append.
+   * @param onLogLine - The callback to log the result.
+   * @returns The result of the compose up.
+   */
+  private async retryComposeUpWithNewAgentPort(
+    host: AgentHostAdapter,
+    installDir: string,
+    composeCmd: string,
+    envPath: string,
+    serverId: string,
+    serverHost: string,
+    failedPort: number,
+    upArgs: string,
+    logs: string[],
+    onLogLine?: AgentInstallLogCallback,
+  ): Promise<
+    | { ok: true; agentPort: number; up: ExecuteResult }
+    | { ok: false; result: AgentInstallResult }
+  > {
+    try {
+      this.pushLog(
+        logs,
+        `Agent host port ${failedPort} conflict during compose up; selecting another port`,
+        onLogLine,
+      );
+      this.logger.warn(
+        `Agent host port ${failedPort} conflict during compose up; selecting another port`,
+      );
+
+      const portResult = await this.selectUnusedAgentHostPort(
+        host,
+        logs,
+        onLogLine,
+        [failedPort],
+      );
+      if (!portResult.ok) {
+        return {
+          ok: false,
+          result: { success: false, logs, error: portResult.error },
+        };
+      }
+      const agentPort = portResult.port;
+
+      const envBuild = this.buildAgentEnvFile(serverId, serverHost, agentPort);
+      if (!envBuild.ok) {
+        return {
+          ok: false,
+          result: { success: false, logs, error: envBuild.error },
+        };
+      }
+
+      const writeEnv = await host.writeTextFile(envPath, envBuild.content);
+      if (!writeEnv.ok) {
+        return {
+          ok: false,
+          result: {
+            success: false,
+            logs,
+            error: writeEnv.error ?? `Failed to write ${envPath}`,
+          },
+        };
+      }
+      this.pushLog(logs, `Wrote ${envPath}`, onLogLine);
+
+      const up = await host.executeCommand(
+        this.buildComposeCommand(installDir, composeCmd, upArgs),
+        AGENT_INSTALL.PULL_TIMEOUT_MS,
+      );
+      this.appendCommandOutput(logs, up, onLogLine);
+
+      if (!up.success) {
+        return {
+          ok: false,
+          result: this.failFromCommand(
+            logs,
+            "docker compose up",
+            up,
+            onLogLine,
+          ),
+        };
+      }
+
+      return { ok: true, agentPort, up };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to retry compose up with a new agent port: ${message}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      return {
+        ok: false,
+        result: {
+          success: false,
+          logs,
+          error: `Unable to retry agent startup after port conflict. ${message}`,
+        },
+      };
+    }
+  }
+
+  /**
+   * Builds the agent environment file content.
+   * @param serverId - The server id.
+   * @param serverHost - The server host.
+   * @param agentPort - The agent port.
+   * @returns The built agent environment file content.
+   */
   private buildAgentEnvFile(
     serverId: string,
     serverHost: string,
+    agentPort: number,
   ):
     | { ok: true; content: string; agentImage: string }
     | { ok: false; error: string } {
@@ -441,7 +950,7 @@ export class AgentInstallService {
 
     const content = [
       `KUBEARA_AGENT_IMAGE=${agentImage}`,
-      `AGENT_PORT=${AGENT_INSTALL.DEFAULT_PORT}`,
+      `AGENT_PORT=${agentPort}`,
       `CONTROL_PANEL_URL=${controlPanelUrl.trim()}`,
       `ENCRYPTION_SECRET=${encryptionSecret}`,
       `KUBEARA_SERVER_ID=${normalizedServerId}`,
@@ -554,6 +1063,20 @@ export class AgentInstallService {
     switch (composeMode) {
       case "sg":
         return `sg docker -c "docker ${args}"`;
+      case "sudo":
+        return `sudo -n docker ${args}`;
+      default:
+        return `docker ${args}`;
+    }
+  }
+
+  /**
+   * Builds a docker CLI command using the resolved invocation mode
+   */
+  private buildDockerCliArgsCommand(composeMode: string, args: string): string {
+    switch (composeMode) {
+      case "sg":
+        return `sg docker -c ${JSON.stringify(`docker ${args}`)}`;
       case "sudo":
         return `sudo -n docker ${args}`;
       default:
