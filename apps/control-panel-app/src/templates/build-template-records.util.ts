@@ -304,6 +304,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Vaultwarden",
     version: "latest",
   },
+  zulip: {
+    name: "Zulip",
+    version: "11.4",
+  },
   authentik: {
     name: "Authentik",
     version: "2025.8",
