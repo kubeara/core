@@ -1,0 +1,40 @@
+# documentation: https://github.com/reacherhq/check-if-email-exists
+# shortDescription: Self-hosted email verification HTTP API
+# longDescription: <p>Reacher (<code>check-if-email-exists</code>) is an open-source <strong>email verification</strong> backend that checks whether an address is deliverable via SMTP.</p><p>HTTP API on port 8080 (<code>POST /v0/check_email</code>). Outbound SMTP (port 25) must be allowed for full verification. Optionally set <code>RCH_HEADER_SECRET</code> to require an <code>x-reacher-secret</code> header.</p>
+# category: tools,email
+# tags: reacher,email,verification,smtp,api,check-if-email-exists
+# port: 8080
+# logo: svgs/reacherhq.svg
+
+services:
+  check-if-email-exists:
+    image: ${CHECK_IF_EMAIL_EXISTS_IMAGE:-reacherhq/backend:latest}
+    restart: ${CHECK_IF_EMAIL_EXISTS_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_CHECK_IF_EMAIL_EXISTS:-8080}:8080'
+
+    environment:
+      - SERVICE_URL_CHECK_IF_EMAIL_EXISTS_8080
+      - RUST_LOG=${CHECK_IF_EMAIL_EXISTS_RUST_LOG:-info}
+      - RCH_HTTP_HOST=${CHECK_IF_EMAIL_EXISTS_HTTP_HOST:-0.0.0.0}
+      - RCH__HTTP_HOST=${CHECK_IF_EMAIL_EXISTS_HTTP_HOST:-0.0.0.0}
+      - PORT=8080
+      - RCH_FROM_EMAIL=${CHECK_IF_EMAIL_EXISTS_FROM_EMAIL:-reacher@example.com}
+      - RCH_HELLO_NAME=${CHECK_IF_EMAIL_EXISTS_HELLO_NAME:-localhost}
+      - TZ=${TZ:-UTC}
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
