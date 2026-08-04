@@ -1,0 +1,52 @@
+# documentation: https://docs.searxng.org/admin/installation-docker.html
+# shortDescription: Privacy-respecting metasearch engine
+# longDescription: <p>SearXNG is a free, open-source <strong>metasearch engine</strong> that aggregates results from multiple search services without tracking users.</p><p>Web UI on port 8080. Set <code>SEARXNG_BASE_URL</code> via <code>SERVICE_URL_SEARXNG</code> and a secret with <code>SERVICE_HEX_64_SEARXNG</code>.</p>
+# category: search
+# tags: searxng,search,metasearch,privacy,self-hosted
+# port: 8080
+# logo: svgs/searxng.svg
+
+services:
+  searxng:
+    image: ${SEARXNG_IMAGE:-searxng/searxng:latest}
+    restart: ${SEARXNG_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_SEARXNG:-8080}:8080'
+
+    environment:
+      - SERVICE_URL_SEARXNG_8080
+      - SEARXNG_BASE_URL=${SERVICE_URL_SEARXNG:-${SERVICE_URL_SEARXNG_8080}}/
+      - SEARXNG_SECRET=${SERVICE_HEX_64_SEARXNG}
+      - FORCE_OWNERSHIP=${SEARXNG_FORCE_OWNERSHIP:-true}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - searxng_config:/etc/searxng
+      - searxng_data:/var/cache/searxng
+
+    healthcheck:
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8080/healthz']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  searxng_config:
+  searxng_data:
