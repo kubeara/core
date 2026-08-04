@@ -1,6 +1,6 @@
 {
   "name": "kubeara",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "description": "Open-source platform to deploy and manage services on your own servers",
   "author": "",
   "private": true,
@@ -104,7 +104,10 @@
   "overrides": {
     "multer": "2.2.0",
     "@hono/node-server": "2.0.11",
-    "sharp": "^0.35.0"
+    "sharp": "^0.35.0",
+    "miniflare": {
+      "undici": "8.10.0"
+    }
   },
   "devDependencies": {
     "@commitlint/cli": "^21.0.1",
