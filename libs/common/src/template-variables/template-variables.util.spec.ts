@@ -285,7 +285,7 @@ services:
 
   it("parses real postgresql, redis, and n8n marketplace templates", () => {
     const postgres = readFileSync(
-      join(templatesRoot, "postgresql/docker-compose.yml"),
+      join(templatesRoot, "postgres/docker-compose.yml"),
       "utf8",
     );
     const redis = readFileSync(
@@ -314,9 +314,9 @@ services:
     );
 
     expect(postgresByName.SERVICE_PORT_POSTGRES).toMatchObject({
-      required: true,
-      hasRequiredOccurrence: true,
-      defaultValue: null,
+      required: false,
+      hasRequiredOccurrence: false,
+      defaultValue: 5432,
     });
     expect(postgresByName.SERVICE_PASSWORD_POSTGRES).toMatchObject({
       required: true,
