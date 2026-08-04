@@ -16,7 +16,7 @@ services:
 
     environment:
       - SERVICE_URL_HEYFORM_8000
-      - APP_HOMEPAGE_URL=${SERVICE_URL_HEYFORM_8000:-${SERVICE_URL_HEYFORM:-http://localhost:8000}}
+      - APP_HOMEPAGE_URL=${SERVICE_URL_HEYFORM:-${SERVICE_URL_HEYFORM_8000:-http://localhost:8000}}
       - APP_LISTEN_PORT=8000
       - APP_LISTEN_HOSTNAME=0.0.0.0
       - SESSION_KEY=${SERVICE_HEX_64_HEYFORM:-heyform_session_key_change_me_32chars}
