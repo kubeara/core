@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { SensitiveHost } from "@/components/shared/sensitive-host";
-import { useDisconnectServerMutation } from "@/features/servers/hooks";
+import { DeleteServerConfirmModal } from "@/features/servers/components/delete-server-confirm-modal";
+import { useDeleteServerMutation } from "@/features/servers/hooks";
 import { formatApiTimestamp } from "@/lib/unix-timestamp";
 import type { Server } from "@/types";
 
@@ -9,28 +11,33 @@ type ServerSettingsTabProps = {
 };
 
 export function ServerSettingsTab({ server }: ServerSettingsTabProps) {
-  const disconnectMutation = useDisconnectServerMutation();
-  const [disconnectOpen, setDisconnectOpen] = useState(false);
+  const navigate = useNavigate();
+  const deleteMutation = useDeleteServerMutation();
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
-  async function handleDisconnect() {
+  async function handleDelete(removeManagedServices: boolean) {
     try {
-      await disconnectMutation.mutateAsync(server.id);
-      setDisconnectOpen(false);
+      await deleteMutation.mutateAsync({
+        id: server.id,
+        removeManagedServices,
+      });
+      setDeleteOpen(false);
+      void navigate("/servers");
     } catch {
       /* errors surfaced via mutation onError toast */
     }
   }
 
-  function openDisconnectModal() {
-    setDisconnectOpen(true);
+  function openDeleteModal() {
+    setDeleteOpen(true);
   }
 
-  function closeDisconnectModal() {
-    if (disconnecting) return;
-    setDisconnectOpen(false);
+  function closeDeleteModal() {
+    if (deleting) return;
+    setDeleteOpen(false);
   }
 
-  const disconnecting = disconnectMutation.isPending;
+  const deleting = deleteMutation.isPending;
 
   return (
     <div className="server-detail-panel">
@@ -63,65 +70,28 @@ export function ServerSettingsTab({ server }: ServerSettingsTabProps) {
       </section>
 
       <section className="settings-danger-zone">
-        <h2>Disconnect server</h2>
+        <h2>Delete server</h2>
         <p>
-          Disconnect this server from Kubeara. Services on the server will not
-          be removed.
+          Permanently remove this server from Kubeara. This cannot be undone.
         </p>
         <button
           type="button"
           className="btn-danger-outline"
-          onClick={openDisconnectModal}
+          onClick={openDeleteModal}
         >
-          Disconnect server
+          Delete server
         </button>
       </section>
 
-      {disconnectOpen && (
-        <div
-          className="modal-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="disconnect-server-title"
-        >
-          <div className="modal-dialog modal-dialog-sm">
-            <div className="modal-header">
-              <h2 id="disconnect-server-title">Disconnect server?</h2>
-              <button
-                type="button"
-                className="modal-close"
-                aria-label="Close"
-                onClick={closeDisconnectModal}
-              >
-                ×
-              </button>
-            </div>
-            <p className="modal-body-text">
-              <strong>{server.name}</strong> (
-              <SensitiveHost host={server.host} monospace={false} />) will be
-              disconnected from Kubeara. You can reconnect it later.
-            </p>
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                disabled={disconnecting}
-                onClick={closeDisconnectModal}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={`btn-danger-outline${disconnecting ? " is-loading" : ""}`}
-                disabled={disconnecting}
-                aria-busy={disconnecting}
-                onClick={() => void handleDisconnect()}
-              >
-                {disconnecting ? "Disconnecting…" : "Disconnect server"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {deleteOpen && (
+        <DeleteServerConfirmModal
+          server={server}
+          isPending={deleting}
+          onCancel={closeDeleteModal}
+          onConfirm={(removeManagedServices) => {
+            void handleDelete(removeManagedServices);
+          }}
+        />
       )}
     </div>
   );
