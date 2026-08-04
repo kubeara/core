@@ -24,6 +24,17 @@ services:
       - RCH_HELLO_NAME=${CHECK_IF_EMAIL_EXISTS_HELLO_NAME:-localhost}
       - TZ=${TZ:-UTC}
 
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'wget -S -T 5 -O /dev/null http://127.0.0.1:8080/ 2>&1 | grep -qE "HTTP/[0-9.]+ [0-9]{3}"',
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
     deploy:
       resources:
         limits:
