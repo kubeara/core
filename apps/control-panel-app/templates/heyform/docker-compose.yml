@@ -1,0 +1,131 @@
+# documentation: https://docs.heyform.net/open-source/self-hosting
+# shortDescription: Open-source conversational form builder
+# longDescription: <p>HeyForm is an open-source <strong>form builder</strong> for surveys, questionnaires, quizzes, and polls with a conversational UI.</p><p>Includes MongoDB and Redis. Set <code>APP_HOMEPAGE_URL</code> via <code>SERVICE_URL_HEYFORM</code> to the exact browser URL (no trailing slash) or login redirects will fail. Session and form encryption keys use <code>SERVICE_HEX_64_HEYFORM</code> and <code>SERVICE_HEX_32_HEYFORM</code>.</p>
+# category: forms,productivity,no-code
+# tags: heyform,forms,surveys,quizzes,polls,mongodb,redis
+# port: 8000
+# logo: svgs/heyform.svg
+
+services:
+  heyform:
+    image: ${HEYFORM_IMAGE:-heyform/community-edition:latest}
+    restart: ${HEYFORM_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_HEYFORM:-8000}:8000'
+
+    environment:
+      - SERVICE_URL_HEYFORM_8000
+      - APP_HOMEPAGE_URL=${SERVICE_URL_HEYFORM_8000:-${SERVICE_URL_HEYFORM:-http://localhost:8000}}
+      - APP_LISTEN_PORT=8000
+      - APP_LISTEN_HOSTNAME=0.0.0.0
+      - SESSION_KEY=${SERVICE_HEX_64_HEYFORM:-heyform_session_key_change_me_32chars}
+      - FORM_ENCRYPTION_KEY=${SERVICE_HEX_32_HEYFORM:-heyform_form_key_change_me_32}
+      - MONGO_URI=mongodb://mongo:27017/${HEYFORM_DB_NAME:-heyform}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - APP_DISABLE_REGISTRATION=${HEYFORM_DISABLE_REGISTRATION:-false}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - heyform_uploads:/app/static/upload
+
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'wget -qO- http://127.0.0.1:8000/health/ready >/dev/null 2>&1 || wget -qO- http://127.0.0.1:8000/ >/dev/null 2>&1 || exit 1',
+        ]
+      interval: 20s
+      timeout: 10s
+      retries: 8
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mongo:
+    image: ${HEYFORM_MONGO_IMAGE:-mongo:6}
+    restart: ${HEYFORM_MONGO_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - heyform_mongo_data:/data/db
+
+    healthcheck:
+      test: ['CMD-SHELL', 'mongosh --quiet --eval "db.adminCommand({ ping: 1 }).ok" | grep -q 1']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: ${HEYFORM_REDIS_IMAGE:-redis:7-alpine}
+    restart: ${HEYFORM_REDIS_RESTART_POLICY:-unless-stopped}
+
+    command: ['redis-server', '--appendonly', 'yes']
+
+    volumes:
+      - heyform_redis_data:/data
+
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  heyform_uploads:
+  heyform_mongo_data:
+  heyform_redis_data:
