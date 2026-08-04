@@ -21,6 +21,7 @@ import {
   SERVER_OPERATION_REMOVING_LABEL,
   SERVER_OPERATION_SETTING_UP_LABEL,
 } from "@/features/servers/constants/messages";
+import { DeleteServerConfirmModal } from "@/features/servers/components/delete-server-confirm-modal";
 import { ServerFeedbackMessage } from "@/features/servers/components/server-feedback-message";
 import { ServersTableSkeleton } from "@/components/shared/skeleton";
 import { showErrorToast } from "@/lib/toast";
@@ -225,7 +226,6 @@ export function ServersTable() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingServer, setEditingServer] = useState<Server | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Server | null>(null);
-  const [removeManagedServices, setRemoveManagedServices] = useState(false);
 
   const listParams = useMemo(
     () => ({
@@ -312,7 +312,7 @@ export function ServersTable() {
     setModalOpen(true);
   }
 
-  async function confirmDelete() {
+  async function confirmDelete(removeManagedServices: boolean) {
     if (!deleteTarget) return;
     try {
       await deleteMutation.mutateAsync({
@@ -320,7 +320,6 @@ export function ServersTable() {
         removeManagedServices,
       });
       setDeleteTarget(null);
-      setRemoveManagedServices(false);
     } catch {
       /* errors surfaced via mutation onError toast */
     }
@@ -329,7 +328,6 @@ export function ServersTable() {
   function closeDeleteModal() {
     if (deleting) return;
     setDeleteTarget(null);
-    setRemoveManagedServices(false);
   }
 
   const deleting = deleteMutation.isPending;
@@ -509,56 +507,14 @@ export function ServersTable() {
       />
 
       {deleteTarget && (
-        <div
-          className="modal-overlay"
-          role="presentation"
-          onClick={closeDeleteModal}
-        >
-          <div
-            className="modal-dialog delete-server-modal"
-            role="alertdialog"
-            aria-modal="true"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <header className="modal-header">
-              <h2>Delete server</h2>
-            </header>
-            <p className="modal-body-text">
-              Delete <strong>{deleteTarget.name}</strong> (
-              {deleteTarget.host})? This cannot be undone.
-            </p>
-            <label className="delete-server-option">
-              <input
-                type="checkbox"
-                checked={removeManagedServices}
-                onChange={(event) =>
-                  setRemoveManagedServices(event.target.checked)
-                }
-                disabled={deleting}
-              />
-              <span>Remove Kubeara managed services from this server</span>
-            </label>
-            <div className="modal-actions">
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={closeDeleteModal}
-                disabled={deleting}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={`btn-danger${deleting ? " is-loading" : ""}`}
-                onClick={() => void confirmDelete()}
-                disabled={deleting}
-                aria-busy={deleting}
-              >
-                {deleting ? "Starting removal…" : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeleteServerConfirmModal
+          server={deleteTarget}
+          isPending={deleting}
+          onCancel={closeDeleteModal}
+          onConfirm={(removeManagedServices) => {
+            void confirmDelete(removeManagedServices);
+          }}
+        />
       )}
     </div>
   );
