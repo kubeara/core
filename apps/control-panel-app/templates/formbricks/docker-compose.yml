@@ -1,0 +1,1022 @@
+# documentation: https://formbricks.com/docs/self-hosting/setup/docker
+# shortDescription: Open-source surveys and experience management
+# longDescription: <p>Formbricks is an open-source <strong>survey and experience management</strong> platform for in-product and link surveys, NPS, and feedback analytics.</p><p>Includes PostgreSQL (pgvector), Redis, Formbricks Hub, and Cube. Set <code>WEBAPP_URL</code> / <code>NEXTAUTH_URL</code> via <code>SERVICE_URL_FORMBRICKS</code> to your public URL. Complete the setup wizard on first launch.</p>
+# category: analytics,forms,surveys
+# tags: formbricks,surveys,forms,feedback,nps,analytics,cx
+# logo: svgs/formbricks.svg
+# port: 3000
+
+configs:
+  formbricks_cube_js:
+    content: |
+      /* eslint-env es2022 */
+
+      const TENANT_MEMBERS = ["FeedbackRecords.tenantId"];
+      const REQUIRED_SCOPE = "xm:cube:query";
+
+      function assertRequiredEnvironmentVariable(name) {
+        const value = process.env[name];
+
+        if (typeof value !== "string" || value.trim().length === 0) {
+          throw new Error(`$${name} is required to run Cube`);
+        }
+      }
+
+      assertRequiredEnvironmentVariable("CUBEJS_API_SECRET");
+
+      function getStringClaim(securityContext, claim) {
+        const value = securityContext?.[claim];
+        if (typeof value !== "string") {
+          return null;
+        }
+
+        const trimmedValue = value.trim();
+        return trimmedValue.length > 0 ? trimmedValue : null;
+      }
+
+      function getRequiredStringClaim(securityContext, claim) {
+        const value = getStringClaim(securityContext, claim);
+
+        if (!value) {
+          throw new Error(`Cube query rejected: missing $${claim} security context`);
+        }
+
+        return value;
+      }
+
+      function collectFilterMembers(filters) {
+        if (!Array.isArray(filters)) {
+          return [];
+        }
+
+        return filters.flatMap((filter) => [
+          ...(typeof filter?.member === "string" ? [filter.member] : []),
+          ...(typeof filter?.dimension === "string" ? [filter.dimension] : []),
+          ...collectFilterMembers(filter?.and),
+          ...collectFilterMembers(filter?.or),
+        ]);
+      }
+
+      function collectOrderMembers(order) {
+        if (!order) {
+          return [];
+        }
+
+        if (Array.isArray(order)) {
+          return order
+            .map((orderEntry) => (Array.isArray(orderEntry) ? orderEntry[0] : null))
+            .filter((member) => typeof member === "string");
+        }
+
+        if (typeof order === "object") {
+          return Object.keys(order);
+        }
+
+        return [];
+      }
+
+      function collectTimeDimensionMembers(timeDimensions) {
+        if (!Array.isArray(timeDimensions)) {
+          return [];
+        }
+
+        return timeDimensions
+          .map((timeDimension) => timeDimension?.dimension)
+          .filter((dimension) => typeof dimension === "string");
+      }
+
+      function collectQueryMembers(query) {
+        const cubeQuery = query ?? {};
+        const members = [
+          ...(Array.isArray(cubeQuery.measures) ? cubeQuery.measures : []),
+          ...(Array.isArray(cubeQuery.dimensions) ? cubeQuery.dimensions : []),
+          ...(Array.isArray(cubeQuery.segments) ? cubeQuery.segments : []),
+          ...collectTimeDimensionMembers(cubeQuery.timeDimensions),
+          ...collectFilterMembers(cubeQuery.filters),
+          ...collectOrderMembers(cubeQuery.order),
+        ].filter((member) => typeof member === "string");
+
+        return Array.from(new Set(members)).sort((a, b) => a.localeCompare(b));
+      }
+
+      function assertValidSecurityContext(securityContext) {
+        const tenantId = getRequiredStringClaim(securityContext, "tenantId");
+        const feedbackDirectoryId = getRequiredStringClaim(securityContext, "feedbackDirectoryId");
+        const workspaceId = getRequiredStringClaim(securityContext, "workspaceId");
+        const scope = getRequiredStringClaim(securityContext, "scope");
+
+        if (scope !== REQUIRED_SCOPE) {
+          throw new Error("Cube query rejected: invalid Cube query scope");
+        }
+        if (tenantId !== feedbackDirectoryId) {
+          throw new Error("Cube query rejected: tenantId/feedbackDirectoryId mismatch");
+        }
+
+        return {
+          tenantId,
+          feedbackDirectoryId,
+          workspaceId,
+          organizationId: getRequiredStringClaim(securityContext, "organizationId"),
+          userId: getRequiredStringClaim(securityContext, "userId"),
+          requestId: getRequiredStringClaim(securityContext, "jti"),
+          source: getRequiredStringClaim(securityContext, "source"),
+        };
+      }
+
+      function assertNoCallerTenantMember(query) {
+        for (const member of collectQueryMembers(query)) {
+          if (TENANT_MEMBERS.includes(member)) {
+            throw new Error("Cube query rejected: tenant filters are enforced by Cube");
+          }
+        }
+      }
+
+      function logCubeQueryAuditEvent(context, query, { error, status = "success" } = {}) {
+        const errorName = error instanceof Error ? error.name : undefined;
+        const errorMessage = error instanceof Error ? error.message : error ? String(error) : undefined;
+
+        console.log(
+          JSON.stringify({
+            type: "audit",
+            event: "cube.query",
+            status,
+            timestamp: new Date().toISOString(),
+            tenantId: context.tenantId,
+            feedbackDirectoryId: context.feedbackDirectoryId,
+            workspaceId: context.workspaceId,
+            organizationId: context.organizationId,
+            userId: context.userId,
+            requestId: context.requestId,
+            source: context.source,
+            members: collectQueryMembers(query),
+            ...(errorName ? { errorName } : {}),
+            ...(errorMessage ? { errorMessage } : {}),
+          })
+        );
+      }
+
+      function logCubeQuerySecurityContextFailure(query, error) {
+        console.log(
+          JSON.stringify({
+            type: "audit",
+            event: "cube.query",
+            status: "failure",
+            timestamp: new Date().toISOString(),
+            members: collectQueryMembers(query),
+            errorName: error instanceof Error ? error.name : undefined,
+            errorMessage: error instanceof Error ? error.message : String(error),
+          })
+        );
+      }
+
+      // String dimensions whose `equals` / `notEquals` filters should be case- and
+      // whitespace-insensitive. Each maps to a hidden companion dimension defined in
+      // schema/FeedbackRecords.js as LOWER(TRIM(<column>)). The visible dimension is left
+      // untouched (so grouping/display keep the original-cased value); only exact-match
+      // filters are rewritten onto the normalized companion. Keep this map in sync with
+      // the *Normalized dimensions in schema/FeedbackRecords.js.
+      const CASE_INSENSITIVE_EQUALS_DIMENSIONS = {
+        "FeedbackRecords.sourceType": "FeedbackRecords.sourceTypeNormalized",
+        "FeedbackRecords.sourceName": "FeedbackRecords.sourceNameNormalized",
+        "FeedbackRecords.fieldType": "FeedbackRecords.fieldTypeNormalized",
+        "FeedbackRecords.fieldLabel": "FeedbackRecords.fieldLabelNormalized",
+        "FeedbackRecords.fieldGroupLabel": "FeedbackRecords.fieldGroupLabelNormalized",
+        "FeedbackRecords.language": "FeedbackRecords.languageNormalized",
+        "FeedbackRecords.valueText": "FeedbackRecords.valueTextNormalized",
+      };
+
+      const CASE_INSENSITIVE_OPERATORS = new Set(["equals", "notEquals"]);
+
+      function normalizeFilterValue(value) {
+        return typeof value === "string" ? value.trim().toLowerCase() : value;
+      }
+
+      // Rewrites a single filter node: exact-match filters on a normalizable string
+      // dimension are redirected to the *Normalized companion with lowercased/trimmed
+      // values; nested and/or groups recurse; everything else is returned unchanged.
+      function normalizeCaseInsensitiveFilter(filter) {
+        if (!filter || typeof filter !== "object") {
+          return filter;
+        }
+
+        if (Array.isArray(filter.and)) {
+          return { ...filter, and: filter.and.map(normalizeCaseInsensitiveFilter) };
+        }
+
+        if (Array.isArray(filter.or)) {
+          return { ...filter, or: filter.or.map(normalizeCaseInsensitiveFilter) };
+        }
+
+        const normalizedMember = CASE_INSENSITIVE_EQUALS_DIMENSIONS[filter.member];
+        if (
+          typeof filter.member === "string" &&
+          normalizedMember &&
+          typeof filter.operator === "string" &&
+          CASE_INSENSITIVE_OPERATORS.has(filter.operator)
+        ) {
+          return {
+            ...filter,
+            member: normalizedMember,
+            ...(Array.isArray(filter.values) ? { values: filter.values.map(normalizeFilterValue) } : {}),
+          };
+        }
+
+        return filter;
+      }
+
+      function normalizeCaseInsensitiveFilters(filters) {
+        if (!Array.isArray(filters)) {
+          return filters;
+        }
+
+        return filters.map(normalizeCaseInsensitiveFilter);
+      }
+
+      function queryRewrite(query, rewriteContext) {
+        const cubeQuery = query ?? {};
+        let context;
+
+        try {
+          context = assertValidSecurityContext(rewriteContext?.securityContext);
+        } catch (error) {
+          logCubeQuerySecurityContextFailure(cubeQuery, error);
+          throw error;
+        }
+
+        try {
+          assertNoCallerTenantMember(cubeQuery);
+        } catch (error) {
+          logCubeQueryAuditEvent(context, cubeQuery, { error, status: "failure" });
+          throw error;
+        }
+
+        const queriedCubePrefixes = new Set(collectQueryMembers(cubeQuery).map((member) => member.split(".")[0]));
+        const normalizedFilters = normalizeCaseInsensitiveFilters(cubeQuery.filters);
+        const rewrittenQuery = {
+          ...cubeQuery,
+          filters: [
+            ...(Array.isArray(normalizedFilters) ? normalizedFilters : []),
+            ...TENANT_MEMBERS.filter((member) => queriedCubePrefixes.has(member.split(".")[0])).map((member) => ({
+              member,
+              operator: "equals",
+              values: [context.tenantId],
+            })),
+          ],
+        };
+
+        logCubeQueryAuditEvent(context, rewrittenQuery);
+        return rewrittenQuery;
+      }
+
+      module.exports = {
+        queryRewrite,
+      };
+  formbricks_cube_schema:
+    content: |
+      // This schema maps to the `feedback_records` table owned by the Formbricks Hub Postgres.
+      // If the Hub changes column names or types, this schema must be updated to match.
+      cube(`FeedbackRecords`, {
+        sql: `SELECT * FROM feedback_records`,
+
+        measures: {
+          count: {
+            type: `count`,
+            description: `Total number of feedback responses`,
+          },
+
+          uniqueRespondents: {
+            type: `countDistinct`,
+            sql: `$${CUBE}.user_id`,
+            description: `Number of unique users who provided feedback`,
+          },
+
+          uniqueResponses: {
+            type: `countDistinct`,
+            sql: `$${CUBE}.submission_id`,
+            description: `Number of unique survey submissions (a submission can produce multiple feedback records)`,
+          },
+
+          promoterCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.field_type = 'nps' AND $${CUBE}.value_number >= 9` }],
+            description: `Number of NPS promoters (score 9-10)`,
+          },
+
+          detractorCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.field_type = 'nps' AND $${CUBE}.value_number BETWEEN 0 AND 6` }],
+            description: `Number of NPS detractors (score 0-6)`,
+          },
+
+          passiveCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.field_type = 'nps' AND $${CUBE}.value_number BETWEEN 7 AND 8` }],
+            description: `Number of NPS passives (score 7-8)`,
+          },
+
+          npsScore: {
+            type: `number`,
+            sql: `
+              CASE
+                WHEN COUNT(CASE WHEN $${CUBE}.field_type = 'nps' AND $${CUBE}.value_number IS NOT NULL THEN 1 END) = 0 THEN NULL
+                ELSE ROUND(
+                  (
+                    (COUNT(CASE WHEN $${CUBE}.field_type = 'nps' AND $${CUBE}.value_number >= 9 THEN 1 END)::numeric -
+                     COUNT(CASE WHEN $${CUBE}.field_type = 'nps' AND $${CUBE}.value_number BETWEEN 0 AND 6 THEN 1 END)::numeric)
+                    / COUNT(CASE WHEN $${CUBE}.field_type = 'nps' AND $${CUBE}.value_number IS NOT NULL THEN 1 END)::numeric
+                  ) * 100,
+                  2
+                )
+              END
+            `,
+            description: `Net Promoter Score: ((Promoters - Detractors) / Answered NPS responses) * 100. NULL when there are no answered NPS responses.`,
+          },
+
+          npsAverage: {
+            type: `avg`,
+            sql: `$${CUBE}.value_number`,
+            filters: [{ sql: `$${CUBE}.field_type = 'nps'` }],
+            description: `Average NPS rating (0-10)`,
+          },
+
+          csatCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.field_type = 'csat' AND $${CUBE}.value_number IS NOT NULL` }],
+            description: `Number of answered CSAT responses (dismissed responses excluded).`,
+          },
+
+          csatSatisfiedCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.field_type = 'csat' AND $${CUBE}.value_number >= 4` }],
+            description: `Number of satisfied CSAT responses (top-2-box on the 1-5 scale)`,
+          },
+
+          csatDissatisfiedCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.field_type = 'csat' AND $${CUBE}.value_number BETWEEN 1 AND 2` }],
+            description: `Number of dissatisfied CSAT responses (bottom-2-box on the 1-5 scale)`,
+          },
+
+          csatNeutralCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.field_type = 'csat' AND $${CUBE}.value_number = 3` }],
+            description: `Number of neutral CSAT responses (middle box on the 1-5 scale)`,
+          },
+
+          csatScore: {
+            type: `number`,
+            sql: `
+              CASE
+                WHEN COUNT(CASE WHEN $${CUBE}.field_type = 'csat' AND $${CUBE}.value_number IS NOT NULL THEN 1 END) = 0 THEN NULL
+                ELSE ROUND(
+                  (
+                    COUNT(CASE WHEN $${CUBE}.field_type = 'csat' AND $${CUBE}.value_number >= 4 THEN 1 END)::numeric
+                    / COUNT(CASE WHEN $${CUBE}.field_type = 'csat' AND $${CUBE}.value_number IS NOT NULL THEN 1 END)::numeric
+                  ) * 100,
+                  2
+                )
+              END
+            `,
+            description: `CSAT Score: % of answered CSAT responses rated 4 or 5 (top-2-box on the 1-5 scale). NULL when there are no answered CSAT responses.`,
+          },
+
+          csatAverage: {
+            type: `avg`,
+            sql: `$${CUBE}.value_number`,
+            filters: [{ sql: `$${CUBE}.field_type = 'csat'` }],
+            description: `Average CSAT rating (1-5)`,
+          },
+
+          cesCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.field_type = 'ces' AND $${CUBE}.value_number IS NOT NULL` }],
+            description: `Number of answered CES responses (dismissed responses excluded).`,
+          },
+
+          cesAverage: {
+            type: `avg`,
+            sql: `$${CUBE}.value_number`,
+            filters: [{ sql: `$${CUBE}.field_type = 'ces'` }],
+            description: `Average CES rating (scale is 1-5 or 1-7 depending on the question)`,
+          },
+
+          ratingCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.field_type = 'rating' AND $${CUBE}.value_number IS NOT NULL` }],
+            description: `Number of answered rating responses (dismissed responses excluded).`,
+          },
+
+          ratingAverage: {
+            type: `avg`,
+            sql: `$${CUBE}.value_number`,
+            filters: [{ sql: `$${CUBE}.field_type = 'rating'` }],
+            description: `Average rating value (scale depends on the question, e.g. 1-5 or 1-10)`,
+          },
+
+          sentimentAverage: {
+            type: `avg`,
+            sql: `$${CUBE}.sentiment_score`,
+            description: `Average sentiment score (-1 to 1, negative to positive). Only enriched records count; "mixed" records score near 0 and are included.`,
+          },
+
+          // Emotion counts: a record carries 0..6 emotions (multi-label), so these
+          // counts are not mutually exclusive and can sum to more than the record count.
+          joyCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.emotions @> ARRAY['joy']::text[]` }],
+            description: `Number of feedback records tagged with the "joy" emotion`,
+          },
+
+          angerCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.emotions @> ARRAY['anger']::text[]` }],
+            description: `Number of feedback records tagged with the "anger" emotion`,
+          },
+
+          sadnessCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.emotions @> ARRAY['sadness']::text[]` }],
+            description: `Number of feedback records tagged with the "sadness" emotion`,
+          },
+
+          fearCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.emotions @> ARRAY['fear']::text[]` }],
+            description: `Number of feedback records tagged with the "fear" emotion`,
+          },
+
+          surpriseCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.emotions @> ARRAY['surprise']::text[]` }],
+            description: `Number of feedback records tagged with the "surprise" emotion`,
+          },
+
+          disgustCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.emotions @> ARRAY['disgust']::text[]` }],
+            description: `Number of feedback records tagged with the "disgust" emotion`,
+          },
+
+          // Sentiment label counts: sentiment is a single-value column (not multi-label), so unlike the
+          // emotion counts these ARE mutually exclusive — they partition the enriched records and sum to
+          // the enriched record count. NULL (not-yet-enriched) records fall into none of them.
+          veryNegativeCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.sentiment = 'very_negative'` }],
+            description: `Number of feedback records with "very_negative" sentiment`,
+          },
+
+          negativeCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.sentiment = 'negative'` }],
+            description: `Number of feedback records with "negative" sentiment`,
+          },
+
+          neutralCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.sentiment = 'neutral'` }],
+            description: `Number of feedback records with "neutral" sentiment`,
+          },
+
+          positiveCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.sentiment = 'positive'` }],
+            description: `Number of feedback records with "positive" sentiment`,
+          },
+
+          veryPositiveCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.sentiment = 'very_positive'` }],
+            description: `Number of feedback records with "very_positive" sentiment`,
+          },
+
+          mixedCount: {
+            type: `count`,
+            filters: [{ sql: `$${CUBE}.sentiment = 'mixed'` }],
+            description: `Number of feedback records with "mixed" sentiment`,
+          },
+        },
+
+        dimensions: {
+          id: {
+            sql: `id`,
+            type: `string`,
+            primaryKey: true,
+          },
+
+          sourceType: {
+            sql: `source_type`,
+            type: `string`,
+            description: `Source type of the feedback (e.g., nps_campaign, survey)`,
+          },
+
+          sourceName: {
+            sql: `source_name`,
+            type: `string`,
+            description: `Human-readable name of the source`,
+          },
+
+          sourceId: {
+            sql: `source_id`,
+            type: `string`,
+            description: `Stable id of the source (e.g. the survey id). Group/filter to disambiguate sources with the same name.`,
+          },
+
+          fieldType: {
+            sql: `field_type`,
+            type: `string`,
+            description: `Type of feedback field (e.g., nps, text, rating)`,
+          },
+
+          fieldLabel: {
+            sql: `field_label`,
+            type: `string`,
+            description: `Human-readable label of the question/field (e.g., "How satisfied are you with support?")`,
+          },
+
+          fieldId: {
+            sql: `field_id`,
+            type: `string`,
+            description: `Stable identifier of the question/field (the source survey element id). Unlike fieldLabel it does not change across languages or when the label is edited, so group/filter by this to keep identical or translated labels as one question.`,
+          },
+
+          fieldGroupLabel: {
+            sql: `field_group_label`,
+            type: `string`,
+            description: `Label of the parent composite question for matrix/ranking rows`,
+          },
+
+          language: {
+            sql: `language`,
+            type: `string`,
+            description: `Response language code (e.g., "en", "de"). NULL when language is "default".`,
+          },
+
+          // ── Hub enrichment fields ─────────────────────────────────────────────────
+          // Server-generated by the Hub enrichment workers (migrations 014/015); NULL
+          // until a record is enriched. Values are machine-generated lowercase tokens.
+          sentiment: {
+            sql: `sentiment`,
+            type: `string`,
+            description: `Sentiment label from Hub enrichment: very_negative, negative, neutral, positive, very_positive, or mixed. NULL until enriched.`,
+          },
+
+          sentimentScore: {
+            sql: `sentiment_score`,
+            type: `number`,
+            description: `Signed sentiment polarity score (-1 to 1), set together with the sentiment label. NULL until enriched.`,
+          },
+
+          emotions: {
+            sql: `ARRAY_TO_STRING($${CUBE}.emotions, ', ')`,
+            type: `string`,
+            description: `Detected emotions as a comma-separated multi-label set from: joy, anger, sadness, fear, surprise, disgust. NULL when not enriched or no emotion was detected. Filter a single emotion with "contains".`,
+          },
+
+          collectedAt: {
+            sql: `collected_at`,
+            type: `time`,
+            description: `Timestamp when the feedback was collected`,
+          },
+
+          createdAt: {
+            sql: `created_at`,
+            type: `time`,
+            description: `Timestamp when the feedback record was created in Hub`,
+          },
+
+          updatedAt: {
+            sql: `updated_at`,
+            type: `time`,
+            description: `Timestamp when the feedback record was last updated in Hub`,
+          },
+
+          valueNumber: {
+            sql: `value_number`,
+            type: `number`,
+            description: `Numeric answer value (NPS 0-10, CSAT 1-5, CES 1-5 or 1-7, rating, generic number). Pair with a fieldType filter to keep scales consistent.`,
+          },
+
+          valueText: {
+            sql: `value_text`,
+            type: `string`,
+            description: `Text answer value (open text, or the label of a multiple-choice / categorical answer). Pair with a fieldType filter to keep types consistent.`,
+          },
+
+          valueId: {
+            sql: `value_id`,
+            type: `string`,
+            description: `Stable id of a selected choice (single/multi-select). Group by this instead of valueText to consolidate the same option across languages / after a label edit.`,
+          },
+
+          valueBoolean: {
+            sql: `value_boolean`,
+            type: `boolean`,
+            description: `Boolean answer value (yes/no questions). Pair with a fieldType filter.`,
+          },
+
+          valueDate: {
+            sql: `value_date`,
+            type: `time`,
+            description: `Date answer value (e.g., "preferred meeting date"). Pair with a fieldType filter.`,
+          },
+
+          responseId: {
+            sql: `submission_id`,
+            type: `string`,
+            description: `Unique identifier linking related feedback records (submission_id in Hub)`,
+          },
+
+          userId: {
+            sql: `user_id`,
+            type: `string`,
+            description: `Identifier of the user who provided feedback`,
+          },
+
+          tenantId: {
+            sql: `tenant_id`,
+            type: `string`,
+            description: `Tenant ID linking to FeedbackDirectory`,
+          },
+
+          // ── Normalized (LOWER+TRIM) companions ────────────────────────────────────
+          // Hidden helper dimensions for case- and whitespace-insensitive EXACT matching.
+          // The Cube queryRewrite (docker/cube/cube.js) transparently swaps a user's
+          // `equals`/`notEquals` filter on the visible dimension to its *Normalized
+          // companion (and lowercases/trims the value), so exact-match filtering is not
+          // defeated by casing/whitespace drift in human-entered source/field text. The
+          // visible dimensions above are left untouched for grouping and display.
+          // Keep this set in sync with CASE_INSENSITIVE_EQUALS_DIMENSIONS in cube.js.
+          sourceTypeNormalized: {
+            sql: `LOWER(TRIM(source_type))`,
+            type: `string`,
+            shown: false,
+          },
+
+          sourceNameNormalized: {
+            sql: `LOWER(TRIM(source_name))`,
+            type: `string`,
+            shown: false,
+          },
+
+          fieldTypeNormalized: {
+            // field_type is a Postgres enum (field_type_enum); TRIM/LOWER only accept text, so cast
+            // first (btrim(field_type_enum) does not exist). The other companions are text columns.
+            sql: `LOWER(TRIM(field_type::text))`,
+            type: `string`,
+            shown: false,
+          },
+
+          fieldLabelNormalized: {
+            sql: `LOWER(TRIM(field_label))`,
+            type: `string`,
+            shown: false,
+          },
+
+          fieldGroupLabelNormalized: {
+            sql: `LOWER(TRIM(field_group_label))`,
+            type: `string`,
+            shown: false,
+          },
+
+          languageNormalized: {
+            sql: `LOWER(TRIM(language))`,
+            type: `string`,
+            shown: false,
+          },
+
+          valueTextNormalized: {
+            sql: `LOWER(TRIM(value_text))`,
+            type: `string`,
+            shown: false,
+          },
+        },
+      });
+services:
+  formbricks:
+    image: ${FORMBRICKS_IMAGE:-ghcr.io/formbricks/formbricks:latest}
+    restart: ${FORMBRICKS_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_FORMBRICKS:-3000}:3000'
+
+    environment:
+      - SERVICE_URL_FORMBRICKS_3000
+      - WEBAPP_URL=${SERVICE_URL_FORMBRICKS:-${SERVICE_URL_FORMBRICKS_3000:-http://localhost:3000}}
+      - NEXTAUTH_URL=${SERVICE_URL_FORMBRICKS:-${SERVICE_URL_FORMBRICKS_3000:-http://localhost:3000}}
+      - DATABASE_URL=postgresql://${SERVICE_USER_FORMBRICKS}:${SERVICE_PASSWORD_FORMBRICKS}@postgres:5432/${FORMBRICKS_DB_NAME:-formbricks}?schema=public
+      - NEXTAUTH_SECRET=${SERVICE_HEX_64_FORMBRICKS}
+      - ENCRYPTION_KEY=${SERVICE_HEX_64_FBENCRYPT}
+      - CRON_SECRET=${SERVICE_HEX_64_FBCRON}
+      - REDIS_URL=redis://redis:6379
+      - HUB_API_KEY=${SERVICE_HEX_64_FBHUB}
+      - HUB_API_URL=${FORMBRICKS_HUB_API_URL:-http://hub:8080}
+      - CUBEJS_API_URL=${FORMBRICKS_CUBEJS_API_URL:-http://cube:4000}
+      - CUBEJS_API_SECRET=${SERVICE_HEX_64_FBCUBE}
+      - CUBEJS_JWT_ISSUER=${FORMBRICKS_CUBEJS_JWT_ISSUER:-formbricks-web}
+      - CUBEJS_JWT_AUDIENCE=${FORMBRICKS_CUBEJS_JWT_AUDIENCE:-formbricks-cube}
+      - EMAIL_VERIFICATION_DISABLED=${FORMBRICKS_EMAIL_VERIFICATION_DISABLED:-1}
+      - PASSWORD_RESET_DISABLED=${FORMBRICKS_PASSWORD_RESET_DISABLED:-1}
+      - SKIP_STARTUP_MIGRATION=true
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      formbricks-migrate:
+        condition: service_completed_successfully
+      cube:
+        condition: service_healthy
+      hub:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e "require('http').get('http://127.0.0.1:3000/health',r=>{r.resume();process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  formbricks-migrate:
+    image: ${FORMBRICKS_IMAGE:-ghcr.io/formbricks/formbricks:latest}
+    restart: ${FORMBRICKS_MIGRATE_RESTART_POLICY:-no}
+
+    entrypoint: ['sh', '-c']
+    command:
+      - node /home/nextjs/validate-env.mjs && if command -v timeout >/dev/null 2>&1; then timeout 300 node packages/database/dist/scripts/apply-migrations.js; else node packages/database/dist/scripts/apply-migrations.js; fi
+
+    environment:
+      - WEBAPP_URL=${SERVICE_URL_FORMBRICKS:-${SERVICE_URL_FORMBRICKS_3000:-http://localhost:3000}}
+      - NEXTAUTH_URL=${SERVICE_URL_FORMBRICKS:-${SERVICE_URL_FORMBRICKS_3000:-http://localhost:3000}}
+      - DATABASE_URL=postgresql://${SERVICE_USER_FORMBRICKS}:${SERVICE_PASSWORD_FORMBRICKS}@postgres:5432/${FORMBRICKS_DB_NAME:-formbricks}?schema=public
+      - NEXTAUTH_SECRET=${SERVICE_HEX_64_FORMBRICKS}
+      - ENCRYPTION_KEY=${SERVICE_HEX_64_FBENCRYPT}
+      - CRON_SECRET=${SERVICE_HEX_64_FBCRON}
+      - REDIS_URL=redis://redis:6379
+      - HUB_API_KEY=${SERVICE_HEX_64_FBHUB}
+      - HUB_API_URL=${FORMBRICKS_HUB_API_URL:-http://hub:8080}
+      - CUBEJS_API_URL=${FORMBRICKS_CUBEJS_API_URL:-http://cube:4000}
+      - CUBEJS_API_SECRET=${SERVICE_HEX_64_FBCUBE}
+      - CUBEJS_JWT_ISSUER=${FORMBRICKS_CUBEJS_JWT_ISSUER:-formbricks-web}
+      - CUBEJS_JWT_AUDIENCE=${FORMBRICKS_CUBEJS_JWT_AUDIENCE:-formbricks-cube}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'exit 0']
+      interval: 5s
+      timeout: 3s
+      retries: 1
+      start_period: 5s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  hub-migrate:
+    image: ${FORMBRICKS_HUB_IMAGE:-ghcr.io/formbricks/hub:latest}
+    restart: ${FORMBRICKS_HUB_MIGRATE_RESTART_POLICY:-no}
+
+    entrypoint: ['sh', '-c']
+    command:
+      - if [ -x /usr/local/bin/goose ] && [ -x /usr/local/bin/river ]; then /usr/local/bin/goose -dir /app/migrations postgres "$$DATABASE_URL" up && /usr/local/bin/river migrate-up --database-url "$$DATABASE_URL"; else echo 'Migration tools (goose/river) not in image.' >&2; exit 1; fi
+
+    environment:
+      - DATABASE_URL=postgresql://${SERVICE_USER_FORMBRICKS}:${SERVICE_PASSWORD_FORMBRICKS}@postgres:5432/${FORMBRICKS_DB_NAME:-formbricks}?sslmode=disable
+
+    depends_on:
+      formbricks-migrate:
+        condition: service_completed_successfully
+
+    healthcheck:
+      test: ['CMD-SHELL', 'exit 0']
+      interval: 5s
+      timeout: 3s
+      retries: 1
+      start_period: 5s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  hub:
+    image: ${FORMBRICKS_HUB_IMAGE:-ghcr.io/formbricks/hub:latest}
+    restart: ${FORMBRICKS_HUB_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - API_KEY=${SERVICE_HEX_64_FBHUB}
+      - DATABASE_URL=postgresql://${SERVICE_USER_FORMBRICKS}:${SERVICE_PASSWORD_FORMBRICKS}@postgres:5432/${FORMBRICKS_DB_NAME:-formbricks}?sslmode=disable
+
+    depends_on:
+      hub-migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --no-verbose
+        - --tries=1
+        - --spider
+        - http://127.0.0.1:8080/health
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  cube:
+    image: ${FORMBRICKS_CUBE_IMAGE:-cubejs/cube:v1.6.6}
+    restart: ${FORMBRICKS_CUBE_RESTART_POLICY:-unless-stopped}
+
+    command:
+      - sh
+      - -c
+      - |
+        if [ -z "$$CUBEJS_API_SECRET" ]; then
+          echo "CUBEJS_API_SECRET is required for Cube JWT authentication" >&2
+          exit 1
+        fi
+        exec cubejs server
+
+    environment:
+      - CUBEJS_DB_TYPE=postgres
+      - CUBEJS_DB_HOST=postgres
+      - CUBEJS_DB_NAME=${FORMBRICKS_DB_NAME:-formbricks}
+      - CUBEJS_DB_USER=${SERVICE_USER_FORMBRICKS}
+      - CUBEJS_DB_PASS=${SERVICE_PASSWORD_FORMBRICKS}
+      - CUBEJS_DB_PORT=5432
+      - CUBEJS_API_SECRET=${SERVICE_HEX_64_FBCUBE}
+      - CUBEJS_JWT_ISSUER=${FORMBRICKS_CUBEJS_JWT_ISSUER:-formbricks-web}
+      - CUBEJS_JWT_AUDIENCE=${FORMBRICKS_CUBEJS_JWT_AUDIENCE:-formbricks-cube}
+      - CUBEJS_DEFAULT_API_SCOPES=meta,data
+      - CUBEJS_EXTERNAL_DEFAULT=${FORMBRICKS_CUBEJS_EXTERNAL_DEFAULT:-false}
+      - CUBEJS_CACHE_AND_QUEUE_DRIVER=memory
+
+    configs:
+      - source: formbricks_cube_js
+        target: /cube/conf/cube.js
+      - source: formbricks_cube_schema
+        target: /cube/conf/model/FeedbackRecords.js
+
+    depends_on:
+      hub-migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('http').get('http://127.0.0.1:4000/readyz', (res) => { res.resume(); process.exit(res.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1));"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: ${FORMBRICKS_REDIS_IMAGE:-redis:7-alpine}
+    restart: ${FORMBRICKS_REDIS_RESTART_POLICY:-unless-stopped}
+
+    command: redis-server --appendonly yes --maxmemory-policy noeviction
+
+    volumes:
+      - formbricks_redis_data:/data
+
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${FORMBRICKS_POSTGRES_IMAGE:-pgvector/pgvector:pg16}
+    restart: ${FORMBRICKS_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_FORMBRICKS}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_FORMBRICKS}
+      - POSTGRES_DB=${FORMBRICKS_DB_NAME:-formbricks}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - formbricks_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  formbricks_postgres_data:
+  formbricks_redis_data:
