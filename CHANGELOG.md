@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.0.0](https://github.com/kubeara/core/compare/v0.0.15...v1.0.0) (2026-08-05)
+
+
+### Features
+
+* Add service FormBricks template ([1c60f93](https://github.com/kubeara/core/commit/1c60f931dbcf9a9cedcd581aa5ee2132439b2680))
+* Added new service Heyform  as a template ([9551b9f](https://github.com/kubeara/core/commit/9551b9fffdd233cfaaf6b0d6d313f311178f2774))
+* Added new service Heyform  as a template ([9ecdd17](https://github.com/kubeara/core/commit/9ecdd17809ff6777bb9c2f019fa83ecd3cc2b2ac))
+* Added new service Reacher as a template ([f6c9a6d](https://github.com/kubeara/core/commit/f6c9a6d6f2584e309f9f86bfac3226cd20b70591))
+* Added new service Reacher as a template ([5fbe113](https://github.com/kubeara/core/commit/5fbe11384d718d65129b6fd96b4566293d30b039))
+* Added new service SearXNG as a template ([7c68eb1](https://github.com/kubeara/core/commit/7c68eb189a134a944b4e915a4d09b606f469e2ee))
+* Added new service zulip as a template ([20f86a9](https://github.com/kubeara/core/commit/20f86a9b439a6291816023a75ec34fb923a54ade))
+* Added service template for Logto ([22c75e6](https://github.com/kubeara/core/commit/22c75e672186a7e680786153106e25240b34cd89))
+
+
+### Bug Fixes
+
+* address dependency security vulnerabilities ([d5669f8](https://github.com/kubeara/core/commit/d5669f8e09bd7c0c366ac9fb933ddfb5d9b535df))
+* update package-lock.json to resolve security issue ([2f20be5](https://github.com/kubeara/core/commit/2f20be5eeca01404324c250dcdfa9840c2bfe8fa))
+
+
+### Refactoring
+
+* added resuable delete server popup with delete service option ([4f71535](https://github.com/kubeara/core/commit/4f715359af02b635e254611cecaaa29ad510b6e1))
+* comment out unused routes and menu items for plans and invoices ([b9288cd](https://github.com/kubeara/core/commit/b9288cd8e0886dcce749412a07ac2a2b89268172))
+
 ## [0.0.15](https://github.com/kubeara/core/compare/v0.0.14...v0.0.15) (2026-08-03)
 
 
