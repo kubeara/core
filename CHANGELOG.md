@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.0.16](https://github.com/kubeara/core/compare/v0.0.15...v0.0.16) (2026-08-05)
+## [1.0.0](https://github.com/kubeara/core/compare/v0.0.15...v1.0.0) (2026-08-05)
 
 
 ### Features
