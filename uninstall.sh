@@ -7,13 +7,15 @@
 #
 # Environment:
 #   KUBEARA_INSTALL_DIR        Same directory used by install.sh
-#   KUBEARA_REMOVE_VOLUMES=1   Also delete Postgres data (docker compose down -v)
 #   KUBEARA_TRACKING_URL       Override installation tracking endpoint
+#
+# Removal:
+#   Deletes the complete Kubeara stack: containers, networks, volumes,
+#   service images, installation files, and the empty Kubeara parent directory.
 #
 # Lifecycle tracking:
 #   Reports UNINSTALL with the last successfully tracked version from .version.
-#   Clears .installation-id and .version afterward so the next install.sh run
-#   is a fresh INSTALL with a new installation UUID.
+#   A later install.sh run is a fresh INSTALL with a new installation UUID.
 
 set -euo pipefail
 
@@ -202,11 +204,34 @@ track_uninstall_event() {
   rm -f "${response_file}"
 }
 
-clear_installation_tracking_state() {
-  rm -f \
-    "${KUBEARA_INSTALL_DIR}/${INSTALLATION_ID_FILE}" \
-    "${KUBEARA_INSTALL_DIR}/${INSTALLATION_VERSION_FILE}"
-  info "Cleared ${INSTALLATION_ID_FILE} and ${INSTALLATION_VERSION_FILE} (next install will be a fresh INSTALL)."
+validate_install_dir_for_removal() {
+  local resolved_dir
+
+  resolved_dir="$(cd "${KUBEARA_INSTALL_DIR}" && pwd -P)"
+  case "${resolved_dir}" in
+    "" | "/" | "/opt" | "/opt/kubeara" | "${HOME}" | "${HOME}/.kubeara")
+      error "Refusing to remove unsafe install directory: ${resolved_dir}"
+      ;;
+  esac
+
+  KUBEARA_INSTALL_DIR="${resolved_dir}"
+}
+
+remove_install_directory() {
+  local parent_dir
+
+  parent_dir="$(dirname "${KUBEARA_INSTALL_DIR}")"
+  cd /
+  rm -rf -- "${KUBEARA_INSTALL_DIR}"
+  info "Removed installation directory ${KUBEARA_INSTALL_DIR}"
+
+  case "${parent_dir}" in
+    "/opt/kubeara" | "${HOME}/.kubeara")
+      if rmdir -- "${parent_dir}" 2>/dev/null; then
+        info "Removed empty directory ${parent_dir}"
+      fi
+      ;;
+  esac
 }
 
 main() {
@@ -223,6 +248,8 @@ main() {
     error "Compose file not found in ${KUBEARA_INSTALL_DIR}"
   fi
 
+  validate_install_dir_for_removal
+
   if ! command -v docker >/dev/null 2>&1; then
     error "Docker is not installed"
   fi
@@ -233,24 +260,22 @@ main() {
   installation_id="$(read_installation_id || true)"
   version="$(resolve_uninstall_version || true)"
 
-  local down_args=(down)
-  if [[ "${KUBEARA_REMOVE_VOLUMES:-}" == "1" ]]; then
-    down_args+=( -v )
-    info "Stopping stack and removing volumes (database data will be deleted)…"
-  else
-    info "Stopping stack (data volumes kept). Set KUBEARA_REMOVE_VOLUMES=1 to delete DB data."
-  fi
-
-  if [[ -f "${ENV_FILE}" ]]; then
-    docker compose -f "${COMPOSE_FILE}" --env-file "${ENV_FILE}" "${down_args[@]}"
-  else
-    docker compose -f "${COMPOSE_FILE}" "${down_args[@]}"
-  fi
-
   track_uninstall_event "${installation_id}" "${version}" || true
-  clear_installation_tracking_state
 
-  info "Done. Install files remain in ${KUBEARA_INSTALL_DIR}"
+  info "Removing containers, networks, volumes, and service images…"
+  if [[ -f "${ENV_FILE}" ]]; then
+    docker compose \
+      -f "${COMPOSE_FILE}" \
+      --env-file "${ENV_FILE}" \
+      down --volumes --rmi all --remove-orphans
+  else
+    docker compose \
+      -f "${COMPOSE_FILE}" \
+      down --volumes --rmi all --remove-orphans
+  fi
+
+  remove_install_directory
+  info "Kubeara was completely removed."
 }
 
 main "$@"

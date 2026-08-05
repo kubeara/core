@@ -2,6 +2,7 @@ import { Body, Controller, Logger, Post, Req } from "@nestjs/common";
 import type { Request } from "express";
 
 import { ServiceResponse } from "@control-panel/common/interfaces/success-response.interface";
+import { resolveClientIp } from "@control-panel/common/utils/client-ip.util";
 import { toErrorMessage } from "@control-panel/common/utils/error.util";
 
 import { RecordInstallationEventDto } from "../dto/record-installation-event.dto";
@@ -36,27 +37,4 @@ export class InstallationsController {
       throw error;
     }
   }
-}
-
-/**
- * Derive the client IP from the HTTP request. Does not trust body-supplied values.
- */
-function resolveClientIp(request: Request): string {
-  const forwarded = request.headers["x-forwarded-for"];
-
-  if (typeof forwarded === "string" && forwarded.trim().length > 0) {
-    const firstHop = forwarded.split(",")[0]?.trim();
-    if (firstHop) {
-      return firstHop;
-    }
-  }
-
-  if (Array.isArray(forwarded) && forwarded[0]) {
-    const firstHop = forwarded[0].split(",")[0]?.trim();
-    if (firstHop) {
-      return firstHop;
-    }
-  }
-
-  return request.ip || request.socket.remoteAddress || "unknown";
 }

@@ -157,10 +157,7 @@ function validateRequiredConfig(configService: ConfigService): void {
  */
 function createDataSource(configService: ConfigService): DataSource {
   try {
-    const useSsl = isDbSslEnabled(
-      configService.get<string>("DB_SSL"),
-      configService.get<string>("NODE_ENV"),
-    );
+    const useSsl = isDbSslEnabled(configService.get<string>("DB_SSL"));
     return new DataSource({
       type: "postgres",
       host: configService.get<string>("DB_HOST") as string,

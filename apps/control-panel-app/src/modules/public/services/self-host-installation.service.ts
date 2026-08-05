@@ -67,7 +67,7 @@ export class SelfHostInstallationService {
       );
 
       throw new InternalServerErrorException(
-        "Unable to record the installation event. Please try again later.",
+        PUBLIC_MESSAGES.INSTALLATION.EVENT_RECORD_FAILED,
       );
     }
   }

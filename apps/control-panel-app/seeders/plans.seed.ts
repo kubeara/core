@@ -26,10 +26,7 @@ const LEGACY_SLUGS = ["starter", "pro", "max", "business"] as const;
 
 export async function seedPlans(): Promise<void> {
   const configService = loadEnv();
-  const useSsl = isDbSslEnabled(
-    configService.get<string>("DB_SSL"),
-    configService.get<string>("NODE_ENV"),
-  );
+  const useSsl = isDbSslEnabled(configService.get<string>("DB_SSL"));
   const ds = new DataSource({
     type: "postgres",
     host: configService.get<string>("DB_HOST"),

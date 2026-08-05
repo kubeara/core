@@ -36,10 +36,7 @@ import { PublicModule } from "./modules/public/public.module";
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         try {
-          const useSsl = isDbSslEnabled(
-            configService.get<string>("DB_SSL"),
-            configService.get<string>("NODE_ENV"),
-          );
+          const useSsl = isDbSslEnabled(configService.get<string>("DB_SSL"));
 
           return {
             type: "postgres",

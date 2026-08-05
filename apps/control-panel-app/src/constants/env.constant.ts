@@ -9,21 +9,10 @@ export function isProductionEnv(nodeEnv: string | undefined): boolean {
 
 /**
  * Enable Postgres SSL only when DB_SSL=true.
- * Self-hosted compose sets DB_SSL=false so local Postgres works even if
- * NODE_ENV=production. When DB_SSL is unset, keep legacy production behavior.
+ * Local/self-host examples set DB_SSL=false; production sets DB_SSL=true.
  */
-export function isDbSslEnabled(
-  dbSsl: string | undefined | null,
-  nodeEnv?: string | null,
-): boolean {
-  const normalized = dbSsl?.trim().toLowerCase();
-  if (normalized === "true") {
-    return true;
-  }
-  if (normalized === "false") {
-    return false;
-  }
-  return isProductionEnv(nodeEnv ?? undefined);
+export function isDbSslEnabled(dbSsl: string | undefined | null): boolean {
+  return dbSsl?.trim().toLowerCase() === "true";
 }
 
 export const SALT_ROUNDS = 10;

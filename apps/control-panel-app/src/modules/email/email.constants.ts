@@ -10,3 +10,7 @@ export const OTP_EMAIL_COPY = {
   FOOTER_SUFFIX: "Please do not reply to this email.",
   GREETING_FALLBACK: "Hi there,",
 } as const;
+
+export const EMAIL_ERROR_MESSAGES = {
+  NOT_CONFIGURED: "Email service is not configured.",
+} as const;

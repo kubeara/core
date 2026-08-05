@@ -1,7 +1,7 @@
 import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { BrevoClient } from "@getbrevo/brevo";
-import { OTP_EMAIL_COPY } from "./email.constants";
+import { OTP_EMAIL_COPY, EMAIL_ERROR_MESSAGES } from "./email.constants";
 import {
   escapeHtml,
   formatOtp,
@@ -56,7 +56,9 @@ export class EmailService {
     purposeLabel: string;
   }): Promise<void> {
     if (!this.brevo || !this.fromEmail) {
-      throw new ServiceUnavailableException("Email service is not configured.");
+      throw new ServiceUnavailableException(
+        EMAIL_ERROR_MESSAGES.NOT_CONFIGURED,
+      );
     }
 
     const subject = `Your ${input.purposeLabel} code`;
