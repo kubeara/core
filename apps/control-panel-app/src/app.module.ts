@@ -21,7 +21,7 @@ import { SubscriptionsModule } from "./modules/subscriptions/subscriptions.modul
 import { ActivityModule } from "./modules/activity/activity.module";
 import { LokiLoggerModule } from "./modules/loki-logger";
 import { AppController } from "./app.controller";
-import { isProductionEnv } from "@control-panel/constants/env.constant";
+import { isDbSslEnabled } from "@control-panel/constants/env.constant";
 import { CronModule } from "./cron/cron.module";
 import { PublicModule } from "./modules/public/public.module";
 
@@ -36,9 +36,7 @@ import { PublicModule } from "./modules/public/public.module";
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         try {
-          const isProduction = isProductionEnv(
-            configService.get<string>("NODE_ENV"),
-          );
+          const useSsl = isDbSslEnabled(configService.get<string>("DB_SSL"));
 
           return {
             type: "postgres",
@@ -51,7 +49,7 @@ import { PublicModule } from "./modules/public/public.module";
             migrationsRun: false,
             entities: [__dirname + "/modules/**/entities/*.entity{.ts,.js}"],
             migrations: [path.join(__dirname, "../../migrations/*{.js,.ts}")],
-            ...(isProduction ? { ssl: { rejectUnauthorized: false } } : {}),
+            ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
           };
         } catch (error) {
           throw new Error(

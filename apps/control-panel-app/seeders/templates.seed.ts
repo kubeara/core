@@ -22,7 +22,7 @@ const ROOT_DIR = process.cwd();
 const ROOT_ENV_PATH = path.join(ROOT_DIR, ".env");
 const APP_ENV_PATH = path.join(ROOT_DIR, "apps/control-panel-app/.env");
 import dayjs from "dayjs";
-import { isProductionEnv } from "@control-panel/constants/env.constant";
+import { isDbSslEnabled } from "@control-panel/constants/env.constant";
 
 /**
  * Database connection settings required before seeding can start.
@@ -157,7 +157,7 @@ function validateRequiredConfig(configService: ConfigService): void {
  */
 function createDataSource(configService: ConfigService): DataSource {
   try {
-    const isProduction = isProductionEnv(configService.get<string>("NODE_ENV"));
+    const useSsl = isDbSslEnabled(configService.get<string>("DB_SSL"));
     return new DataSource({
       type: "postgres",
       host: configService.get<string>("DB_HOST") as string,
@@ -166,7 +166,7 @@ function createDataSource(configService: ConfigService): DataSource {
       password: configService.get<string>("DB_PASSWORD") as string,
       database: configService.get<string>("DB_DATABASE") as string,
       synchronize: false,
-      ...(isProduction ? { ssl: { rejectUnauthorized: false } } : {}),
+      ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
       entities: [ServiceTemplateEntity],
     });
   } catch (error: unknown) {
