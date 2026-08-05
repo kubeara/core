@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { BrevoClient } from "@getbrevo/brevo";
 import { OTP_EMAIL_COPY } from "./email.constants";
@@ -11,18 +11,16 @@ import {
 
 @Injectable()
 export class EmailService {
-  private readonly brevo: BrevoClient;
-  private readonly fromEmail: string;
+  private readonly brevo: BrevoClient | null;
+  private readonly fromEmail: string | undefined;
   private readonly fromName: string;
 
   constructor(private readonly configService: ConfigService) {
-    const apiKey = this.configService.getOrThrow<string>("BREVO_API_KEY");
-
-    this.fromEmail = this.configService.getOrThrow<string>("BREVO_FROM_EMAIL");
+    const apiKey = this.configService.get<string>("BREVO_API_KEY")?.trim();
+    this.fromEmail = this.configService.get<string>("BREVO_FROM_EMAIL")?.trim();
     this.fromName =
-      this.configService.get<string>("BREVO_FROM_NAME") ?? "Kubeara";
-
-    this.brevo = new BrevoClient({ apiKey });
+      this.configService.get<string>("BREVO_FROM_NAME")?.trim() || "Kubeara";
+    this.brevo = apiKey && this.fromEmail ? new BrevoClient({ apiKey }) : null;
   }
 
   private buildOtpEmailHtml(input: {
@@ -57,6 +55,10 @@ export class EmailService {
     otp: string;
     purposeLabel: string;
   }): Promise<void> {
+    if (!this.brevo || !this.fromEmail) {
+      throw new ServiceUnavailableException("Email service is not configured.");
+    }
+
     const subject = `Your ${input.purposeLabel} code`;
     const htmlContent = this.buildOtpEmailHtml(input);
 

@@ -1,7 +1,7 @@
 import * as path from "path";
 import * as dotenv from "dotenv";
 import { DataSource } from "typeorm";
-import { isProductionEnv } from "../src/constants/env.constant";
+import { isDbSslEnabled } from "../src/constants/env.constant";
 
 dotenv.config({
   path: path.join(process.cwd(), "apps", "control-panel-app", ".env"),
@@ -21,7 +21,7 @@ export default new DataSource({
   password: getRequiredEnv("DB_PASSWORD"),
   database: getRequiredEnv("DB_DATABASE"),
   synchronize: false,
-  ...(isProductionEnv(getRequiredEnv("NODE_ENV"))
+  ...(isDbSslEnabled(process.env.DB_SSL, process.env.NODE_ENV)
     ? { ssl: { rejectUnauthorized: false } }
     : {}),
   entities: [

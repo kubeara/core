@@ -37,13 +37,15 @@ services:
     env_file:
       - .env.control-panel
     environment:
-      NODE_ENV: production
+      # development: Hub images enable SSL when NODE_ENV=production; compose Postgres has no TLS.
+      NODE_ENV: ${NODE_ENV:-development}
       DOCKER_ENV: "true"
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_DATABASE: ${DB_DATABASE:-kubeara}
+      DB_SSL: ${DB_SSL:-false}
       ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?Set ENCRYPTION_SECRET in .env.control-panel}
     volumes:
       - ./.env.control-panel:/app/apps/control-panel-app/.env:ro
@@ -68,7 +70,7 @@ services:
     env_file:
       - .env.control-panel
     environment:
-      NODE_ENV: production
+      NODE_ENV: ${NODE_ENV:-development}
       DOCKER_ENV: "true"
       PORT: ${PORT:-3000}
       DB_HOST: ${DB_HOST:-postgres}
@@ -76,8 +78,8 @@ services:
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_DATABASE: ${DB_DATABASE:-kubeara}
+      DB_SSL: ${DB_SSL:-false}
       ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?Set ENCRYPTION_SECRET in .env.control-panel}
-      # Defaults for local/dev; install.sh replaces with openssl-generated secrets. Override in .env.control-panel for production.
       JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-jwt-refresh-secret}
       ACCESS_TOKEN_COOKIE_NAME: ${ACCESS_TOKEN_COOKIE_NAME:-kubeara_access_token}
@@ -85,7 +87,7 @@ services:
       ACCESS_TOKEN_EXPIRES_IN: ${ACCESS_TOKEN_EXPIRES_IN:-15m}
       REFRESH_TOKEN_EXPIRES_IN: ${REFRESH_TOKEN_EXPIRES_IN:-7d}
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
-      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
       COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-lax}
       CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:-}
       KUBEARA_AGENT_IMAGE: ${KUBEARA_AGENT_IMAGE:-kubeara/agent:prod}

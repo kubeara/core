@@ -42,6 +42,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_DATABASE: ${DB_DATABASE:-templates}
       ENCRYPTION_SECRET: ${ENCRYPTION_SECRET}
+      DB_SSL: ${DB_SSL:-false}
     depends_on:
       postgres:
         condition: service_healthy
