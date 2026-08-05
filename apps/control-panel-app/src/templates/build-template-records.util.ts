@@ -496,6 +496,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Meilisearch",
     version: "1.22",
   },
+  searxng: {
+    name: "SearXNG",
+    version: "latest",
+  },
   dashy: {
     name: "Dashy",
     version: "latest",
