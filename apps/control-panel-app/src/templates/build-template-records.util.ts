@@ -300,6 +300,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Healthchecks.io",
     version: "latest",
   },
+  heyform: {
+    name: "HeyForm",
+    version: "latest",
+  },
   vaultwarden: {
     name: "Vaultwarden",
     version: "latest",
