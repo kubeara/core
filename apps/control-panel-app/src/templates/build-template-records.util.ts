@@ -432,6 +432,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Checkov",
     version: "latest",
   },
+  "check-if-email-exists": {
+    name: "Reacher",
+    version: "latest",
+  },
   gitleaks: {
     name: "Gitleaks",
     version: "latest",
