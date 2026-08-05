@@ -12,6 +12,7 @@
 * Added new service Reacher as a template ([5fbe113](https://github.com/kubeara/core/commit/5fbe11384d718d65129b6fd96b4566293d30b039))
 * Added new service SearXNG as a template ([7c68eb1](https://github.com/kubeara/core/commit/7c68eb189a134a944b4e915a4d09b606f469e2ee))
 * Added new service zulip as a template ([20f86a9](https://github.com/kubeara/core/commit/20f86a9b439a6291816023a75ec34fb923a54ade))
+* Added service template for Logto ([22c75e6](https://github.com/kubeara/core/commit/22c75e672186a7e680786153106e25240b34cd89))
 
 
 ### Bug Fixes
