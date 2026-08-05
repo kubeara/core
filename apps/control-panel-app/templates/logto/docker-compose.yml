@@ -1,0 +1,99 @@
+# documentation: https://docs.logto.io/logto-oss/get-started-with-oss
+# shortDescription: Open-source Auth and identity infrastructure
+# longDescription: <p>Logto is an open-source <strong>Auth and identity</strong> platform for OIDC, OAuth 2.0, SAML, and user management.</p><p>Includes PostgreSQL. Auth/OIDC endpoint on port 3001; Admin Console on port 3002. Set <code>ENDPOINT</code> via <code>SERVICE_URL_LOGTO</code> and <code>ADMIN_ENDPOINT</code> via <code>SERVICE_URL_LOGTOADMIN</code>. Complete the Admin Console setup wizard on first launch at port 3002.</p>
+# category: security,auth,iam
+# tags: logto,auth,oidc,oauth,sso,iam,identity,authentication,mfa
+# logo: svgs/logto.svg
+# port: 3001
+
+services:
+  logto:
+    image: ${LOGTO_IMAGE:-svhd/logto:latest}
+    restart: ${LOGTO_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_LOGTO:-3001}:3001'
+      - '${SERVICE_PORT_LOGTO_3002:-3002}:3002'
+
+    entrypoint: ['sh', '-c']
+    command:
+      - npm run cli db seed -- --swe --disable-admin-pwned-password-check && npm start
+
+    environment:
+      - SERVICE_URL_LOGTO_3001
+      - SERVICE_URL_LOGTOADMIN_3002
+      - TRUST_PROXY_HEADER=${LOGTO_TRUST_PROXY_HEADER:-1}
+      - DB_URL=postgres://${SERVICE_USER_LOGTO}:${SERVICE_PASSWORD_LOGTO}@postgres:5432/${LOGTO_DB_NAME:-logto}
+      - PORT=3001
+      - ADMIN_PORT=3002
+      - ENDPOINT=${SERVICE_URL_LOGTO:-${SERVICE_URL_LOGTO_3001:-http://localhost:3001}}
+      - ADMIN_ENDPOINT=${SERVICE_URL_LOGTOADMIN:-${SERVICE_URL_LOGTOADMIN_3002:-http://localhost:3002}}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - logto_connectors:/etc/logto/packages/core/connectors
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://127.0.0.1:3001/api/status || exit 1']
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 90s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${LOGTO_POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${LOGTO_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      - POSTGRES_USER=${SERVICE_USER_LOGTO}
+      - POSTGRES_PASSWORD=${SERVICE_PASSWORD_LOGTO}
+      - POSTGRES_DB=${LOGTO_DB_NAME:-logto}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - logto_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  logto_postgres_data:
+  logto_connectors:
