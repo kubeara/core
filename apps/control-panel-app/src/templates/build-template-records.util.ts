@@ -316,6 +316,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Keycloak",
     version: "26.0",
   },
+  logto: {
+    name: "Logto",
+    version: "latest",
+  },
   nocodb: {
     name: "NocoDB",
     version: "0.263",
