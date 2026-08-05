@@ -21,7 +21,7 @@ export default new DataSource({
   password: getRequiredEnv("DB_PASSWORD"),
   database: getRequiredEnv("DB_DATABASE"),
   synchronize: false,
-  ...(isDbSslEnabled(process.env.DB_SSL)
+  ...(isDbSslEnabled(getRequiredEnv("DB_SSL"))
     ? { ssl: { rejectUnauthorized: false } }
     : {}),
   entities: [

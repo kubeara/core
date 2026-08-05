@@ -37,8 +37,7 @@ services:
     env_file:
       - .env.control-panel
     environment:
-      # development: Hub images enable SSL when NODE_ENV=production; compose Postgres has no TLS.
-      NODE_ENV: ${NODE_ENV:-development}
+      NODE_ENV: ${NODE_ENV:-production}
       DOCKER_ENV: "true"
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: 5432
