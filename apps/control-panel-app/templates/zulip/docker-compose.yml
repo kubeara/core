@@ -1,0 +1,234 @@
+# documentation: https://zulip.readthedocs.io/projects/docker/en/latest/
+# shortDescription: Open-source team chat with topics and threaded conversations
+# longDescription: <p>Zulip is an open-source <strong>team chat</strong> platform organized by topics for efficient asynchronous communication.</p><p>Includes PostgreSQL, Redis, RabbitMQ, and Memcached. Set <code>SETTING_EXTERNAL_HOST</code> via <code>SERVICE_FQDN_ZULIP</code> and complete initial organization setup after first launch.</p>
+# category: collaboration,chat,communication
+# tags: zulip,chat,team,messaging,collaboration,topics
+# port: 80
+# logo: svgs/zulip.svg
+
+services:
+  zulip:
+    image: ${ZULIP_IMAGE:-zulip/docker-zulip:11.4-0}
+    restart: ${ZULIP_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_ZULIP:-80}:80'
+
+    environment:
+      - SERVICE_URL_ZULIP_80
+      - DB_HOST=database
+      - DB_HOST_PORT=5432
+      - DB_USER=zulip
+      - SETTING_MEMCACHED_LOCATION=memcached:11211
+      - SETTING_RABBITMQ_HOST=rabbitmq
+      - SETTING_REDIS_HOST=redis
+      - SECRETS_postgres_password=${SERVICE_PASSWORD_ZULIP}
+      - SECRETS_rabbitmq_password=${SERVICE_PASSWORD_ZULIP}
+      - SECRETS_memcached_password=${SERVICE_PASSWORD_ZULIP}
+      - SECRETS_redis_password=${SERVICE_PASSWORD_ZULIP}
+      - SECRETS_secret_key=${SERVICE_HEX_64_ZULIP}
+      - SECRETS_email_password=${ZULIP_EMAIL_PASSWORD:-unused}
+      - SETTING_EXTERNAL_HOST=${SERVICE_FQDN_ZULIP:-${SERVICE_FQDN_ZULIP_80:-localhost}}
+      - SETTING_ZULIP_ADMINISTRATOR=${SERVICE_EMAIL_ZULIP:-admin@example.com}
+      - SETTING_EMAIL_HOST=${ZULIP_EMAIL_HOST:-localhost}
+      - SETTING_EMAIL_HOST_USER=${ZULIP_EMAIL_HOST_USER:-noreply@example.com}
+      - SETTING_EMAIL_PORT=${ZULIP_EMAIL_PORT:-587}
+      - SETTING_EMAIL_USE_SSL=${ZULIP_EMAIL_USE_SSL:-False}
+      - SETTING_EMAIL_USE_TLS=${ZULIP_EMAIL_USE_TLS:-True}
+      - ZULIP_AUTH_BACKENDS=${ZULIP_AUTH_BACKENDS:-EmailAuthBackend}
+      - TRUST_GATEWAY_IP=${ZULIP_TRUST_GATEWAY_IP:-True}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - zulip_data:/data
+
+    ulimits:
+      nofile:
+        soft: 1000000
+        hard: 1048576
+
+    depends_on:
+      database:
+        condition: service_healthy
+      memcached:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:80/ || wget -q -O /dev/null https://127.0.0.1:443/ || exit 1']
+      interval: 30s
+      timeout: 15s
+      retries: 10
+      start_period: 300s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  database:
+    image: ${ZULIP_POSTGRES_IMAGE:-zulip/zulip-postgresql:14}
+    restart: ${ZULIP_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      POSTGRES_DB: ${ZULIP_DB_NAME:-zulip}
+      POSTGRES_USER: zulip
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_ZULIP}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - zulip_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U zulip -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  memcached:
+    image: ${ZULIP_MEMCACHED_IMAGE:-memcached:alpine}
+    restart: ${ZULIP_MEMCACHED_RESTART_POLICY:-unless-stopped}
+
+    command:
+      - sh
+      - -euc
+      - |
+        echo 'mech_list: plain' > "$$SASL_CONF_PATH"
+        echo "zulip@$$HOSTNAME:$$MEMCACHED_PASSWORD" > "$$MEMCACHED_SASL_PWDB"
+        echo "zulip@localhost:$$MEMCACHED_PASSWORD" >> "$$MEMCACHED_SASL_PWDB"
+        exec memcached -S
+
+    environment:
+      SASL_CONF_PATH: /home/memcache/memcached.conf
+      MEMCACHED_SASL_PWDB: /home/memcache/memcached-sasl-db
+      MEMCACHED_PASSWORD: ${SERVICE_PASSWORD_ZULIP}
+
+    healthcheck:
+      test: ['CMD-SHELL', 'printf "stats\nquit\n" | nc 127.0.0.1 11211 | grep -q STAT']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  rabbitmq:
+    image: ${ZULIP_RABBITMQ_IMAGE:-rabbitmq:4.0.7}
+    restart: ${ZULIP_RABBITMQ_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      RABBITMQ_DEFAULT_USER: zulip
+      RABBITMQ_DEFAULT_PASS: ${SERVICE_PASSWORD_ZULIP}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - zulip_rabbitmq_data:/var/lib/rabbitmq
+
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 40s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: ${ZULIP_REDIS_IMAGE:-redis:alpine}
+    restart: ${ZULIP_REDIS_RESTART_POLICY:-unless-stopped}
+
+    command:
+      - sh
+      - -euc
+      - |
+        echo "requirepass '$$REDIS_PASSWORD'" > /etc/redis.conf
+        exec redis-server /etc/redis.conf
+
+    environment:
+      REDIS_PASSWORD: ${SERVICE_PASSWORD_ZULIP}
+
+    volumes:
+      - zulip_redis_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  zulip_data:
+  zulip_postgres_data:
+  zulip_rabbitmq_data:
+  zulip_redis_data:
