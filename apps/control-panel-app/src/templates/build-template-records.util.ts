@@ -276,6 +276,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Plausible Analytics",
     version: "3.2",
   },
+  formbricks: {
+    name: "Formbricks",
+    version: "latest",
+  },
   umami: {
     name: "Umami Analytics",
     version: "latest",
