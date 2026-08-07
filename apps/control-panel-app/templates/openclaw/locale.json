@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "development"
+    ],
+    "tags": [
+      "ai",
+      "coding",
+      "assistant",
+      "llm",
+      "anthropic",
+      "openai",
+      "automation"
+    ],
+    "shortDescription": "AI coding assistant with multi-provider support and browser automation",
+    "longDescription": "<p>OpenClaw is an <strong>AI coding assistant</strong> with multi-provider LLM support and integrated browser automation.</p><p>Auth uses <code>SERVICE_USER_OPENCLAW</code> and <code>SERVICE_PASSWORD_OPENCLAW</code>. Gateway token uses <code>SERVICE_PASSWORD_64_GATEWAYTOKEN</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "entwicklung"
+    ],
+    "tags": [
+      "ki",
+      "programmierung",
+      "assistent",
+      "llm",
+      "anthropic",
+      "openai",
+      "automatisierung"
+    ],
+    "shortDescription": "KI-Coding-Assistent mit Multi-Provider-Unterstützung und Browser-Automatisierung",
+    "longDescription": "<p>OpenClaw ist ein <strong>KI-Coding-Assistent</strong> mit Multi-Provider-LLM-Unterstützung und integrierter Browser-Automatisierung.</p><p>Die Authentifizierung verwendet <code>SERVICE_USER_OPENCLAW</code> und <code>SERVICE_PASSWORD_OPENCLAW</code>. Das Gateway-Token verwendet <code>SERVICE_PASSWORD_64_GATEWAYTOKEN</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "développement"
+    ],
+    "tags": [
+      "ia",
+      "codage",
+      "assistant",
+      "llm",
+      "anthropic",
+      "openai",
+      "automatisation"
+    ],
+    "shortDescription": "Assistant de codage IA avec support multi-fournisseurs et automatisation navigateur",
+    "longDescription": "<p>OpenClaw est un <strong>assistant de codage IA</strong> avec support LLM multi-fournisseurs et automatisation de navigateur intégrée.</p><p>L'auth utilise <code>SERVICE_USER_OPENCLAW</code> et <code>SERVICE_PASSWORD_OPENCLAW</code>. Le jeton de passerelle utilise <code>SERVICE_PASSWORD_64_GATEWAYTOKEN</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "desenvolvimento"
+    ],
+    "tags": [
+      "ia",
+      "codificação",
+      "assistente",
+      "llm",
+      "anthropic",
+      "openai",
+      "automação"
+    ],
+    "shortDescription": "Assistente de codificação de IA com suporte multi-provedores e automação de navegador",
+    "longDescription": "<p>OpenClaw é um <strong>assistente de codificação de IA</strong> com suporte LLM multi-provedores e automação de navegador integrada.</p><p>A autenticação usa <code>SERVICE_USER_OPENCLAW</code> e <code>SERVICE_PASSWORD_OPENCLAW</code>. O token de gateway usa <code>SERVICE_PASSWORD_64_GATEWAYTOKEN</code>.</p>"
+  }
+}

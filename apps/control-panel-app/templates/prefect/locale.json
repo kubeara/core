@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "automation",
+      "workflows",
+      "integration"
+    ],
+    "tags": [
+      "prefect",
+      "workflow",
+      "orchestration",
+      "automation",
+      "scheduler"
+    ],
+    "shortDescription": "Workflow orchestration and scheduling platform",
+    "longDescription": "<p>Prefect is a Python-native workflow orchestration platform for scheduling, observing, and automating data and application workflows.</p><p>This template starts Prefect Server with local persistent storage for quick self-hosted deployments.</p>"
+  },
+  "de": {
+    "category": [
+      "automatisierung",
+      "workflows",
+      "integration"
+    ],
+    "tags": [
+      "prefect",
+      "workflow",
+      "orchestrierung",
+      "automatisierung",
+      "scheduler"
+    ],
+    "shortDescription": "Plattform für Workflow-Orchestrierung und -Planung",
+    "longDescription": "<p>Prefect ist eine Python-native Workflow-Orchestrierungsplattform zum Planen, Beobachten und Automatisieren von Daten- und Anwendungs-Workflows.</p><p>Dieses Template startet Prefect Server mit lokalem persistenten Speicher für schnelle Self-Hosted-Bereitstellungen.</p>"
+  },
+  "fr": {
+    "category": [
+      "automatisation",
+      "workflows",
+      "intégration"
+    ],
+    "tags": [
+      "prefect",
+      "workflow",
+      "orchestration",
+      "automatisation",
+      "planificateur"
+    ],
+    "shortDescription": "Plateforme d'orchestration et de planification de workflows",
+    "longDescription": "<p>Prefect est une plateforme d'orchestration de workflows native Python pour planifier, observer et automatiser les workflows de données et d'applications.</p><p>Ce template démarre le serveur Prefect avec un stockage persistant local pour des déploiements auto-hébergés rapides.</p>"
+  },
+  "pt": {
+    "category": [
+      "automação",
+      "workflows",
+      "integração"
+    ],
+    "tags": [
+      "prefect",
+      "workflow",
+      "orquestração",
+      "automação",
+      "agendador"
+    ],
+    "shortDescription": "Plataforma de orquestração e agendamento de workflows",
+    "longDescription": "<p>Prefect é uma plataforma de orquestração de workflows nativa em Python para agendar, observar e automatizar workflows de dados e aplicações.</p><p>Este template inicia o Prefect Server com armazenamento persistente local para implantações auto-hospedadas rápidas.</p>"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "database"
+    ],
+    "tags": [
+      "qdrant",
+      "vector",
+      "database",
+      "embeddings",
+      "rag",
+      "search"
+    ],
+    "shortDescription": "High-performance vector similarity search engine",
+    "longDescription": "<p>Qdrant is a <strong>vector database</strong> for semantic search, recommendations, and RAG pipelines.</p><p>HTTP API on port 6333 and gRPC on port 6334. API key authentication uses <code>SERVICE_PASSWORD_QDRANT</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "datenbank"
+    ],
+    "tags": [
+      "qdrant",
+      "vektor",
+      "datenbank",
+      "embeddings",
+      "rag",
+      "suche"
+    ],
+    "shortDescription": "Hochleistungs-Suchmaschine für Vektor-Ähnlichkeit",
+    "longDescription": "<p>Qdrant ist eine <strong>Vektordatenbank</strong> für semantische Suche, Empfehlungen und RAG-Pipelines.</p><p>HTTP-API auf Port 6333 und gRPC auf Port 6334. Die API-Key-Authentifizierung verwendet <code>SERVICE_PASSWORD_QDRANT</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "base-de-données"
+    ],
+    "tags": [
+      "qdrant",
+      "vecteur",
+      "base-de-données",
+      "embeddings",
+      "rag",
+      "recherche"
+    ],
+    "shortDescription": "Moteur de recherche de similarité vectorielle haute performance",
+    "longDescription": "<p>Qdrant est une <strong>base de données vectorielle</strong> pour la recherche sémantique, les recommandations et les pipelines RAG.</p><p>API HTTP sur le port 6333 et gRPC sur le port 6334. L'authentification par clé API utilise <code>SERVICE_PASSWORD_QDRANT</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "banco-de-dados"
+    ],
+    "tags": [
+      "qdrant",
+      "vetor",
+      "banco-de-dados",
+      "embeddings",
+      "rag",
+      "busca"
+    ],
+    "shortDescription": "Mecanismo de busca por similaridade vetorial de alta performance",
+    "longDescription": "<p>Qdrant é um <strong>banco de dados vetorial</strong> para busca semântica, recomendações e pipelines RAG.</p><p>API HTTP na porta 6333 e gRPC na porta 6334. A autenticação por chave de API usa <code>SERVICE_PASSWORD_QDRANT</code>.</p>"
+  }
+}

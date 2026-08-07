@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "analytics",
+      "monitoring"
+    ],
+    "tags": [
+      "plausible",
+      "analytics",
+      "privacy",
+      "web",
+      "statistics",
+      "clickhouse"
+    ],
+    "shortDescription": "Privacy-friendly web analytics",
+    "longDescription": "<p>Plausible is a lightweight, <strong>privacy-focused analytics</strong> alternative to Google Analytics.</p><p>Includes PostgreSQL and ClickHouse. Set <code>BASE_URL</code> via <code>SERVICE_URL_PLAUSIBLE</code> for accurate links and webhooks. Register your account on first launch.</p>"
+  },
+  "de": {
+    "category": [
+      "analytics",
+      "überwachung"
+    ],
+    "tags": [
+      "plausible",
+      "analytics",
+      "datenschutz",
+      "web",
+      "statistiken",
+      "clickhouse"
+    ],
+    "shortDescription": "Datenschutzfreundliche Web-Analytics",
+    "longDescription": "<p>Plausible ist eine schlanke, <strong>datenschutzorientierte Analytics</strong>-Alternative zu Google Analytics.</p><p>Enthält PostgreSQL und ClickHouse. Setze <code>BASE_URL</code> über <code>SERVICE_URL_PLAUSIBLE</code> für korrekte Links und Webhooks. Registriere dein Konto beim ersten Start.</p>"
+  },
+  "fr": {
+    "category": [
+      "analytique",
+      "surveillance"
+    ],
+    "tags": [
+      "plausible",
+      "analytics",
+      "confidentialité",
+      "web",
+      "statistiques",
+      "clickhouse"
+    ],
+    "shortDescription": "Analytique web respectueuse de la confidentialité",
+    "longDescription": "<p>Plausible est une alternative <strong>axée sur la confidentialité</strong>, légère, à Google Analytics.</p><p>Inclut PostgreSQL et ClickHouse. Définissez <code>BASE_URL</code> via <code>SERVICE_URL_PLAUSIBLE</code> pour des liens et webhooks précis. Créez votre compte au premier lancement.</p>"
+  },
+  "pt": {
+    "category": [
+      "analytics",
+      "monitoramento"
+    ],
+    "tags": [
+      "plausible",
+      "analytics",
+      "privacidade",
+      "web",
+      "estatísticas",
+      "clickhouse"
+    ],
+    "shortDescription": "Analytics web com foco em privacidade",
+    "longDescription": "<p>Plausible é uma alternativa <strong>focada em privacidade</strong>, leve, ao Google Analytics.</p><p>Inclui PostgreSQL e ClickHouse. Defina <code>BASE_URL</code> via <code>SERVICE_URL_PLAUSIBLE</code> para links e webhooks precisos. Registre sua conta no primeiro acesso.</p>"
+  }
+}

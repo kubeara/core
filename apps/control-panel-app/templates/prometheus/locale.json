@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "monitoring",
+      "metrics"
+    ],
+    "tags": [
+      "prometheus",
+      "monitoring",
+      "metrics",
+      "alerting",
+      "timeseries",
+      "observability"
+    ],
+    "shortDescription": "Time-series monitoring and alerting toolkit",
+    "longDescription": "<p>Prometheus collects and stores <strong>time-series metrics</strong> with a powerful query language (PromQL).</p><p>Ships with a default scrape configuration and configurable retention via <code>PROMETHEUS_RETENTION_TIME</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "überwachung",
+      "metriken"
+    ],
+    "tags": [
+      "prometheus",
+      "überwachung",
+      "metriken",
+      "alerting",
+      "zeitreihen",
+      "observability"
+    ],
+    "shortDescription": "Zeitreihen-Monitoring- und Alerting-Toolkit",
+    "longDescription": "<p>Prometheus sammelt und speichert <strong>Zeitreihen-Metriken</strong> mit einer leistungsstarken Abfragesprache (PromQL).</p><p>Wird mit einer Standard-Scrape-Konfiguration und konfigurierbarer Aufbewahrung über <code>PROMETHEUS_RETENTION_TIME</code> ausgeliefert.</p>"
+  },
+  "fr": {
+    "category": [
+      "surveillance",
+      "métriques"
+    ],
+    "tags": [
+      "prometheus",
+      "surveillance",
+      "métriques",
+      "alertes",
+      "séries-temporelles",
+      "observabilité"
+    ],
+    "shortDescription": "Boîte à outils de surveillance et d'alertes de séries temporelles",
+    "longDescription": "<p>Prometheus collecte et stocke des <strong>métriques de séries temporelles</strong> avec un puissant langage de requête (PromQL).</p><p>Livré avec une configuration de scraping par défaut et une rétention configurable via <code>PROMETHEUS_RETENTION_TIME</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "monitoramento",
+      "métricas"
+    ],
+    "tags": [
+      "prometheus",
+      "monitoramento",
+      "métricas",
+      "alertas",
+      "séries-temporais",
+      "observabilidade"
+    ],
+    "shortDescription": "Conjunto de ferramentas de monitoramento e alertas de séries temporais",
+    "longDescription": "<p>Prometheus coleta e armazena <strong>métricas de séries temporais</strong> com uma poderosa linguagem de consulta (PromQL).</p><p>Vem com configuração de coleta padrão e retenção configurável via <code>PROMETHEUS_RETENTION_TIME</code>.</p>"
+  }
+}

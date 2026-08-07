@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "mysql",
+      "sql"
+    ],
+    "tags": [
+      "mysql",
+      "database",
+      "sql",
+      "relational",
+      "mariadb-compatible"
+    ],
+    "shortDescription": "Popular open source relational database",
+    "longDescription": "<p>MySQL is a widely used <strong>relational database</strong> for web applications, APIs, and data-driven services.</p><p>Compose-only template using magic <code>SERVICE_*</code> variables for credentials and host port configuration.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "mysql",
+      "sql"
+    ],
+    "tags": [
+      "mysql",
+      "datenbank",
+      "sql",
+      "relational",
+      "mariadb-kompatibel"
+    ],
+    "shortDescription": "Beliebte Open-Source-relationale Datenbank",
+    "longDescription": "<p>MySQL ist eine weit verbreitete <strong>relationale Datenbank</strong> für Webanwendungen, APIs und datengetriebene Dienste.</p><p>Compose-only-Vorlage mit magischen <code>SERVICE_*</code>-Variablen für Zugangsdaten und Host-Port-Konfiguration.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "mysql",
+      "sql"
+    ],
+    "tags": [
+      "mysql",
+      "base-de-données",
+      "sql",
+      "relationnel",
+      "compatible-mariadb"
+    ],
+    "shortDescription": "Base de données relationnelle open source populaire",
+    "longDescription": "<p>MySQL est une <strong>base de données relationnelle</strong> largement utilisée pour les applications web, les API et les services axés sur les données.</p><p>Modèle compose uniquement utilisant les variables magiques <code>SERVICE_*</code> pour les identifiants et la configuration du port hôte.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "mysql",
+      "sql"
+    ],
+    "tags": [
+      "mysql",
+      "banco-de-dados",
+      "sql",
+      "relacional",
+      "compatível-mariadb"
+    ],
+    "shortDescription": "Banco de dados relacional open-source popular",
+    "longDescription": "<p>MySQL é um <strong>banco de dados relacional</strong> amplamente usado para aplicações web, APIs e serviços orientados a dados.</p><p>Template apenas compose usando variáveis mágicas <code>SERVICE_*</code> para credenciais e configuração da porta do host.</p>"
+  }
+}

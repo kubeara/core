@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "llm"
+    ],
+    "tags": [
+      "ollama",
+      "ai",
+      "llm",
+      "local",
+      "inference",
+      "models"
+    ],
+    "shortDescription": "Run open-source LLMs locally",
+    "longDescription": "<p>Ollama runs <strong>open-source large language models</strong> locally with a simple HTTP API.</p><p>On first deploy, a one-shot init job pulls <code>llama3.2</code> automatically. Models persist under <code>/root/.ollama</code>. Override with <code>OLLAMA_MODEL</code> if needed.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "llm"
+    ],
+    "tags": [
+      "ollama",
+      "ki",
+      "llm",
+      "lokal",
+      "inference",
+      "modelle"
+    ],
+    "shortDescription": "Open-Source-LLMs lokal ausführen",
+    "longDescription": "<p>Ollama führt <strong>Open-Source-Sprachmodelle</strong> lokal mit einer einfachen HTTP-API aus.</p><p>Beim ersten Deploy lädt ein einmaliger Init-Job automatisch <code>llama3.2</code>. Modelle bleiben unter <code>/root/.ollama</code> erhalten. Bei Bedarf mit <code>OLLAMA_MODEL</code> überschreiben.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "llm"
+    ],
+    "tags": [
+      "ollama",
+      "ia",
+      "llm",
+      "local",
+      "inférence",
+      "modèles"
+    ],
+    "shortDescription": "Exécuter des LLM open source localement",
+    "longDescription": "<p>Ollama exécute des <strong>grands modèles de langage open source</strong> localement avec une simple API HTTP.</p><p>Au premier déploiement, un job d'initialisation unique tire <code>llama3.2</code> automatiquement. Les modèles persistent sous <code>/root/.ollama</code>. Remplacez avec <code>OLLAMA_MODEL</code> si nécessaire.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "llm"
+    ],
+    "tags": [
+      "ollama",
+      "ia",
+      "llm",
+      "local",
+      "inferência",
+      "modelos"
+    ],
+    "shortDescription": "Execute LLMs open-source localmente",
+    "longDescription": "<p>Ollama executa <strong>grandes modelos de linguagem open-source</strong> localmente com uma API HTTP simples.</p><p>No primeiro deploy, um job de inicialização único baixa <code>llama3.2</code> automaticamente. Os modelos persistem em <code>/root/.ollama</code>. Substitua com <code>OLLAMA_MODEL</code> se necessário.</p>"
+  }
+}

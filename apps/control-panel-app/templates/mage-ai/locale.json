@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "automation"
+    ],
+    "tags": [
+      "mage-ai",
+      "data",
+      "etl",
+      "pipelines",
+      "dbt",
+      "analytics",
+      "workflow"
+    ],
+    "shortDescription": "Build and run data pipelines for ETL and transformations",
+    "longDescription": "<p>Mage is a <strong>data pipeline tool</strong> for building, running, and managing ETL workflows and transformations.</p><p>Project files persist under <code>/home/src</code>. Access the UI on port 6789 after deploy.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "automatisierung"
+    ],
+    "tags": [
+      "mage-ai",
+      "daten",
+      "etl",
+      "pipelines",
+      "dbt",
+      "analytik",
+      "workflow"
+    ],
+    "shortDescription": "Datenpipelines für ETL und Transformationen erstellen und ausführen",
+    "longDescription": "<p>Mage ist ein <strong>Datenpipeline-Tool</strong> zum Erstellen, Ausführen und Verwalten von ETL-Workflows und Transformationen.</p><p>Projektdateien bleiben unter <code>/home/src</code> erhalten. Greife nach der Bereitstellung auf die UI auf Port 6789 zu.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "automatisation"
+    ],
+    "tags": [
+      "mage-ai",
+      "données",
+      "etl",
+      "pipelines",
+      "dbt",
+      "analytique",
+      "workflow"
+    ],
+    "shortDescription": "Créer et exécuter des pipelines de données pour l'ETL et les transformations",
+    "longDescription": "<p>Mage est un <strong>outil de pipelines de données</strong> pour créer, exécuter et gérer des workflows ETL et des transformations.</p><p>Les fichiers de projet persistent sous <code>/home/src</code>. Accédez à l'interface sur le port 6789 après le déploiement.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "automação"
+    ],
+    "tags": [
+      "mage-ai",
+      "dados",
+      "etl",
+      "pipelines",
+      "dbt",
+      "análises",
+      "workflow"
+    ],
+    "shortDescription": "Crie e execute pipelines de dados para ETL e transformações",
+    "longDescription": "<p>Mage é uma <strong>ferramenta de pipelines de dados</strong> para criar, executar e gerenciar workflows ETL e transformações.</p><p>Os arquivos do projeto persistem em <code>/home/src</code>. Acesse a UI na porta 6789 após o deploy.</p>"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "llm"
+    ],
+    "tags": [
+      "dify",
+      "ai",
+      "llm",
+      "rag",
+      "agent",
+      "workflow",
+      "weaviate",
+      "postgres",
+      "redis"
+    ],
+    "shortDescription": "Open-source LLM app development platform",
+    "longDescription": "<p>Dify is an <strong>LLM application platform</strong> for workflows, RAG, agents, and model management.</p><p>Includes API, worker, web UI, PostgreSQL, Redis, Weaviate, sandbox, and SSRF proxy. Web UI on port 3000; API on port 5001. Secrets use <code>SERVICE_PASSWORD_64_SECRETKEY</code> and related <code>SERVICE_*</code> keys.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "llm"
+    ],
+    "tags": [
+      "dify",
+      "ki",
+      "llm",
+      "rag",
+      "agent",
+      "workflow",
+      "weaviate",
+      "postgres",
+      "redis"
+    ],
+    "shortDescription": "Open-Source-Plattform zur Entwicklung von LLM-Apps",
+    "longDescription": "<p>Dify ist eine <strong>LLM-Anwendungsplattform</strong> für Workflows, RAG, Agenten und Modellverwaltung.</p><p>Enthält API, Worker, Web-UI, PostgreSQL, Redis, Weaviate, Sandbox und SSRF-Proxy. Web-UI auf Port 3000; API auf Port 5001. Geheimnisse verwenden <code>SERVICE_PASSWORD_64_SECRETKEY</code> und verwandte <code>SERVICE_*</code>-Schlüssel.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "llm"
+    ],
+    "tags": [
+      "dify",
+      "ia",
+      "llm",
+      "rag",
+      "agent",
+      "workflow",
+      "weaviate",
+      "postgres",
+      "redis"
+    ],
+    "shortDescription": "Plateforme open source de développement d'applications LLM",
+    "longDescription": "<p>Dify est une <strong>plateforme d'applications LLM</strong> pour les workflows, le RAG, les agents et la gestion des modèles.</p><p>Inclut API, worker, interface web, PostgreSQL, Redis, Weaviate, sandbox et proxy SSRF. Interface web sur le port 3000 ; API sur le port 5001. Les secrets utilisent <code>SERVICE_PASSWORD_64_SECRETKEY</code> et les clés <code>SERVICE_*</code> associées.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "llm"
+    ],
+    "tags": [
+      "dify",
+      "ia",
+      "llm",
+      "rag",
+      "agente",
+      "workflow",
+      "weaviate",
+      "postgres",
+      "redis"
+    ],
+    "shortDescription": "Plataforma open-source de desenvolvimento de apps LLM",
+    "longDescription": "<p>Dify é uma <strong>plataforma de aplicações LLM</strong> para workflows, RAG, agentes e gestão de modelos.</p><p>Inclui API, worker, interface web, PostgreSQL, Redis, Weaviate, sandbox e proxy SSRF. Interface web na porta 3000; API na porta 5001. Os segredos usam <code>SERVICE_PASSWORD_64_SECRETKEY</code> e chaves <code>SERVICE_*</code> relacionadas.</p>"
+  }
+}

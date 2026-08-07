@@ -1,0 +1,62 @@
+{
+  "en": {
+    "category": [
+      "monitoring",
+      "observability"
+    ],
+    "tags": [
+      "beszel",
+      "monitoring",
+      "metrics",
+      "docker",
+      "observability"
+    ],
+    "shortDescription": "Lightweight Docker host monitoring dashboard",
+    "longDescription": "<p>Beszel provides a lightweight <strong>monitoring dashboard</strong> for Docker hosts and services.</p><p>Use this hub service with Beszel agents to collect and visualize host metrics.</p>"
+  },
+  "de": {
+    "category": [
+      "monitoring",
+      "observability"
+    ],
+    "tags": [
+      "beszel",
+      "monitoring",
+      "metriken",
+      "docker",
+      "observability"
+    ],
+    "shortDescription": "Leichtes Docker-Host-Monitoring-Dashboard",
+    "longDescription": "<p>Beszel bietet ein leichtes <strong>Monitoring-Dashboard</strong> für Docker-Hosts und -Dienste.</p><p>Nutze diesen Hub-Dienst zusammen mit Beszel-Agenten, um Host-Metriken zu sammeln und zu visualisieren.</p>"
+  },
+  "fr": {
+    "category": [
+      "supervision",
+      "observabilité"
+    ],
+    "tags": [
+      "beszel",
+      "supervision",
+      "métriques",
+      "docker",
+      "observabilité"
+    ],
+    "shortDescription": "Tableau de bord léger de supervision des hôtes Docker",
+    "longDescription": "<p>Beszel fournit un <strong>tableau de bord de supervision</strong> léger pour les hôtes et services Docker.</p><p>Utilisez ce service hub avec les agents Beszel pour collecter et visualiser les métriques des hôtes.</p>"
+  },
+  "pt": {
+    "category": [
+      "monitoramento",
+      "observabilidade"
+    ],
+    "tags": [
+      "beszel",
+      "monitoramento",
+      "métricas",
+      "docker",
+      "observabilidade"
+    ],
+    "shortDescription": "Dashboard leve de monitoramento de hosts Docker",
+    "longDescription": "<p>Beszel fornece um <strong>dashboard de monitoramento</strong> leve para hosts e serviços Docker.</p><p>Use este serviço hub com os agentes Beszel para coletar e visualizar métricas dos hosts.</p>"
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "database"
+    ],
+    "tags": [
+      "mindsdb",
+      "ai",
+      "machine-learning",
+      "mysql",
+      "postgres",
+      "sql",
+      "analytics"
+    ],
+    "shortDescription": "Platform for building AI from enterprise data",
+    "longDescription": "<p>MindsDB is an <strong>AI data platform</strong> for building machine learning workflows over SQL databases and integrations.</p><p>Includes PostgreSQL for metadata storage. Data persists under <code>/mindsdb/var</code>. Optional provider keys can be set after deploy.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "datenbank"
+    ],
+    "tags": [
+      "mindsdb",
+      "ki",
+      "maschinelles-lernen",
+      "mysql",
+      "postgres",
+      "sql",
+      "analytik"
+    ],
+    "shortDescription": "Plattform zum Erstellen von KI aus Unternehmensdaten",
+    "longDescription": "<p>MindsDB ist eine <strong>KI-Datenplattform</strong> zum Erstellen von Machine-Learning-Workflows über SQL-Datenbanken und Integrationen hinweg.</p><p>Enthält PostgreSQL für die Metadatenspeicherung. Daten bleiben unter <code>/mindsdb/var</code> erhalten. Optionale Anbieterschlüssel können nach der Bereitstellung gesetzt werden.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "base-de-données"
+    ],
+    "tags": [
+      "mindsdb",
+      "ia",
+      "apprentissage-automatique",
+      "mysql",
+      "postgres",
+      "sql",
+      "analytique"
+    ],
+    "shortDescription": "Plateforme pour construire de l'IA à partir de données d'entreprise",
+    "longDescription": "<p>MindsDB est une <strong>plateforme de données IA</strong> pour construire des workflows d'apprentissage automatique sur des bases SQL et des intégrations.</p><p>Inclut PostgreSQL pour le stockage des métadonnées. Les données persistent sous <code>/mindsdb/var</code>. Des clés de fournisseurs optionnelles peuvent être définies après le déploiement.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "banco-de-dados"
+    ],
+    "tags": [
+      "mindsdb",
+      "ia",
+      "aprendizado-de-máquina",
+      "mysql",
+      "postgres",
+      "sql",
+      "análises"
+    ],
+    "shortDescription": "Plataforma para construir IA a partir de dados empresariais",
+    "longDescription": "<p>MindsDB é uma <strong>plataforma de dados de IA</strong> para construir workflows de aprendizado de máquina sobre bancos SQL e integrações.</p><p>Inclui PostgreSQL para armazenamento de metadados. Os dados persistem em <code>/mindsdb/var</code>. Chaves de provedores opcionais podem ser definidas após o deploy.</p>"
+  }
+}

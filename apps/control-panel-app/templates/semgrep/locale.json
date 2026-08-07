@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "security",
+      "development",
+      "devops"
+    ],
+    "tags": [
+      "semgrep",
+      "sast",
+      "security",
+      "static-analysis",
+      "code-scanning",
+      "mcp"
+    ],
+    "shortDescription": "Static analysis and SAST via the Semgrep MCP server",
+    "longDescription": "<p>Semgrep MCP exposes <strong>static analysis tools</strong> over HTTP for IDE and agent integrations.</p><p>Optional <code>SEMGREP_APP_TOKEN</code> unlocks Semgrep Platform features via <code>SERVICE_PASSWORD_SEMGREP</code>. The API listens on port 8000 at <code>/mcp</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "sicherheit",
+      "entwicklung",
+      "devops"
+    ],
+    "tags": [
+      "semgrep",
+      "sast",
+      "sicherheit",
+      "statische-analyse",
+      "code-scanning",
+      "mcp"
+    ],
+    "shortDescription": "Statische Analyse und SAST über den Semgrep-MCP-Server",
+    "longDescription": "<p>Semgrep MCP stellt <strong>statische Analysetools</strong> über HTTP für IDE- und Agent-Integrationen bereit.</p><p>Optionaler <code>SEMGREP_APP_TOKEN</code> schaltet Semgrep-Platform-Funktionen über <code>SERVICE_PASSWORD_SEMGREP</code> frei. Die API lauscht auf Port 8000 unter <code>/mcp</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "sécurité",
+      "développement",
+      "devops"
+    ],
+    "tags": [
+      "semgrep",
+      "sast",
+      "sécurité",
+      "analyse-statique",
+      "analyse-de-code",
+      "mcp"
+    ],
+    "shortDescription": "Analyse statique et SAST via le serveur MCP Semgrep",
+    "longDescription": "<p>Semgrep MCP expose des <strong>outils d'analyse statique</strong> sur HTTP pour les intégrations IDE et agents.</p><p>Un <code>SEMGREP_APP_TOKEN</code> optionnel déverrouille les fonctionnalités de la plateforme Semgrep via <code>SERVICE_PASSWORD_SEMGREP</code>. L'API écoute sur le port 8000 sur <code>/mcp</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "segurança",
+      "desenvolvimento",
+      "devops"
+    ],
+    "tags": [
+      "semgrep",
+      "sast",
+      "segurança",
+      "análise-estática",
+      "varredura-de-código",
+      "mcp"
+    ],
+    "shortDescription": "Análise estática e SAST via servidor MCP do Semgrep",
+    "longDescription": "<p>Semgrep MCP expõe <strong>ferramentas de análise estática</strong> via HTTP para integrações de IDE e agentes.</p><p>O <code>SEMGREP_APP_TOKEN</code> opcional libera recursos da plataforma Semgrep via <code>SERVICE_PASSWORD_SEMGREP</code>. A API escuta na porta 8000 em <code>/mcp</code>.</p>"
+  }
+}

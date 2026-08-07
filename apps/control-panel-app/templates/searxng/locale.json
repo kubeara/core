@@ -1,0 +1,58 @@
+{
+  "en": {
+    "category": [
+      "search"
+    ],
+    "tags": [
+      "searxng",
+      "search",
+      "metasearch",
+      "privacy",
+      "self-hosted"
+    ],
+    "shortDescription": "Privacy-respecting metasearch engine",
+    "longDescription": "<p>SearXNG is a free, open-source <strong>metasearch engine</strong> that aggregates results from multiple search services without tracking users.</p><p>Web UI on port 8080. Set <code>SEARXNG_BASE_URL</code> via <code>SERVICE_URL_SEARXNG</code> and a secret with <code>SERVICE_HEX_64_SEARXNG</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "suche"
+    ],
+    "tags": [
+      "searxng",
+      "suche",
+      "metasuche",
+      "datenschutz",
+      "self-hosted"
+    ],
+    "shortDescription": "Datenschutzfreundliche Metasuchmaschine",
+    "longDescription": "<p>SearXNG ist eine kostenlose, Open-Source-<strong>Metasuchmaschine</strong>, die Ergebnisse aus mehreren Suchdiensten bündelt, ohne Nutzer zu verfolgen.</p><p>Web-UI auf Port 8080. Setze <code>SEARXNG_BASE_URL</code> über <code>SERVICE_URL_SEARXNG</code> und ein Geheimnis mit <code>SERVICE_HEX_64_SEARXNG</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "recherche"
+    ],
+    "tags": [
+      "searxng",
+      "recherche",
+      "méta-recherche",
+      "confidentialité",
+      "auto-hébergé"
+    ],
+    "shortDescription": "Moteur de méta-recherche respectueux de la confidentialité",
+    "longDescription": "<p>SearXNG est un <strong>moteur de méta-recherche</strong> gratuit et open source qui agrège les résultats de plusieurs services de recherche sans suivre les utilisateurs.</p><p>UI web sur le port 8080. Définissez <code>SEARXNG_BASE_URL</code> via <code>SERVICE_URL_SEARXNG</code> et un secret avec <code>SERVICE_HEX_64_SEARXNG</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "busca"
+    ],
+    "tags": [
+      "searxng",
+      "busca",
+      "metabusca",
+      "privacidade",
+      "auto-hospedado"
+    ],
+    "shortDescription": "Mecanismo de metabusca que respeita a privacidade",
+    "longDescription": "<p>SearXNG é um <strong>mecanismo de metabusca</strong> gratuito e open-source que agrega resultados de vários serviços de busca sem rastrear usuários.</p><p>UI web na porta 8080. Defina <code>SEARXNG_BASE_URL</code> via <code>SERVICE_URL_SEARXNG</code> e um segredo com <code>SERVICE_HEX_64_SEARXNG</code>.</p>"
+  }
+}

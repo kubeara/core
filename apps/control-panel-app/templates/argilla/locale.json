@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "data"
+    ],
+    "tags": [
+      "argilla",
+      "ai",
+      "datasets",
+      "labeling",
+      "nlp",
+      "machine-learning",
+      "elasticsearch"
+    ],
+    "shortDescription": "Collaboration platform for building high-quality AI datasets",
+    "longDescription": "<p>Argilla is a <strong>data annotation and curation</strong> platform for NLP and LLM datasets.</p><p>Includes PostgreSQL, Redis, Elasticsearch, and a background worker. Default user credentials use <code>ARGILLA_USERNAME</code> and <code>SERVICE_PASSWORD_ARGILLA</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "daten"
+    ],
+    "tags": [
+      "argilla",
+      "ki",
+      "datensätze",
+      "labeling",
+      "nlp",
+      "maschinelles-lernen",
+      "elasticsearch"
+    ],
+    "shortDescription": "Kollaborationsplattform für hochwertige KI-Datensätze",
+    "longDescription": "<p>Argilla ist eine Plattform zur <strong>Datenannotation und -kuratierung</strong> für NLP- und LLM-Datensätze.</p><p>Enthält PostgreSQL, Redis, Elasticsearch und einen Hintergrund-Worker. Standard-Zugangsdaten verwenden <code>ARGILLA_USERNAME</code> und <code>SERVICE_PASSWORD_ARGILLA</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "données"
+    ],
+    "tags": [
+      "argilla",
+      "ia",
+      "jeux-de-données",
+      "annotation",
+      "nlp",
+      "apprentissage-automatique",
+      "elasticsearch"
+    ],
+    "shortDescription": "Plateforme collaborative pour créer des jeux de données IA de qualité",
+    "longDescription": "<p>Argilla est une plateforme d'<strong>annotation et de curation de données</strong> pour les jeux de données NLP et LLM.</p><p>Inclut PostgreSQL, Redis, Elasticsearch et un worker en arrière-plan. Les identifiants par défaut utilisent <code>ARGILLA_USERNAME</code> et <code>SERVICE_PASSWORD_ARGILLA</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "dados"
+    ],
+    "tags": [
+      "argilla",
+      "ia",
+      "conjuntos-de-dados",
+      "anotação",
+      "nlp",
+      "aprendizado-de-máquina",
+      "elasticsearch"
+    ],
+    "shortDescription": "Plataforma colaborativa para criar conjuntos de dados de IA de alta qualidade",
+    "longDescription": "<p>Argilla é uma plataforma de <strong>anotação e curadoria de dados</strong> para conjuntos de dados NLP e LLM.</p><p>Inclui PostgreSQL, Redis, Elasticsearch e um worker em segundo plano. As credenciais padrão usam <code>ARGILLA_USERNAME</code> e <code>SERVICE_PASSWORD_ARGILLA</code>.</p>"
+  }
+}

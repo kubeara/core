@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "git",
+      "scm",
+      "source-control"
+    ],
+    "tags": [
+      "forgejo",
+      "git",
+      "actions",
+      "ci",
+      "runner",
+      "docker",
+      "self-hosted"
+    ],
+    "shortDescription": "Forgejo with Actions runner (host Docker socket)",
+    "longDescription": "<p>Self-hosted <strong>Forgejo</strong> with a <strong>Forgejo Actions</strong> runner that uses the host Docker socket.</p><p>Simpler than DinD but grants the runner host-level Docker access. Create a runner registration token in Forgejo and set <code>SERVICE_PASSWORD_FORGEJO_RUNNER</code> before the runner registers.</p>"
+  },
+  "de": {
+    "category": [
+      "git",
+      "scm",
+      "quellcode"
+    ],
+    "tags": [
+      "forgejo",
+      "git",
+      "actions",
+      "ci",
+      "runner",
+      "docker",
+      "self-hosted"
+    ],
+    "shortDescription": "Forgejo mit Actions-Runner (Host-Docker-Socket)",
+    "longDescription": "<p>Selbst gehostetes <strong>Forgejo</strong> mit einem <strong>Forgejo-Actions</strong>-Runner, der den Docker-Socket des Hosts verwendet.</p><p>Einfacher als DinD, gewährt dem Runner aber Docker-Zugriff auf Host-Ebene. Erstelle ein Runner-Registrierungstoken in Forgejo und setze <code>SERVICE_PASSWORD_FORGEJO_RUNNER</code>, bevor sich der Runner registriert.</p>"
+  },
+  "fr": {
+    "category": [
+      "git",
+      "scm",
+      "contrôle-de-source"
+    ],
+    "tags": [
+      "forgejo",
+      "git",
+      "actions",
+      "ci",
+      "runner",
+      "docker",
+      "auto-hébergé"
+    ],
+    "shortDescription": "Forgejo avec runner Actions (socket Docker de l'hôte)",
+    "longDescription": "<p><strong>Forgejo</strong> auto-hébergé avec un <strong>runner Forgejo Actions</strong> qui utilise le socket Docker de l'hôte.</p><p>Plus simple que DinD mais donne au runner un accès Docker au niveau de l'hôte. Créez un jeton d'enregistrement de runner dans Forgejo et définissez <code>SERVICE_PASSWORD_FORGEJO_RUNNER</code> avant l'enregistrement du runner.</p>"
+  },
+  "pt": {
+    "category": [
+      "git",
+      "scm",
+      "controle-de-fonte"
+    ],
+    "tags": [
+      "forgejo",
+      "git",
+      "actions",
+      "ci",
+      "runner",
+      "docker",
+      "auto-hospedado"
+    ],
+    "shortDescription": "Forgejo com runner Actions (socket Docker do host)",
+    "longDescription": "<p><strong>Forgejo</strong> auto-hospedado com um <strong>runner Forgejo Actions</strong> que usa o socket Docker do host.</p><p>Mais simples que o DinD, mas concede ao runner acesso Docker em nível de host. Crie um token de registro de runner no Forgejo e defina <code>SERVICE_PASSWORD_FORGEJO_RUNNER</code> antes do registro do runner.</p>"
+  }
+}

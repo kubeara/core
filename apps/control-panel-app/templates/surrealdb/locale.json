@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "nosql"
+    ],
+    "tags": [
+      "surrealdb",
+      "database",
+      "nosql",
+      "graph",
+      "document",
+      "sql"
+    ],
+    "shortDescription": "Multi-model cloud database for documents, graphs, and SQL",
+    "longDescription": "<p>SurrealDB is a scalable <strong>multi-model database</strong> supporting document, graph, and SQL query patterns over HTTP and WebSocket.</p><p>Compose-only template using magic <code>SERVICE_USER_SURREALDB</code> and <code>SERVICE_PASSWORD_SURREALDB</code> for authentication.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "nosql"
+    ],
+    "tags": [
+      "surrealdb",
+      "datenbank",
+      "nosql",
+      "graph",
+      "dokument",
+      "sql"
+    ],
+    "shortDescription": "Multi-Modell-Cloud-Datenbank für Dokumente, Graphen und SQL",
+    "longDescription": "<p>SurrealDB ist eine skalierbare <strong>Multi-Modell-Datenbank</strong>, die Dokument-, Graph- und SQL-Abfragemuster über HTTP und WebSocket unterstützt.</p><p>Reines Compose-Template mit Magic-<code>SERVICE_USER_SURREALDB</code> und <code>SERVICE_PASSWORD_SURREALDB</code> zur Authentifizierung.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "nosql"
+    ],
+    "tags": [
+      "surrealdb",
+      "base-de-données",
+      "nosql",
+      "graphe",
+      "document",
+      "sql"
+    ],
+    "shortDescription": "Base de données cloud multi-modèles pour documents, graphes et SQL",
+    "longDescription": "<p>SurrealDB est une <strong>base de données multi-modèles</strong> évolutive prenant en charge les modèles de requête document, graphe et SQL sur HTTP et WebSocket.</p><p>Template compose uniquement utilisant les variables magiques <code>SERVICE_USER_SURREALDB</code> et <code>SERVICE_PASSWORD_SURREALDB</code> pour l'authentification.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "nosql"
+    ],
+    "tags": [
+      "surrealdb",
+      "banco-de-dados",
+      "nosql",
+      "grafo",
+      "documento",
+      "sql"
+    ],
+    "shortDescription": "Banco de dados cloud multi-modelo para documentos, grafos e SQL",
+    "longDescription": "<p>SurrealDB é um <strong>banco de dados multi-modelo</strong> escalável com suporte a padrões de consulta de documentos, grafos e SQL via HTTP e WebSocket.</p><p>Template apenas-compose usando variáveis mágicas <code>SERVICE_USER_SURREALDB</code> e <code>SERVICE_PASSWORD_SURREALDB</code> para autenticação.</p>"
+  }
+}

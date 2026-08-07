@@ -1,0 +1,62 @@
+{
+  "en": {
+    "category": [
+      "monitoring",
+      "observability"
+    ],
+    "tags": [
+      "glances",
+      "monitoring",
+      "metrics",
+      "host",
+      "containers"
+    ],
+    "shortDescription": "Real-time system monitoring in web UI",
+    "longDescription": "<p>Glances provides real-time <strong>host and container monitoring</strong> with a simple web dashboard.</p><p>Run in web mode to monitor CPU, memory, disk, and network at a glance.</p>"
+  },
+  "de": {
+    "category": [
+      "monitoring",
+      "observability"
+    ],
+    "tags": [
+      "glances",
+      "monitoring",
+      "metriken",
+      "host",
+      "container"
+    ],
+    "shortDescription": "Echtzeit-Systemüberwachung in der Web-UI",
+    "longDescription": "<p>Glances bietet eine <strong>Echtzeitüberwachung von Host und Containern</strong> mit einem einfachen Web-Dashboard.</p><p>Im Web-Modus lassen sich CPU, Arbeitsspeicher, Festplatte und Netzwerk auf einen Blick überwachen.</p>"
+  },
+  "fr": {
+    "category": [
+      "supervision",
+      "observabilité"
+    ],
+    "tags": [
+      "glances",
+      "supervision",
+      "métriques",
+      "hôte",
+      "conteneurs"
+    ],
+    "shortDescription": "Supervision système en temps réel dans l'interface web",
+    "longDescription": "<p>Glances fournit une <strong>supervision en temps réel de l'hôte et des conteneurs</strong> avec un tableau de bord web simple.</p><p>Utilisez le mode web pour surveiller CPU, mémoire, disque et réseau en un coup d'œil.</p>"
+  },
+  "pt": {
+    "category": [
+      "monitoramento",
+      "observabilidade"
+    ],
+    "tags": [
+      "glances",
+      "monitoramento",
+      "métricas",
+      "host",
+      "contêineres"
+    ],
+    "shortDescription": "Monitoramento de sistema em tempo real na web",
+    "longDescription": "<p>Glances oferece <strong>monitoramento em tempo real do host e de contêineres</strong> com um painel web simples.</p><p>Use o modo web para monitorar CPU, memória, disco e rede de relance.</p>"
+  }
+}

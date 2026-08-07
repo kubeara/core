@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "messaging"
+    ],
+    "tags": [
+      "rabbitmq",
+      "message-broker",
+      "queue",
+      "amqp",
+      "mqtt",
+      "messaging"
+    ],
+    "shortDescription": "Open source message broker and queue",
+    "longDescription": "<p>RabbitMQ is a widely used <strong>message broker</strong> supporting AMQP, MQTT, and STOMP for reliable async messaging.</p><p>Management UI on <code>SERVICE_PORT_RABBITMQ_15672</code> (15672). Credentials use <code>SERVICE_USER_RABBITMQ</code> and <code>SERVICE_PASSWORD_RABBITMQ</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "messaging"
+    ],
+    "tags": [
+      "rabbitmq",
+      "message-broker",
+      "warteschlange",
+      "amqp",
+      "mqtt",
+      "messaging"
+    ],
+    "shortDescription": "Open-Source-Message-Broker und Warteschlange",
+    "longDescription": "<p>RabbitMQ ist ein weit verbreiteter <strong>Message-Broker</strong>, der AMQP, MQTT und STOMP für zuverlässiges asynchrones Messaging unterstützt.</p><p>Management-UI unter <code>SERVICE_PORT_RABBITMQ_15672</code> (15672). Zugangsdaten verwenden <code>SERVICE_USER_RABBITMQ</code> und <code>SERVICE_PASSWORD_RABBITMQ</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "messagerie"
+    ],
+    "tags": [
+      "rabbitmq",
+      "message-broker",
+      "file-d'attente",
+      "amqp",
+      "mqtt",
+      "messagerie"
+    ],
+    "shortDescription": "Courtier de messages et file d'attente open source",
+    "longDescription": "<p>RabbitMQ est un <strong>courtier de messages</strong> largement utilisé prenant en charge AMQP, MQTT et STOMP pour une messagerie asynchrone fiable.</p><p>UI de gestion sur <code>SERVICE_PORT_RABBITMQ_15672</code> (15672). Les identifiants utilisent <code>SERVICE_USER_RABBITMQ</code> et <code>SERVICE_PASSWORD_RABBITMQ</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "mensageria"
+    ],
+    "tags": [
+      "rabbitmq",
+      "message-broker",
+      "fila",
+      "amqp",
+      "mqtt",
+      "mensageria"
+    ],
+    "shortDescription": "Corretor de mensagens e fila open-source",
+    "longDescription": "<p>RabbitMQ é um <strong>message broker</strong> amplamente usado, com suporte a AMQP, MQTT e STOMP para mensageria assíncrona confiável.</p><p>UI de gerenciamento em <code>SERVICE_PORT_RABBITMQ_15672</code> (15672). As credenciais usam <code>SERVICE_USER_RABBITMQ</code> e <code>SERVICE_PASSWORD_RABBITMQ</code>.</p>"
+  }
+}

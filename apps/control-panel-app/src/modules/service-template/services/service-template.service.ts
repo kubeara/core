@@ -31,10 +31,13 @@ import { ServiceResponse } from "@control-panel/common/interfaces/success-respon
 import { PaginatedResponse } from "@shared/common";
 
 import { ServiceTemplateEntity } from "../entities/service-template.entity";
+import { ServiceTemplateTranslationEntity } from "../entities/service-template-translation.entity";
 import {
+  DEFAULT_TEMPLATE_LOCALE,
   DEFAULT_TEMPLATE_LIST_LIMIT,
   DEFAULT_TEMPLATE_LIST_PAGE,
 } from "../constants/template-list.constants";
+import { normalizeTemplateLocale } from "../utils/template-locale.util";
 import { LISTING_EXCLUDED_TEMPLATE_SLUGS } from "@control-panel/modules/deployments/constants/custom-compose.constants";
 import { ListTemplatesQueryDto } from "../dto/list-templates-query.dto";
 import type {
@@ -51,6 +54,8 @@ export class ServiceTemplateService {
   constructor(
     @InjectRepository(ServiceTemplateEntity)
     private readonly serviceTemplateRepository: Repository<ServiceTemplateEntity>,
+    @InjectRepository(ServiceTemplateTranslationEntity)
+    private readonly serviceTemplateTranslationRepository: Repository<ServiceTemplateTranslationEntity>,
     private readonly templatePayloadService: TemplatePayloadService,
   ) {}
 
@@ -86,6 +91,8 @@ export class ServiceTemplateService {
 
   /**
    * Shared filters for active marketplace templates (excludes inactive and internal slugs).
+   * @param category - Optional category slug to filter translated categories by.
+   * @returns Base where filters for active marketplace templates.
    */
   private buildActiveListBaseWhere(
     category?: string,
@@ -99,31 +106,75 @@ export class ServiceTemplateService {
       slug: Not(In([...LISTING_EXCLUDED_TEMPLATE_SLUGS])),
     };
 
-    if (category?.trim()) {
-      baseWhere.category = ArrayContains([category.trim().toLowerCase()]);
+    const categoryTranslationWhere =
+      this.buildActiveListTranslationWhere(category);
+
+    if (categoryTranslationWhere) {
+      baseWhere.translations = categoryTranslationWhere;
     }
 
     return baseWhere;
   }
 
   /**
+   * Builds requested-locale translation conditions for a category filter.
+   * @param category - Optional category slug to filter by.
+   * @param locale - Locale code for the translated category values.
+   * @returns Translation where conditions, or undefined when no category filter applies.
+   */
+  private buildActiveListTranslationWhere(
+    category?: string,
+    locale: string = DEFAULT_TEMPLATE_LOCALE,
+  ): FindOptionsWhere<ServiceTemplateTranslationEntity> | undefined {
+    if (category === undefined || category.trim() === "") {
+      return undefined;
+    }
+
+    return {
+      locale,
+      category: ArrayContains([category.trim().toLowerCase()]),
+    };
+  }
+
+  /**
    * Runs one search priority tier via TypeORM find (name, slug, descriptions, then tags).
+   * Translation-driven tiers are merged with any category translation filter.
+   * @param baseWhere - Base where filters for active marketplace templates.
+   * @param categoryTranslationWhere - Optional category translation conditions.
+   * @param tierTranslations - Optional translation conditions for the current search tier.
+   * @param tierWhere - Optional template conditions for the current search tier.
+   * @param excludedSlugs - Slugs already collected by higher-priority tiers.
+   * @returns Templates matching the current search tier.
    */
   private async findActiveListSearchTier(
     baseWhere: FindOptionsWhere<ServiceTemplateEntity>,
-    tierWhere: FindOptionsWhere<ServiceTemplateEntity>,
+    categoryTranslationWhere:
+      FindOptionsWhere<ServiceTemplateTranslationEntity> | undefined,
+    tierTranslations:
+      FindOptionsWhere<ServiceTemplateTranslationEntity> | undefined,
+    tierWhere: FindOptionsWhere<ServiceTemplateEntity> | undefined,
     excludedSlugs: string[],
+    locale: string = DEFAULT_TEMPLATE_LOCALE,
   ): Promise<ServiceTemplateEntity[]> {
     const slugFilter =
-      tierWhere.slug !== undefined
+      tierWhere?.slug !== undefined
         ? tierWhere.slug
         : Not(In([...LISTING_EXCLUDED_TEMPLATE_SLUGS, ...excludedSlugs]));
+
+    const translations = {
+      locale,
+      ...(categoryTranslationWhere ?? {}),
+      ...(tierTranslations ?? {}),
+    };
+
+    const hasTranslationFilter = Object.keys(translations).length > 0;
 
     return this.findMany({
       where: {
         ...baseWhere,
-        ...tierWhere,
+        ...(tierWhere ?? {}),
         slug: slugFilter,
+        ...(hasTranslationFilter ? { translations } : {}),
       },
       order: { name: "ASC" },
     });
@@ -131,12 +182,21 @@ export class ServiceTemplateService {
 
   /**
    * Loads templates using separate TypeORM queries per search field, merged in priority order.
+   * @param category - Optional category slug to filter by.
+   * @param search - Optional search term matched against name, slug, description, and tags.
+   * @param locale - Locale code for translated fields (description and tags).
+   * @returns Matching active templates in priority order.
    */
   private async findActiveListTemplates(
     category?: string,
     search?: string,
+    locale: string = DEFAULT_TEMPLATE_LOCALE,
   ): Promise<ServiceTemplateEntity[]> {
     const baseWhere = this.buildActiveListBaseWhere(category);
+    const categoryTranslationWhere = this.buildActiveListTranslationWhere(
+      category,
+      locale,
+    );
     const searchTerm = search?.trim();
 
     if (!searchTerm) {
@@ -151,12 +211,16 @@ export class ServiceTemplateService {
     const collectedSlugs: string[] = [];
 
     const appendTier = async (
-      tierWhere: FindOptionsWhere<ServiceTemplateEntity>,
+      tierTranslations?: FindOptionsWhere<ServiceTemplateTranslationEntity>,
+      tierWhere?: FindOptionsWhere<ServiceTemplateEntity>,
     ) => {
       const tierMatches = await this.findActiveListSearchTier(
         baseWhere,
+        categoryTranslationWhere,
+        tierTranslations,
         tierWhere,
         collectedSlugs,
+        locale,
       );
 
       for (const template of tierMatches) {
@@ -169,8 +233,8 @@ export class ServiceTemplateService {
       }
     };
 
-    await appendTier({ name: searchPattern });
-    await appendTier({
+    await appendTier(undefined, { name: searchPattern });
+    await appendTier(undefined, {
       slug: And(
         Not(In([...LISTING_EXCLUDED_TEMPLATE_SLUGS, ...collectedSlugs])),
         searchPattern,
@@ -181,6 +245,43 @@ export class ServiceTemplateService {
     await appendTier({ tags: ArrayOverlap([searchTerm]) });
 
     return ordered;
+  }
+
+  /**
+   * Loads translations in the requested locale for the given templates.
+   * @param serviceTemplateIds - Template ids to load translations for.
+   * @param locale - Locale code to load translations in.
+   * @returns Map of template id to its translation in the requested locale.
+   */
+  private async loadTranslations(
+    serviceTemplateIds: string[],
+    locale: string = DEFAULT_TEMPLATE_LOCALE,
+  ): Promise<Map<string, ServiceTemplateTranslationEntity>> {
+    if (serviceTemplateIds.length === 0) {
+      return new Map();
+    }
+
+    try {
+      const translations = await this.serviceTemplateTranslationRepository.find(
+        {
+          where: {
+            locale,
+            serviceTemplateId: In(serviceTemplateIds),
+          },
+        },
+      );
+
+      return new Map(
+        translations.map((translation) => [
+          translation.serviceTemplateId,
+          translation,
+        ]),
+      );
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to load template translations: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   private assertTemplateIsListable(slug: string): void {
@@ -283,12 +384,25 @@ export class ServiceTemplateService {
   async listPublicTemplates(
     category?: string,
     search?: string,
+    locale?: string,
   ): Promise<PublicTemplateListItemDto[]> {
+    const resolvedLocale = normalizeTemplateLocale(locale);
     try {
-      const templates = await this.findActiveListTemplates(category, search);
+      const templates = await this.findActiveListTemplates(
+        category,
+        search,
+        resolvedLocale,
+      );
+      const translations = await this.loadTranslations(
+        templates.map((template) => template.id),
+        resolvedLocale,
+      );
 
       return templates.map((template) => {
-        const item = this.toTemplateListItem(template);
+        const item = this.toTemplateListItem(
+          template,
+          translations.get(template.id),
+        );
         return {
           slug: item.slug,
           name: item.name,
@@ -318,6 +432,7 @@ export class ServiceTemplateService {
     const page = query.page ?? DEFAULT_TEMPLATE_LIST_PAGE;
     const limit = query.limit ?? DEFAULT_TEMPLATE_LIST_LIMIT;
     const skip = (page - 1) * limit;
+    const resolvedLocale = normalizeTemplateLocale(query.locale);
 
     try {
       const trimmedSearch = query.search?.trim();
@@ -328,6 +443,7 @@ export class ServiceTemplateService {
         const allMatching = await this.findActiveListTemplates(
           query.category,
           query.search,
+          resolvedLocale,
         );
         total = allMatching.length;
         templates = allMatching.slice(skip, skip + limit);
@@ -340,12 +456,19 @@ export class ServiceTemplateService {
         });
       }
 
+      const translations = await this.loadTranslations(
+        templates.map((template) => template.id),
+        resolvedLocale,
+      );
+
       const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
 
       return {
         message: SUCCESS_MESSAGES.TEMPLATE.LIST,
         data: {
-          data: templates.map((template) => this.toTemplateListItem(template)),
+          data: templates.map((template) =>
+            this.toTemplateListItem(template, translations.get(template.id)),
+          ),
           pagination: { page, limit, total, totalPages },
         },
       };
@@ -363,11 +486,14 @@ export class ServiceTemplateService {
    * Lists unique template categories wrapped in a service response.
    * @returns A service response containing sorted unique category names.
    */
-  async listTemplateCategories(): Promise<ServiceResponse<string[]>> {
+  async listTemplateCategories(
+    locale?: string,
+  ): Promise<ServiceResponse<string[]>> {
+    const resolvedLocale = normalizeTemplateLocale(locale);
     try {
       return {
         message: SUCCESS_MESSAGES.TEMPLATE.CATEGORIES,
-        data: await this.listUniqueCategories(),
+        data: await this.listUniqueCategories(resolvedLocale),
       };
     } catch (error) {
       throw new InternalServerErrorException(
@@ -378,22 +504,30 @@ export class ServiceTemplateService {
 
   /**
    * Collects unique category names from all active templates.
+   * @param locale - Locale code for the translated category values.
    * @returns Sorted list of distinct category names.
    */
-  async listUniqueCategories(): Promise<string[]> {
+  async listUniqueCategories(
+    locale: string = DEFAULT_TEMPLATE_LOCALE,
+  ): Promise<string[]> {
     try {
       const templates = await this.findMany({
         where: {
           isActive: true,
           slug: Not(In([...LISTING_EXCLUDED_TEMPLATE_SLUGS])),
         },
-        select: { category: true },
+        select: { id: true },
       });
+
+      const translations = await this.loadTranslations(
+        templates.map((template) => template.id),
+        locale,
+      );
 
       const categories = new Set<string>();
 
-      for (const template of templates) {
-        for (const value of template.category ?? []) {
+      for (const translation of translations.values()) {
+        for (const value of translation.category ?? []) {
           const trimmed = value.trim();
           if (trimmed) {
             categories.add(trimmed);
@@ -417,10 +551,12 @@ export class ServiceTemplateService {
    */
   async getPublicTemplateDetails(
     slug: string,
+    locale?: string,
   ): Promise<PublicTemplateDetailsDto> {
+    const resolvedLocale = normalizeTemplateLocale(locale);
     try {
       this.assertTemplateIsListable(slug);
-      const template = await this.getTemplateDetails(slug);
+      const template = await this.getTemplateDetails(slug, resolvedLocale);
       return {
         slug: template.slug,
         name: template.name,
@@ -442,12 +578,19 @@ export class ServiceTemplateService {
   /**
    * Gets full template details including parsed deployment variables.
    * @param slug - Template slug identifier.
+   * @param locale - Locale code for the translated fields.
    * @returns Template metadata and compose variables.
    */
-  async getTemplateDetails(slug: string): Promise<TemplateDetailsDto> {
+  async getTemplateDetails(
+    slug: string,
+    locale: string = DEFAULT_TEMPLATE_LOCALE,
+  ): Promise<TemplateDetailsDto> {
     try {
       this.assertTemplateIsListable(slug);
       const template = await this.getTemplateEntity(slug);
+      const translation = (
+        await this.loadTranslations([template.id], locale)
+      ).get(template.id);
       const composeYaml = yaml.dump(
         this.templatePayloadService.decodeBase64ToObject(template.compose),
         { lineWidth: -1, noRefs: true },
@@ -455,7 +598,7 @@ export class ServiceTemplateService {
       const commentMetadata = parseTemplateCommentMetadata(composeYaml);
 
       return {
-        ...this.toTemplateListItem(template, commentMetadata),
+        ...this.toTemplateListItem(template, translation, commentMetadata),
         variables: parseTemplateVariables(composeYaml),
       };
     } catch (error) {
@@ -469,36 +612,38 @@ export class ServiceTemplateService {
   }
 
   /**
-   * Maps a template entity to a list item DTO.
-   * Falls back to compose comment metadata when database fields are empty.
+   * Maps a template entity and its requested-locale translation to a list item DTO.
+   * Falls back to compose comment metadata when translation fields are empty.
    * @param template - Template entity from the database.
+   * @param translation - Optional translation for the template in the requested locale.
    * @param commentMetadata - Optional metadata parsed from compose YAML comments.
    * @returns Normalized template list item.
    */
   private toTemplateListItem(
     template: ServiceTemplateEntity,
+    translation?: ServiceTemplateTranslationEntity,
     commentMetadata?: ReturnType<typeof parseTemplateCommentMetadata>,
   ): TemplateListItemDto {
     return {
       slug: template.slug,
       name: template.name,
       shortDescription:
-        template.shortDescription?.trim() ||
+        translation?.shortDescription?.trim() ||
         (commentMetadata
           ? getTemplateDescriptionFromComments(commentMetadata)
           : ""),
       longDescription:
-        template.longDescription?.trim() ||
+        translation?.longDescription?.trim() ||
         (commentMetadata
           ? getTemplateLongDescriptionFromComments(commentMetadata) || null
           : null),
       category:
-        template.category && template.category.length > 0
-          ? template.category
+        translation?.category && translation.category.length > 0
+          ? translation.category
           : (commentMetadata?.category ?? []),
       tags:
-        template.tags && template.tags.length > 0
-          ? template.tags
+        translation?.tags && translation.tags.length > 0
+          ? translation.tags
           : (commentMetadata?.tags ?? []),
       logo: template.logo?.trim() || null,
       port: template.port ?? commentMetadata?.port ?? 0,

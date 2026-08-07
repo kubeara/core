@@ -1,0 +1,62 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "search"
+    ],
+    "tags": [
+      "meilisearch",
+      "search",
+      "search-engine",
+      "full-text",
+      "typo-tolerant"
+    ],
+    "shortDescription": "Fast and typo-tolerant search engine",
+    "longDescription": "<p>Meilisearch is a lightning-fast <strong>search engine</strong> with instant, typo-tolerant full-text search.</p><p>HTTP API on port 7700. Master key authentication uses <code>SERVICE_PASSWORD_MEILISEARCH</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "suche"
+    ],
+    "tags": [
+      "meilisearch",
+      "suche",
+      "suchmaschine",
+      "volltext",
+      "tippfehlertolerant"
+    ],
+    "shortDescription": "Schnelle und tippfehlertolerante Suchmaschine",
+    "longDescription": "<p>Meilisearch ist eine blitzschnelle <strong>Suchmaschine</strong> mit sofortiger, tippfehlertoleranter Volltextsuche.</p><p>HTTP-API auf Port 7700. Die Authentifizierung mit dem Master-Key verwendet <code>SERVICE_PASSWORD_MEILISEARCH</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "recherche"
+    ],
+    "tags": [
+      "meilisearch",
+      "recherche",
+      "moteur-de-recherche",
+      "plein-texte",
+      "tolérant-aux-fautes"
+    ],
+    "shortDescription": "Moteur de recherche rapide et tolérant aux fautes",
+    "longDescription": "<p>Meilisearch est un <strong>moteur de recherche</strong> ultra-rapide avec une recherche plein texte instantanée et tolérante aux fautes de frappe.</p><p>API HTTP sur le port 7700. L'authentification par clé maître utilise <code>SERVICE_PASSWORD_MEILISEARCH</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "busca"
+    ],
+    "tags": [
+      "meilisearch",
+      "busca",
+      "mecanismo-de-busca",
+      "texto-completo",
+      "tolerante-a-erros"
+    ],
+    "shortDescription": "Mecanismo de busca rápido e tolerante a erros de digitação",
+    "longDescription": "<p>Meilisearch é um <strong>mecanismo de busca</strong> extremamente rápido com busca em texto completo instantânea e tolerante a erros de digitação.</p><p>API HTTP na porta 7700. A autenticação por chave mestra usa <code>SERVICE_PASSWORD_MEILISEARCH</code>.</p>"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "en": {
+    "category": [
+      "cache",
+      "database"
+    ],
+    "tags": [
+      "cache",
+      "redis",
+      "key-value",
+      "in-memory"
+    ],
+    "shortDescription": "In-memory data structure store",
+    "longDescription": "<p>Redis is an in-memory data store used as a <strong>cache</strong>, message broker, and lightweight database.</p><p>Supports optional password authentication via <code>SERVICE_PASSWORD_REDIS</code>. Ideal for sessions, queues, pub/sub, and rate limiting.</p>"
+  },
+  "de": {
+    "category": [
+      "cache",
+      "datenbank"
+    ],
+    "tags": [
+      "cache",
+      "redis",
+      "key-value",
+      "in-memory"
+    ],
+    "shortDescription": "In-Memory-Datenspeicher",
+    "longDescription": "<p>Redis ist ein In-Memory-Datenspeicher, der als <strong>Cache</strong>, Message-Broker und leichtgewichtige Datenbank dient.</p><p>Unterstützt optionale Passwort-Authentifizierung über <code>SERVICE_PASSWORD_REDIS</code>. Ideal für Sessions, Warteschlangen, Pub/Sub und Ratenbegrenzung.</p>"
+  },
+  "fr": {
+    "category": [
+      "cache",
+      "base-de-données"
+    ],
+    "tags": [
+      "cache",
+      "redis",
+      "clé-valeur",
+      "en-mémoire"
+    ],
+    "shortDescription": "Magasin de structures de données en mémoire",
+    "longDescription": "<p>Redis est un magasin de données en mémoire utilisé comme <strong>cache</strong>, courtier de messages et base de données légère.</p><p>Prend en charge une authentification par mot de passe optionnelle via <code>SERVICE_PASSWORD_REDIS</code>. Idéal pour les sessions, files d'attente, pub/sub et la limitation de débit.</p>"
+  },
+  "pt": {
+    "category": [
+      "cache",
+      "banco-de-dados"
+    ],
+    "tags": [
+      "cache",
+      "redis",
+      "chave-valor",
+      "em-memória"
+    ],
+    "shortDescription": "Armazenamento de estruturas de dados em memória",
+    "longDescription": "<p>Redis é um armazenamento de dados em memória usado como <strong>cache</strong>, message broker e banco de dados leve.</p><p>Suporta autenticação opcional por senha via <code>SERVICE_PASSWORD_REDIS</code>. Ideal para sessões, filas, pub/sub e limitação de taxa.</p>"
+  }
+}

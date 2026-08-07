@@ -1,6 +1,9 @@
 /**
  * Seeds service templates directly from source files under apps/control-panel-app/templates.
  * Reads docker-compose.yml (and optional template.config.json), then upserts rows by slug.
+ * Translatable marketing fields (category, tags, descriptions) are seeded into
+ * serviceTemplateTranslations from each template's locale.json (one file per template,
+ * containing en/de/fr/pt entries).
  *
  * Run via: npm run seed (after build) or npm run seed:dev
  */
@@ -15,6 +18,7 @@ import {
   buildServiceTemplateRecords,
   getDefaultTemplatesDir,
 } from "../src/templates/build-template-records.util";
+import { ServiceTemplateTranslationEntity } from "../src/modules/service-template/entities/service-template-translation.entity";
 import { ServiceTemplateEntity } from "../src/modules/service-template/entities/service-template.entity";
 import { EntityStatus } from "../src/common/entity/base.entity";
 
@@ -23,6 +27,21 @@ const ROOT_ENV_PATH = path.join(ROOT_DIR, ".env");
 const APP_ENV_PATH = path.join(ROOT_DIR, "apps/control-panel-app/.env");
 import dayjs from "dayjs";
 import { isDbSslEnabled } from "@control-panel/constants/env.constant";
+
+/**
+ * Translatable marketing fields for a single template locale.
+ */
+interface TemplateTranslation {
+  category?: string[];
+  tags?: string[];
+  shortDescription?: string;
+  longDescription?: string;
+}
+
+/**
+ * All translations for a single template keyed by locale.
+ */
+type TemplateTranslationsByLocale = Record<string, TemplateTranslation>;
 
 /**
  * Database connection settings required before seeding can start.
@@ -167,7 +186,7 @@ function createDataSource(configService: ConfigService): DataSource {
       database: configService.get<string>("DB_DATABASE") as string,
       synchronize: false,
       ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
-      entities: [ServiceTemplateEntity],
+      entities: [ServiceTemplateEntity, ServiceTemplateTranslationEntity],
     });
   } catch (error: unknown) {
     throw new Error(
@@ -208,8 +227,38 @@ async function destroyDataSource(dataSource: DataSource): Promise<void> {
 }
 
 /**
+ * Reads template translations from a template's locale.json file.
+ * @param localePath Absolute path to <templatesDir>/<slug>/locale.json.
+ * @returns Translations keyed by locale (en/de/fr/pt).
+ */
+function loadTemplateTranslations(
+  localePath: string,
+): TemplateTranslationsByLocale {
+  try {
+    if (!fs.existsSync(localePath)) {
+      return {};
+    }
+
+    const rawContent = fs.readFileSync(localePath, "utf8");
+    const parsed = JSON.parse(rawContent) as unknown;
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Template locale JSON must resolve to an object");
+    }
+
+    return parsed as TemplateTranslationsByLocale;
+  } catch (error: unknown) {
+    throw new Error(
+      `Failed to load template translations from "${localePath}": ${toErrorMessage(error)}`,
+    );
+  }
+}
+
+/**
  * Reads template sources from disk and upserts them into the database.
  * Uses slug as the conflict key so reruns update existing template rows.
+ * Translatable fields are upserted into serviceTemplateTranslations keyed by
+ * (serviceTemplateId, locale) from each template's locale.json.
  * @param configService Loaded configuration service for the control panel app.
  */
 async function seedFromTemplates(configService: ConfigService): Promise<void> {
@@ -238,18 +287,16 @@ async function seedFromTemplates(configService: ConfigService): Promise<void> {
     dataSource = createDataSource(configService);
     await initializeDataSource(dataSource);
 
-    const repository = dataSource.getRepository(ServiceTemplateEntity);
+    const templateRepository = dataSource.getRepository(ServiceTemplateEntity);
+    const translationRepository = dataSource.getRepository(
+      ServiceTemplateTranslationEntity,
+    );
 
     for (const templateRecord of serviceTemplateRecords) {
       try {
         const payload = {
           slug: templateRecord.slug,
           name: templateRecord.name,
-          shortDescription: templateRecord.shortDescription || null,
-          longDescription: templateRecord.longDescription || null,
-          category:
-            templateRecord.category.length > 0 ? templateRecord.category : null,
-          tags: templateRecord.tags.length > 0 ? templateRecord.tags : null,
           documentation: templateRecord.documentation || null,
           logo: templateRecord.logo || null,
           compose: templateRecord.compose,
@@ -263,7 +310,7 @@ async function seedFromTemplates(configService: ConfigService): Promise<void> {
           updatedAt: dayjs().unix(),
         };
 
-        await repository.upsert(payload, ["slug"]);
+        await templateRepository.upsert(payload, ["slug"]);
 
         console.log(`Seeded template from source: ${templateRecord.slug}`);
       } catch (error: unknown) {
@@ -273,6 +320,66 @@ async function seedFromTemplates(configService: ConfigService): Promise<void> {
       }
     }
 
+    const templateRows = await templateRepository.find({
+      select: { slug: true, id: true },
+    });
+    const serviceTemplateIdsBySlug = new Map(
+      templateRows.map((template) => [template.slug, template.id]),
+    );
+
+    let seededTranslationCount = 0;
+
+    for (const templateRecord of serviceTemplateRecords) {
+      const serviceTemplateId = serviceTemplateIdsBySlug.get(
+        templateRecord.slug,
+      );
+
+      if (!serviceTemplateId) {
+        console.warn(
+          `Skipping translations for unknown template slug: ${templateRecord.slug}`,
+        );
+        continue;
+      }
+
+      const translationsByLocale = loadTemplateTranslations(
+        path.join(templatesDir, templateRecord.slug, "locale.json"),
+      );
+
+      for (const [locale, translation] of Object.entries(
+        translationsByLocale,
+      )) {
+        try {
+          await translationRepository.upsert(
+            {
+              serviceTemplateId,
+              locale,
+              category:
+                translation.category && translation.category.length > 0
+                  ? translation.category
+                  : null,
+              tags:
+                translation.tags && translation.tags.length > 0
+                  ? translation.tags
+                  : null,
+              shortDescription: translation.shortDescription?.trim() || null,
+              longDescription: translation.longDescription?.trim() || null,
+              status: EntityStatus.ACTIVE,
+              createdAt: dayjs().unix(),
+              updatedAt: dayjs().unix(),
+            },
+            ["serviceTemplateId", "locale"],
+          );
+
+          seededTranslationCount += 1;
+        } catch (error: unknown) {
+          throw new Error(
+            `Failed to upsert translation for template "${templateRecord.slug}" (${locale}): ${toErrorMessage(error)}`,
+          );
+        }
+      }
+    }
+
+    console.log(`Seeded ${seededTranslationCount} template translation(s)`);
     console.log("Template seeding from source completed successfully");
   } finally {
     if (dataSource) {

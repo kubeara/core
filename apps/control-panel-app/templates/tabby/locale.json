@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "development"
+    ],
+    "tags": [
+      "tabby",
+      "ai",
+      "coding",
+      "copilot",
+      "completion",
+      "ide"
+    ],
+    "shortDescription": "Self-hosted AI coding assistant and completion server",
+    "longDescription": "<p>Tabby is a <strong>self-hosted coding assistant</strong> alternative to GitHub Copilot with IDE extensions.</p><p>JWT signing uses <code>SERVICE_HEX_64_TABBY</code>. Default runs CPU inference; set <code>TABBY_DEVICE=cuda</code> with NVIDIA Container Toolkit for GPU.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "entwicklung"
+    ],
+    "tags": [
+      "tabby",
+      "ki",
+      "programmierung",
+      "copilot",
+      "vervollständigung",
+      "ide"
+    ],
+    "shortDescription": "Self-Hosted-KI-Coding-Assistent und Completion-Server",
+    "longDescription": "<p>Tabby ist eine <strong>selbst gehostete Coding-Assistent</strong>-Alternative zu GitHub Copilot mit IDE-Erweiterungen.</p><p>Die JWT-Signierung verwendet <code>SERVICE_HEX_64_TABBY</code>. Standardmäßig läuft CPU-Inference; setze <code>TABBY_DEVICE=cuda</code> mit dem NVIDIA Container Toolkit für GPU.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "développement"
+    ],
+    "tags": [
+      "tabby",
+      "ia",
+      "codage",
+      "copilot",
+      "complétion",
+      "ide"
+    ],
+    "shortDescription": "Assistant de codage IA auto-hébergé et serveur de complétion",
+    "longDescription": "<p>Tabby est une <strong>alternative auto-hébergée à GitHub Copilot</strong> pour l'assistant de codage, avec des extensions IDE.</p><p>La signature JWT utilise <code>SERVICE_HEX_64_TABBY</code>. Par défaut, l'inférence tourne sur CPU ; définissez <code>TABBY_DEVICE=cuda</code> avec NVIDIA Container Toolkit pour le GPU.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "desenvolvimento"
+    ],
+    "tags": [
+      "tabby",
+      "ia",
+      "codificação",
+      "copilot",
+      "completação",
+      "ide"
+    ],
+    "shortDescription": "Assistente de codificação de IA auto-hospedado e servidor de compleção",
+    "longDescription": "<p>Tabby é uma <strong>alternativa auto-hospedada ao GitHub Copilot</strong> de assistente de codificação, com extensões de IDE.</p><p>A assinatura JWT usa <code>SERVICE_HEX_64_TABBY</code>. Por padrão, a inferência roda na CPU; defina <code>TABBY_DEVICE=cuda</code> com NVIDIA Container Toolkit para GPU.</p>"
+  }
+}

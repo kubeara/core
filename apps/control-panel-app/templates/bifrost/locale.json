@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "api"
+    ],
+    "tags": [
+      "bifrost",
+      "ai",
+      "llm",
+      "gateway",
+      "proxy",
+      "openai",
+      "api"
+    ],
+    "shortDescription": "High-performance OpenAI-compatible AI gateway",
+    "longDescription": "<p>Bifrost is a <strong>unified AI gateway</strong> exposing 15+ LLM providers through one OpenAI-compatible API.</p><p>Includes a built-in web UI for provider management. Configuration persists under <code>/app/data</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "api"
+    ],
+    "tags": [
+      "bifrost",
+      "ki",
+      "llm",
+      "gateway",
+      "proxy",
+      "openai",
+      "api"
+    ],
+    "shortDescription": "Hochleistungsfähiges OpenAI-kompatibles KI-Gateway",
+    "longDescription": "<p>Bifrost ist ein <strong>einheitliches KI-Gateway</strong>, das über 15+ LLM-Anbieter über eine OpenAI-kompatible API verfügbar macht.</p><p>Enthält eine integrierte Web-UI zur Anbieterverwaltung. Die Konfiguration wird unter <code>/app/data</code> gespeichert.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "api"
+    ],
+    "tags": [
+      "bifrost",
+      "ia",
+      "llm",
+      "gateway",
+      "proxy",
+      "openai",
+      "api"
+    ],
+    "shortDescription": "Passerelle IA compatible OpenAI haute performance",
+    "longDescription": "<p>Bifrost est une <strong>passerelle IA unifiée</strong> exposant plus de 15 fournisseurs LLM via une seule API compatible OpenAI.</p><p>Inclut une interface web intégrée pour gérer les fournisseurs. La configuration persiste sous <code>/app/data</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "api"
+    ],
+    "tags": [
+      "bifrost",
+      "ia",
+      "llm",
+      "gateway",
+      "proxy",
+      "openai",
+      "api"
+    ],
+    "shortDescription": "Gateway de IA compatível com OpenAI de alta performance",
+    "longDescription": "<p>Bifrost é um <strong>gateway de IA unificado</strong> que expõe mais de 15 provedores de LLM através de uma API compatível com OpenAI.</p><p>Inclui uma interface web integrada para gerenciamento de provedores. A configuração persiste em <code>/app/data</code>.</p>"
+  }
+}

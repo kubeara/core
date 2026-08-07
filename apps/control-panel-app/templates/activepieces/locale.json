@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "automation",
+      "workflow"
+    ],
+    "tags": [
+      "activepieces",
+      "workflow",
+      "automation",
+      "no-code",
+      "integration",
+      "zapier"
+    ],
+    "shortDescription": "Open-source workflow automation platform",
+    "longDescription": "<p>Activepieces is an open-source <strong>workflow automation</strong> platform (Zapier alternative) with hundreds of integrations and AI actions.</p><p>Includes PostgreSQL and Redis. Set <code>AP_FRONTEND_URL</code> via <code>SERVICE_URL_ACTIVEPIECES</code> for webhooks. Register your admin account on first launch.</p>"
+  },
+  "de": {
+    "category": [
+      "automatisierung",
+      "workflow"
+    ],
+    "tags": [
+      "activepieces",
+      "workflow",
+      "automatisierung",
+      "no-code",
+      "integration",
+      "zapier"
+    ],
+    "shortDescription": "Open-Source-Plattform zur Workflow-Automatisierung",
+    "longDescription": "<p>Activepieces ist eine Open-Source-Plattform zur <strong>Workflow-Automatisierung</strong> (Zapier-Alternative) mit Hunderten von Integrationen und KI-Aktionen.</p><p>Enthält PostgreSQL und Redis. Setze <code>AP_FRONTEND_URL</code> über <code>SERVICE_URL_ACTIVEPIECES</code> für Webhooks. Registriere beim ersten Start dein Admin-Konto.</p>"
+  },
+  "fr": {
+    "category": [
+      "automatisation",
+      "workflow"
+    ],
+    "tags": [
+      "activepieces",
+      "workflow",
+      "automatisation",
+      "no-code",
+      "integration",
+      "zapier"
+    ],
+    "shortDescription": "Plateforme open source d'automatisation de workflows",
+    "longDescription": "<p>Activepieces est une plateforme open source d'<strong>automatisation de workflows</strong> (alternative à Zapier) avec des centaines d'intégrations et d'actions IA.</p><p>Inclut PostgreSQL et Redis. Définissez <code>AP_FRONTEND_URL</code> via <code>SERVICE_URL_ACTIVEPIECES</code> pour les webhooks. Créez votre compte administrateur au premier lancement.</p>"
+  },
+  "pt": {
+    "category": [
+      "automação",
+      "workflow"
+    ],
+    "tags": [
+      "activepieces",
+      "workflow",
+      "automação",
+      "no-code",
+      "integração",
+      "zapier"
+    ],
+    "shortDescription": "Plataforma open-source de automação de fluxos de trabalho",
+    "longDescription": "<p>Activepieces é uma plataforma open-source de <strong>automação de fluxos de trabalho</strong> (alternativa ao Zapier) com centenas de integrações e ações de IA.</p><p>Inclui PostgreSQL e Redis. Defina <code>AP_FRONTEND_URL</code> via <code>SERVICE_URL_ACTIVEPIECES</code> para webhooks. Registre sua conta de administrador no primeiro acesso.</p>"
+  }
+}

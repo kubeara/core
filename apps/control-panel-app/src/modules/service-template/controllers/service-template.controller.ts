@@ -13,6 +13,7 @@ import { PaginatedResponse } from "@shared/common";
 import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import { ServiceResponse } from "@control-panel/common/interfaces/success-response.interface";
 
+import { DEFAULT_TEMPLATE_LOCALE } from "../constants/template-list.constants";
 import { ListTemplatesQueryDto } from "../dto/list-templates-query.dto";
 import type { TemplateListItemDto } from "../dto/template-marketplace.dto";
 import { ServiceTemplateService } from "../services/service-template.service";
@@ -44,9 +45,11 @@ export class ServiceTemplateController {
    * Lists unique template categories.
    */
   @Get("categories")
-  async listCategories(): Promise<ServiceResponse<string[]>> {
+  async listCategories(
+    @Query("locale") locale?: string,
+  ): Promise<ServiceResponse<string[]>> {
     try {
-      return await this.serviceTemplateService.listTemplateCategories();
+      return await this.serviceTemplateService.listTemplateCategories(locale);
     } catch (error) {
       this.logger.error(
         `List template categories failed: ${toErrorMessage(error)}`,
@@ -62,13 +65,17 @@ export class ServiceTemplateController {
   async getTemplate(
     @Param("slug") slug: string,
     @Query("format") format = "details",
+    @Query("locale") locale = DEFAULT_TEMPLATE_LOCALE,
     @Res({ passthrough: true }) res: Response,
   ) {
     try {
       const normalized = (format || "details").toLowerCase();
 
       if (normalized === "details") {
-        return await this.serviceTemplateService.getTemplateDetails(slug);
+        return await this.serviceTemplateService.getTemplateDetails(
+          slug,
+          locale,
+        );
       }
 
       if (normalized === "yml" || normalized === "yaml") {

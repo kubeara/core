@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "backend"
+    ],
+    "tags": [
+      "supabase",
+      "firebase-alternative",
+      "postgresql",
+      "auth",
+      "rest",
+      "studio",
+      "baas"
+    ],
+    "shortDescription": "Open source Firebase alternative with Postgres",
+    "longDescription": "<p>Supabase stack with <strong>PostgreSQL</strong>, PostgREST, GoTrue Auth, Postgres Meta, and Studio dashboard.</p><p>Studio on <code>SERVICE_PORT_SUPABASE</code> (3000). Requires <code>SERVICE_PASSWORD_64_PGMETA</code> for postgres-meta encryption, plus JWT and API keys.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "backend"
+    ],
+    "tags": [
+      "supabase",
+      "firebase-alternative",
+      "postgresql",
+      "auth",
+      "rest",
+      "studio",
+      "baas"
+    ],
+    "shortDescription": "Open-Source-Firebase-Alternative mit Postgres",
+    "longDescription": "<p>Supabase-Stack mit <strong>PostgreSQL</strong>, PostgREST, GoTrue Auth, Postgres Meta und Studio-Dashboard.</p><p>Studio auf <code>SERVICE_PORT_SUPABASE</code> (3000). Erfordert <code>SERVICE_PASSWORD_64_PGMETA</code> für die postgres-meta-Verschlüsselung sowie JWT- und API-Keys.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "backend"
+    ],
+    "tags": [
+      "supabase",
+      "alternative-firebase",
+      "postgresql",
+      "auth",
+      "rest",
+      "studio",
+      "baas"
+    ],
+    "shortDescription": "Alternative Firebase open source avec Postgres",
+    "longDescription": "<p>Pile Supabase avec <strong>PostgreSQL</strong>, PostgREST, GoTrue Auth, Postgres Meta et tableau de bord Studio.</p><p>Studio sur <code>SERVICE_PORT_SUPABASE</code> (3000). Nécessite <code>SERVICE_PASSWORD_64_PGMETA</code> pour le chiffrement postgres-meta, plus les clés JWT et API.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "backend"
+    ],
+    "tags": [
+      "supabase",
+      "alternativa-firebase",
+      "postgresql",
+      "auth",
+      "rest",
+      "studio",
+      "baas"
+    ],
+    "shortDescription": "Alternativa Firebase open-source com Postgres",
+    "longDescription": "<p>Stack do Supabase com <strong>PostgreSQL</strong>, PostgREST, GoTrue Auth, Postgres Meta e dashboard Studio.</p><p>Studio em <code>SERVICE_PORT_SUPABASE</code> (3000). Requer <code>SERVICE_PASSWORD_64_PGMETA</code> para a criptografia do postgres-meta, além de chaves JWT e API.</p>"
+  }
+}

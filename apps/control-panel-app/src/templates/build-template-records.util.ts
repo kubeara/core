@@ -10,8 +10,6 @@
  */
 import {
   encodeLogoReferenceToDataUri,
-  getTemplateDescriptionFromComments,
-  getTemplateLongDescriptionFromComments,
   parseTemplateCommentMetadata,
 } from "@shared/common";
 import * as fs from "fs";
@@ -24,10 +22,6 @@ import * as yaml from "js-yaml";
  */
 export interface TemplateMetadata {
   name: string;
-  shortDescription: string;
-  longDescription: string;
-  category: string[];
-  tags: string[];
   documentation: string;
   logo: string;
   port: number;
@@ -40,10 +34,6 @@ export interface TemplateMetadata {
 export interface ServiceTemplateRecord {
   slug: string;
   name: string;
-  shortDescription: string;
-  longDescription: string;
-  category: string[];
-  tags: string[];
   documentation: string;
   logo: string;
   compose: string;
@@ -562,10 +552,6 @@ function defaultMetadata(slug: string): TemplateMetadata {
       .split("-")
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(" "),
-    shortDescription: "",
-    longDescription: "",
-    category: [],
-    tags: [],
     documentation: "",
     logo: "",
     port: 0,
@@ -573,34 +559,14 @@ function defaultMetadata(slug: string): TemplateMetadata {
   };
 }
 
-const LONG_DESCRIPTION_FILE = "long-description.html";
-
-function resolveLongDescription(
-  templateDir: string | undefined,
-  overrides: Partial<TemplateMetadata>,
-  commentMetadata: ReturnType<typeof parseTemplateCommentMetadata>,
-): string {
-  if (overrides.longDescription?.trim()) {
-    return overrides.longDescription.trim();
-  }
-
-  if (templateDir) {
-    const htmlPath = path.join(templateDir, LONG_DESCRIPTION_FILE);
-    if (fs.existsSync(htmlPath)) {
-      return fs.readFileSync(htmlPath, "utf8").trim();
-    }
-  }
-
-  return getTemplateLongDescriptionFromComments(commentMetadata);
-}
-
 /**
  * Merges compose comment metadata with optional slug overrides and slug defaults.
+ * Translatable fields (category, tags, descriptions) are maintained separately
+ * in the service template translations JSON and are not derived from comments.
  */
 function resolveTemplateMetadata(
   slug: string,
   yamlContent: string,
-  templateDir?: string,
 ): TemplateMetadata {
   const commentMetadata = parseTemplateCommentMetadata(yamlContent);
   const overrides = metadataBySlug[slug] ?? {};
@@ -608,22 +574,6 @@ function resolveTemplateMetadata(
 
   return {
     name: overrides.name ?? defaults.name,
-    shortDescription:
-      overrides.shortDescription ??
-      getTemplateDescriptionFromComments(commentMetadata),
-    longDescription: resolveLongDescription(
-      templateDir,
-      overrides,
-      commentMetadata,
-    ),
-    category:
-      overrides.category && overrides.category.length > 0
-        ? overrides.category
-        : (commentMetadata.category ?? []),
-    tags:
-      overrides.tags && overrides.tags.length > 0
-        ? overrides.tags
-        : (commentMetadata.tags ?? []),
     documentation:
       overrides.documentation ?? commentMetadata.documentation?.trim() ?? "",
     logo: overrides.logo ?? commentMetadata.logo?.trim() ?? defaults.logo,
@@ -721,7 +671,6 @@ export function buildServiceTemplateRecords(
       const stat = fs.statSync(filePath);
 
       let slug = file;
-      let templateDir: string | undefined;
       let yamlContent: string | undefined;
       let jsonData: Record<string, unknown> | undefined;
       let configData: Record<string, unknown> | undefined;
@@ -732,7 +681,6 @@ export function buildServiceTemplateRecords(
          * Optional schema overrides live in template.config.json beside compose.
          */
         slug = file;
-        templateDir = filePath;
         const dockerComposePath = path.join(filePath, "docker-compose.yml");
 
         if (!fs.existsSync(dockerComposePath)) {
@@ -763,7 +711,6 @@ export function buildServiceTemplateRecords(
         }
 
         slug = file.replace(".yml", "");
-        templateDir = path.dirname(filePath);
 
         const potentialDir = path.join(templatesDir, slug);
 
@@ -794,7 +741,7 @@ export function buildServiceTemplateRecords(
        */
       delete jsonData.version;
 
-      const metadata = resolveTemplateMetadata(slug, yamlContent, templateDir);
+      const metadata = resolveTemplateMetadata(slug, yamlContent);
       const composeBase64 = encodeComposeToBase64(jsonData);
       const logo = metadata.logo
         ? encodeLogoReferenceToDataUri(templatesDir, metadata.logo)
@@ -803,10 +750,6 @@ export function buildServiceTemplateRecords(
       const record: ServiceTemplateRecord = {
         slug,
         name: metadata.name,
-        shortDescription: metadata.shortDescription,
-        longDescription: metadata.longDescription,
-        category: metadata.category,
-        tags: metadata.tags,
         documentation: metadata.documentation,
         logo,
         compose: composeBase64,

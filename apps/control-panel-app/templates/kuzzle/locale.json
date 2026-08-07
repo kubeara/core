@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "backend"
+    ],
+    "tags": [
+      "kuzzle",
+      "backend",
+      "api",
+      "realtime",
+      "websocket",
+      "mqtt",
+      "iot",
+      "elasticsearch"
+    ],
+    "shortDescription": "Open-source backend for realtime apps and IoT",
+    "longDescription": "<p>Kuzzle is a <strong>generic backend</strong> with REST, WebSocket, and MQTT APIs backed by Elasticsearch and Redis.</p><p>API on port 7512. Includes Elasticsearch for document storage and Redis for caching.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "backend"
+    ],
+    "tags": [
+      "kuzzle",
+      "backend",
+      "api",
+      "realtime",
+      "websocket",
+      "mqtt",
+      "iot",
+      "elasticsearch"
+    ],
+    "shortDescription": "Open-Source-Backend für Echtzeit-Apps und IoT",
+    "longDescription": "<p>Kuzzle ist ein <strong>generisches Backend</strong> mit REST-, WebSocket- und MQTT-APIs, unterstützt durch Elasticsearch und Redis.</p><p>API auf Port 7512. Enthält Elasticsearch für die Dokumentspeicherung und Redis für Caching.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "backend"
+    ],
+    "tags": [
+      "kuzzle",
+      "backend",
+      "api",
+      "temps-réel",
+      "websocket",
+      "mqtt",
+      "iot",
+      "elasticsearch"
+    ],
+    "shortDescription": "Backend open source pour applications temps réel et IoT",
+    "longDescription": "<p>Kuzzle est un <strong>backend générique</strong> avec des API REST, WebSocket et MQTT reposant sur Elasticsearch et Redis.</p><p>API sur le port 7512. Inclut Elasticsearch pour le stockage de documents et Redis pour le cache.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "backend"
+    ],
+    "tags": [
+      "kuzzle",
+      "backend",
+      "api",
+      "tempo-real",
+      "websocket",
+      "mqtt",
+      "iot",
+      "elasticsearch"
+    ],
+    "shortDescription": "Backend open-source para apps em tempo real e IoT",
+    "longDescription": "<p>Kuzzle é um <strong>backend genérico</strong> com APIs REST, WebSocket e MQTT, sustentado por Elasticsearch e Redis.</p><p>API na porta 7512. Inclui Elasticsearch para armazenamento de documentos e Redis para cache.</p>"
+  }
+}

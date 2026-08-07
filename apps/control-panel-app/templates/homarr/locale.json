@@ -1,0 +1,58 @@
+{
+  "en": {
+    "category": [
+      "self-hosted-dashboards"
+    ],
+    "tags": [
+      "homarr",
+      "dashboard",
+      "homelab",
+      "startpage",
+      "launcher"
+    ],
+    "shortDescription": "Modern customizable dashboard for your homelab services",
+    "longDescription": "<p>Homarr is a modern <strong>self-hosted dashboard</strong> to organize and launch your services.</p><p>Customize pages, add integrations, and centralize links to your internal apps.</p>"
+  },
+  "de": {
+    "category": [
+      "self-hosted-dashboards"
+    ],
+    "tags": [
+      "homarr",
+      "dashboard",
+      "homelab",
+      "startseite",
+      "launcher"
+    ],
+    "shortDescription": "Modernes anpassbares Dashboard für deine Homelab-Dienste",
+    "longDescription": "<p>Homarr ist ein modernes <strong>Self-Hosted-Dashboard</strong> zum Organisieren und Starten deiner Dienste.</p><p>Passe Seiten an, füge Integrationen hinzu und zentralisiere Links zu deinen internen Apps.</p>"
+  },
+  "fr": {
+    "category": [
+      "tableaux-de-bord-self-hébergés"
+    ],
+    "tags": [
+      "homarr",
+      "tableau-de-bord",
+      "homelab",
+      "page-d'accueil",
+      "lanceur"
+    ],
+    "shortDescription": "Tableau de bord moderne personnalisable pour vos services homelab",
+    "longDescription": "<p>Homarr est un <strong>tableau de bord auto-hébergé</strong> moderne pour organiser et lancer vos services.</p><p>Personnalisez les pages, ajoutez des intégrations et centralisez les liens vers vos applications internes.</p>"
+  },
+  "pt": {
+    "category": [
+      "dashboards-auto-hospedados"
+    ],
+    "tags": [
+      "homarr",
+      "dashboard",
+      "homelab",
+      "página-inicial",
+      "lançador"
+    ],
+    "shortDescription": "Dashboard moderno e personalizável para seus serviços homelab",
+    "longDescription": "<p>Homarr é um <strong>dashboard auto-hospedado</strong> moderno para organizar e lançar seus serviços.</p><p>Personalize páginas, adicione integrações e centralize links para seus aplicativos internos.</p>"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "llm"
+    ],
+    "tags": [
+      "zep",
+      "ai",
+      "llm",
+      "memory",
+      "rag",
+      "agents",
+      "chatbot",
+      "api"
+    ],
+    "shortDescription": "Long-term memory for AI agents and assistants",
+    "longDescription": "<p>Zep provides <strong>long-term memory</strong> for AI agents through continuous learning from user interactions.</p><p>Includes PostgreSQL, NLP server, and API on port 8000. Open the web UI at <code>/admin</code>. Auth uses <code>SERVICE_PASSWORD_AUTHSECRET</code>. Set <code>ZEP_OPENAI_API_KEY</code> for OpenAI embeddings.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "llm"
+    ],
+    "tags": [
+      "zep",
+      "ki",
+      "llm",
+      "gedächtnis",
+      "rag",
+      "agenten",
+      "chatbot",
+      "api"
+    ],
+    "shortDescription": "Langzeitgedächtnis für KI-Agenten und Assistenten",
+    "longDescription": "<p>Zep bietet <strong>Langzeitgedächtnis</strong> für KI-Agenten durch kontinuierliches Lernen aus Nutzerinteraktionen.</p><p>Enthält PostgreSQL, NLP-Server und API auf Port 8000. Öffne die Web-UI unter <code>/admin</code>. Die Authentifizierung verwendet <code>SERVICE_PASSWORD_AUTHSECRET</code>. Setze <code>ZEP_OPENAI_API_KEY</code> für OpenAI-Embeddings.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "llm"
+    ],
+    "tags": [
+      "zep",
+      "ia",
+      "llm",
+      "mémoire",
+      "rag",
+      "agents",
+      "chatbot",
+      "api"
+    ],
+    "shortDescription": "Mémoire à long terme pour les agents et assistants IA",
+    "longDescription": "<p>Zep fournit une <strong>mémoire à long terme</strong> pour les agents IA grâce à un apprentissage continu à partir des interactions utilisateurs.</p><p>Inclut PostgreSQL, un serveur NLP et une API sur le port 8000. Ouvrez l'UI web sur <code>/admin</code>. L'auth utilise <code>SERVICE_PASSWORD_AUTHSECRET</code>. Définissez <code>ZEP_OPENAI_API_KEY</code> pour les embeddings OpenAI.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "llm"
+    ],
+    "tags": [
+      "zep",
+      "ia",
+      "llm",
+      "memória",
+      "rag",
+      "agentes",
+      "chatbot",
+      "api"
+    ],
+    "shortDescription": "Memória de longo prazo para agentes e assistentes de IA",
+    "longDescription": "<p>Zep fornece <strong>memória de longo prazo</strong> para agentes de IA por meio de aprendizado contínuo a partir de interações do usuário.</p><p>Inclui PostgreSQL, servidor NLP e API na porta 8000. Abra a web UI em <code>/admin</code>. A autenticação usa <code>SERVICE_PASSWORD_AUTHSECRET</code>. Defina <code>ZEP_OPENAI_API_KEY</code> para embeddings da OpenAI.</p>"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "en": {
+    "category": [
+      "backend",
+      "baas",
+      "api"
+    ],
+    "tags": [
+      "appwrite",
+      "baas",
+      "backend",
+      "auth",
+      "database",
+      "storage",
+      "functions",
+      "api"
+    ],
+    "shortDescription": "Open-source backend-as-a-service platform",
+    "longDescription": "<p>Appwrite is an open-source <strong>BaaS</strong> for authentication, databases, storage, and serverless functions.</p><p>Full stack with Traefik, MariaDB, Redis, workers, and executor. Set <code>_APP_DOMAIN</code> via <code>SERVICE_FQDN_APPWRITE</code>. Create your admin account on first launch.</p>"
+  },
+  "de": {
+    "category": [
+      "backend",
+      "baas",
+      "api"
+    ],
+    "tags": [
+      "appwrite",
+      "baas",
+      "backend",
+      "auth",
+      "datenbank",
+      "speicher",
+      "funktionen",
+      "api"
+    ],
+    "shortDescription": "Open-Source-Backend-as-a-Service-Plattform",
+    "longDescription": "<p>Appwrite ist ein Open-Source-<strong>BaaS</strong> für Authentifizierung, Datenbanken, Speicher und serverlose Funktionen.</p><p>Vollständiger Stack mit Traefik, MariaDB, Redis, Workern und Executor. Setze <code>_APP_DOMAIN</code> über <code>SERVICE_FQDN_APPWRITE</code>. Erstelle dein Admin-Konto beim ersten Start.</p>"
+  },
+  "fr": {
+    "category": [
+      "backend",
+      "baas",
+      "api"
+    ],
+    "tags": [
+      "appwrite",
+      "baas",
+      "backend",
+      "auth",
+      "base-de-données",
+      "stockage",
+      "fonctions",
+      "api"
+    ],
+    "shortDescription": "Plateforme backend-as-a-service open source",
+    "longDescription": "<p>Appwrite est un <strong>BaaS</strong> open source pour l'authentification, les bases de données, le stockage et les fonctions serverless.</p><p>Stack complète avec Traefik, MariaDB, Redis, workers et executor. Définissez <code>_APP_DOMAIN</code> via <code>SERVICE_FQDN_APPWRITE</code>. Créez votre compte administrateur au premier lancement.</p>"
+  },
+  "pt": {
+    "category": [
+      "backend",
+      "baas",
+      "api"
+    ],
+    "tags": [
+      "appwrite",
+      "baas",
+      "backend",
+      "auth",
+      "banco-de-dados",
+      "armazenamento",
+      "funções",
+      "api"
+    ],
+    "shortDescription": "Plataforma open-source backend-como-serviço",
+    "longDescription": "<p>Appwrite é um <strong>BaaS</strong> open-source para autenticação, bancos de dados, armazenamento e funções serverless.</p><p>Stack completo com Traefik, MariaDB, Redis, workers e executor. Defina <code>_APP_DOMAIN</code> via <code>SERVICE_FQDN_APPWRITE</code>. Crie sua conta de administrador no primeiro acesso.</p>"
+  }
+}

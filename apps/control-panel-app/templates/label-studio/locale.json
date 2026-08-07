@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "data"
+    ],
+    "tags": [
+      "label-studio",
+      "labeling",
+      "annotation",
+      "datasets",
+      "machine-learning",
+      "nlp",
+      "vision"
+    ],
+    "shortDescription": "Multi-type data labeling and annotation tool",
+    "longDescription": "<p>Label Studio is a <strong>data labeling and annotation</strong> platform for images, text, audio, and video.</p><p>Includes PostgreSQL for persistent storage. Admin credentials use <code>LABEL_STUDIO_USERNAME</code> and <code>SERVICE_PASSWORD_LABEL_STUDIO</code>. Set <code>LABEL_STUDIO_HOST</code> via <code>SERVICE_URL_LABEL_STUDIO</code> when behind a reverse proxy.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "daten"
+    ],
+    "tags": [
+      "label-studio",
+      "beschriftung",
+      "annotation",
+      "datensätze",
+      "maschinelles-lernen",
+      "nlp",
+      "vision"
+    ],
+    "shortDescription": "Tool zur Datenbeschriftung und Annotation für mehrere Datentypen",
+    "longDescription": "<p>Label Studio ist eine Plattform für <strong>Datenbeschriftung und Annotation</strong> von Bildern, Texten, Audio und Video.</p><p>Enthält PostgreSQL für die dauerhafte Speicherung. Admin-Zugangsdaten verwenden <code>LABEL_STUDIO_USERNAME</code> und <code>SERVICE_PASSWORD_LABEL_STUDIO</code>. Setze <code>LABEL_STUDIO_HOST</code> über <code>SERVICE_URL_LABEL_STUDIO</code>, wenn du hinter einem Reverse-Proxy bereitstellst.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "données"
+    ],
+    "tags": [
+      "label-studio",
+      "étiquetage",
+      "annotation",
+      "jeux-de-données",
+      "apprentissage-automatique",
+      "nlp",
+      "vision"
+    ],
+    "shortDescription": "Outil d'étiquetage et d'annotation de données multi-types",
+    "longDescription": "<p>Label Studio est une plateforme d'<strong>étiquetage et d'annotation de données</strong> pour images, textes, audio et vidéo.</p><p>Inclut PostgreSQL pour un stockage persistant. Les identifiants admin utilisent <code>LABEL_STUDIO_USERNAME</code> et <code>SERVICE_PASSWORD_LABEL_STUDIO</code>. Définissez <code>LABEL_STUDIO_HOST</code> via <code>SERVICE_URL_LABEL_STUDIO</code> derrière un proxy inverse.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "dados"
+    ],
+    "tags": [
+      "label-studio",
+      "rotulagem",
+      "anotação",
+      "conjuntos-de-dados",
+      "aprendizado-de-máquina",
+      "nlp",
+      "visão"
+    ],
+    "shortDescription": "Ferramenta de rotulagem e anotação de dados para vários tipos",
+    "longDescription": "<p>Label Studio é uma plataforma de <strong>rotulagem e anotação de dados</strong> para imagens, textos, áudio e vídeo.</p><p>Inclui PostgreSQL para armazenamento persistente. As credenciais de admin usam <code>LABEL_STUDIO_USERNAME</code> e <code>SERVICE_PASSWORD_LABEL_STUDIO</code>. Defina <code>LABEL_STUDIO_HOST</code> via <code>SERVICE_URL_LABEL_STUDIO</code> atrás de um proxy reverso.</p>"
+  }
+}

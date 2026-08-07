@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "security",
+      "auth",
+      "iam"
+    ],
+    "tags": [
+      "authelia",
+      "sso",
+      "2fa",
+      "mfa",
+      "authentication",
+      "forward-auth",
+      "security"
+    ],
+    "shortDescription": "Single sign-on and multi-factor authentication portal",
+    "longDescription": "<p>Authelia is a lightweight <strong>authentication server</strong> for protecting web applications with SSO, 2FA, and access control.</p><p>Includes Redis with file-based users and local SQLite storage. Default user <code>authelia</code> password is <code>authelia</code> — change after deploy. Secrets use <code>SERVICE_HEX_64_AUTHELIA</code>, <code>SERVICE_HEX_128_AUTHELIA</code>, and <code>SERVICE_HEX_32_AUTHELIA</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "sicherheit",
+      "auth",
+      "iam"
+    ],
+    "tags": [
+      "authelia",
+      "sso",
+      "2fa",
+      "mfa",
+      "authentifizierung",
+      "forward-auth",
+      "sicherheit"
+    ],
+    "shortDescription": "Single-Sign-on- und Multi-Faktor-Authentifizierungsportal",
+    "longDescription": "<p>Authelia ist ein schlanker <strong>Authentifizierungsserver</strong> zum Schutz von Webanwendungen mit SSO, 2FA und Zugriffskontrolle.</p><p>Enthält Redis mit dateibasierten Benutzern und lokalen SQLite-Speicher. Das Passwort des Standardbenutzers <code>authelia</code> ist <code>authelia</code> — nach dem Deploy ändern. Geheimnisse verwenden <code>SERVICE_HEX_64_AUTHELIA</code>, <code>SERVICE_HEX_128_AUTHELIA</code> und <code>SERVICE_HEX_32_AUTHELIA</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "sécurité",
+      "auth",
+      "iam"
+    ],
+    "tags": [
+      "authelia",
+      "sso",
+      "2fa",
+      "mfa",
+      "authentification",
+      "forward-auth",
+      "sécurité"
+    ],
+    "shortDescription": "Portail d'authentification unique et multifacteur",
+    "longDescription": "<p>Authelia est un <strong>serveur d'authentification</strong> léger pour protéger vos applications web avec SSO, 2FA et contrôle d'accès.</p><p>Inclut Redis avec des utilisateurs basés sur fichiers et un stockage SQLite local. Le mot de passe de l'utilisateur par défaut <code>authelia</code> est <code>authelia</code> — changez-le après le déploiement. Les secrets utilisent <code>SERVICE_HEX_64_AUTHELIA</code>, <code>SERVICE_HEX_128_AUTHELIA</code> et <code>SERVICE_HEX_32_AUTHELIA</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "segurança",
+      "auth",
+      "iam"
+    ],
+    "tags": [
+      "authelia",
+      "sso",
+      "2fa",
+      "mfa",
+      "autenticação",
+      "forward-auth",
+      "segurança"
+    ],
+    "shortDescription": "Portal de autenticação única e multifator",
+    "longDescription": "<p>Authelia é um <strong>servidor de autenticação</strong> leve para proteger aplicações web com SSO, 2FA e controle de acesso.</p><p>Inclui Redis com usuários baseados em arquivos e armazenamento SQLite local. A senha do usuário padrão <code>authelia</code> é <code>authelia</code> — altere após o deploy. Os segredos usam <code>SERVICE_HEX_64_AUTHELIA</code>, <code>SERVICE_HEX_128_AUTHELIA</code> e <code>SERVICE_HEX_32_AUTHELIA</code>.</p>"
+  }
+}

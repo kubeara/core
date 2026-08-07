@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "database"
+    ],
+    "tags": [
+      "weaviate",
+      "vector",
+      "database",
+      "embeddings",
+      "rag",
+      "graphql"
+    ],
+    "shortDescription": "AI-native vector database with GraphQL API",
+    "longDescription": "<p>Weaviate is an <strong>AI-native vector database</strong> for semantic search, RAG, and hybrid retrieval.</p><p>API key auth uses <code>SERVICE_USER_WEAVIATE</code> and <code>SERVICE_PASSWORD_WEAVIATE</code>. gRPC is exposed on port 50051.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "datenbank"
+    ],
+    "tags": [
+      "weaviate",
+      "vektor",
+      "datenbank",
+      "embeddings",
+      "rag",
+      "graphql"
+    ],
+    "shortDescription": "KI-native Vektordatenbank mit GraphQL-API",
+    "longDescription": "<p>Weaviate ist eine <strong>KI-native Vektordatenbank</strong> für semantische Suche, RAG und hybride Abfragen.</p><p>Die API-Key-Authentifizierung verwendet <code>SERVICE_USER_WEAVIATE</code> und <code>SERVICE_PASSWORD_WEAVIATE</code>. gRPC ist auf Port 50051 verfügbar.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "base-de-données"
+    ],
+    "tags": [
+      "weaviate",
+      "vecteur",
+      "base-de-données",
+      "embeddings",
+      "rag",
+      "graphql"
+    ],
+    "shortDescription": "Base de données vectorielle native IA avec API GraphQL",
+    "longDescription": "<p>Weaviate est une <strong>base de données vectorielle native IA</strong> pour la recherche sémantique, le RAG et la récupération hybride.</p><p>L'auth par clé API utilise <code>SERVICE_USER_WEAVIATE</code> et <code>SERVICE_PASSWORD_WEAVIATE</code>. gRPC est exposé sur le port 50051.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "banco-de-dados"
+    ],
+    "tags": [
+      "weaviate",
+      "vetor",
+      "banco-de-dados",
+      "embeddings",
+      "rag",
+      "graphql"
+    ],
+    "shortDescription": "Banco de dados vetorial nativo de IA com API GraphQL",
+    "longDescription": "<p>Weaviate é um <strong>banco de dados vetorial nativo de IA</strong> para busca semântica, RAG e recuperação híbrida.</p><p>A autenticação por chave de API usa <code>SERVICE_USER_WEAVIATE</code> e <code>SERVICE_PASSWORD_WEAVIATE</code>. O gRPC é exposto na porta 50051.</p>"
+  }
+}
