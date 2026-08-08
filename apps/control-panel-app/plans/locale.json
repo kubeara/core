@@ -1,0 +1,206 @@
+{
+  "en": {
+    "plans": {
+      "exploringKubeara": {
+        "name": "Free",
+        "description": "For individuals exploring Kubeara"
+      },
+      "smallProductionTeams": {
+        "name": "Starter",
+        "description": "For small teams getting production-ready"
+      },
+      "growingCollaborativeTeams": {
+        "name": "Pro",
+        "description": "For growing teams with collaboration needs"
+      },
+      "teamsOperatingAtScale": {
+        "name": "Max",
+        "description": "For advanced teams running at scale"
+      },
+      "complianceFocusedOrganizations": {
+        "name": "Enterprise",
+        "description": "For compliance-heavy organizations"
+      }
+    },
+    "features": {
+      "teamsYouCanCreate": "Teams",
+      "peoplePerTeam": "Team members",
+      "roleBasedPermissions": "RBAC",
+      "mcpServerAccess": "MCP server",
+      "helpAndSupport": "Support",
+      "brandedCustomDomain": "Custom domain / white labelling",
+      "activityHistory": "Audit logs",
+      "singleSignOn": "SSO",
+      "directoryServiceIntegration": "LDAP",
+      "featuresIncludedFromAnotherPlan": "Includes all features of {{planName}}",
+      "noLimits": "Unlimited",
+      "available": "Yes",
+      "notAvailable": "No",
+      "readAndWriteAccess": "Read and Write",
+      "fullAccess": "Full",
+      "noAccess": "None",
+      "communityHelp": "Community",
+      "emailHelp": "Email",
+      "priorityHelp": "Priority",
+      "dedicatedHelp": "Dedicated",
+      "oneServer": "1 server",
+      "multipleServers": "{{count}} servers",
+      "unlimitedServers": "Unlimited servers",
+      "serverLimit": "Server limit",
+      "inheritsFrom": "Includes all features of"
+    }
+  },
+  "de": {
+    "plans": {
+      "exploringKubeara": {
+        "name": "Kostenlos",
+        "description": "Für Einzelpersonen, die Kubeara erkunden"
+      },
+      "smallProductionTeams": {
+        "name": "Starter",
+        "description": "Für kleine Teams, die produktionsbereit werden"
+      },
+      "growingCollaborativeTeams": {
+        "name": "Pro",
+        "description": "Für wachsende Teams mit Anforderungen an Zusammenarbeit"
+      },
+      "teamsOperatingAtScale": {
+        "name": "Max",
+        "description": "Für fortgeschrittene Teams im großen Maßstab"
+      },
+      "complianceFocusedOrganizations": {
+        "name": "Enterprise",
+        "description": "Für Organisationen mit hohen Compliance-Anforderungen"
+      }
+    },
+    "features": {
+      "teamsYouCanCreate": "Teams",
+      "peoplePerTeam": "Teammitglieder",
+      "roleBasedPermissions": "RBAC",
+      "mcpServerAccess": "MCP-Server",
+      "helpAndSupport": "Support",
+      "brandedCustomDomain": "Eigene Domain / White-Labeling",
+      "activityHistory": "Audit-Protokolle",
+      "singleSignOn": "SSO",
+      "directoryServiceIntegration": "LDAP",
+      "featuresIncludedFromAnotherPlan": "Enthält alle Funktionen von {{planName}}",
+      "noLimits": "Unbegrenzt",
+      "available": "Ja",
+      "notAvailable": "Nein",
+      "readAndWriteAccess": "Lesen und Schreiben",
+      "fullAccess": "Vollzugriff",
+      "noAccess": "Keiner",
+      "communityHelp": "Community",
+      "emailHelp": "E-Mail",
+      "priorityHelp": "Priorität",
+      "dedicatedHelp": "Dediziert",
+      "oneServer": "1 Server",
+      "multipleServers": "{{count}} Server",
+      "unlimitedServers": "Unbegrenzte Server",
+      "serverLimit": "Serverlimit",
+      "inheritsFrom": "Enthält alle Funktionen von"
+    }
+  },
+  "fr": {
+    "plans": {
+      "exploringKubeara": {
+        "name": "Gratuit",
+        "description": "Pour les particuliers qui découvrent Kubeara"
+      },
+      "smallProductionTeams": {
+        "name": "Starter",
+        "description": "Pour les petites équipes prêtes pour la production"
+      },
+      "growingCollaborativeTeams": {
+        "name": "Pro",
+        "description": "Pour les équipes en croissance ayant des besoins de collaboration"
+      },
+      "teamsOperatingAtScale": {
+        "name": "Max",
+        "description": "Pour les équipes avancées opérant à grande échelle"
+      },
+      "complianceFocusedOrganizations": {
+        "name": "Enterprise",
+        "description": "Pour les organisations soumises à des exigences de conformité élevées"
+      }
+    },
+    "features": {
+      "teamsYouCanCreate": "Équipes",
+      "peoplePerTeam": "Membres de l’équipe",
+      "roleBasedPermissions": "RBAC",
+      "mcpServerAccess": "Serveur MCP",
+      "helpAndSupport": "Assistance",
+      "brandedCustomDomain": "Domaine personnalisé / marque blanche",
+      "activityHistory": "Journaux d’audit",
+      "singleSignOn": "SSO",
+      "directoryServiceIntegration": "LDAP",
+      "featuresIncludedFromAnotherPlan": "Inclut toutes les fonctionnalités de {{planName}}",
+      "noLimits": "Illimité",
+      "available": "Oui",
+      "notAvailable": "Non",
+      "readAndWriteAccess": "Lecture et écriture",
+      "fullAccess": "Complet",
+      "noAccess": "Aucun",
+      "communityHelp": "Communauté",
+      "emailHelp": "E-mail",
+      "priorityHelp": "Prioritaire",
+      "dedicatedHelp": "Dédié",
+      "oneServer": "1 serveur",
+      "multipleServers": "{{count}} serveurs",
+      "unlimitedServers": "Serveurs illimités",
+      "serverLimit": "Limite de serveurs",
+      "inheritsFrom": "Inclut toutes les fonctionnalités de"
+    }
+  },
+  "pt": {
+    "plans": {
+      "exploringKubeara": {
+        "name": "Grátis",
+        "description": "Para pessoas explorando o Kubeara"
+      },
+      "smallProductionTeams": {
+        "name": "Inicial",
+        "description": "Para pequenas equipes se preparando para produção"
+      },
+      "growingCollaborativeTeams": {
+        "name": "Pro",
+        "description": "Para equipes em crescimento com necessidades de colaboração"
+      },
+      "teamsOperatingAtScale": {
+        "name": "Máximo",
+        "description": "Para equipes avançadas operando em escala"
+      },
+      "complianceFocusedOrganizations": {
+        "name": "Empresarial",
+        "description": "Para organizações com muitos requisitos de conformidade"
+      }
+    },
+    "features": {
+      "teamsYouCanCreate": "Equipes",
+      "peoplePerTeam": "Membros da equipe",
+      "roleBasedPermissions": "RBAC",
+      "mcpServerAccess": "Servidor MCP",
+      "helpAndSupport": "Suporte",
+      "brandedCustomDomain": "Domínio personalizado / marca branca",
+      "activityHistory": "Logs de auditoria",
+      "singleSignOn": "SSO",
+      "directoryServiceIntegration": "LDAP",
+      "featuresIncludedFromAnotherPlan": "Inclui todos os recursos do {{planName}}",
+      "noLimits": "Ilimitado",
+      "available": "Sim",
+      "notAvailable": "Não",
+      "readAndWriteAccess": "Leitura e escrita",
+      "fullAccess": "Completo",
+      "noAccess": "Nenhum",
+      "communityHelp": "Comunidade",
+      "emailHelp": "E-mail",
+      "priorityHelp": "Prioritário",
+      "dedicatedHelp": "Dedicado",
+      "oneServer": "1 servidor",
+      "multipleServers": "{{count}} servidores",
+      "unlimitedServers": "Servidores ilimitados",
+      "serverLimit": "Limite de servidores",
+      "inheritsFrom": "Inclui todos os recursos do"
+    }
+  }
+}

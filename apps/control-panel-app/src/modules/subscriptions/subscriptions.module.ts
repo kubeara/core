@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { BillingCycleEntity } from "./entities/billing-cycle.entity";
 import { PlanEntity } from "./entities/plan.entity";
+import { PlanTranslationEntity } from "./entities/plan-translation.entity";
 import { SubscriptionEntity } from "./entities/subscription.entity";
 import { SubscriptionService } from "./services/subscription.service";
 import { StripeService } from "./services/stripe.service";
@@ -14,6 +15,7 @@ import { SubscriptionsWebhookController } from "./subscriptions-webhook.controll
     TypeOrmModule.forFeature([
       BillingCycleEntity,
       PlanEntity,
+      PlanTranslationEntity,
       SubscriptionEntity,
     ]),
   ],

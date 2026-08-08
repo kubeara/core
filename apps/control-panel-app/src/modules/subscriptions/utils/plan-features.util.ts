@@ -8,13 +8,34 @@ import {
   SupportTier,
 } from "../interfaces/plan-features.interface";
 
-const INHERITS_LABEL: Record<PlanTierSlug, string> = {
+/**
+ * Maps each plan tier slug to the English display name used in legacy feature
+ * strings stored in the database (e.g. "Includes all features of Starter").
+ * This is used only when parsing those stored English strings back into
+ * structured PlanFeatures — it is not used for any user-facing display.
+ */
+const LEGACY_INHERITS_LABEL: Record<PlanTierSlug, string> = {
   free: "",
   starter: "Starter",
   pro: "Pro",
   max: "Max",
   enterprise: "Enterprise",
 };
+
+export type PlanFeatureLabels = Record<string, string>;
+
+const PLAN_NAME_KEY: Record<PlanTierSlug, string> = {
+  free: "exploringKubeara",
+  starter: "smallProductionTeams",
+  pro: "growingCollaborativeTeams",
+  max: "teamsOperatingAtScale",
+  enterprise: "complianceFocusedOrganizations",
+};
+
+/** Returns the locale catalog key for a plan tier's name and description. */
+export function getPlanTranslationKey(slug: string): string {
+  return PLAN_NAME_KEY[getPlanTierSlug(slug)];
+}
 
 export const DEFAULT_PLAN_FEATURES: Record<PlanTierSlug, PlanFeatures> = {
   free: {
@@ -68,22 +89,62 @@ export const DEFAULT_PLAN_FEATURES: Record<PlanTierSlug, PlanFeatures> = {
   },
 };
 
-function formatLimit(value: PlanLimitValue): string {
-  return value === "unlimited" ? "Unlimited" : String(value);
+function interpolate(
+  value: string,
+  params: Record<string, string | number>,
+): string {
+  return Object.entries(params).reduce(
+    (result, [key, replacement]) =>
+      result.replace("{{" + key + "}}", String(replacement)),
+    value,
+  );
 }
 
-function formatBoolean(value: boolean): string {
-  return value ? "Yes" : "No";
+/**
+ * Returns the localized display string for a numeric or unlimited limit value.
+ * @param value - The raw limit, either a number or the sentinel "unlimited".
+ * @param text - The resolved display-text map for the current locale.
+ */
+function formatLimit(value: PlanLimitValue, text: PlanFeatureLabels): string {
+  return value === "unlimited" ? text.noLimits : String(value);
 }
 
-function formatMcpAccess(value: McpAccess): string {
-  if (value === "none") return "None";
-  if (value === "read") return "Read and Write";
-  return "Full";
+/**
+ * Returns the localized display string for a boolean feature flag.
+ * @param value - The raw boolean value.
+ * @param text - The resolved display-text map for the current locale.
+ */
+function formatBoolean(value: boolean, text: PlanFeatureLabels): string {
+  return value ? text.available : text.notAvailable;
 }
 
-function formatSupport(value: SupportTier): string {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+/**
+ * Returns the localized display string for an MCP access level.
+ * @param value - The raw MCP access level ("none" | "read" | "full").
+ * @param text - The resolved display-text map for the current locale.
+ */
+function formatMcpAccess(value: McpAccess, text: PlanFeatureLabels): string {
+  return value === "none"
+    ? text.noAccess
+    : value === "read"
+      ? text.readAndWriteAccess
+      : text.fullAccess;
+}
+
+/**
+ * Returns the localized display string for a support tier.
+ * @param value - The raw support tier ("community" | "email" | "priority" | "dedicated").
+ * @param text - The resolved display-text map for the current locale.
+ */
+function formatSupport(value: SupportTier, text: PlanFeatureLabels): string {
+  return text[
+    {
+      community: "communityHelp",
+      email: "emailHelp",
+      priority: "priorityHelp",
+      dedicated: "dedicatedHelp",
+    }[value]
+  ];
 }
 
 function parseLimitToken(raw: string): PlanLimitValue {
@@ -97,8 +158,11 @@ function parseLimitToken(raw: string): PlanLimitValue {
 function parseLegacyFeatureString(line: string): Partial<PlanFeatures> | null {
   if (line.startsWith("Includes all features of ")) {
     const name = line.replace("Includes all features of ", "").trim();
-    const inheritsFrom = (Object.keys(INHERITS_LABEL) as PlanTierSlug[]).find(
-      (tier) => INHERITS_LABEL[tier].toLowerCase() === name.toLowerCase(),
+    const inheritsFrom = (
+      Object.keys(LEGACY_INHERITS_LABEL) as PlanTierSlug[]
+    ).find(
+      (tier) =>
+        LEGACY_INHERITS_LABEL[tier].toLowerCase() === name.toLowerCase(),
     );
     return inheritsFrom ? { inheritsFrom } : null;
   }
@@ -187,26 +251,47 @@ export function normalizePlanFeatures(
   return DEFAULT_PLAN_FEATURES.free;
 }
 
+/**
+ * Returns the localized server badge string for a plan (e.g. "1 server",
+ * "5 servers", "Unlimited servers", or "Unlimited" for enterprise).
+ * @param features - The resolved plan features.
+ * @param slug - The plan slug used to determine the tier.
+ * @param text - The resolved display-text map for the current locale.
+ */
 export function getPlanServerBadge(
   features: PlanFeatures,
   slug: string,
+  text: PlanFeatureLabels,
 ): string {
   const tier = getPlanTierSlug(slug);
   if (tier === "enterprise") {
-    return "Unlimited";
+    return text.noLimits;
   }
 
   if (features.serverLimit === "unlimited") {
-    return "Unlimited servers";
+    return text.unlimitedServers;
   }
 
   const count = features.serverLimit;
-  return count === 1 ? "1 server" : `${count} servers`;
+  return count === 1
+    ? text.oneServer
+    : interpolate(text.multipleServers, { count });
 }
 
+/**
+ * Builds the localized feature display rows for a plan tier.
+ * Each row contains a stable key, a translated label, and a translated value.
+ * @param slug - The plan slug used to determine which rows to include.
+ * @param features - The resolved plan features.
+ * @param text - The resolved display-text map for the current locale.
+ * @param inheritedPlanName - Optional localized name of the inherited plan,
+ *   used to populate the "Includes all features of …" row.
+ */
 export function getPlanFeatureRows(
   slug: string,
   features: PlanFeatures,
+  text: PlanFeatureLabels,
+  inheritedPlanName?: string,
 ): PlanFeatureDisplayRow[] {
   const row = (
     key: string,
@@ -224,7 +309,9 @@ export function getPlanFeatureRows(
   const inheritsRow = features.inheritsFrom
     ? row(
         "inheritsFrom",
-        `Includes all features of ${INHERITS_LABEL[getPlanTierSlug(features.inheritsFrom)]}`,
+        interpolate(text.featuresIncludedFromAnotherPlan, {
+          planName: inheritedPlanName ?? getPlanTierSlug(features.inheritsFrom),
+        }),
         "",
         { includes: true },
       )
@@ -234,46 +321,150 @@ export function getPlanFeatureRows(
     case "free":
     case "starter":
       return [
-        row("teams", "Teams", formatLimit(features.teams)),
-        row("teamMembers", "Team members", formatLimit(features.teamMembers)),
-        row("rbac", "RBAC", formatBoolean(features.rbac)),
-        row("mcpAccess", "MCP server", formatMcpAccess(features.mcpAccess)),
-        row("support", "Support", formatSupport(features.support)),
+        row("teams", text.teamsYouCanCreate, formatLimit(features.teams, text)),
+        row(
+          "teamMembers",
+          text.peoplePerTeam,
+          formatLimit(features.teamMembers, text),
+        ),
+        row(
+          "rbac",
+          text.roleBasedPermissions,
+          formatBoolean(features.rbac, text),
+        ),
+        row(
+          "mcpAccess",
+          text.mcpServerAccess,
+          formatMcpAccess(features.mcpAccess, text),
+        ),
+        row(
+          "support",
+          text.helpAndSupport,
+          formatSupport(features.support, text),
+        ),
       ];
     case "pro":
       return [
-        row("teams", "Teams", formatLimit(features.teams)),
-        row("teamMembers", "Team members", formatLimit(features.teamMembers)),
+        row("teams", text.teamsYouCanCreate, formatLimit(features.teams, text)),
+        row(
+          "teamMembers",
+          text.peoplePerTeam,
+          formatLimit(features.teamMembers, text),
+        ),
         row(
           "customDomain",
-          "Custom domain / white labelling",
-          formatBoolean(features.customDomain ?? false),
+          text.brandedCustomDomain,
+          formatBoolean(features.customDomain ?? false, text),
         ),
-        row("mcpAccess", "MCP server", formatMcpAccess(features.mcpAccess)),
+        row(
+          "mcpAccess",
+          text.mcpServerAccess,
+          formatMcpAccess(features.mcpAccess, text),
+        ),
         ...(inheritsRow ? [inheritsRow] : []),
       ];
     case "max":
       return [
-        row("teams", "Teams", formatLimit(features.teams)),
-        row("teamMembers", "Team members", formatLimit(features.teamMembers)),
-        row("support", "Support", formatSupport(features.support)),
+        row("teams", text.teamsYouCanCreate, formatLimit(features.teams, text)),
+        row(
+          "teamMembers",
+          text.peoplePerTeam,
+          formatLimit(features.teamMembers, text),
+        ),
+        row(
+          "support",
+          text.helpAndSupport,
+          formatSupport(features.support, text),
+        ),
         ...(inheritsRow ? [inheritsRow] : []),
       ];
     case "enterprise":
       return [
         row(
           "auditLogs",
-          "Audit logs",
-          formatBoolean(features.auditLogs ?? false),
+          text.activityHistory,
+          formatBoolean(features.auditLogs ?? false, text),
         ),
-        row("sso", "SSO", formatBoolean(features.sso ?? false)),
-        row("ldap", "LDAP", formatBoolean(features.ldap ?? false)),
-        row("support", "Support", formatSupport(features.support)),
+        row(
+          "sso",
+          text.singleSignOn,
+          formatBoolean(features.sso ?? false, text),
+        ),
+        row(
+          "ldap",
+          text.directoryServiceIntegration,
+          formatBoolean(features.ldap ?? false, text),
+        ),
+        row(
+          "support",
+          text.helpAndSupport,
+          formatSupport(features.support, text),
+        ),
         ...(inheritsRow ? [inheritsRow] : []),
       ];
     default:
       return [];
   }
+}
+
+/**
+ * Builds a human-readable feature map for a plan in the requested locale.
+ * Keys are the localized display labels (e.g. "Teams", "Équipes", "MCP server").
+ * Values are the raw structural values from PlanFeatures — numbers, booleans,
+ * strings, or "unlimited" — not translated display strings.
+ * This is the shape stored in planTranslations.features.
+ *
+ * Example output (en):
+ * {
+ *   "Teams": 5,
+ *   "Team members": 25,
+ *   "RBAC": true,
+ *   "MCP server": "full",
+ *   "Support": "email",
+ *   "Custom domain / white labelling": true,
+ *   "Includes all features of": "starter"
+ * }
+ *
+ * @param features - The resolved plan features.
+ * @param text - The localized display-text map for the current locale.
+ */
+export function buildPlanFeatureMap(
+  features: PlanFeatures,
+  text: PlanFeatureLabels,
+): Record<string, string | number | boolean> {
+  const map: Record<string, string | number | boolean> = {
+    [text.teamsYouCanCreate]: features.teams,
+    [text.peoplePerTeam]: features.teamMembers,
+    [text.roleBasedPermissions]: features.rbac,
+    [text.mcpServerAccess]: features.mcpAccess,
+    [text.helpAndSupport]: features.support,
+  };
+
+  if (features.serverLimit !== undefined) {
+    map[text.serverLimit] = features.serverLimit;
+  }
+
+  if (features.customDomain !== undefined) {
+    map[text.brandedCustomDomain] = features.customDomain;
+  }
+
+  if (features.auditLogs !== undefined) {
+    map[text.activityHistory] = features.auditLogs;
+  }
+
+  if (features.sso !== undefined) {
+    map[text.singleSignOn] = features.sso;
+  }
+
+  if (features.ldap !== undefined) {
+    map[text.directoryServiceIntegration] = features.ldap;
+  }
+
+  if (features.inheritsFrom !== undefined) {
+    map[text.inheritsFrom] = features.inheritsFrom;
+  }
+
+  return map;
 }
 
 export function isWithinPlanLimit(

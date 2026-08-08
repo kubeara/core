@@ -2,14 +2,17 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { ConfigService } from "@nestjs/config";
-import { Repository } from "typeorm";
+import { In, Repository } from "typeorm";
 import dayjs from "dayjs";
 import type Stripe from "stripe";
 import { PlanEntity } from "../entities/plan.entity";
+import { PlanTranslationEntity } from "../entities/plan-translation.entity";
+import planLocaleCatalog from "../../../../plans/locale.json";
 import { BillingCycleEntity } from "../entities/billing-cycle.entity";
 import { SubscriptionEntity } from "../entities/subscription.entity";
 import { BillingCycleSlug } from "../enums/billing-cycle.enum";
@@ -25,9 +28,11 @@ import { McpAccess, PlanFeatures } from "../interfaces/plan-features.interface";
 import {
   getPlanFeatureRows,
   getPlanServerBadge,
+  getPlanTranslationKey,
   hasMcpAccess,
   normalizePlanFeatures,
 } from "../utils/plan-features.util";
+import { normalizePlanLocale } from "../utils/plan-locale.util";
 import {
   collectPlanStripePriceIds,
   getPlanPrice,
@@ -96,6 +101,8 @@ export class SubscriptionService {
   constructor(
     @InjectRepository(PlanEntity)
     private readonly planRepository: Repository<PlanEntity>,
+    @InjectRepository(PlanTranslationEntity)
+    private readonly planTranslationRepository: Repository<PlanTranslationEntity>,
     @InjectRepository(BillingCycleEntity)
     private readonly billingCycleRepository: Repository<BillingCycleEntity>,
     @InjectRepository(SubscriptionEntity)
@@ -105,27 +112,81 @@ export class SubscriptionService {
     private readonly configService: ConfigService,
   ) {}
 
-  private toPlanResponse(plan: PlanEntity): PlanResponse {
-    const features = normalizePlanFeatures(plan.features, plan.slug);
+  /**
+   * Loads plan translations for the given plan IDs in the requested locale.
+   * @param planIds - IDs of the plans to load translations for.
+   * @param locale - Locale code to load translations in.
+   * @returns Map of plan ID to its translation row for the requested locale.
+   */
+  private async loadPlanTranslations(
+    planIds: string[],
+    locale: string,
+  ): Promise<Map<string, PlanTranslationEntity>> {
+    if (planIds.length === 0) {
+      return new Map();
+    }
+
+    try {
+      const translations = await this.planTranslationRepository.find({
+        where: { locale, planId: In(planIds) },
+      });
+
+      return new Map(
+        translations.map((translation) => [translation.planId, translation]),
+      );
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Failed to load plan translations: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  private toPlanResponse(
+    plan: PlanEntity,
+    locale: string = "en",
+    translation?: PlanTranslationEntity,
+  ): PlanResponse {
+    const planFeatures = normalizePlanFeatures(undefined, plan.slug);
+    const catalog = planLocaleCatalog as Record<
+      string,
+      {
+        plans: Record<string, { name: string; description: string }>;
+        features: Record<string, string>;
+      }
+    >;
+    const localeContent = catalog[locale] ?? catalog.en;
+    const planContent = localeContent.plans[getPlanTranslationKey(plan.slug)];
+    const inheritedPlanName = planFeatures.inheritsFrom
+      ? localeContent.plans[getPlanTranslationKey(planFeatures.inheritsFrom)]
+          ?.name
+      : undefined;
+    const features = localeContent.features;
 
     return {
       id: plan.id,
       slug: plan.slug,
       tierSlug: plan.tierSlug ?? getPlanTierSlug(plan.slug),
       billingCycle: resolveBillingCycleFromPlan(plan),
-      name: plan.name,
-      description: plan.description,
+      name: translation?.name ?? planContent?.name ?? plan.tierSlug,
+      description: translation?.description ?? planContent?.description ?? null,
       price: Number(plan.price) || 0,
       listPrice: plan.listPrice == null ? null : Number(plan.listPrice) || 0,
-      features,
-      featureRows: getPlanFeatureRows(plan.slug, features),
-      serverBadge: getPlanServerBadge(features, plan.slug),
+      features: planFeatures,
+      featureRows: getPlanFeatureRows(
+        plan.slug,
+        planFeatures,
+        features,
+        inheritedPlanName,
+      ),
+      serverBadge: getPlanServerBadge(planFeatures, plan.slug, features),
       sortOrder: plan.sortOrder,
     };
   }
 
   private toSubscriptionResponse(
     subscription: SubscriptionEntity,
+    locale: string = "en",
+    translations: Map<string, PlanTranslationEntity> = new Map(),
   ): SubscriptionResponse {
     const hasPending =
       subscription.pendingDowngradeStatus ===
@@ -133,9 +194,17 @@ export class SubscriptionService {
 
     return {
       id: subscription.id,
-      plan: this.toPlanResponse(subscription.plan),
+      plan: this.toPlanResponse(
+        subscription.plan,
+        locale,
+        translations.get(subscription.plan.id),
+      ),
       pendingPlan: hasPending
-        ? this.toPlanResponse(subscription.pendingPlan!)
+        ? this.toPlanResponse(
+            subscription.pendingPlan!,
+            locale,
+            translations.get(subscription.pendingPlan!.id),
+          )
         : null,
       scheduledChangeAt: hasPending ? subscription.pendingEffectiveAt : null,
       pendingDowngradeStatus: subscription.pendingDowngradeStatus,
@@ -273,7 +342,8 @@ export class SubscriptionService {
     return plan;
   }
 
-  async listPlans() {
+  async listPlans(locale?: string) {
+    const resolvedLocale = normalizePlanLocale(locale);
     const [plans, billingCycles] = await Promise.all([
       this.planRepository.find({
         where: { status: EntityStatus.ACTIVE },
@@ -285,10 +355,17 @@ export class SubscriptionService {
       }),
     ]);
 
+    const translations = await this.loadPlanTranslations(
+      plans.map((p) => p.id),
+      resolvedLocale,
+    );
+
     return {
       message: SUCCESS_MESSAGES.SUBSCRIPTIONS.PLANS,
       data: {
-        plans: plans.map((plan) => this.toPlanResponse(plan)),
+        plans: plans.map((plan) =>
+          this.toPlanResponse(plan, resolvedLocale, translations.get(plan.id)),
+        ),
         billingCycles: billingCycles.map((cycle) =>
           this.toBillingCycleResponse(cycle),
         ),
@@ -296,7 +373,8 @@ export class SubscriptionService {
     };
   }
 
-  async getOrganizationSubscription(organizationId: string) {
+  async getOrganizationSubscription(organizationId: string, locale?: string) {
+    const resolvedLocale = normalizePlanLocale(locale);
     let subscription = await this.subscriptionRepository.findOne({
       where: { organizationId, status: EntityStatus.ACTIVE },
       relations: { plan: true, pendingPlan: true },
@@ -309,7 +387,21 @@ export class SubscriptionService {
 
     subscription = await this.syncSubscriptionFromStripe(subscription);
 
-    const response = this.toSubscriptionResponse(subscription);
+    const planIds = [
+      subscription.plan?.id,
+      subscription.pendingPlan?.id,
+    ].filter((id): id is string => id != null);
+
+    const translations = await this.loadPlanTranslations(
+      planIds,
+      resolvedLocale,
+    );
+
+    const response = this.toSubscriptionResponse(
+      subscription,
+      resolvedLocale,
+      translations,
+    );
     let paymentMethod: SubscriptionResponse["paymentMethod"] = null;
 
     if (subscription.stripeCustomerId && this.stripeService.isConfigured()) {
@@ -363,10 +455,7 @@ export class SubscriptionService {
     organizationId: string,
   ): Promise<PlanFeatures> {
     const subscription = await this.getOrCreateSubscription(organizationId);
-    return normalizePlanFeatures(
-      subscription.plan.features,
-      subscription.plan.slug,
-    );
+    return normalizePlanFeatures(undefined, subscription.plan.slug);
   }
 
   async assertMcpAccess(
@@ -721,7 +810,9 @@ export class SubscriptionService {
     organizationId: string,
     planSlug: PlanSlug,
     billingCycleInput?: BillingCycleSlug,
+    locale?: string,
   ) {
+    const resolvedLocale = normalizePlanLocale(locale);
     const resolvedSlug = resolveCheckoutPlanSlug(
       planSlug,
       billingCycleInput,
@@ -771,17 +862,25 @@ export class SubscriptionService {
     );
     await this.subscriptionRepository.save(subscription);
 
-    const result = await this.getOrganizationSubscription(organizationId);
+    const result = await this.getOrganizationSubscription(
+      organizationId,
+      resolvedLocale,
+    );
     return {
       message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CONFIRMED,
       data: result.data,
     };
   }
 
-  async changePlan(organizationId: string, planSlug: PlanSlug) {
+  async changePlan(
+    organizationId: string,
+    planSlug: PlanSlug,
+    locale?: string,
+  ) {
+    const resolvedLocale = normalizePlanLocale(locale);
     const targetPlan = await this.getPlanBySlug(planSlug);
     const subscription = await this.getOrCreateSubscription(organizationId);
-    const previousPlanName = subscription.plan.name;
+    const previousPlanName = subscription.plan.tierSlug;
 
     if (subscription.plan.slug === planSlug) {
       throw new BadRequestException("Already on this plan");
@@ -815,8 +914,8 @@ export class SubscriptionService {
         await this.subscriptionRepository.save(subscription);
 
         return {
-          message: `Downgrade to ${targetPlan.name} scheduled for ${this.formatScheduledChangeDate(subscription.currentPeriodEnd)}`,
-          data: this.toSubscriptionResponse(subscription),
+          message: `Downgrade to ${targetPlan.tierSlug} scheduled for ${this.formatScheduledChangeDate(subscription.currentPeriodEnd)}`,
+          data: this.toSubscriptionResponse(subscription, resolvedLocale),
         };
       }
 
@@ -834,12 +933,12 @@ export class SubscriptionService {
       this.notificationService.notifyPlanChanged({
         organizationId,
         previousPlan: previousPlanName,
-        newPlan: targetPlan.name,
+        newPlan: targetPlan.tierSlug,
       });
 
       return {
         message: SUCCESS_MESSAGES.SUBSCRIPTIONS.PLAN_CHANGED,
-        data: this.toSubscriptionResponse(subscription),
+        data: this.toSubscriptionResponse(subscription, resolvedLocale),
       };
     }
 
@@ -883,8 +982,8 @@ export class SubscriptionService {
         await this.subscriptionRepository.save(subscription);
 
         return {
-          message: `Downgrade to ${targetPlan.name} scheduled for ${this.formatScheduledChangeDate(subscription.currentPeriodEnd)}`,
-          data: this.toSubscriptionResponse(subscription),
+          message: `Downgrade to ${targetPlan.tierSlug} scheduled for ${this.formatScheduledChangeDate(subscription.currentPeriodEnd)}`,
+          data: this.toSubscriptionResponse(subscription, resolvedLocale),
         };
       }
     }
@@ -894,9 +993,14 @@ export class SubscriptionService {
     );
   }
 
-  async cancelSubscription(organizationId: string, reason: string) {
+  async cancelSubscription(
+    organizationId: string,
+    reason: string,
+    locale?: string,
+  ) {
+    const resolvedLocale = normalizePlanLocale(locale);
     const subscription = await this.getOrCreateSubscription(organizationId);
-    const previousPlanName = subscription.plan.name;
+    const previousPlanName = subscription.plan.tierSlug;
     const cancellationReason = reason.trim();
 
     if (!cancellationReason) {
@@ -947,7 +1051,7 @@ export class SubscriptionService {
 
       return {
         message: `Subscription canceled. You will keep ${previousPlanName} access until ${endDate}. No further payments will be charged.`,
-        data: this.toSubscriptionResponse(subscription),
+        data: this.toSubscriptionResponse(subscription, resolvedLocale),
       };
     }
 
@@ -970,11 +1074,12 @@ export class SubscriptionService {
 
     return {
       message: SUCCESS_MESSAGES.SUBSCRIPTIONS.CANCELED,
-      data: this.toSubscriptionResponse(subscription),
+      data: this.toSubscriptionResponse(subscription, resolvedLocale),
     };
   }
 
-  async cancelPendingDowngrade(organizationId: string) {
+  async cancelPendingDowngrade(organizationId: string, locale?: string) {
+    const resolvedLocale = normalizePlanLocale(locale);
     const subscription = await this.getOrCreateSubscription(organizationId);
 
     if (
@@ -995,7 +1100,7 @@ export class SubscriptionService {
 
     return {
       message: SUCCESS_MESSAGES.SUBSCRIPTIONS.PENDING_DOWNGRADE_CANCELED,
-      data: this.toSubscriptionResponse(updated),
+      data: this.toSubscriptionResponse(updated, resolvedLocale),
     };
   }
 
@@ -1418,7 +1523,7 @@ export class SubscriptionService {
     this.notificationService.notifyPlanChanged({
       organizationId,
       previousPlan: "previous",
-      newPlan: plan.name,
+      newPlan: plan.tierSlug,
     });
   }
 
@@ -1495,13 +1600,13 @@ export class SubscriptionService {
       });
       this.notificationService.notifyPlanChanged({
         organizationId,
-        previousPlan: previousPlan?.name ?? "previous",
-        newPlan: subscription.plan.name,
+        previousPlan: previousPlan?.tierSlug ?? "previous",
+        newPlan: subscription.plan.tierSlug,
       });
     } else {
       this.notificationService.notifySubscriptionRenewed({
         organizationId,
-        planName: subscription.plan.name,
+        planName: subscription.plan.tierSlug,
         renewalDate: subscription.currentPeriodEnd,
       });
     }
@@ -1539,7 +1644,7 @@ export class SubscriptionService {
 
     this.notificationService.notifySubscriptionCanceled({
       organizationId,
-      planName: subscription.plan.name,
+      planName: subscription.plan.tierSlug,
     });
   }
 
@@ -1585,7 +1690,7 @@ export class SubscriptionService {
 
     this.notificationService.notifyPaymentFailed({
       organizationId: subscription.organizationId,
-      planName: subscription.plan.name,
+      planName: subscription.plan.tierSlug,
     });
   }
 }

@@ -12,6 +12,8 @@ import type {
 } from "../types";
 import { getPlanTierSlug } from "../plan-slug.util";
 
+const DEFAULT_PLAN_LOCALE = "en";
+
 type RawPlan = Plan & { priceMonthly?: number; priceMonthlyCents?: number; listPriceMonthly?: number | null };
 type RawSubscription = Subscription & {
   billingAmountCents?: number;
@@ -103,7 +105,9 @@ export function getPlanBillingDisplay(plan: Plan): {
 export async function fetchPlans(): Promise<PlansListData> {
   const response = await apiClient.get<
     SubscriptionsApiResponse<RawPlan[] | RawPlansListData>
-  >("/subscriptions/plans");
+  >("/subscriptions/plans", {
+    params: { locale: DEFAULT_PLAN_LOCALE },
+  });
   const data = response.data.data;
 
   if (Array.isArray(data)) {
@@ -124,6 +128,9 @@ export async function fetchPlans(): Promise<PlansListData> {
 export async function fetchCurrentSubscription(): Promise<Subscription> {
   const response = await apiClient.get<SubscriptionsApiResponse<RawSubscription>>(
     "/subscriptions/current",
+    {
+      params: { locale: DEFAULT_PLAN_LOCALE },
+    },
   );
   const subscription = response.data.data;
   if (!subscription) {
@@ -162,7 +169,9 @@ export async function confirmCheckoutPayment(
 ): Promise<{ subscription: Subscription; message: string }> {
   const response = await apiClient.post<
     SubscriptionsApiResponse<RawSubscription>
-  >("/subscriptions/confirm", input);
+  >("/subscriptions/confirm", input, {
+    params: { locale: DEFAULT_PLAN_LOCALE },
+  });
   const subscription = response.data.data;
   if (!subscription) {
     throw new Error("No subscription data in response");
@@ -179,7 +188,9 @@ export async function cancelPendingDowngrade(): Promise<{
 }> {
   const response = await apiClient.post<
     SubscriptionsApiResponse<RawSubscription>
-  >("/subscriptions/cancel-pending-downgrade");
+  >("/subscriptions/cancel-pending-downgrade", undefined, {
+    params: { locale: DEFAULT_PLAN_LOCALE },
+  });
   const subscription = response.data.data;
   if (!subscription) {
     throw new Error("No subscription data in response");
@@ -196,7 +207,9 @@ export async function changePlan(
 ): Promise<{ subscription: Subscription; message: string }> {
   const response = await apiClient.post<
     SubscriptionsApiResponse<RawSubscription>
-  >("/subscriptions/change-plan", input);
+  >("/subscriptions/change-plan", input, {
+    params: { locale: DEFAULT_PLAN_LOCALE },
+  });
   const subscription = response.data.data;
   if (!subscription) {
     throw new Error("No subscription data in response");
@@ -213,7 +226,9 @@ export async function cancelSubscription(input: CancelSubscriptionRequest): Prom
 }> {
   const response = await apiClient.post<
     SubscriptionsApiResponse<RawSubscription>
-  >("/subscriptions/cancel", input);
+  >("/subscriptions/cancel", input, {
+    params: { locale: DEFAULT_PLAN_LOCALE },
+  });
   const subscription = response.data.data;
   if (!subscription) {
     throw new Error("No subscription data in response");

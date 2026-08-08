@@ -129,11 +129,11 @@ export function buildInvoiceRecords(input: {
       issuedAt: period.periodStart,
       periodStart: period.periodStart,
       periodEnd: period.periodEnd,
-      planName: plan.name,
+      planName: plan.tierSlug,
       billingCycle: subscription.billingCycle,
       lineItems: [
         {
-          description: `${plan.name} subscription`,
+          description: `${plan.tierSlug} subscription`,
           quantity: 1,
           unitAmount: subtotal,
           amount: subtotal,
