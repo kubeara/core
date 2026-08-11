@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "collaboration",
+      "productivity"
+    ],
+    "tags": [
+      "onlyoffice",
+      "office",
+      "docs",
+      "documents",
+      "spreadsheets",
+      "presentations",
+      "collaboration",
+      "editor"
+    ],
+    "shortDescription": "Online office suite for documents, spreadsheets, and presentations",
+    "longDescription": "<p>ONLYOFFICE Docs is a self-hosted <strong>online office suite</strong> with collaborative editors for text documents, spreadsheets, and presentations.</p><p>JWT is enabled by default. Use <code>SERVICE_PASSWORD_ONLYOFFICE</code> as the shared secret when connecting clients such as Nextcloud.</p>"
+  },
+  "de": {
+    "category": [
+      "kollaboration",
+      "produktivität"
+    ],
+    "tags": [
+      "onlyoffice",
+      "office",
+      "docs",
+      "dokumente",
+      "tabellenkalkulation",
+      "präsentationen",
+      "kollaboration",
+      "editor"
+    ],
+    "shortDescription": "Online-Office-Suite für Dokumente, Tabellen und Präsentationen",
+    "longDescription": "<p>ONLYOFFICE Docs ist eine selbst gehostete <strong>Online-Office-Suite</strong> mit kollaborativen Editoren für Textdokumente, Tabellenkalkulationen und Präsentationen.</p><p>JWT ist standardmäßig aktiviert. Verwende <code>SERVICE_PASSWORD_ONLYOFFICE</code> als gemeinsamen Geheimschlüssel beim Anbinden von Clients wie Nextcloud.</p>"
+  },
+  "fr": {
+    "category": [
+      "collaboration",
+      "productivité"
+    ],
+    "tags": [
+      "onlyoffice",
+      "office",
+      "docs",
+      "documents",
+      "tableurs",
+      "présentations",
+      "collaboration",
+      "éditeur"
+    ],
+    "shortDescription": "Suite bureautique en ligne pour documents, tableurs et présentations",
+    "longDescription": "<p>ONLYOFFICE Docs est une <strong>suite bureautique en ligne</strong> auto-hébergée avec des éditeurs collaboratifs pour documents texte, tableurs et présentations.</p><p>JWT est activé par défaut. Utilisez <code>SERVICE_PASSWORD_ONLYOFFICE</code> comme secret partagé lors de la connexion de clients tels que Nextcloud.</p>"
+  },
+  "pt": {
+    "category": [
+      "colaboração",
+      "produtividade"
+    ],
+    "tags": [
+      "onlyoffice",
+      "office",
+      "docs",
+      "documentos",
+      "planilhas",
+      "apresentações",
+      "colaboração",
+      "editor"
+    ],
+    "shortDescription": "Suíte de escritório online para documentos, planilhas e apresentações",
+    "longDescription": "<p>ONLYOFFICE Docs é uma <strong>suíte de escritório online</strong> auto-hospedada com editores colaborativos para documentos de texto, planilhas e apresentações.</p><p>JWT está ativado por padrão. Use <code>SERVICE_PASSWORD_ONLYOFFICE</code> como segredo compartilhado ao conectar clientes como o Nextcloud.</p>"
+  }
+}

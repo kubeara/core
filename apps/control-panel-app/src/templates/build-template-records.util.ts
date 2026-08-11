@@ -210,6 +210,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Seafile",
     version: "13.0",
   },
+  onlyoffice: {
+    name: "ONLYOFFICE",
+    version: "9.2",
+  },
   flowise: {
     name: "Flowise",
     version: "latest",
