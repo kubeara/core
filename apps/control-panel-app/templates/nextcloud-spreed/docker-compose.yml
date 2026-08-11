@@ -1,0 +1,59 @@
+# documentation: https://nextcloud-talk.readthedocs.io/en/latest/quick-install/
+# logo: svgs/nextcloud-spreed.svg
+# port: 8081
+
+services:
+  spreed:
+    image: ${NEXTCLOUD_SPREED_IMAGE:-ghcr.io/nextcloud-releases/aio-talk:latest}
+    restart: ${NEXTCLOUD_SPREED_RESTART_POLICY:-unless-stopped}
+    init: true
+    user: '1000'
+
+    ports:
+      - '${SERVICE_PORT_NEXTCLOUD_SPREED:-8081}:8081'
+      - '${SERVICE_PORT_NEXTCLOUD_SPREED_3478:-3478}:3478/tcp'
+      - '${SERVICE_PORT_NEXTCLOUD_SPREED_3478:-3478}:3478/udp'
+
+    environment:
+      - SERVICE_URL_NEXTCLOUD_SPREED_8081
+      - NC_DOMAIN=${NEXTCLOUD_SPREED_NC_DOMAIN:-localhost}
+      - TALK_HOST=${SERVICE_FQDN_NEXTCLOUD_SPREED:-${SERVICE_FQDN_NEXTCLOUD_SPREED_8081:-localhost}}
+      - TURN_DOMAIN=${NEXTCLOUD_SPREED_TURN_DOMAIN:-${SERVICE_FQDN_NEXTCLOUD_SPREED:-${SERVICE_FQDN_NEXTCLOUD_SPREED_8081:-localhost}}}
+      - TALK_PORT=${NEXTCLOUD_SPREED_TALK_PORT:-3478}
+      - TURN_SECRET=${SERVICE_HEX_64_SPREEDTURN}
+      - SIGNALING_SECRET=${SERVICE_HEX_64_SPREEDSIG}
+      - INTERNAL_SECRET=${SERVICE_HEX_64_SPREEDINT}
+      - SKIP_CERT_VERIFY=${NEXTCLOUD_SPREED_SKIP_CERT_VERIFY:-false}
+      - TALK_MAX_STREAM_BITRATE=${NEXTCLOUD_SPREED_MAX_STREAM_BITRATE:-1048576}
+      - TALK_MAX_SCREEN_BITRATE=${NEXTCLOUD_SPREED_MAX_SCREEN_BITRATE:-2097152}
+      - TZ=${TZ:-UTC}
+
+    read_only: true
+    tmpfs:
+      - /var/log/supervisord
+      - /var/run/supervisord
+      - /opt/eturnal/run
+      - /conf
+      - /tmp
+
+    healthcheck:
+      test: ['CMD-SHELL', '/healthcheck.sh']
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
