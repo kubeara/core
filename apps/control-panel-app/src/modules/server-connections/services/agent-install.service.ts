@@ -19,6 +19,7 @@ import {
   AGENT_INSTALL_ENV_KEYS,
 } from "../constants/agent-install.constants";
 import { LOCAL_SERVER } from "../constants/local-server.constants";
+import { isSelfHosted } from "../constants/server-connections.constants";
 import { AgentHostAdapter } from "../interfaces/agent-host.adapter";
 import {
   AgentInstallLogCallback,
@@ -32,6 +33,7 @@ import {
   readAgentPrereqScript,
 } from "../utils/agent-deploy-bundle.util";
 import { buildRemoveStoppedCanonicalAgentShellCommand } from "../utils/agent-host-cleanup.util";
+import { SshTunnelService } from "./ssh-tunnel.service";
 
 export type {
   AgentInstallLogCallback,
@@ -47,6 +49,7 @@ export class AgentInstallService {
     private readonly configService: ConfigService,
     private readonly sshManager: SshConnectionManager,
     private readonly executor: SshCommandExecutorService,
+    private readonly sshTunnelService: SshTunnelService,
   ) {}
 
   resolveLocalInstallDir(): string {
@@ -68,8 +71,15 @@ export class AgentInstallService {
       serverId: input.serverId,
       serverHost: LOCAL_SERVER.HOST,
       installDir: this.resolveLocalInstallDir(),
+      controlPanelUrl: isSelfHosted()
+        ? `http://host.docker.internal:${this.controlPanelPort}`
+        : undefined,
       onLogLine: options?.onLogLine,
     });
+  }
+
+  private get controlPanelPort(): number {
+    return Number(this.configService.get<string>("PORT") ?? 3410);
   }
 
   async installOnRemote(
@@ -83,6 +93,22 @@ export class AgentInstallService {
     let connectedHere = false;
 
     try {
+      const controlPanelUrl = await this.resolveControlPanelUrlForInstall(
+        input.connection.serverId,
+      );
+
+      logStructured(
+        this.logger,
+        "log",
+        "agent.install.url_resolved",
+        "succeeded",
+        {
+          module: "AgentInstallService",
+          serverId: input.connection.serverId,
+          controlPanelUrl,
+        },
+      );
+
       const existing = this.sshManager.getConnection(input.connection.serverId);
       if (existing) {
         client = existing;
@@ -106,6 +132,7 @@ export class AgentInstallService {
         serverId: input.connection.serverId,
         serverHost: input.serverHost.trim(),
         installDir: remoteDir,
+        controlPanelUrl,
         onLogLine: options?.onLogLine,
       });
 
@@ -129,6 +156,48 @@ export class AgentInstallService {
         this.sshManager.disconnect(input.connection.serverId);
       }
     }
+  }
+
+  /**
+   * Resolves the Socket.IO target URL for a remote agent install.
+   * Cloud mode keeps the configured CONTROL_PANEL_URL. Self-hosted mode
+   * establishes the reverse SSH tunnel plus the stable remote TCP proxy and
+   * points the agent at the stable proxy port via host.docker.internal
+   * (resolvable from the bridge-networked agent container). The internal
+   * tunnel port is never exposed to the agent.
+   */
+  private async resolveControlPanelUrlForInstall(
+    serverId: string,
+  ): Promise<string | undefined> {
+    if (!isSelfHosted()) {
+      return undefined;
+    }
+
+    const controlPanelUrl =
+      await this.sshTunnelService.getStableControlPanelUrl(serverId);
+    if (!controlPanelUrl) {
+      throw new Error(
+        "Failed to establish stable control panel endpoint for self-hosted agent. " +
+          "Check the server SSH connection and control panel logs.",
+      );
+    }
+
+    const stablePort = Number(controlPanelUrl.split(":").at(-1));
+    logStructured(
+      this.logger,
+      "log",
+      "agent.install.stable_url_resolved",
+      "succeeded",
+      {
+        module: "AgentInstallService",
+        serverId,
+        controlPanelUrl,
+        stablePort,
+        tunnelPort: this.sshTunnelService.getTunnelPort(serverId),
+      },
+    );
+
+    return controlPanelUrl;
   }
 
   /**
@@ -264,11 +333,19 @@ export class AgentInstallService {
         );
       }
 
-      // build the agent env file with the random agent port
+      // The agent's CONTROL_PANEL_URL must be written exactly as resolved by the
+      // install path: in self-hosted mode it is http://host.docker.internal:<stablePort>
+      // (the stable proxy port), reached from the agent container via the
+      // host.docker.internal host-gateway alias. It is never rewritten here.
+      const finalControlPanelUrl = input.controlPanelUrl;
+
+      // build the agent env file with the resolved stable control panel URL
       const envBuild = this.buildAgentEnvFile(
         input.serverId,
         input.serverHost,
         agentPort,
+        finalControlPanelUrl,
+        { requireExplicitUrl: isSelfHosted() },
       );
       if (!envBuild.ok) {
         return { success: false, logs, error: envBuild.error };
@@ -297,6 +374,24 @@ export class AgentInstallService {
         onLogLine,
       );
       this.logger.log(`Writing AGENT_PORT=${agentPort} to ${envPath}`);
+
+      logStructured(
+        this.logger,
+        "log",
+        "agent.install.env_written",
+        "succeeded",
+        {
+          module: "AgentInstallService",
+          serverId: input.serverId,
+          agentPort,
+          controlPanelUrl: finalControlPanelUrl,
+        },
+      );
+      this.pushLog(
+        logs,
+        `Writing CONTROL_PANEL_URL=${finalControlPanelUrl} to ${envPath}`,
+        onLogLine,
+      );
 
       const writeEnv = await host.writeTextFile(envPath, envBuild.content);
       if (!writeEnv.ok) {
@@ -385,10 +480,12 @@ export class AgentInstallService {
             envPath,
             input.serverId,
             input.serverHost,
+            input.controlPanelUrl,
             agentPort,
             upArgs,
             logs,
             onLogLine,
+            isSelfHosted(),
           );
           if (!retry.ok) {
             return retry.result;
@@ -795,10 +892,12 @@ export class AgentInstallService {
    * @param envPath - The environment path.
    * @param serverId - The server id.
    * @param serverHost - The server host.
+   * @param controlPanelUrl - Optional Socket.IO target URL override (self-hosted tunnel).
    * @param failedPort - The failed port.
    * @param upArgs - The up arguments.
    * @param logs - The logs to append.
    * @param onLogLine - The callback to log the result.
+   * @param requireExplicitUrl - When true (self-hosted), a stable URL is mandatory.
    * @returns The result of the compose up.
    */
   private async retryComposeUpWithNewAgentPort(
@@ -808,10 +907,12 @@ export class AgentInstallService {
     envPath: string,
     serverId: string,
     serverHost: string,
+    controlPanelUrl: string | undefined,
     failedPort: number,
     upArgs: string,
     logs: string[],
     onLogLine?: AgentInstallLogCallback,
+    requireExplicitUrl = false,
   ): Promise<
     | { ok: true; agentPort: number; up: ExecuteResult }
     | { ok: false; result: AgentInstallResult }
@@ -840,7 +941,13 @@ export class AgentInstallService {
       }
       const agentPort = portResult.port;
 
-      const envBuild = this.buildAgentEnvFile(serverId, serverHost, agentPort);
+      const envBuild = this.buildAgentEnvFile(
+        serverId,
+        serverHost,
+        agentPort,
+        controlPanelUrl,
+        { requireExplicitUrl },
+      );
       if (!envBuild.ok) {
         return {
           ok: false,
@@ -902,12 +1009,18 @@ export class AgentInstallService {
    * @param serverId - The server id.
    * @param serverHost - The server host.
    * @param agentPort - The agent port.
+   * @param controlPanelUrl - Optional Socket.IO target URL override (self-hosted reverse tunnel).
+   * @param options.requireExplicitUrl - When true (self-hosted mode), the explicit
+   *   controlPanelUrl is mandatory and a loopback URL is rejected, so the remote
+   *   agent can never be pointed at 127.0.0.1/localhost.
    * @returns The built agent environment file content.
    */
   private buildAgentEnvFile(
     serverId: string,
     serverHost: string,
     agentPort: number,
+    controlPanelUrl?: string,
+    options?: { requireExplicitUrl?: boolean },
   ):
     | { ok: true; content: string; agentImage: string }
     | { ok: false; error: string } {
@@ -921,10 +1034,35 @@ export class AgentInstallService {
       };
     }
 
-    const controlPanelUrl = this.configService.get<string>(
+    const requireExplicitUrl = options?.requireExplicitUrl === true;
+    const explicitUrl = controlPanelUrl?.trim() || "";
+
+    if (requireExplicitUrl && !explicitUrl) {
+      return {
+        ok: false,
+        error:
+          `Cannot install a self-hosted agent without a stable control panel URL. ` +
+          `Resolve it via SshTunnelService.getStableControlPanelUrl('${normalizedServerId}') before provisioning.`,
+      };
+    }
+    if (requireExplicitUrl && /(127\.0\.0\.1|localhost)/.test(explicitUrl)) {
+      return {
+        ok: false,
+        error:
+          `Refusing to write loopback CONTROL_PANEL_URL '${explicitUrl}' for self-hosted agent '${normalizedServerId}'. ` +
+          "Expected http://host.docker.internal:<stablePort> from the stable endpoint.",
+      };
+    }
+
+    const configuredControlPanelUrl = this.configService.get<string>(
       AGENT_INSTALL_ENV_KEYS.CONTROL_PANEL_URL,
     );
-    if (!controlPanelUrl?.trim()) {
+    const controlPanelUrlResolved = (
+      explicitUrl ||
+      configuredControlPanelUrl?.trim() ||
+      ""
+    ).trim();
+    if (!controlPanelUrlResolved) {
       return {
         ok: false,
         error:
@@ -951,7 +1089,7 @@ export class AgentInstallService {
     const content = [
       `KUBEARA_AGENT_IMAGE=${agentImage}`,
       `AGENT_PORT=${agentPort}`,
-      `CONTROL_PANEL_URL=${controlPanelUrl.trim()}`,
+      `CONTROL_PANEL_URL=${controlPanelUrlResolved}`,
       `ENCRYPTION_SECRET=${encryptionSecret}`,
       `KUBEARA_SERVER_ID=${normalizedServerId}`,
       `AGENT_PUBLIC_IP=${serverHost.trim()}`,

@@ -17,7 +17,7 @@ services:
       NODE_ENV: production
       PORT: ${PORT:-3001}
       # Control panel on host (run control-panel compose first)
-      CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:-http://host.docker.internal:3000}
+      CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:-http://host.docker.internal:3410}
       ENCRYPTION_SECRET: ${ENCRYPTION_SECRET}
     volumes:
       # Agent bootstrap expects this path inside the container

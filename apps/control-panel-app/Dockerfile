@@ -28,6 +28,6 @@ RUN npm ci --omit=dev --ignore-scripts
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/apps/control-panel-app/templates ./apps/control-panel-app/templates
 
-EXPOSE 3000
+EXPOSE 3410
 
 CMD ["node", "dist/apps/control-panel-app/src/main.js"]

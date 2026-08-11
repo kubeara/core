@@ -422,6 +422,13 @@ install_on_debian() {
         info "curl already installed — skipping install."
     fi
 
+    if ! require_command socat; then
+        warn "socat is missing — installing (needed for the stable tunnel proxy)..."
+        run_privileged apt-get install -y socat
+    else
+        info "socat already installed — skipping install."
+    fi
+
     if ! require_command node; then
         warn "node is missing — installing Node.js LTS..."
         info "Installing Node.js LTS and npm..."
@@ -475,6 +482,13 @@ install_on_alpine() {
         run_privileged apk add --no-cache curl
     else
         info "curl already installed — skipping install."
+    fi
+
+    if ! require_command socat; then
+        warn "socat is missing — installing (needed for the stable tunnel proxy)..."
+        run_privileged apk add --no-cache socat
+    else
+        info "socat already installed — skipping install."
     fi
 
     if ! require_command node || ! require_command npm; then

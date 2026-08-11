@@ -1,0 +1,28 @@
+--- src/modules/server-connections/services/agent-install.service.ts
++++ src/modules/server-connections/services/agent-install.service.ts
+@@ -296,6 +296,18 @@
+         );
+       }
+ 
++      // If control panel URL uses host.docker.internal, try to resolve the actual bridge IP
++      // to avoid issues on Linux where host.docker.internal via host-gateway might not work.
++      let finalControlPanelUrl = input.controlPanelUrl;
++      if (finalControlPanelUrl && finalControlPanelUrl.includes("host.docker.internal")) {
++        const bridgeIpResult = await host.executeCommand(
++          "docker network inspect bridge --format='{{(index .IPAM.Config 0).Gateway}}'"
++        );
++        if (bridgeIpResult.success && bridgeIpResult.stdout.trim()) {
++          finalControlPanelUrl = finalControlPanelUrl.replace("host.docker.internal", bridgeIpResult.stdout.trim());
++        }
++      }
++
+       // build the agent env file with the random agent port
+       const envBuild = this.buildAgentEnvFile(
+         input.serverId,
+         input.serverHost,
+         agentPort,
+-        input.controlPanelUrl,
++        finalControlPanelUrl,
+       );
+       if (!envBuild.ok) {
+         return { success: false, logs, error: envBuild.error };

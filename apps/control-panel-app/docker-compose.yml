@@ -29,13 +29,14 @@ services:
         NODE_VERSION: "24.15.0"
     container_name: control-panel-app
     ports:
-      - "${PORT:-3000}:${PORT:-3000}"
+      - "${PORT:-3410}:3410"
     env_file:
       - .env
     environment:
       NODE_ENV: production
       DOCKER_ENV: "true"
-      PORT: ${PORT:-3000}
+      SELF_HOSTED: ${SELF_HOSTED:-false}
+      PORT: ${PORT:-3410}
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: ${DB_PORT:-5432}
       DB_USERNAME: ${DB_USERNAME:-postgres}

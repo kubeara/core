@@ -54,6 +54,7 @@ import {
 import { AgentInstallService } from "./agent-install.service";
 import { AgentServerBindingService } from "./agent-server-binding.service";
 import { RemoteAgentInstallService } from "./remote-agent-install.service";
+import { SshTunnelService } from "./ssh-tunnel.service";
 import { ServerType } from "../enums/server-type.enum";
 import {
   DEFAULT_SSH_PORT,
@@ -114,7 +115,10 @@ import {
   AGENT_INSTALL_ENV_KEYS,
 } from "../constants/agent-install.constants";
 import { buildAgentHostCleanupShellCommand } from "../utils/agent-host-cleanup.util";
-import { SERVER_CONNECTIONS } from "../constants/server-connections.constants";
+import {
+  SERVER_CONNECTIONS,
+  isSelfHosted,
+} from "../constants/server-connections.constants";
 import {
   buildServerOperationMetadata,
   readServerOperationFromMetadata,
@@ -148,6 +152,7 @@ export class ServerConnectionsService {
     private readonly remoteAgentInstall: RemoteAgentInstallService,
     private readonly agentInstall: AgentInstallService,
     private readonly agentServerBinding: AgentServerBindingService,
+    private readonly sshTunnelService: SshTunnelService,
     @Inject(forwardRef(() => DeploymentGateway))
     private readonly deploymentGateway: DeploymentGateway,
     @Inject(forwardRef(() => DeploymentsService))
@@ -1241,6 +1246,8 @@ export class ServerConnectionsService {
         this.sshManager.disconnect(serverId);
       }
 
+      await this.sshTunnelService.closeTunnel(serverId);
+
       const currentTime = dayjs().unix();
 
       await serverRepo.update(
@@ -2091,6 +2098,13 @@ export class ServerConnectionsService {
         };
       }
 
+      // Self-hosted: an agent that cannot dial the control panel directly needs
+      // its reverse tunnel (re)established; the agent's Socket.IO client then
+      // reconnects through it and the next check records it as connected.
+      if (isSelfHosted() && server.serverType !== ServerType.LOCAL) {
+        await this.sshTunnelService.ensureTunnel(server.id);
+      }
+
       const nextRetryCount = server.retryCount + 1;
       let agentContainersSummary = "no agent container found";
       let hasRunningAgentContainer = false;
@@ -2193,12 +2207,14 @@ export class ServerConnectionsService {
   private async selectNextServerForHealthCheck(): Promise<{
     id: string;
     host: string;
+    serverType: ServerType;
     retryCount: number;
     agentError: ServerAgentError | null;
   } | null> {
     const healthSelect = {
       id: true,
       host: true,
+      serverType: true,
       retryCount: true,
       agentError: true,
     } as const;

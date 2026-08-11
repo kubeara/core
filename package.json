@@ -180,6 +180,8 @@
     "moduleNameMapper": {
       "^@shared/common$": "<rootDir>/libs/common/src",
       "^@shared/common/(.*)$": "<rootDir>/libs/common/src/$1",
+      "^@shared/ssh$": "<rootDir>/libs/ssh/src",
+      "^@shared/ssh/(.*)$": "<rootDir>/libs/ssh/src/$1",
       "^@common/(.*)$": "<rootDir>/libs/common/src/$1",
       "^@socket-events/(.*)$": "<rootDir>/libs/socket-events/src/$1",
       "^@shared-types/(.*)$": "<rootDir>/libs/shared-types/src/$1",

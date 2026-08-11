@@ -65,13 +65,14 @@ services:
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: kubeara-control-panel
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-3410}:3410"
     env_file:
       - .env.control-panel
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       DOCKER_ENV: "true"
-      PORT: ${PORT:-3000}
+      SELF_HOSTED: ${SELF_HOSTED:-false}
+      PORT: ${PORT:-3410}
       DB_HOST: ${DB_HOST:-postgres}
       DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-postgres}
@@ -110,7 +111,11 @@ services:
     ports:
       - "${CONSOLE_PORT:-8080}:80"
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
+      # Relative URL: the SPA and API share one origin via the nginx proxy
+      # (console-nginx.conf), so auth cookies work on any host.
+      VITE_API_URL: ${VITE_API_URL:-/api}
+    volumes:
+      - ./console-nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       control-panel-app:
         condition: service_started
