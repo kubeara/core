@@ -222,6 +222,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Nextcloud Maps (GraphHopper)",
     version: "latest",
   },
+  "nextcloud-contacts": {
+    name: "Nextcloud Contacts (Baikal)",
+    version: "0.10",
+  },
   seafile: {
     name: "Seafile",
     version: "13.0",

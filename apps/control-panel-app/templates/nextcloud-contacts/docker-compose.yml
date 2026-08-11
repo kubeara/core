@@ -1,0 +1,45 @@
+# documentation: https://sabre.io/baikal/
+# logo: svgs/nextcloud-contacts.svg
+# port: 80
+
+services:
+  baikal:
+    image: ${NEXTCLOUD_CONTACTS_IMAGE:-ckulka/baikal:nginx}
+    restart: ${NEXTCLOUD_CONTACTS_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_NEXTCLOUD_CONTACTS:-80}:80'
+
+    environment:
+      - SERVICE_URL_NEXTCLOUD_CONTACTS_80
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - nextcloud_contacts_baikal_config:/var/www/baikal/config
+      - nextcloud_contacts_baikal_data:/var/www/baikal/Specific
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || curl -fsS http://127.0.0.1/ >/dev/null || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  nextcloud_contacts_baikal_config:
+  nextcloud_contacts_baikal_data:
