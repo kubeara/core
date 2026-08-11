@@ -195,6 +195,7 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `minio/` | S3-compatible object storage on ports 9000 (API) and 9001 (console) |
 | `nextcloud/` | File sync and collaboration with MariaDB and Redis on port 80 |
 | `nextcloud-spreed/` | Nextcloud Talk HPB (signaling + TURN) on ports 8081 and 3478 |
+| `nextcloud-office/` | Collabora Online (CODE) for Nextcloud document editing on port 9980 |
 | `seafile/` | File sync and sharing with MariaDB and Redis on port 80 |
 | `flowise/` | Visual AI agent builder on port 3000 |
 | `anything-llm/` | Private AI document workspace on port 3001 |

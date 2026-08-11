@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "collaboration",
+      "productivity"
+    ],
+    "tags": [
+      "nextcloud",
+      "office",
+      "collabora",
+      "documents",
+      "wopi",
+      "spreadsheet",
+      "presentation",
+      "self-hosted"
+    ],
+    "shortDescription": "Collabora Online office suite for Nextcloud",
+    "longDescription": "<p>Nextcloud Office runs <strong>Collabora Online (CODE)</strong> for in-browser editing of documents, spreadsheets, and presentations with Nextcloud.</p><p>Set <code>NEXTCLOUD_OFFICE_NC_DOMAIN</code> to your Nextcloud host. In the Nextcloud Collabora Online / richdocuments admin settings, use <code>SERVICE_URL_NEXTCLOUD_OFFICE</code> as the office server URL. Admin console credentials are <code>SERVICE_USER_COLABORA</code> / <code>SERVICE_PASSWORD_COLABORA</code>. Reverse proxy must support WebSockets on port 9980.</p>"
+  },
+  "de": {
+    "category": [
+      "kollaboration",
+      "produktivität"
+    ],
+    "tags": [
+      "nextcloud",
+      "office",
+      "collabora",
+      "dokumente",
+      "wopi",
+      "tabellenkalkulation",
+      "präsentation",
+      "self-hosted"
+    ],
+    "shortDescription": "Collabora Online Office-Suite für Nextcloud",
+    "longDescription": "<p>Nextcloud Office betreibt <strong>Collabora Online (CODE)</strong> für die Bearbeitung von Dokumenten, Tabellen und Präsentationen im Browser mit Nextcloud.</p><p>Setze <code>NEXTCLOUD_OFFICE_NC_DOMAIN</code> auf deinen Nextcloud-Host. In den Nextcloud Collabora Online / richdocuments-Admin-Einstellungen nutze <code>SERVICE_URL_NEXTCLOUD_OFFICE</code> als Office-Server-URL. Admin-Zugangsdaten sind <code>SERVICE_USER_COLABORA</code> / <code>SERVICE_PASSWORD_COLABORA</code>. Der Reverse Proxy muss WebSockets auf Port 9980 unterstützen.</p>"
+  },
+  "fr": {
+    "category": [
+      "collaboration",
+      "productivité"
+    ],
+    "tags": [
+      "nextcloud",
+      "office",
+      "collabora",
+      "documents",
+      "wopi",
+      "tableur",
+      "présentation",
+      "auto-hébergé"
+    ],
+    "shortDescription": "Suite bureautique Collabora Online pour Nextcloud",
+    "longDescription": "<p>Nextcloud Office exécute <strong>Collabora Online (CODE)</strong> pour éditer documents, tableurs et présentations dans le navigateur avec Nextcloud.</p><p>Définissez <code>NEXTCLOUD_OFFICE_NC_DOMAIN</code> sur l'hôte Nextcloud. Dans les réglages admin Collabora Online / richdocuments, utilisez <code>SERVICE_URL_NEXTCLOUD_OFFICE</code> comme URL du serveur Office. Identifiants admin : <code>SERVICE_USER_COLABORA</code> / <code>SERVICE_PASSWORD_COLABORA</code>. Le reverse proxy doit prendre en charge les WebSockets sur le port 9980.</p>"
+  },
+  "pt": {
+    "category": [
+      "colaboração",
+      "produtividade"
+    ],
+    "tags": [
+      "nextcloud",
+      "office",
+      "collabora",
+      "documentos",
+      "wopi",
+      "planilha",
+      "apresentação",
+      "auto-hospedado"
+    ],
+    "shortDescription": "Suite office Collabora Online para Nextcloud",
+    "longDescription": "<p>Nextcloud Office executa o <strong>Collabora Online (CODE)</strong> para editar documentos, folhas de cálculo e apresentações no browser com o Nextcloud.</p><p>Defina <code>NEXTCLOUD_OFFICE_NC_DOMAIN</code> para o host do Nextcloud. Nas definições de admin do Collabora Online / richdocuments, use <code>SERVICE_URL_NEXTCLOUD_OFFICE</code> como URL do servidor Office. Credenciais de admin: <code>SERVICE_USER_COLABORA</code> / <code>SERVICE_PASSWORD_COLABORA</code>. O reverse proxy deve suportar WebSockets na porta 9980.</p>"
+  }
+}
