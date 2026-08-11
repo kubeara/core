@@ -478,6 +478,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "RabbitMQ",
     version: "3",
   },
+  radicale: {
+    name: "Radicale",
+    version: "latest",
+  },
   chroma: {
     name: "Chroma",
     version: "1.0",

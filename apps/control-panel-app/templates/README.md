@@ -215,6 +215,7 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `ghost/` | Publishing platform for blogs and newsletters with MariaDB on port 2368 |
 | `healthchecks/` | Cron job and heartbeat monitoring with PostgreSQL on port 8000 |
 | `vaultwarden/` | Bitwarden-compatible password manager on port 8080 |
+| `radicale/` | Lightweight CalDAV/CardDAV server on port 5232 |
 | `authentik/` | Identity provider with SSO and MFA; PostgreSQL, Redis, server, and worker on port 9000 |
 | `authelia/` | SSO and 2FA portal with Redis on port 9091; embedded config and file-based users |
 | `keycloak/` | IAM platform with PostgreSQL on port 8080 |
