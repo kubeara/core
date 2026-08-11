@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "tools",
+      "email"
+    ],
+    "tags": [
+      "reacher",
+      "email",
+      "verification",
+      "smtp",
+      "api",
+      "check-if-email-exists"
+    ],
+    "shortDescription": "Self-hosted email verification HTTP API",
+    "longDescription": "<p>Reacher (<code>check-if-email-exists</code>) is an open-source <strong>email verification</strong> backend that checks whether an address is deliverable via SMTP.</p><p>HTTP API on port 8080 (<code>POST /v0/check_email</code>). Outbound SMTP (port 25) must be allowed for full verification. Optionally set <code>RCH_HEADER_SECRET</code> to require an <code>x-reacher-secret</code> header.</p>"
+  },
+  "de": {
+    "category": [
+      "tools",
+      "e-mail"
+    ],
+    "tags": [
+      "reacher",
+      "e-mail",
+      "verifizierung",
+      "smtp",
+      "api",
+      "check-if-email-exists"
+    ],
+    "shortDescription": "Self-Hosted-HTTP-API zur E-Mail-Verifizierung",
+    "longDescription": "<p>Reacher (<code>check-if-email-exists</code>) ist ein Open-Source-<strong>E-Mail-Verifizierungs</strong>-Backend, das über SMTP prüft, ob eine Adresse zustellbar ist.</p><p>HTTP-API auf Port 8080 (<code>POST /v0/check_email</code>). Für die vollständige Verifizierung muss ausgehendes SMTP (Port 25) erlaubt sein. Optional <code>RCH_HEADER_SECRET</code> setzen, um einen <code>x-reacher-secret</code>-Header zu verlangen.</p>"
+  },
+  "fr": {
+    "category": [
+      "outils",
+      "e-mail"
+    ],
+    "tags": [
+      "reacher",
+      "e-mail",
+      "vérification",
+      "smtp",
+      "api",
+      "check-if-email-exists"
+    ],
+    "shortDescription": "API HTTP auto-hébergée de vérification d'adresses e-mail",
+    "longDescription": "<p>Reacher (<code>check-if-email-exists</code>) est un backend open source de <strong>vérification d'e-mails</strong> qui vérifie la délivrabilité d'une adresse via SMTP.</p><p>API HTTP sur le port 8080 (<code>POST /v0/check_email</code>). Le SMTP sortant (port 25) doit être autorisé pour une vérification complète. Définissez éventuellement <code>RCH_HEADER_SECRET</code> pour exiger un en-tête <code>x-reacher-secret</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "ferramentas",
+      "e-mail"
+    ],
+    "tags": [
+      "reacher",
+      "e-mail",
+      "verificação",
+      "smtp",
+      "api",
+      "check-if-email-exists"
+    ],
+    "shortDescription": "API HTTP auto-hospedada de verificação de e-mail",
+    "longDescription": "<p>Reacher (<code>check-if-email-exists</code>) é um backend open-source de <strong>verificação de e-mail</strong> que verifica se um endereço é entregável via SMTP.</p><p>API HTTP na porta 8080 (<code>POST /v0/check_email</code>). O SMTP de saída (porta 25) deve ser permitido para verificação completa. Opcionalmente, defina <code>RCH_HEADER_SECRET</code> para exigir um cabeçalho <code>x-reacher-secret</code>.</p>"
+  }
+}

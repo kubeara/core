@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "development",
+      "ci",
+      "devops"
+    ],
+    "tags": [
+      "woodpecker",
+      "ci",
+      "cd",
+      "continuous-integration",
+      "docker",
+      "devops",
+      "pipeline"
+    ],
+    "shortDescription": "Lightweight CI/CD engine for Docker workflows",
+    "longDescription": "<p>Woodpecker CI is a simple, extensible <strong>CI/CD engine</strong> with a GitHub Actions–compatible workflow syntax.</p><p>Includes a Docker agent. Register a GitHub OAuth app and set <code>WOODPECKER_HOST</code> via <code>SERVICE_URL_WOODPECKER_CI</code> before first use.</p>"
+  },
+  "de": {
+    "category": [
+      "entwicklung",
+      "ci",
+      "devops"
+    ],
+    "tags": [
+      "woodpecker",
+      "ci",
+      "cd",
+      "continuous-integration",
+      "docker",
+      "devops",
+      "pipeline"
+    ],
+    "shortDescription": "Leichtgewichtige CI/CD-Engine für Docker-Workflows",
+    "longDescription": "<p>Woodpecker CI ist eine einfache, erweiterbare <strong>CI/CD-Engine</strong> mit einer mit GitHub Actions kompatiblen Workflow-Syntax.</p><p>Enthält einen Docker-Agenten. Registriere eine GitHub-OAuth-App und setze <code>WOODPECKER_HOST</code> über <code>SERVICE_URL_WOODPECKER_CI</code> vor der ersten Verwendung.</p>"
+  },
+  "fr": {
+    "category": [
+      "développement",
+      "ci",
+      "devops"
+    ],
+    "tags": [
+      "woodpecker",
+      "ci",
+      "cd",
+      "intégration-continue",
+      "docker",
+      "devops",
+      "pipeline"
+    ],
+    "shortDescription": "Moteur CI/CD léger pour les workflows Docker",
+    "longDescription": "<p>Woodpecker CI est un <strong>moteur CI/CD</strong> simple et extensible avec une syntaxe de workflow compatible GitHub Actions.</p><p>Inclut un agent Docker. Enregistrez une app OAuth GitHub et définissez <code>WOODPECKER_HOST</code> via <code>SERVICE_URL_WOODPECKER_CI</code> avant la première utilisation.</p>"
+  },
+  "pt": {
+    "category": [
+      "desenvolvimento",
+      "ci",
+      "devops"
+    ],
+    "tags": [
+      "woodpecker",
+      "ci",
+      "cd",
+      "integração-contínua",
+      "docker",
+      "devops",
+      "pipeline"
+    ],
+    "shortDescription": "Mecanismo de CI/CD leve para workflows Docker",
+    "longDescription": "<p>Woodpecker CI é um <strong>mecanismo de CI/CD</strong> simples e extensível com sintaxe de workflow compatível com GitHub Actions.</p><p>Inclui um agente Docker. Registre um app OAuth do GitHub e defina <code>WOODPECKER_HOST</code> via <code>SERVICE_URL_WOODPECKER_CI</code> antes do primeiro uso.</p>"
+  }
+}

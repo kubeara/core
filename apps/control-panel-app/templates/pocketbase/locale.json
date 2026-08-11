@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "backend",
+      "api",
+      "database"
+    ],
+    "tags": [
+      "pocketbase",
+      "backend",
+      "baas",
+      "sqlite",
+      "api",
+      "realtime"
+    ],
+    "shortDescription": "Open-source backend in a single executable",
+    "longDescription": "<p>PocketBase is an open-source <strong>backend-as-a-service</strong> with realtime database, auth, and file storage in one container.</p><p>Create the admin account at <code>/_/</code> on first launch.</p>"
+  },
+  "de": {
+    "category": [
+      "backend",
+      "api",
+      "datenbank"
+    ],
+    "tags": [
+      "pocketbase",
+      "backend",
+      "baas",
+      "sqlite",
+      "api",
+      "realtime"
+    ],
+    "shortDescription": "Open-Source-Backend in einer einzigen ausführbaren Datei",
+    "longDescription": "<p>PocketBase ist ein Open-Source-<strong>Backend-as-a-Service</strong> mit Echtzeit-Datenbank, Auth und Dateispeicherung in einem Container.</p><p>Erstelle das Admin-Konto beim ersten Start unter <code>/_/</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "backend",
+      "api",
+      "base-de-données"
+    ],
+    "tags": [
+      "pocketbase",
+      "backend",
+      "baas",
+      "sqlite",
+      "api",
+      "temps-réel"
+    ],
+    "shortDescription": "Backend open source dans un seul exécutable",
+    "longDescription": "<p>PocketBase est un <strong>backend-as-a-service</strong> open source avec base de données temps réel, authentification et stockage de fichiers dans un seul conteneur.</p><p>Créez le compte admin sur <code>/_/</code> au premier lancement.</p>"
+  },
+  "pt": {
+    "category": [
+      "backend",
+      "api",
+      "banco-de-dados"
+    ],
+    "tags": [
+      "pocketbase",
+      "backend",
+      "baas",
+      "sqlite",
+      "api",
+      "tempo-real"
+    ],
+    "shortDescription": "Backend open-source em um único executável",
+    "longDescription": "<p>PocketBase é um <strong>backend-as-a-service</strong> open-source com banco de dados em tempo real, autenticação e armazenamento de arquivos em um único contêiner.</p><p>Crie a conta de admin em <code>/_/</code> no primeiro acesso.</p>"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "monitoring",
+      "observability",
+      "apm"
+    ],
+    "tags": [
+      "signoz",
+      "opentelemetry",
+      "apm",
+      "tracing",
+      "metrics",
+      "clickhouse",
+      "observability"
+    ],
+    "shortDescription": "Open-source OpenTelemetry APM and observability platform",
+    "longDescription": "<p>SigNoz is an open-source <strong>APM and observability</strong> platform built on OpenTelemetry with ClickHouse storage.</p><p>Includes ZooKeeper, ClickHouse, migrator, collector, and UI. OTLP ingestion on ports 4317 and 4318. JWT secret uses <code>SERVICE_HEX_64_SIGNOZ</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "überwachung",
+      "observability",
+      "apm"
+    ],
+    "tags": [
+      "signoz",
+      "opentelemetry",
+      "apm",
+      "tracing",
+      "metriken",
+      "clickhouse",
+      "observability"
+    ],
+    "shortDescription": "Open-Source-OpenTelemetry-APM- und Observability-Plattform",
+    "longDescription": "<p>SigNoz ist eine Open-Source-<strong>APM- und Observability</strong>-Plattform, die auf OpenTelemetry mit ClickHouse-Speicherung basiert.</p><p>Enthält ZooKeeper, ClickHouse, Migrator, Collector und UI. OTLP-Erfassung auf den Ports 4317 und 4318. Das JWT-Geheimnis verwendet <code>SERVICE_HEX_64_SIGNOZ</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "surveillance",
+      "observabilité",
+      "apm"
+    ],
+    "tags": [
+      "signoz",
+      "opentelemetry",
+      "apm",
+      "traçage",
+      "métriques",
+      "clickhouse",
+      "observabilité"
+    ],
+    "shortDescription": "Plateforme APM et d'observabilité OpenTelemetry open source",
+    "longDescription": "<p>SigNoz est une plateforme open source d'<strong>APM et d'observabilité</strong> basée sur OpenTelemetry avec stockage ClickHouse.</p><p>Inclut ZooKeeper, ClickHouse, migrator, collector et UI. Ingestion OTLP sur les ports 4317 et 4318. Le secret JWT utilise <code>SERVICE_HEX_64_SIGNOZ</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "monitoramento",
+      "observabilidade",
+      "apm"
+    ],
+    "tags": [
+      "signoz",
+      "opentelemetry",
+      "apm",
+      "tracing",
+      "métricas",
+      "clickhouse",
+      "observabilidade"
+    ],
+    "shortDescription": "Plataforma APM e de observabilidade OpenTelemetry open-source",
+    "longDescription": "<p>SigNoz é uma plataforma open-source de <strong>APM e observabilidade</strong> baseada em OpenTelemetry com armazenamento ClickHouse.</p><p>Inclui ZooKeeper, ClickHouse, migrator, collector e UI. Ingestão OTLP nas portas 4317 e 4318. O segredo JWT usa <code>SERVICE_HEX_64_SIGNOZ</code>.</p>"
+  }
+}

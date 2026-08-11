@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "cms",
+      "content",
+      "api"
+    ],
+    "tags": [
+      "strapi",
+      "cms",
+      "headless",
+      "api",
+      "nodejs",
+      "postgresql",
+      "rest"
+    ],
+    "shortDescription": "Open-source headless CMS built with Node.js",
+    "longDescription": "<p>Strapi is a flexible <strong>headless CMS</strong> for building APIs and content-rich applications.</p><p>Uses the community <code>naskio/strapi</code> image (Strapi does not publish an official pre-built image). Includes PostgreSQL — JWT secrets use <code>SERVICE_BASE64_32_STRAPI</code>, <code>SERVICE_HEX_64_STRAPI</code>, <code>SERVICE_BASE64_64_STRAPI</code>, and <code>SERVICE_PASSWORD_64_STRAPI</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "cms",
+      "content",
+      "api"
+    ],
+    "tags": [
+      "strapi",
+      "cms",
+      "headless",
+      "api",
+      "nodejs",
+      "postgresql",
+      "rest"
+    ],
+    "shortDescription": "Open-Source-Headless-CMS, gebaut mit Node.js",
+    "longDescription": "<p>Strapi ist ein flexibles <strong>Headless-CMS</strong> zum Erstellen von APIs und inhaltsreichen Anwendungen.</p><p>Verwendet das Community-Image <code>naskio/strapi</code> (Strapi veröffentlicht kein offizielles vorgefertigtes Image). Enthält PostgreSQL — JWT-Geheimnisse verwenden <code>SERVICE_BASE64_32_STRAPI</code>, <code>SERVICE_HEX_64_STRAPI</code>, <code>SERVICE_BASE64_64_STRAPI</code> und <code>SERVICE_PASSWORD_64_STRAPI</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "cms",
+      "contenu",
+      "api"
+    ],
+    "tags": [
+      "strapi",
+      "cms",
+      "headless",
+      "api",
+      "nodejs",
+      "postgresql",
+      "rest"
+    ],
+    "shortDescription": "CMS headless open source construit avec Node.js",
+    "longDescription": "<p>Strapi est un <strong>CMS headless</strong> flexible pour créer des API et des applications riches en contenu.</p><p>Utilise l'image communautaire <code>naskio/strapi</code> (Strapi ne publie pas d'image pré-construite officielle). Inclut PostgreSQL — les secrets JWT utilisent <code>SERVICE_BASE64_32_STRAPI</code>, <code>SERVICE_HEX_64_STRAPI</code>, <code>SERVICE_BASE64_64_STRAPI</code> et <code>SERVICE_PASSWORD_64_STRAPI</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "cms",
+      "conteúdo",
+      "api"
+    ],
+    "tags": [
+      "strapi",
+      "cms",
+      "headless",
+      "api",
+      "nodejs",
+      "postgresql",
+      "rest"
+    ],
+    "shortDescription": "CMS headless open-source construído com Node.js",
+    "longDescription": "<p>Strapi é um <strong>CMS headless</strong> flexível para construir APIs e aplicativos ricos em conteúdo.</p><p>Usa a imagem da comunidade <code>naskio/strapi</code> (o Strapi não publica uma imagem oficial pré-construída). Inclui PostgreSQL — os segredos JWT usam <code>SERVICE_BASE64_32_STRAPI</code>, <code>SERVICE_HEX_64_STRAPI</code>, <code>SERVICE_BASE64_64_STRAPI</code> e <code>SERVICE_PASSWORD_64_STRAPI</code>.</p>"
+  }
+}

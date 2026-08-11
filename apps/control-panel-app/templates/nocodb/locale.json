@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "productivity",
+      "no-code"
+    ],
+    "tags": [
+      "nocodb",
+      "airtable",
+      "database",
+      "spreadsheet",
+      "no-code",
+      "postgresql",
+      "api"
+    ],
+    "shortDescription": "Open-source Airtable alternative",
+    "longDescription": "<p>NocoDB turns any SQL database into a <strong>spreadsheet-style</strong> collaborative database with REST and GraphQL APIs.</p><p>Includes PostgreSQL. Set <code>NC_PUBLIC_URL</code> via <code>SERVICE_URL_NOCODB</code>. JWT signing uses <code>SERVICE_HEX_64_NOCODB</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "produktivität",
+      "no-code"
+    ],
+    "tags": [
+      "nocodb",
+      "airtable",
+      "datenbank",
+      "tabellenkalkulation",
+      "no-code",
+      "postgresql",
+      "api"
+    ],
+    "shortDescription": "Open-Source-Airtable-Alternative",
+    "longDescription": "<p>NocoDB verwandelt jede SQL-Datenbank in eine <strong>tabellenkalkulationsartige</strong> kollaborative Datenbank mit REST- und GraphQL-APIs.</p><p>Enthält PostgreSQL. Setze <code>NC_PUBLIC_URL</code> über <code>SERVICE_URL_NOCODB</code>. Die JWT-Signierung verwendet <code>SERVICE_HEX_64_NOCODB</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "productivité",
+      "no-code"
+    ],
+    "tags": [
+      "nocodb",
+      "airtable",
+      "base-de-données",
+      "feuille-de-calcul",
+      "no-code",
+      "postgresql",
+      "api"
+    ],
+    "shortDescription": "Alternative open source à Airtable",
+    "longDescription": "<p>NocoDB transforme toute base SQL en base de données collaborative <strong>de type tableur</strong> avec des API REST et GraphQL.</p><p>Inclut PostgreSQL. Définissez <code>NC_PUBLIC_URL</code> via <code>SERVICE_URL_NOCODB</code>. La signature JWT utilise <code>SERVICE_HEX_64_NOCODB</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "produtividade",
+      "no-code"
+    ],
+    "tags": [
+      "nocodb",
+      "airtable",
+      "banco-de-dados",
+      "planilha",
+      "no-code",
+      "postgresql",
+      "api"
+    ],
+    "shortDescription": "Alternativa open-source ao Airtable",
+    "longDescription": "<p>NocoDB transforma qualquer banco SQL em um banco de dados colaborativo <strong>estilo planilha</strong> com APIs REST e GraphQL.</p><p>Inclui PostgreSQL. Defina <code>NC_PUBLIC_URL</code> via <code>SERVICE_URL_NOCODB</code>. A assinatura JWT usa <code>SERVICE_HEX_64_NOCODB</code>.</p>"
+  }
+}

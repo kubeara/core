@@ -1,0 +1,78 @@
+{
+  "en": {
+    "category": [
+      "automation",
+      "workflows",
+      "integration"
+    ],
+    "tags": [
+      "trigger",
+      "triggerdev",
+      "workflow",
+      "automation",
+      "jobs",
+      "typescript",
+      "postgresql",
+      "redis"
+    ],
+    "shortDescription": "Background jobs and workflow automation platform",
+    "longDescription": "<p>Trigger.dev is an open-source platform for long-running background jobs and workflows in TypeScript.</p><p>This template runs the Trigger webapp with PostgreSQL and Redis for self-hosted orchestration.</p>"
+  },
+  "de": {
+    "category": [
+      "automatisierung",
+      "workflows",
+      "integration"
+    ],
+    "tags": [
+      "trigger",
+      "triggerdev",
+      "workflow",
+      "automatisierung",
+      "jobs",
+      "typescript",
+      "postgresql",
+      "redis"
+    ],
+    "shortDescription": "Plattform für Hintergrund-Jobs und Workflow-Automatisierung",
+    "longDescription": "<p>Trigger.dev ist eine Open-Source-Plattform für langlaufende Hintergrund-Jobs und Workflows in TypeScript.</p><p>Dieses Template betreibt die Trigger-Webapp mit PostgreSQL und Redis für Self-Hosted-Orchestrierung.</p>"
+  },
+  "fr": {
+    "category": [
+      "automatisation",
+      "workflows",
+      "intégration"
+    ],
+    "tags": [
+      "trigger",
+      "triggerdev",
+      "workflow",
+      "automatisation",
+      "jobs",
+      "typescript",
+      "postgresql",
+      "redis"
+    ],
+    "shortDescription": "Plateforme de jobs d'arrière-plan et d'automatisation de workflows",
+    "longDescription": "<p>Trigger.dev est une plateforme open source pour les jobs d'arrière-plan et workflows de longue durée en TypeScript.</p><p>Ce template exécute la webapp Trigger avec PostgreSQL et Redis pour une orchestration auto-hébergée.</p>"
+  },
+  "pt": {
+    "category": [
+      "automação",
+      "workflows",
+      "integração"
+    ],
+    "tags": [
+      "trigger",
+      "triggerdev",
+      "workflow",
+      "automação",
+      "jobs",
+      "typescript",
+      "postgresql",
+      "redis"
+    ],
+    "shortDescription": "Plataforma de jobs em segundo plano e automação de workflows",
+    "longDescription": "<p>Trigger.dev é uma plataforma open-source para jobs de longa duração e workflows em TypeScript.</p><p>Este template executa o webapp Trigger com PostgreSQL e Redis para orquestração auto-hospedada.</p>"
+  }
+}

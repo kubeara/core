@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "security",
+      "development",
+      "devops"
+    ],
+    "tags": [
+      "gitleaks",
+      "secrets",
+      "security",
+      "sast",
+      "git",
+      "scanner"
+    ],
+    "shortDescription": "Secret scanner for Git repositories and source files",
+    "longDescription": "<p>Gitleaks detects <strong>hardcoded secrets</strong> such as API keys, tokens, and passwords in repos and directories.</p><p>Mount sources under <code>/scan</code> (browse on port 8080) and run <code>docker compose exec --entrypoint gitleaks gitleaks detect --source=/scan</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "sicherheit",
+      "entwicklung",
+      "devops"
+    ],
+    "tags": [
+      "gitleaks",
+      "geheimnisse",
+      "sicherheit",
+      "sast",
+      "git",
+      "scanner"
+    ],
+    "shortDescription": "Secret-Scanner für Git-Repositories und Quelldateien",
+    "longDescription": "<p>Gitleaks erkennt <strong>hartkodierte Geheimnisse</strong> wie API-Keys, Tokens und Passwörter in Repositories und Verzeichnissen.</p><p>Binde die Quellen unter <code>/scan</code> ein (Durchsuchen auf Port 8080) und führe <code>docker compose exec --entrypoint gitleaks gitleaks detect --source=/scan</code> aus.</p>"
+  },
+  "fr": {
+    "category": [
+      "sécurité",
+      "développement",
+      "devops"
+    ],
+    "tags": [
+      "gitleaks",
+      "secrets",
+      "sécurité",
+      "sast",
+      "git",
+      "scanner"
+    ],
+    "shortDescription": "Scanner de secrets pour les dépôts Git et fichiers sources",
+    "longDescription": "<p>Gitleaks détecte les <strong>secrets codés en dur</strong> comme les clés API, jetons et mots de passe dans les dépôts et répertoires.</p><p>Montez les sources sous <code>/scan</code> (parcours sur le port 8080) et exécutez <code>docker compose exec --entrypoint gitleaks gitleaks detect --source=/scan</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "segurança",
+      "desenvolvimento",
+      "devops"
+    ],
+    "tags": [
+      "gitleaks",
+      "segredos",
+      "segurança",
+      "sast",
+      "git",
+      "scanner"
+    ],
+    "shortDescription": "Scanner de segredos para repositórios Git e arquivos-fonte",
+    "longDescription": "<p>Gitleaks detecta <strong>segredos codificados</strong> como chaves de API, tokens e senhas em repositórios e diretórios.</p><p>Monte as fontes em <code>/scan</code> (navegação na porta 8080) e execute <code>docker compose exec --entrypoint gitleaks gitleaks detect --source=/scan</code>.</p>"
+  }
+}

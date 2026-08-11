@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "llm"
+    ],
+    "tags": [
+      "lobe-chat",
+      "ai",
+      "chat",
+      "openai",
+      "llm",
+      "chatbot",
+      "ui"
+    ],
+    "shortDescription": "Open-source modern AI chat framework",
+    "longDescription": "<p>LobeChat is an <strong>open-source AI chat UI</strong> with a modern design for OpenAI and compatible APIs.</p><p>Set <code>OPENAI_API_KEY</code> after deploy or via <code>LOBE_CHAT_OPENAI_API_KEY</code>. Optional access protection uses <code>SERVICE_PASSWORD_ACCESSCODE</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "llm"
+    ],
+    "tags": [
+      "lobe-chat",
+      "ki",
+      "chat",
+      "openai",
+      "llm",
+      "chatbot",
+      "ui"
+    ],
+    "shortDescription": "Open-Source-Framework für moderne KI-Chats",
+    "longDescription": "<p>LobeChat ist eine <strong>Open-Source-KI-Chat-Oberfläche</strong> mit modernem Design für OpenAI und kompatible APIs.</p><p>Setze <code>OPENAI_API_KEY</code> nach der Bereitstellung oder über <code>LOBE_CHAT_OPENAI_API_KEY</code>. Optionaler Zugriffsschutz verwendet <code>SERVICE_PASSWORD_ACCESSCODE</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "llm"
+    ],
+    "tags": [
+      "lobe-chat",
+      "ia",
+      "chat",
+      "openai",
+      "llm",
+      "chatbot",
+      "ui"
+    ],
+    "shortDescription": "Framework de chat IA moderne open source",
+    "longDescription": "<p>LobeChat est une <strong>interface de chat IA open source</strong> au design moderne pour OpenAI et les API compatibles.</p><p>Définissez <code>OPENAI_API_KEY</code> après le déploiement ou via <code>LOBE_CHAT_OPENAI_API_KEY</code>. La protection d'accès optionnelle utilise <code>SERVICE_PASSWORD_ACCESSCODE</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "llm"
+    ],
+    "tags": [
+      "lobe-chat",
+      "ia",
+      "chat",
+      "openai",
+      "llm",
+      "chatbot",
+      "ui"
+    ],
+    "shortDescription": "Framework de chat de IA moderno open-source",
+    "longDescription": "<p>LobeChat é uma <strong>interface de chat de IA open-source</strong> com design moderno para OpenAI e APIs compatíveis.</p><p>Defina <code>OPENAI_API_KEY</code> após o deploy ou via <code>LOBE_CHAT_OPENAI_API_KEY</code>. A proteção de acesso opcional usa <code>SERVICE_PASSWORD_ACCESSCODE</code>.</p>"
+  }
+}

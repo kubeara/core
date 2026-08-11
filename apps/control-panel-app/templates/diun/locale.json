@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "monitoring",
+      "logging",
+      "observability"
+    ],
+    "tags": [
+      "diun",
+      "monitoring",
+      "images",
+      "updates",
+      "docker",
+      "notifications"
+    ],
+    "shortDescription": "Docker image update notifier",
+    "longDescription": "<p>DIUN tracks running container images and notifies you when updates are available.</p><p>Requires a watch schedule to run continuously. Configure notification providers separately as needed.</p>"
+  },
+  "de": {
+    "category": [
+      "monitoring",
+      "logging",
+      "observability"
+    ],
+    "tags": [
+      "diun",
+      "monitoring",
+      "images",
+      "updates",
+      "docker",
+      "benachrichtigungen"
+    ],
+    "shortDescription": "Docker-Image-Update-Benachrichtiger",
+    "longDescription": "<p>DIUN verfolgt laufende Container-Images und benachrichtigt dich, wenn Updates verfügbar sind.</p><p>Erfordert einen Watch-Zeitplan für den Dauerbetrieb. Konfiguriere Benachrichtigungsanbieter bei Bedarf separat.</p>"
+  },
+  "fr": {
+    "category": [
+      "supervision",
+      "journalisation",
+      "observabilité"
+    ],
+    "tags": [
+      "diun",
+      "supervision",
+      "images",
+      "mises-à-jour",
+      "docker",
+      "notifications"
+    ],
+    "shortDescription": "Notificateur de mises à jour d'images Docker",
+    "longDescription": "<p>DIUN suit les images de conteneurs en cours d'exécution et vous avertit lorsque des mises à jour sont disponibles.</p><p>Nécessite un planning de surveillance pour fonctionner en continu. Configurez les fournisseurs de notifications séparément selon vos besoins.</p>"
+  },
+  "pt": {
+    "category": [
+      "monitoramento",
+      "logging",
+      "observabilidade"
+    ],
+    "tags": [
+      "diun",
+      "monitoramento",
+      "imagens",
+      "atualizações",
+      "docker",
+      "notificações"
+    ],
+    "shortDescription": "Notificador de atualizações de imagens Docker",
+    "longDescription": "<p>DIUN acompanha as imagens de contêineres em execução e notifica quando atualizações estão disponíveis.</p><p>Requer uma programação de monitoramento para funcionar continuamente. Configure provedores de notificação separadamente conforme necessário.</p>"
+  }
+}

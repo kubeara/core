@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "postgresql",
+      "sql"
+    ],
+    "tags": [
+      "postgres",
+      "postgresql",
+      "database",
+      "sql",
+      "relational"
+    ],
+    "shortDescription": "Advanced open source relational database",
+    "longDescription": "<p>PostgreSQL is a powerful, open source <strong>object-relational database</strong> system with over 35 years of active development.</p><p>Compose-only template using magic <code>SERVICE_*</code> variables for credentials and host port configuration.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "postgresql",
+      "sql"
+    ],
+    "tags": [
+      "postgres",
+      "postgresql",
+      "datenbank",
+      "sql",
+      "relational"
+    ],
+    "shortDescription": "Fortschrittliche Open-Source-Datenbank",
+    "longDescription": "<p>PostgreSQL ist ein leistungsstarkes Open-Source-<strong>objektrelationales Datenbanksystem</strong> mit über 35 Jahren aktiver Entwicklung.</p><p>Reines Compose-Template mit Magic-<code>SERVICE_*</code>-Variablen für Zugangsdaten und Host-Port-Konfiguration.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "postgresql",
+      "sql"
+    ],
+    "tags": [
+      "postgres",
+      "postgresql",
+      "base-de-données",
+      "sql",
+      "relationnel"
+    ],
+    "shortDescription": "Base de données relationnelle open source avancée",
+    "longDescription": "<p>PostgreSQL est un puissant système de <strong>base de données objet-relationnelle</strong> open source avec plus de 35 ans de développement actif.</p><p>Template compose uniquement utilisant les variables magiques <code>SERVICE_*</code> pour les identifiants et la configuration du port hôte.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "postgresql",
+      "sql"
+    ],
+    "tags": [
+      "postgres",
+      "postgresql",
+      "banco-de-dados",
+      "sql",
+      "relacional"
+    ],
+    "shortDescription": "Banco de dados relacional open-source avançado",
+    "longDescription": "<p>PostgreSQL é um poderoso sistema de <strong>banco de dados objeto-relacional</strong> open-source com mais de 35 anos de desenvolvimento ativo.</p><p>Template apenas-compose usando variáveis mágicas <code>SERVICE_*</code> para credenciais e configuração de porta do host.</p>"
+  }
+}

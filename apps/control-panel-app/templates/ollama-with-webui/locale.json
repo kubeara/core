@@ -1,0 +1,78 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "llm"
+    ],
+    "tags": [
+      "ollama",
+      "open-webui",
+      "ai",
+      "llm",
+      "chat",
+      "local",
+      "inference",
+      "models",
+      "ui"
+    ],
+    "shortDescription": "Ollama LLM runtime with Open WebUI chat interface",
+    "longDescription": "<p>Deploy <strong>Ollama</strong> and <strong>Open WebUI</strong> together in one stack. Open WebUI connects to Ollama over the internal Docker network—no extra configuration required.</p><p>On first deploy, a one-shot init job pulls <code>llama3.2</code> automatically. Models persist under <code>/root/.ollama</code>; chat data under Open WebUI's data volume. Override with <code>OLLAMA_MODEL</code> if needed.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "llm"
+    ],
+    "tags": [
+      "ollama",
+      "open-webui",
+      "ki",
+      "llm",
+      "chat",
+      "lokal",
+      "inference",
+      "modelle",
+      "ui"
+    ],
+    "shortDescription": "Ollama-LLM-Runtime mit Open-WebUI-Chat-Oberfläche",
+    "longDescription": "<p>Stelle <strong>Ollama</strong> und <strong>Open WebUI</strong> zusammen in einem Stack bereit. Open WebUI verbindet sich über das interne Docker-Netzwerk mit Ollama — keine zusätzliche Konfiguration nötig.</p><p>Beim ersten Deploy lädt ein einmaliger Init-Job automatisch <code>llama3.2</code>. Modelle bleiben unter <code>/root/.ollama</code> erhalten; Chat-Daten im Daten-Volume von Open WebUI. Bei Bedarf mit <code>OLLAMA_MODEL</code> überschreiben.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "llm"
+    ],
+    "tags": [
+      "ollama",
+      "open-webui",
+      "ia",
+      "llm",
+      "chat",
+      "local",
+      "inférence",
+      "modèles",
+      "ui"
+    ],
+    "shortDescription": "Runtime LLM Ollama avec interface de chat Open WebUI",
+    "longDescription": "<p>Déployez <strong>Ollama</strong> et <strong>Open WebUI</strong> ensemble dans une seule pile. Open WebUI se connecte à Ollama via le réseau Docker interne — aucune configuration supplémentaire requise.</p><p>Au premier déploiement, un job d'initialisation unique tire <code>llama3.2</code> automatiquement. Les modèles persistent sous <code>/root/.ollama</code> ; les données de chat sous le volume de données d'Open WebUI. Remplacez avec <code>OLLAMA_MODEL</code> si nécessaire.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "llm"
+    ],
+    "tags": [
+      "ollama",
+      "open-webui",
+      "ia",
+      "llm",
+      "chat",
+      "local",
+      "inferência",
+      "modelos",
+      "ui"
+    ],
+    "shortDescription": "Runtime de LLM Ollama com interface de chat Open WebUI",
+    "longDescription": "<p>Implante <strong>Ollama</strong> e <strong>Open WebUI</strong> juntos em uma única stack. O Open WebUI conecta-se ao Ollama pela rede Docker interna — nenhuma configuração extra é necessária.</p><p>No primeiro deploy, um job de inicialização único baixa <code>llama3.2</code> automaticamente. Os modelos persistem em <code>/root/.ollama</code>; os dados de chat no volume de dados do Open WebUI. Substitua com <code>OLLAMA_MODEL</code> se necessário.</p>"
+  }
+}

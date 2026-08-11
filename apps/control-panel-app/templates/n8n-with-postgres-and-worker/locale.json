@@ -1,0 +1,78 @@
+{
+  "en": {
+    "category": [
+      "automation",
+      "workflows",
+      "integration"
+    ],
+    "tags": [
+      "n8n",
+      "automation",
+      "workflow",
+      "integration",
+      "postgresql",
+      "redis",
+      "worker",
+      "queue"
+    ],
+    "shortDescription": "n8n with PostgreSQL, Redis, and dedicated worker",
+    "longDescription": "<p>Scalable n8n deployment with <strong>PostgreSQL</strong> persistence, <strong>Redis</strong> queue backend, and a dedicated <strong>worker</strong> process.</p><p>Use this template when you want queue mode and background execution capacity separate from the main editor/webhook container.</p>"
+  },
+  "de": {
+    "category": [
+      "automatisierung",
+      "workflows",
+      "integration"
+    ],
+    "tags": [
+      "n8n",
+      "automatisierung",
+      "workflow",
+      "integration",
+      "postgresql",
+      "redis",
+      "worker",
+      "warteschlange"
+    ],
+    "shortDescription": "n8n mit PostgreSQL, Redis und dediziertem Worker",
+    "longDescription": "<p>Skalierbare n8n-Bereitstellung mit <strong>PostgreSQL</strong>-Persistenz, <strong>Redis</strong>-Warteschlangen-Backend und einem dedizierten <strong>Worker</strong>-Prozess.</p><p>Nutze diese Vorlage, wenn du Warteschlangenmodus und Hintergrundausführung getrennt vom Haupt-Editor-/Webhook-Container benötigst.</p>"
+  },
+  "fr": {
+    "category": [
+      "automatisation",
+      "workflows",
+      "intégration"
+    ],
+    "tags": [
+      "n8n",
+      "automatisation",
+      "workflow",
+      "intégration",
+      "postgresql",
+      "redis",
+      "worker",
+      "file"
+    ],
+    "shortDescription": "n8n avec PostgreSQL, Redis et worker dédié",
+    "longDescription": "<p>Déploiement n8n évolutif avec persistance <strong>PostgreSQL</strong>, backend de file <strong>Redis</strong> et un <strong>worker</strong> dédié.</p><p>Utilisez ce modèle lorsque vous voulez le mode file d'attente et une capacité d'exécution en arrière-plan distincte du conteneur principal éditeur/webhooks.</p>"
+  },
+  "pt": {
+    "category": [
+      "automação",
+      "workflows",
+      "integração"
+    ],
+    "tags": [
+      "n8n",
+      "automação",
+      "workflow",
+      "integração",
+      "postgresql",
+      "redis",
+      "worker",
+      "fila"
+    ],
+    "shortDescription": "n8n com PostgreSQL, Redis e worker dedicado",
+    "longDescription": "<p>Implantação escalável do n8n com persistência <strong>PostgreSQL</strong>, backend de fila <strong>Redis</strong> e um processo <strong>worker</strong> dedicado.</p><p>Use este template quando quiser modo fila e capacidade de execução em segundo plano separada do contêiner principal de editor/webhooks.</p>"
+  }
+}

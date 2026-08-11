@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "automation",
+      "iot"
+    ],
+    "tags": [
+      "node-red",
+      "automation",
+      "iot",
+      "flows",
+      "low-code",
+      "integration"
+    ],
+    "shortDescription": "Flow-based programming for IoT and automation",
+    "longDescription": "<p>Node-RED is a flow-based <strong>low-code tool</strong> for wiring together hardware devices, APIs, and online services.</p><p>Flows persist under <code>/data</code>. The editor has no login by default — enable <code>adminAuth</code> in settings for production.</p>"
+  },
+  "de": {
+    "category": [
+      "automatisierung",
+      "iot"
+    ],
+    "tags": [
+      "node-red",
+      "automatisierung",
+      "iot",
+      "flows",
+      "low-code",
+      "integration"
+    ],
+    "shortDescription": "Flow-basierte Programmierung für IoT und Automatisierung",
+    "longDescription": "<p>Node-RED ist ein flow-basiertes <strong>Low-Code-Tool</strong> zum Verbinden von Hardwaregeräten, APIs und Online-Diensten.</p><p>Flows bleiben unter <code>/data</code> erhalten. Der Editor hat standardmäßig keinen Login — aktiviere <code>adminAuth</code> in den Einstellungen für Produktion.</p>"
+  },
+  "fr": {
+    "category": [
+      "automatisation",
+      "iot"
+    ],
+    "tags": [
+      "node-red",
+      "automatisation",
+      "iot",
+      "flux",
+      "low-code",
+      "intégration"
+    ],
+    "shortDescription": "Programmation basée sur des flux pour l'IoT et l'automatisation",
+    "longDescription": "<p>Node-RED est un <strong>outil low-code</strong> basé sur des flux pour connecter appareils matériels, API et services en ligne.</p><p>Les flux persistent sous <code>/data</code>. L'éditeur n'a pas de connexion par défaut — activez <code>adminAuth</code> dans les paramètres pour la production.</p>"
+  },
+  "pt": {
+    "category": [
+      "automação",
+      "iot"
+    ],
+    "tags": [
+      "node-red",
+      "automação",
+      "iot",
+      "fluxos",
+      "low-code",
+      "integração"
+    ],
+    "shortDescription": "Programação baseada em fluxos para IoT e automação",
+    "longDescription": "<p>Node-RED é uma <strong>ferramenta low-code</strong> baseada em fluxos para conectar dispositivos de hardware, APIs e serviços online.</p><p>Os fluxos persistem em <code>/data</code>. O editor não tem login por padrão — habilite <code>adminAuth</code> nas configurações para produção.</p>"
+  }
+}

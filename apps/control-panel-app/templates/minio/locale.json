@@ -1,0 +1,62 @@
+{
+  "en": {
+    "category": [
+      "storage"
+    ],
+    "tags": [
+      "minio",
+      "s3",
+      "object-storage",
+      "storage",
+      "blob",
+      "files"
+    ],
+    "shortDescription": "High-performance S3-compatible object storage",
+    "longDescription": "<p>MinIO is a high-performance <strong>object storage</strong> server compatible with the Amazon S3 API.</p><p>API on <code>SERVICE_PORT_MINIO</code> (9000); console on <code>SERVICE_PORT_MINIO_9001</code>. Root credentials use <code>SERVICE_USER_MINIO</code> and <code>SERVICE_PASSWORD_MINIO</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "speicher"
+    ],
+    "tags": [
+      "minio",
+      "s3",
+      "objektspeicher",
+      "speicher",
+      "blob",
+      "dateien"
+    ],
+    "shortDescription": "Hochleistungsfähiger S3-kompatibler Objektspeicher",
+    "longDescription": "<p>MinIO ist ein leistungsstarker <strong>Objektspeicher</strong>-Server, kompatibel mit der Amazon-S3-API.</p><p>API auf <code>SERVICE_PORT_MINIO</code> (9000); Konsole auf <code>SERVICE_PORT_MINIO_9001</code>. Root-Zugangsdaten verwenden <code>SERVICE_USER_MINIO</code> und <code>SERVICE_PASSWORD_MINIO</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "stockage"
+    ],
+    "tags": [
+      "minio",
+      "s3",
+      "stockage-d'objets",
+      "stockage",
+      "blob",
+      "fichiers"
+    ],
+    "shortDescription": "Stockage d'objets haute performance compatible S3",
+    "longDescription": "<p>MinIO est un serveur de <strong>stockage d'objets</strong> haute performance compatible avec l'API Amazon S3.</p><p>API sur <code>SERVICE_PORT_MINIO</code> (9000) ; console sur <code>SERVICE_PORT_MINIO_9001</code>. Les identifiants root utilisent <code>SERVICE_USER_MINIO</code> et <code>SERVICE_PASSWORD_MINIO</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "armazenamento"
+    ],
+    "tags": [
+      "minio",
+      "s3",
+      "armazenamento-de-objetos",
+      "armazenamento",
+      "blob",
+      "arquivos"
+    ],
+    "shortDescription": "Armazenamento de objetos compatível com S3 de alta performance",
+    "longDescription": "<p>MinIO é um servidor de <strong>armazenamento de objetos</strong> de alta performance compatível com a API do Amazon S3.</p><p>API em <code>SERVICE_PORT_MINIO</code> (9000); console em <code>SERVICE_PORT_MINIO_9001</code>. As credenciais root usam <code>SERVICE_USER_MINIO</code> e <code>SERVICE_PASSWORD_MINIO</code>.</p>"
+  }
+}

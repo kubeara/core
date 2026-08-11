@@ -1,0 +1,62 @@
+{
+  "en": {
+    "category": [
+      "cache",
+      "database"
+    ],
+    "tags": [
+      "valkey",
+      "redis",
+      "cache",
+      "key-value",
+      "in-memory"
+    ],
+    "shortDescription": "Redis-compatible in-memory data structure store",
+    "longDescription": "<p>Valkey is an open-source, <strong>Redis-compatible</strong> in-memory data store for caching, pub/sub, sessions, and queues.</p><p>Password authentication uses <code>SERVICE_PASSWORD_VALKEY</code>. Data persists with AOF under <code>/data</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "cache",
+      "datenbank"
+    ],
+    "tags": [
+      "valkey",
+      "redis",
+      "cache",
+      "key-value",
+      "in-memory"
+    ],
+    "shortDescription": "Redis-kompatibler In-Memory-Datenspeicher",
+    "longDescription": "<p>Valkey ist ein Open-Source-, <strong>Redis-kompatibler</strong> In-Memory-Datenspeicher für Caching, Pub/Sub, Sessions und Warteschlangen.</p><p>Die Passwort-Authentifizierung verwendet <code>SERVICE_PASSWORD_VALKEY</code>. Daten bleiben mit AOF unter <code>/data</code> erhalten.</p>"
+  },
+  "fr": {
+    "category": [
+      "cache",
+      "base-de-données"
+    ],
+    "tags": [
+      "valkey",
+      "redis",
+      "cache",
+      "clé-valeur",
+      "en-mémoire"
+    ],
+    "shortDescription": "Magasin de structures de données en mémoire compatible Redis",
+    "longDescription": "<p>Valkey est un magasin de données en mémoire <strong>compatible Redis</strong> open source pour le caching, pub/sub, les sessions et les files d'attente.</p><p>L'authentification par mot de passe utilise <code>SERVICE_PASSWORD_VALKEY</code>. Les données persistent avec AOF sous <code>/data</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "cache",
+      "banco-de-dados"
+    ],
+    "tags": [
+      "valkey",
+      "redis",
+      "cache",
+      "chave-valor",
+      "em-memória"
+    ],
+    "shortDescription": "Armazenamento de estruturas de dados em memória compatível com Redis",
+    "longDescription": "<p>Valkey é um armazenamento de dados em memória <strong>compatível com Redis</strong>, open-source, para cache, pub/sub, sessões e filas.</p><p>A autenticação por senha usa <code>SERVICE_PASSWORD_VALKEY</code>. Os dados persistem com AOF em <code>/data</code>.</p>"
+  }
+}

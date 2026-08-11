@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "cms",
+      "content",
+      "blog"
+    ],
+    "tags": [
+      "ghost",
+      "blog",
+      "cms",
+      "publishing",
+      "newsletter",
+      "content",
+      "mariadb"
+    ],
+    "shortDescription": "Professional publishing platform for blogs and newsletters",
+    "longDescription": "<p>Ghost is a modern <strong>publishing platform</strong> for professional bloggers, journalists, and newsletter creators.</p><p>Includes MariaDB. Set <code>url</code> via <code>SERVICE_URL_GHOST</code> for correct links and assets. Complete the setup wizard on first launch.</p>"
+  },
+  "de": {
+    "category": [
+      "cms",
+      "content",
+      "blog"
+    ],
+    "tags": [
+      "ghost",
+      "blog",
+      "cms",
+      "publishing",
+      "newsletter",
+      "content",
+      "mariadb"
+    ],
+    "shortDescription": "Professionelle Publishing-Plattform für Blogs und Newsletter",
+    "longDescription": "<p>Ghost ist eine moderne <strong>Publishing-Plattform</strong> für professionelle Blogger, Journalisten und Newsletter-Autoren.</p><p>Enthält MariaDB. Setze <code>url</code> über <code>SERVICE_URL_GHOST</code> für korrekte Links und Assets. Schließe den Einrichtungsassistenten beim ersten Start ab.</p>"
+  },
+  "fr": {
+    "category": [
+      "cms",
+      "contenu",
+      "blog"
+    ],
+    "tags": [
+      "ghost",
+      "blog",
+      "cms",
+      "publication",
+      "newsletter",
+      "contenu",
+      "mariadb"
+    ],
+    "shortDescription": "Plateforme de publication professionnelle pour blogs et newsletters",
+    "longDescription": "<p>Ghost est une <strong>plateforme de publication</strong> moderne pour les blogueurs, journalistes et créateurs de newsletters professionnels.</p><p>Inclut MariaDB. Définissez <code>url</code> via <code>SERVICE_URL_GHOST</code> pour des liens et ressources corrects. Terminez l'assistant de configuration au premier lancement.</p>"
+  },
+  "pt": {
+    "category": [
+      "cms",
+      "conteúdo",
+      "blog"
+    ],
+    "tags": [
+      "ghost",
+      "blog",
+      "cms",
+      "publicação",
+      "newsletter",
+      "conteúdo",
+      "mariadb"
+    ],
+    "shortDescription": "Plataforma profissional de publicação para blogs e newsletters",
+    "longDescription": "<p>Ghost é uma <strong>plataforma de publicação</strong> moderna para blogueiros, jornalistas e criadores de newsletters profissionais.</p><p>Inclui MariaDB. Defina <code>url</code> via <code>SERVICE_URL_GHOST</code> para links e recursos corretos. Conclua o assistente de configuração no primeiro acesso.</p>"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "postgresql"
+    ],
+    "tags": [
+      "neon",
+      "postgresql",
+      "websocket",
+      "proxy",
+      "serverless",
+      "postgres"
+    ],
+    "shortDescription": "Neon WebSocket proxy with PostgreSQL for serverless drivers",
+    "longDescription": "<p>Runs <strong>PostgreSQL</strong> with Neon's <code>wsproxy</code> so apps using <code>@neondatabase/serverless</code> can connect locally.</p><p>WebSocket proxy on <code>SERVICE_PORT_NEON_WS_PROXY</code> (80). Postgres credentials use <code>SERVICE_USER_NEONPG</code> and <code>SERVICE_PASSWORD_NEONPG</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "postgresql"
+    ],
+    "tags": [
+      "neon",
+      "postgresql",
+      "websocket",
+      "proxy",
+      "serverless",
+      "postgres"
+    ],
+    "shortDescription": "Neon-WebSocket-Proxy mit PostgreSQL für Serverless-Treiber",
+    "longDescription": "<p>Führt <strong>PostgreSQL</strong> mit Neons <code>wsproxy</code> aus, damit Apps, die <code>@neondatabase/serverless</code> verwenden, sich lokal verbinden können.</p><p>WebSocket-Proxy auf <code>SERVICE_PORT_NEON_WS_PROXY</code> (80). Postgres-Zugangsdaten verwenden <code>SERVICE_USER_NEONPG</code> und <code>SERVICE_PASSWORD_NEONPG</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "postgresql"
+    ],
+    "tags": [
+      "neon",
+      "postgresql",
+      "websocket",
+      "proxy",
+      "serverless",
+      "postgres"
+    ],
+    "shortDescription": "Proxy WebSocket Neon avec PostgreSQL pour pilotes serverless",
+    "longDescription": "<p>Exécute <strong>PostgreSQL</strong> avec le <code>wsproxy</code> de Neon afin que les applications utilisant <code>@neondatabase/serverless</code> puissent se connecter localement.</p><p>Proxy WebSocket sur <code>SERVICE_PORT_NEON_WS_PROXY</code> (80). Les identifiants Postgres utilisent <code>SERVICE_USER_NEONPG</code> et <code>SERVICE_PASSWORD_NEONPG</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "postgresql"
+    ],
+    "tags": [
+      "neon",
+      "postgresql",
+      "websocket",
+      "proxy",
+      "serverless",
+      "postgres"
+    ],
+    "shortDescription": "Proxy WebSocket do Neon com PostgreSQL para drivers serverless",
+    "longDescription": "<p>Executa <strong>PostgreSQL</strong> com o <code>wsproxy</code> da Neon para que apps que usam <code>@neondatabase/serverless</code> possam se conectar localmente.</p><p>Proxy WebSocket em <code>SERVICE_PORT_NEON_WS_PROXY</code> (80). As credenciais do Postgres usam <code>SERVICE_USER_NEONPG</code> e <code>SERVICE_PASSWORD_NEONPG</code>.</p>"
+  }
+}

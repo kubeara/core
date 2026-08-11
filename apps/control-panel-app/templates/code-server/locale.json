@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "development",
+      "ide"
+    ],
+    "tags": [
+      "code-server",
+      "vscode",
+      "ide",
+      "editor",
+      "remote",
+      "development"
+    ],
+    "shortDescription": "VS Code in the browser for remote development",
+    "longDescription": "<p>code-server runs <strong>VS Code</strong> on a remote server and exposes it through the browser.</p><p>Password authentication is configured via <code>SERVICE_PASSWORD_CODE_SERVER</code>. Project files persist under <code>/home/coder/project</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "entwicklung",
+      "ide"
+    ],
+    "tags": [
+      "code-server",
+      "vscode",
+      "ide",
+      "editor",
+      "remote",
+      "entwicklung"
+    ],
+    "shortDescription": "VS Code im Browser für Remote-Entwicklung",
+    "longDescription": "<p>code-server führt <strong>VS Code</strong> auf einem Remote-Server aus und macht es über den Browser verfügbar.</p><p>Die Passwort-Authentifizierung wird über <code>SERVICE_PASSWORD_CODE_SERVER</code> konfiguriert. Projektdateien bleiben unter <code>/home/coder/project</code> erhalten.</p>"
+  },
+  "fr": {
+    "category": [
+      "développement",
+      "ide"
+    ],
+    "tags": [
+      "code-server",
+      "vscode",
+      "ide",
+      "éditeur",
+      "distant",
+      "développement"
+    ],
+    "shortDescription": "VS Code dans le navigateur pour le développement à distance",
+    "longDescription": "<p>code-server exécute <strong>VS Code</strong> sur un serveur distant et l'expose via le navigateur.</p><p>L'authentification par mot de passe est configurée via <code>SERVICE_PASSWORD_CODE_SERVER</code>. Les fichiers du projet persistent sous <code>/home/coder/project</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "desenvolvimento",
+      "ide"
+    ],
+    "tags": [
+      "code-server",
+      "vscode",
+      "ide",
+      "editor",
+      "remoto",
+      "desenvolvimento"
+    ],
+    "shortDescription": "VS Code no navegador para desenvolvimento remoto",
+    "longDescription": "<p>code-server executa <strong>VS Code</strong> em um servidor remoto e o expõe pelo navegador.</p><p>A autenticação por senha é configurada via <code>SERVICE_PASSWORD_CODE_SERVER</code>. Os arquivos do projeto persistem em <code>/home/coder/project</code>.</p>"
+  }
+}

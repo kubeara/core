@@ -1,0 +1,78 @@
+{
+  "en": {
+    "category": [
+      "git",
+      "scm",
+      "source-control"
+    ],
+    "tags": [
+      "forgejo",
+      "git",
+      "actions",
+      "ci",
+      "runner",
+      "dind",
+      "docker",
+      "self-hosted"
+    ],
+    "shortDescription": "Forgejo with Actions runner (Docker-in-Docker)",
+    "longDescription": "<p>Self-hosted <strong>Forgejo</strong> with an isolated <strong>Forgejo Actions</strong> runner backed by Docker-in-Docker.</p><p>After deploy, create a runner registration token in Forgejo (<em>Site Administration → Actions → Runners</em>) and set <code>SERVICE_PASSWORD_FORGEJO_RUNNER</code>. The runner auto-registers on first start.</p>"
+  },
+  "de": {
+    "category": [
+      "git",
+      "scm",
+      "quellcode"
+    ],
+    "tags": [
+      "forgejo",
+      "git",
+      "actions",
+      "ci",
+      "runner",
+      "dind",
+      "docker",
+      "self-hosted"
+    ],
+    "shortDescription": "Forgejo mit Actions-Runner (Docker-in-Docker)",
+    "longDescription": "<p>Selbst gehostetes <strong>Forgejo</strong> mit einem isolierten <strong>Forgejo-Actions</strong>-Runner, der auf Docker-in-Docker basiert.</p><p>Erstelle nach dem Deploy ein Runner-Registrierungstoken in Forgejo (<em>Site Administration → Actions → Runners</em>) und setze <code>SERVICE_PASSWORD_FORGEJO_RUNNER</code>. Der Runner registriert sich beim ersten Start automatisch.</p>"
+  },
+  "fr": {
+    "category": [
+      "git",
+      "scm",
+      "contrôle-de-source"
+    ],
+    "tags": [
+      "forgejo",
+      "git",
+      "actions",
+      "ci",
+      "runner",
+      "dind",
+      "docker",
+      "auto-hébergé"
+    ],
+    "shortDescription": "Forgejo avec runner Actions (Docker-in-Docker)",
+    "longDescription": "<p><strong>Forgejo</strong> auto-hébergé avec un <strong>runner Forgejo Actions</strong> isolé basé sur Docker-in-Docker.</p><p>Après le déploiement, créez un jeton d'enregistrement de runner dans Forgejo (<em>Site Administration → Actions → Runners</em>) et définissez <code>SERVICE_PASSWORD_FORGEJO_RUNNER</code>. Le runner s'enregistre automatiquement au premier démarrage.</p>"
+  },
+  "pt": {
+    "category": [
+      "git",
+      "scm",
+      "controle-de-fonte"
+    ],
+    "tags": [
+      "forgejo",
+      "git",
+      "actions",
+      "ci",
+      "runner",
+      "dind",
+      "docker",
+      "auto-hospedado"
+    ],
+    "shortDescription": "Forgejo com runner Actions (Docker-in-Docker)",
+    "longDescription": "<p><strong>Forgejo</strong> auto-hospedado com um <strong>runner Forgejo Actions</strong> isolado baseado em Docker-in-Docker.</p><p>Após o deploy, crie um token de registro de runner no Forgejo (<em>Site Administration → Actions → Runners</em>) e defina <code>SERVICE_PASSWORD_FORGEJO_RUNNER</code>. O runner se registra automaticamente no primeiro início.</p>"
+  }
+}

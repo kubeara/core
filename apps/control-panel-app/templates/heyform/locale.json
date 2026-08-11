@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "forms",
+      "productivity",
+      "no-code"
+    ],
+    "tags": [
+      "heyform",
+      "forms",
+      "surveys",
+      "quizzes",
+      "polls",
+      "mongodb",
+      "redis"
+    ],
+    "shortDescription": "Open-source conversational form builder",
+    "longDescription": "<p>HeyForm is an open-source <strong>form builder</strong> for surveys, questionnaires, quizzes, and polls with a conversational UI.</p><p>Includes MongoDB and Redis. Set <code>APP_HOMEPAGE_URL</code> via <code>SERVICE_URL_HEYFORM</code> to the exact browser URL (no trailing slash) or login redirects will fail. Session and form encryption keys use <code>SERVICE_HEX_64_HEYFORM</code> and <code>SERVICE_HEX_32_HEYFORM</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "formulare",
+      "produktivität",
+      "no-code"
+    ],
+    "tags": [
+      "heyform",
+      "formulare",
+      "umfragen",
+      "quizze",
+      "abstimmungen",
+      "mongodb",
+      "redis"
+    ],
+    "shortDescription": "Open-Source-Formular-Builder mit Konversations-UI",
+    "longDescription": "<p>HeyForm ist ein Open-Source-<strong>Formular-Builder</strong> für Umfragen, Fragebögen, Quizze und Abstimmungen mit einer konversationsbasierten Oberfläche.</p><p>Enthält MongoDB und Redis. Setze <code>APP_HOMEPAGE_URL</code> über <code>SERVICE_URL_HEYFORM</code> auf die exakte Browser-URL (ohne abschließenden Schrägstrich), sonst schlagen Login-Weiterleitungen fehl. Session- und Formularverschlüsselung verwenden <code>SERVICE_HEX_64_HEYFORM</code> und <code>SERVICE_HEX_32_HEYFORM</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "formulaires",
+      "productivité",
+      "no-code"
+    ],
+    "tags": [
+      "heyform",
+      "formulaires",
+      "sondages",
+      "quiz",
+      "scrutins",
+      "mongodb",
+      "redis"
+    ],
+    "shortDescription": "Créateur de formulaires conversationnels open source",
+    "longDescription": "<p>HeyForm est un <strong>créateur de formulaires</strong> open source pour sondages, questionnaires, quiz et scrutins avec une interface conversationnelle.</p><p>Inclut MongoDB et Redis. Définissez <code>APP_HOMEPAGE_URL</code> via <code>SERVICE_URL_HEYFORM</code> avec l'URL exacte du navigateur (sans slash final), sinon les redirections de connexion échouent. Les clés de chiffrement de session et de formulaire utilisent <code>SERVICE_HEX_64_HEYFORM</code> et <code>SERVICE_HEX_32_HEYFORM</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "formulários",
+      "produtividade",
+      "no-code"
+    ],
+    "tags": [
+      "heyform",
+      "formulários",
+      "pesquisas",
+      "quizzes",
+      "enquetes",
+      "mongodb",
+      "redis"
+    ],
+    "shortDescription": "Construtor de formulários conversacionais open-source",
+    "longDescription": "<p>HeyForm é um <strong>construtor de formulários</strong> open-source para pesquisas, questionários, quizzes e enquetes com interface conversacional.</p><p>Inclui MongoDB e Redis. Defina <code>APP_HOMEPAGE_URL</code> via <code>SERVICE_URL_HEYFORM</code> com a URL exata do navegador (sem barra final), caso contrário os redirecionamentos de login falham. As chaves de criptografia de sessão e formulário usam <code>SERVICE_HEX_64_HEYFORM</code> e <code>SERVICE_HEX_32_HEYFORM</code>.</p>"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "nosql"
+    ],
+    "tags": [
+      "deno",
+      "kv",
+      "key-value",
+      "nosql",
+      "javascript",
+      "database"
+    ],
+    "shortDescription": "Self-hosted Deno KV key-value database",
+    "longDescription": "<p>Deno KV is a <strong>JavaScript-first key-value database</strong> with a self-hostable backend for Deno applications.</p><p>KV Connect API on port 4512. Access token uses <code>SERVICE_PASSWORD_DENOKV</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "nosql"
+    ],
+    "tags": [
+      "deno",
+      "kv",
+      "key-value",
+      "nosql",
+      "javascript",
+      "datenbank"
+    ],
+    "shortDescription": "Self-Hosted-Deno-KV-Key-Value-Datenbank",
+    "longDescription": "<p>Deno KV ist eine <strong>JavaScript-first Key-Value-Datenbank</strong> mit einem selbst hostbaren Backend für Deno-Anwendungen.</p><p>KV-Connect-API auf Port 4512. Das Zugriffstoken verwendet <code>SERVICE_PASSWORD_DENOKV</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "nosql"
+    ],
+    "tags": [
+      "deno",
+      "kv",
+      "clé-valeur",
+      "nosql",
+      "javascript",
+      "base-de-données"
+    ],
+    "shortDescription": "Base de données clé-valeur Deno KV auto-hébergée",
+    "longDescription": "<p>Deno KV est une <strong>base de données clé-valeur JavaScript-first</strong> avec un backend auto-hébergeable pour les applications Deno.</p><p>API KV Connect sur le port 4512. Le jeton d'accès utilise <code>SERVICE_PASSWORD_DENOKV</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "nosql"
+    ],
+    "tags": [
+      "deno",
+      "kv",
+      "chave-valor",
+      "nosql",
+      "javascript",
+      "banco-de-dados"
+    ],
+    "shortDescription": "Banco de dados chave-valor Deno KV auto-hospedado",
+    "longDescription": "<p>Deno KV é um <strong>banco de dados chave-valor JavaScript-first</strong> com um backend auto-hospedável para aplicações Deno.</p><p>API KV Connect na porta 4512. O token de acesso usa <code>SERVICE_PASSWORD_DENOKV</code>.</p>"
+  }
+}

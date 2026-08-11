@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "search"
+    ],
+    "tags": [
+      "elasticsearch",
+      "kibana",
+      "search",
+      "analytics",
+      "dashboards",
+      "observability"
+    ],
+    "shortDescription": "Elasticsearch with Kibana dashboards",
+    "longDescription": "<p>Single-node <strong>Elasticsearch</strong> stack with Kibana for search, analytics, and visualization.</p><p>Elasticsearch on <code>SERVICE_PORT_ELASTICSEARCH</code> (9200) and Kibana on <code>SERVICE_PORT_ELASTICSEARCH_KIBANA</code> (5601).</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "suche"
+    ],
+    "tags": [
+      "elasticsearch",
+      "kibana",
+      "suche",
+      "analytik",
+      "dashboards",
+      "observability"
+    ],
+    "shortDescription": "Elasticsearch mit Kibana-Dashboards",
+    "longDescription": "<p>Single-Node-<strong>Elasticsearch</strong>-Stack mit Kibana für Suche, Analytik und Visualisierung.</p><p>Elasticsearch auf <code>SERVICE_PORT_ELASTICSEARCH</code> (9200) und Kibana auf <code>SERVICE_PORT_ELASTICSEARCH_KIBANA</code> (5601).</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "recherche"
+    ],
+    "tags": [
+      "elasticsearch",
+      "kibana",
+      "recherche",
+      "analytique",
+      "tableaux-de-bord",
+      "observabilité"
+    ],
+    "shortDescription": "Elasticsearch avec tableaux de bord Kibana",
+    "longDescription": "<p>Stack <strong>Elasticsearch</strong> à nœud unique avec Kibana pour la recherche, l'analytique et la visualisation.</p><p>Elasticsearch sur <code>SERVICE_PORT_ELASTICSEARCH</code> (9200) et Kibana sur <code>SERVICE_PORT_ELASTICSEARCH_KIBANA</code> (5601).</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "busca"
+    ],
+    "tags": [
+      "elasticsearch",
+      "kibana",
+      "busca",
+      "análises",
+      "dashboards",
+      "observabilidade"
+    ],
+    "shortDescription": "Elasticsearch com dashboards Kibana",
+    "longDescription": "<p>Stack <strong>Elasticsearch</strong> de nó único com Kibana para busca, análises e visualização.</p><p>Elasticsearch em <code>SERVICE_PORT_ELASTICSEARCH</code> (9200) e Kibana em <code>SERVICE_PORT_ELASTICSEARCH_KIBANA</code> (5601).</p>"
+  }
+}

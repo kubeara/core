@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "observability"
+    ],
+    "tags": [
+      "helicone",
+      "ai",
+      "llm",
+      "observability",
+      "tracing",
+      "analytics"
+    ],
+    "shortDescription": "Open-source LLM observability and analytics platform",
+    "longDescription": "<p>Helicone provides <strong>LLM tracing, analytics, and monitoring</strong> for production AI applications.</p><p>All-in-one image includes dashboard (3000), Jawn API (8585), and MinIO (9080). Auth secret uses <code>SERVICE_PASSWORD_64_HELICONE</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "observability"
+    ],
+    "tags": [
+      "helicone",
+      "ki",
+      "llm",
+      "observability",
+      "tracing",
+      "analytik"
+    ],
+    "shortDescription": "Open-Source-Observability- und Analytikplattform für LLMs",
+    "longDescription": "<p>Helicone bietet <strong>LLM-Tracing, Analytik und Monitoring</strong> für KI-Anwendungen in Produktion.</p><p>Das All-in-One-Image enthält Dashboard (3000), Jawn-API (8585) und MinIO (9080). Der Auth-Secret verwendet <code>SERVICE_PASSWORD_64_HELICONE</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "observabilité"
+    ],
+    "tags": [
+      "helicone",
+      "ia",
+      "llm",
+      "observabilité",
+      "tracing",
+      "analytique"
+    ],
+    "shortDescription": "Plateforme open source d'observabilité et d'analyse LLM",
+    "longDescription": "<p>Helicone fournit le <strong>tracing, l'analyse et la supervision LLM</strong> pour les applications IA en production.</p><p>L'image tout-en-un inclut le tableau de bord (3000), l'API Jawn (8585) et MinIO (9080). Le secret d'auth utilise <code>SERVICE_PASSWORD_64_HELICONE</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "observabilidade"
+    ],
+    "tags": [
+      "helicone",
+      "ia",
+      "llm",
+      "observabilidade",
+      "tracing",
+      "análises"
+    ],
+    "shortDescription": "Plataforma open-source de observabilidade e análises para LLMs",
+    "longDescription": "<p>Helicone fornece <strong>tracing, análises e monitoramento de LLM</strong> para aplicações de IA em produção.</p><p>A imagem tudo-em-um inclui dashboard (3000), API Jawn (8585) e MinIO (9080). O segredo de auth usa <code>SERVICE_PASSWORD_64_HELICONE</code>.</p>"
+  }
+}

@@ -1,10 +1,11 @@
 import { Transform, Type } from "class-transformer";
-import { IsInt, IsOptional, IsString, Max, Min } from "class-validator";
+import { IsIn, IsInt, IsOptional, IsString, Max, Min } from "class-validator";
 
 import {
   DEFAULT_TEMPLATE_LIST_LIMIT,
   DEFAULT_TEMPLATE_LIST_PAGE,
   MAX_TEMPLATE_LIST_LIMIT,
+  SUPPORTED_TEMPLATE_LOCALES,
 } from "../constants/template-list.constants";
 
 export class ListTemplatesQueryDto {
@@ -34,4 +35,11 @@ export class ListTemplatesQueryDto {
     typeof value === "string" ? value.trim() : value,
   )
   category?: string;
+
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === "string" ? value.trim().toLowerCase() : value,
+  )
+  @IsIn(SUPPORTED_TEMPLATE_LOCALES)
+  locale?: string;
 }

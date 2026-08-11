@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "backend"
+    ],
+    "tags": [
+      "convex",
+      "database",
+      "reactive",
+      "realtime",
+      "backend",
+      "api"
+    ],
+    "shortDescription": "Open-source reactive database for app developers",
+    "longDescription": "<p>Convex is an open-source <strong>reactive database</strong> and backend for real-time applications with a built-in dashboard.</p><p>Backend API on <code>SERVICE_PORT_CONVEX</code> (3210), HTTP actions on <code>SERVICE_PORT_CONVEX_3211</code> (3211), and dashboard on <code>SERVICE_PORT_CONVEX_DASHBOARD</code> (6791).</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "backend"
+    ],
+    "tags": [
+      "convex",
+      "datenbank",
+      "reaktiv",
+      "realtime",
+      "backend",
+      "api"
+    ],
+    "shortDescription": "Open-Source-reaktive Datenbank für App-Entwickler",
+    "longDescription": "<p>Convex ist eine Open-Source-<strong>reaktive Datenbank</strong> und Backend für Echtzeitanwendungen mit integriertem Dashboard.</p><p>Backend-API auf <code>SERVICE_PORT_CONVEX</code> (3210), HTTP-Aktionen auf <code>SERVICE_PORT_CONVEX_3211</code> (3211) und Dashboard auf <code>SERVICE_PORT_CONVEX_DASHBOARD</code> (6791).</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "backend"
+    ],
+    "tags": [
+      "convex",
+      "base-de-données",
+      "réactif",
+      "temps-réel",
+      "backend",
+      "api"
+    ],
+    "shortDescription": "Base de données réactive open source pour les développeurs d'applications",
+    "longDescription": "<p>Convex est une <strong>base de données réactive</strong> open source et un backend pour les applications temps réel avec un tableau de bord intégré.</p><p>API backend sur <code>SERVICE_PORT_CONVEX</code> (3210), actions HTTP sur <code>SERVICE_PORT_CONVEX_3211</code> (3211) et tableau de bord sur <code>SERVICE_PORT_CONVEX_DASHBOARD</code> (6791).</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "backend"
+    ],
+    "tags": [
+      "convex",
+      "banco-de-dados",
+      "reativo",
+      "tempo-real",
+      "backend",
+      "api"
+    ],
+    "shortDescription": "Banco de dados reativo open-source para desenvolvedores de apps",
+    "longDescription": "<p>Convex é um <strong>banco de dados reativo</strong> open-source e backend para aplicações em tempo real com dashboard integrado.</p><p>API backend em <code>SERVICE_PORT_CONVEX</code> (3210), ações HTTP em <code>SERVICE_PORT_CONVEX_3211</code> (3211) e dashboard em <code>SERVICE_PORT_CONVEX_DASHBOARD</code> (6791).</p>"
+  }
+}

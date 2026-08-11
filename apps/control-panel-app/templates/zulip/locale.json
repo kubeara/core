@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "collaboration",
+      "chat",
+      "communication"
+    ],
+    "tags": [
+      "zulip",
+      "chat",
+      "team",
+      "messaging",
+      "collaboration",
+      "topics"
+    ],
+    "shortDescription": "Open-source team chat with topics and threaded conversations",
+    "longDescription": "<p>Zulip is an open-source <strong>team chat</strong> platform organized by topics for efficient asynchronous communication.</p><p>Includes PostgreSQL, Redis, RabbitMQ, and Memcached. Set <code>SETTING_EXTERNAL_HOST</code> via <code>SERVICE_FQDN_ZULIP</code> and complete initial organization setup after first launch.</p>"
+  },
+  "de": {
+    "category": [
+      "kollaboration",
+      "chat",
+      "kommunikation"
+    ],
+    "tags": [
+      "zulip",
+      "chat",
+      "team",
+      "messaging",
+      "kollaboration",
+      "topics"
+    ],
+    "shortDescription": "Open-Source-Team-Chat mit Topics und Thread-Konversationen",
+    "longDescription": "<p>Zulip ist eine Open-Source-<strong>Team-Chat</strong>-Plattform, die nach Topics organisiert ist, für effiziente asynchrone Kommunikation.</p><p>Enthält PostgreSQL, Redis, RabbitMQ und Memcached. Setze <code>SETTING_EXTERNAL_HOST</code> über <code>SERVICE_FQDN_ZULIP</code> und schließe die anfängliche Organisations-Einrichtung nach dem ersten Start ab.</p>"
+  },
+  "fr": {
+    "category": [
+      "collaboration",
+      "chat",
+      "communication"
+    ],
+    "tags": [
+      "zulip",
+      "chat",
+      "équipe",
+      "messagerie",
+      "collaboration",
+      "sujets"
+    ],
+    "shortDescription": "Chat d'équipe open source avec sujets et conversations en fils",
+    "longDescription": "<p>Zulip est une plateforme de <strong>chat d'équipe</strong> open source organisée par sujets pour une communication asynchrone efficace.</p><p>Inclut PostgreSQL, Redis, RabbitMQ et Memcached. Définissez <code>SETTING_EXTERNAL_HOST</code> via <code>SERVICE_FQDN_ZULIP</code> et terminez la configuration initiale de l'organisation après le premier lancement.</p>"
+  },
+  "pt": {
+    "category": [
+      "colaboração",
+      "chat",
+      "comunicação"
+    ],
+    "tags": [
+      "zulip",
+      "chat",
+      "equipe",
+      "mensagens",
+      "colaboração",
+      "tópicos"
+    ],
+    "shortDescription": "Chat de equipe open-source com tópicos e conversas em threads",
+    "longDescription": "<p>Zulip é uma plataforma de <strong>chat de equipe</strong> open-source organizada por tópicos para comunicação assíncrona eficiente.</p><p>Inclui PostgreSQL, Redis, RabbitMQ e Memcached. Defina <code>SETTING_EXTERNAL_HOST</code> via <code>SERVICE_FQDN_ZULIP</code> e conclua a configuração inicial da organização após o primeiro acesso.</p>"
+  }
+}

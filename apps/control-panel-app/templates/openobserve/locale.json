@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "monitoring",
+      "logging",
+      "observability"
+    ],
+    "tags": [
+      "openobserve",
+      "logs",
+      "metrics",
+      "traces",
+      "monitoring",
+      "observability"
+    ],
+    "shortDescription": "Unified logs, metrics, traces, and dashboards",
+    "longDescription": "<p>OpenObserve is an open-source observability platform for <strong>logs, metrics, traces, and analytics</strong>.</p><p>Use it to ingest telemetry and build dashboards with lower storage costs.</p>"
+  },
+  "de": {
+    "category": [
+      "überwachung",
+      "protokollierung",
+      "observability"
+    ],
+    "tags": [
+      "openobserve",
+      "logs",
+      "metriken",
+      "traces",
+      "überwachung",
+      "observability"
+    ],
+    "shortDescription": "Vereinheitlichte Logs, Metriken, Traces und Dashboards",
+    "longDescription": "<p>OpenObserve ist eine Open-Source-Observability-Plattform für <strong>Logs, Metriken, Traces und Analysen</strong>.</p><p>Nutze sie, um Telemetriedaten zu erfassen und Dashboards mit geringeren Speicherkosten zu erstellen.</p>"
+  },
+  "fr": {
+    "category": [
+      "surveillance",
+      "journalisation",
+      "observabilité"
+    ],
+    "tags": [
+      "openobserve",
+      "logs",
+      "métriques",
+      "traces",
+      "surveillance",
+      "observabilité"
+    ],
+    "shortDescription": "Logs, métriques, traces et tableaux de bord unifiés",
+    "longDescription": "<p>OpenObserve est une plateforme d'observabilité open source pour les <strong>logs, métriques, traces et analyses</strong>.</p><p>Utilisez-la pour ingérer la télémétrie et créer des tableaux de bord avec des coûts de stockage réduits.</p>"
+  },
+  "pt": {
+    "category": [
+      "monitoramento",
+      "logging",
+      "observabilidade"
+    ],
+    "tags": [
+      "openobserve",
+      "logs",
+      "métricas",
+      "traces",
+      "monitoramento",
+      "observabilidade"
+    ],
+    "shortDescription": "Logs, métricas, traces e dashboards unificados",
+    "longDescription": "<p>OpenObserve é uma plataforma de observabilidade open-source para <strong>logs, métricas, traces e análises</strong>.</p><p>Use-a para ingerir telemetria e criar dashboards com custos de armazenamento menores.</p>"
+  }
+}

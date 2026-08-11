@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "monitoring",
+      "uptime"
+    ],
+    "tags": [
+      "healthchecks",
+      "cron",
+      "monitoring",
+      "alerts",
+      "heartbeat",
+      "ping",
+      "dead-man-switch"
+    ],
+    "shortDescription": "Cron job and heartbeat monitoring",
+    "longDescription": "<p>Healthchecks is a cron job monitoring service that listens for <strong>HTTP pings</strong> from your tasks and alerts you when they fail.</p><p>Includes PostgreSQL. Set <code>SITE_ROOT</code> via <code>SERVICE_URL_HEALTHCHECKS</code>. Create a superuser after deploy with <code>docker compose run healthchecks /opt/healthchecks/manage.py createsuperuser</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "monitoring",
+      "uptime"
+    ],
+    "tags": [
+      "healthchecks",
+      "cron",
+      "monitoring",
+      "alerts",
+      "heartbeat",
+      "ping",
+      "dead-man-switch"
+    ],
+    "shortDescription": "Überwachung von Cron-Jobs und Heartbeats",
+    "longDescription": "<p>Healthchecks ist ein Dienst zur Überwachung von Cron-Jobs, der auf <strong>HTTP-Pings</strong> deiner Aufgaben wartet und dich alarmiert, wenn sie ausbleiben.</p><p>Enthält PostgreSQL. Setze <code>SITE_ROOT</code> über <code>SERVICE_URL_HEALTHCHECKS</code>. Erstelle nach der Bereitstellung einen Superuser mit <code>docker compose run healthchecks /opt/healthchecks/manage.py createsuperuser</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "supervision",
+      "disponibilité"
+    ],
+    "tags": [
+      "healthchecks",
+      "cron",
+      "supervision",
+      "alertes",
+      "heartbeat",
+      "ping",
+      "interrupteur-homme-mort"
+    ],
+    "shortDescription": "Surveillance des tâches cron et des battements de cœur",
+    "longDescription": "<p>Healthchecks est un service de surveillance de tâches cron qui écoute les <strong>pings HTTP</strong> de vos tâches et vous alerte lorsqu'elles échouent.</p><p>Inclut PostgreSQL. Définissez <code>SITE_ROOT</code> via <code>SERVICE_URL_HEALTHCHECKS</code>. Créez un superutilisateur après le déploiement avec <code>docker compose run healthchecks /opt/healthchecks/manage.py createsuperuser</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "monitoramento",
+      "uptime"
+    ],
+    "tags": [
+      "healthchecks",
+      "cron",
+      "monitoramento",
+      "alertas",
+      "heartbeat",
+      "ping",
+      "interruptor-de-morto"
+    ],
+    "shortDescription": "Monitoramento de jobs cron e heartbeats",
+    "longDescription": "<p>Healthchecks é um serviço de monitoramento de jobs cron que escuta <strong>pings HTTP</strong> das suas tarefas e alerta quando elas falham.</p><p>Inclui PostgreSQL. Defina <code>SITE_ROOT</code> via <code>SERVICE_URL_HEALTHCHECKS</code>. Crie um superusuário após o deploy com <code>docker compose run healthchecks /opt/healthchecks/manage.py createsuperuser</code>.</p>"
+  }
+}

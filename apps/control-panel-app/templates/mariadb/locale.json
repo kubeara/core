@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "mysql",
+      "sql"
+    ],
+    "tags": [
+      "mariadb",
+      "mysql",
+      "database",
+      "sql",
+      "relational"
+    ],
+    "shortDescription": "Community-developed MySQL-compatible relational database",
+    "longDescription": "<p>MariaDB is a popular <strong>MySQL-compatible</strong> relational database with strong open-source community support.</p><p>Compose-only template using magic <code>SERVICE_*</code> variables for credentials and host port configuration.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "mysql",
+      "sql"
+    ],
+    "tags": [
+      "mariadb",
+      "mysql",
+      "datenbank",
+      "sql",
+      "relational"
+    ],
+    "shortDescription": "Von der Community entwickelte MySQL-kompatible relationale Datenbank",
+    "longDescription": "<p>MariaDB ist eine beliebte <strong>MySQL-kompatible</strong> relationale Datenbank mit starker Open-Source-Community-Unterstützung.</p><p>Compose-only-Vorlage mit magischen <code>SERVICE_*</code>-Variablen für Zugangsdaten und Host-Port-Konfiguration.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "mysql",
+      "sql"
+    ],
+    "tags": [
+      "mariadb",
+      "mysql",
+      "base-de-données",
+      "sql",
+      "relationnel"
+    ],
+    "shortDescription": "Base de données relationnelle compatible MySQL développée par la communauté",
+    "longDescription": "<p>MariaDB est une base de données relationnelle populaire <strong>compatible MySQL</strong> bénéficiant d'un fort soutien de la communauté open source.</p><p>Modèle compose uniquement utilisant les variables magiques <code>SERVICE_*</code> pour les identifiants et la configuration du port hôte.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "mysql",
+      "sql"
+    ],
+    "tags": [
+      "mariadb",
+      "mysql",
+      "banco-de-dados",
+      "sql",
+      "relacional"
+    ],
+    "shortDescription": "Banco de dados relacional compatível com MySQL, desenvolvido pela comunidade",
+    "longDescription": "<p>MariaDB é um banco de dados relacional popular <strong>compatível com MySQL</strong> com forte apoio da comunidade open-source.</p><p>Template apenas compose usando variáveis mágicas <code>SERVICE_*</code> para credenciais e configuração da porta do host.</p>"
+  }
+}

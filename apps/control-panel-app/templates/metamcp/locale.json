@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "mcp"
+    ],
+    "tags": [
+      "mcp",
+      "ai",
+      "sse",
+      "aggregator",
+      "orchestrator",
+      "middleware",
+      "gateway"
+    ],
+    "shortDescription": "MCP aggregator, orchestrator, middleware, and gateway",
+    "longDescription": "<p>MetaMCP unifies <strong>Model Context Protocol</strong> servers behind one app with PostgreSQL persistence.</p><p>Database credentials use <code>SERVICE_USER_POSTGRES</code> and <code>SERVICE_PASSWORD_POSTGRES</code>. Auth secret uses <code>SERVICE_PASSWORD_AUTH</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "mcp"
+    ],
+    "tags": [
+      "mcp",
+      "ki",
+      "sse",
+      "aggregator",
+      "orchestrator",
+      "middleware",
+      "gateway"
+    ],
+    "shortDescription": "MCP-Aggregator, -Orchestrator, -Middleware und -Gateway",
+    "longDescription": "<p>MetaMCP vereinheitlicht <strong>Model Context Protocol</strong>-Server hinter einer App mit PostgreSQL-Persistenz.</p><p>Datenbank-Zugangsdaten verwenden <code>SERVICE_USER_POSTGRES</code> und <code>SERVICE_PASSWORD_POSTGRES</code>. Der Auth-Secret verwendet <code>SERVICE_PASSWORD_AUTH</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "mcp"
+    ],
+    "tags": [
+      "mcp",
+      "ia",
+      "sse",
+      "agrégateur",
+      "orchestrateur",
+      "middleware",
+      "passerelle"
+    ],
+    "shortDescription": "Agrégateur, orchestrateurs, middleware et passerelle MCP",
+    "longDescription": "<p>MetaMCP unifie les serveurs <strong>Model Context Protocol</strong> derrière une seule application avec persistance PostgreSQL.</p><p>Les identifiants de base de données utilisent <code>SERVICE_USER_POSTGRES</code> et <code>SERVICE_PASSWORD_POSTGRES</code>. Le secret d'auth utilise <code>SERVICE_PASSWORD_AUTH</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "mcp"
+    ],
+    "tags": [
+      "mcp",
+      "ia",
+      "sse",
+      "agregador",
+      "orquestrador",
+      "middleware",
+      "gateway"
+    ],
+    "shortDescription": "Agregador, orquestrador, middleware e gateway MCP",
+    "longDescription": "<p>MetaMCP unifica servidores <strong>Model Context Protocol</strong> atrás de um único aplicativo com persistência PostgreSQL.</p><p>As credenciais do banco usam <code>SERVICE_USER_POSTGRES</code> e <code>SERVICE_PASSWORD_POSTGRES</code>. O segredo de auth usa <code>SERVICE_PASSWORD_AUTH</code>.</p>"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "sql"
+    ],
+    "tags": [
+      "sql-server",
+      "mssql",
+      "database",
+      "sql",
+      "microsoft",
+      "relational"
+    ],
+    "shortDescription": "Microsoft SQL Server relational database",
+    "longDescription": "<p>SQL Server is a relational database management system from Microsoft.</p><p>Runs on Linux via the official container image with the <strong>sa</strong> account (<code>SERVICE_PASSWORD_MSSQL</code>). Requires accepting the EULA and at least 2 GB of memory.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "sql"
+    ],
+    "tags": [
+      "sql-server",
+      "mssql",
+      "datenbank",
+      "sql",
+      "microsoft",
+      "relational"
+    ],
+    "shortDescription": "Microsoft-SQL-Server-Datenbank",
+    "longDescription": "<p>SQL Server ist ein relationales Datenbankverwaltungssystem von Microsoft.</p><p>Läuft unter Linux über das offizielle Container-Image mit dem <strong>sa</strong>-Konto (<code>SERVICE_PASSWORD_MSSQL</code>). Erfordert die Annahme der EULA und mindestens 2 GB Arbeitsspeicher.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "sql"
+    ],
+    "tags": [
+      "sql-server",
+      "mssql",
+      "base-de-données",
+      "sql",
+      "microsoft",
+      "relationnel"
+    ],
+    "shortDescription": "Base de données relationnelle Microsoft SQL Server",
+    "longDescription": "<p>SQL Server est un système de gestion de base de données relationnelle de Microsoft.</p><p>Tourne sous Linux via l'image de conteneur officielle avec le compte <strong>sa</strong> (<code>SERVICE_PASSWORD_MSSQL</code>). Nécessite l'acceptation de la CLUF et au moins 2 Go de mémoire.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "sql"
+    ],
+    "tags": [
+      "sql-server",
+      "mssql",
+      "banco-de-dados",
+      "sql",
+      "microsoft",
+      "relacional"
+    ],
+    "shortDescription": "Banco de dados relacional Microsoft SQL Server",
+    "longDescription": "<p>SQL Server é um sistema de gerenciamento de banco de dados relacional da Microsoft.</p><p>Roda no Linux via imagem de contêiner oficial com a conta <strong>sa</strong> (<code>SERVICE_PASSWORD_MSSQL</code>). Requer aceitar o EULA e pelo menos 2 GB de memória.</p>"
+  }
+}

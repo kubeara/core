@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "monitoring",
+      "logging",
+      "observability"
+    ],
+    "tags": [
+      "grafana",
+      "postgresql",
+      "monitoring",
+      "dashboards",
+      "metrics",
+      "visualization"
+    ],
+    "shortDescription": "Grafana dashboards backed by PostgreSQL storage",
+    "longDescription": "<p>Grafana with PostgreSQL uses Postgres as the persistent configuration database for dashboards, users, and settings.</p><p>Good fit for production-like deployments requiring durable Grafana state.</p>"
+  },
+  "de": {
+    "category": [
+      "monitoring",
+      "logging",
+      "observability"
+    ],
+    "tags": [
+      "grafana",
+      "postgresql",
+      "monitoring",
+      "dashboards",
+      "metriken",
+      "visualisierung"
+    ],
+    "shortDescription": "Grafana-Dashboards mit PostgreSQL-Speicherung",
+    "longDescription": "<p>Grafana mit PostgreSQL nutzt Postgres als persistente Konfigurationsdatenbank für Dashboards, Benutzer und Einstellungen.</p><p>Gut geeignet für produktionsnahe Bereitstellungen, die einen dauerhaften Grafana-Zustand erfordern.</p>"
+  },
+  "fr": {
+    "category": [
+      "supervision",
+      "journalisation",
+      "observabilité"
+    ],
+    "tags": [
+      "grafana",
+      "postgresql",
+      "supervision",
+      "tableaux-de-bord",
+      "métriques",
+      "visualisation"
+    ],
+    "shortDescription": "Tableaux de bord Grafana avec stockage PostgreSQL",
+    "longDescription": "<p>Grafana avec PostgreSQL utilise Postgres comme base de configuration persistante pour les tableaux de bord, les utilisateurs et les paramètres.</p><p>Idéal pour des déploiements proches de la production nécessitant un état Grafana durable.</p>"
+  },
+  "pt": {
+    "category": [
+      "monitoramento",
+      "logging",
+      "observabilidade"
+    ],
+    "tags": [
+      "grafana",
+      "postgresql",
+      "monitoramento",
+      "dashboards",
+      "métricas",
+      "visualização"
+    ],
+    "shortDescription": "Dashboards do Grafana com armazenamento PostgreSQL",
+    "longDescription": "<p>Grafana com PostgreSQL usa o Postgres como banco de configuração persistente para dashboards, usuários e configurações.</p><p>Boa opção para implantações próximas da produção que exigem estado duradouro do Grafana.</p>"
+  }
+}

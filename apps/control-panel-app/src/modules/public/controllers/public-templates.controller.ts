@@ -33,11 +33,13 @@ export class TemplatesController {
   async listTemplates(
     @Query("category") category?: string,
     @Query("search") search?: string,
+    @Query("locale") locale?: string,
   ): Promise<PublicTemplateListItemDto[]> {
     try {
       return await this.serviceTemplateService.listPublicTemplates(
         category,
         search,
+        locale,
       );
     } catch (error) {
       this.logger.error(
@@ -52,9 +54,9 @@ export class TemplatesController {
    */
   @Get("categories")
   @Header("Cache-Control", "public, max-age=300")
-  async listCategories(): Promise<string[]> {
+  async listCategories(@Query("locale") locale?: string): Promise<string[]> {
     try {
-      return await this.serviceTemplateService.listUniqueCategories();
+      return await this.serviceTemplateService.listUniqueCategories(locale);
     } catch (error) {
       this.logger.error(
         `List public template categories failed: ${toErrorMessage(error)}`,
@@ -70,9 +72,13 @@ export class TemplatesController {
   @Header("Cache-Control", "public, max-age=300")
   async getTemplate(
     @Param("slug") slug: string,
+    @Query("locale") locale?: string,
   ): Promise<PublicTemplateDetailsDto> {
     try {
-      return await this.serviceTemplateService.getPublicTemplateDetails(slug);
+      return await this.serviceTemplateService.getPublicTemplateDetails(
+        slug,
+        locale,
+      );
     } catch (error) {
       this.logger.error(`Get public template failed: ${toErrorMessage(error)}`);
       throw error;

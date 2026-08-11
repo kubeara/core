@@ -1,0 +1,58 @@
+{
+  "en": {
+    "category": [
+      "self-hosted-dashboards"
+    ],
+    "tags": [
+      "organizr",
+      "dashboard",
+      "portal",
+      "homelab",
+      "startpage"
+    ],
+    "shortDescription": "Centralized dashboard and SSO-style portal for your services",
+    "longDescription": "<p>Organizr is a self-hosted <strong>dashboard and portal</strong> for consolidating access to your apps.</p><p>It helps unify service links in one place and offers optional authentication and tabbed organization.</p>"
+  },
+  "de": {
+    "category": [
+      "self-hosted-dashboards"
+    ],
+    "tags": [
+      "organizr",
+      "dashboard",
+      "portal",
+      "homelab",
+      "startseite"
+    ],
+    "shortDescription": "Zentrales Dashboard und SSO-artiges Portal für deine Dienste",
+    "longDescription": "<p>Organizr ist ein selbst gehostetes <strong>Dashboard und Portal</strong> zur Bündelung des Zugriffs auf deine Apps.</p><p>Es vereinheitlicht Dienst-Links an einem Ort und bietet optionale Authentifizierung sowie Tab-basierte Organisation.</p>"
+  },
+  "fr": {
+    "category": [
+      "tableaux-de-bord-self-hosted"
+    ],
+    "tags": [
+      "organizr",
+      "dashboard",
+      "portail",
+      "homelab",
+      "page-démarrage"
+    ],
+    "shortDescription": "Tableau de bord centralisé et portail type SSO pour vos services",
+    "longDescription": "<p>Organizr est un <strong>tableau de bord et portail</strong> auto-hébergé pour regrouper l'accès à vos applications.</p><p>Il centralise les liens des services au même endroit et offre une authentification optionnelle et une organisation par onglets.</p>"
+  },
+  "pt": {
+    "category": [
+      "dashboards-self-hosted"
+    ],
+    "tags": [
+      "organizr",
+      "dashboard",
+      "portal",
+      "homelab",
+      "pagina-inicial"
+    ],
+    "shortDescription": "Dashboard centralizado e portal estilo SSO para seus serviços",
+    "longDescription": "<p>Organizr é um <strong>dashboard e portal</strong> auto-hospedado para consolidar o acesso aos seus apps.</p><p>Ele unifica os links dos serviços em um só lugar e oferece autenticação opcional e organização por abas.</p>"
+  }
+}

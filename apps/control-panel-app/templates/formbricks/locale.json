@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "analytics",
+      "forms",
+      "surveys"
+    ],
+    "tags": [
+      "formbricks",
+      "surveys",
+      "forms",
+      "feedback",
+      "nps",
+      "analytics",
+      "cx"
+    ],
+    "shortDescription": "Open-source surveys and experience management",
+    "longDescription": "<p>Formbricks is an open-source <strong>survey and experience management</strong> platform for in-product and link surveys, NPS, and feedback analytics.</p><p>Includes PostgreSQL (pgvector), Redis, Formbricks Hub, and Cube. Set <code>WEBAPP_URL</code> / <code>NEXTAUTH_URL</code> via <code>SERVICE_URL_FORMBRICKS</code> to your public URL. Complete the setup wizard on first launch.</p>"
+  },
+  "de": {
+    "category": [
+      "analytik",
+      "formulare",
+      "umfragen"
+    ],
+    "tags": [
+      "formbricks",
+      "umfragen",
+      "formulare",
+      "feedback",
+      "nps",
+      "analytik",
+      "cx"
+    ],
+    "shortDescription": "Open-Source-Umfragen und Experience Management",
+    "longDescription": "<p>Formbricks ist eine Open-Source-Plattform für <strong>Umfragen und Experience Management</strong> für In-Produkt- und Link-Umfragen, NPS und Feedback-Analytik.</p><p>Enthält PostgreSQL (pgvector), Redis, Formbricks Hub und Cube. Setze <code>WEBAPP_URL</code> / <code>NEXTAUTH_URL</code> über <code>SERVICE_URL_FORMBRICKS</code> auf deine öffentliche URL. Schließe den Einrichtungsassistenten beim ersten Start ab.</p>"
+  },
+  "fr": {
+    "category": [
+      "analytique",
+      "formulaires",
+      "sondages"
+    ],
+    "tags": [
+      "formbricks",
+      "sondages",
+      "formulaires",
+      "feedback",
+      "nps",
+      "analytique",
+      "cx"
+    ],
+    "shortDescription": "Sondages open source et gestion de l'expérience",
+    "longDescription": "<p>Formbricks est une plateforme open source de <strong>gestion des sondages et de l'expérience</strong> pour les sondages intégrés et par lien, le NPS et l'analytique des retours.</p><p>Inclut PostgreSQL (pgvector), Redis, Formbricks Hub et Cube. Définissez <code>WEBAPP_URL</code> / <code>NEXTAUTH_URL</code> via <code>SERVICE_URL_FORMBRICKS</code> vers votre URL publique. Terminez l'assistant de configuration au premier lancement.</p>"
+  },
+  "pt": {
+    "category": [
+      "análises",
+      "formulários",
+      "pesquisas"
+    ],
+    "tags": [
+      "formbricks",
+      "pesquisas",
+      "formulários",
+      "feedback",
+      "nps",
+      "análises",
+      "cx"
+    ],
+    "shortDescription": "Pesquisas open-source e gestão de experiência",
+    "longDescription": "<p>Formbricks é uma plataforma open-source de <strong>pesquisas e gestão de experiência</strong> para pesquisas no produto e por link, NPS e análises de feedback.</p><p>Inclui PostgreSQL (pgvector), Redis, Formbricks Hub e Cube. Defina <code>WEBAPP_URL</code> / <code>NEXTAUTH_URL</code> via <code>SERVICE_URL_FORMBRICKS</code> para sua URL pública. Conclua o assistente de configuração no primeiro acesso.</p>"
+  }
+}

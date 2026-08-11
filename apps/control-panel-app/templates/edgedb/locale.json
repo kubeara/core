@@ -1,0 +1,62 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "postgresql"
+    ],
+    "tags": [
+      "edgedb",
+      "database",
+      "sql",
+      "graph-relational",
+      "postgres"
+    ],
+    "shortDescription": "Graph-relational database powered by PostgreSQL",
+    "longDescription": "<p>EdgeDB is an open-source <strong>graph-relational database</strong> with a modern type system, backed by PostgreSQL.</p><p>Server on port 5656. Credentials use <code>SERVICE_PASSWORD_EDGEDB</code> with a dedicated Postgres backend.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "postgresql"
+    ],
+    "tags": [
+      "edgedb",
+      "datenbank",
+      "sql",
+      "graph-relational",
+      "postgres"
+    ],
+    "shortDescription": "Graph-relationale Datenbank auf Basis von PostgreSQL",
+    "longDescription": "<p>EdgeDB ist eine Open-Source-<strong>graph-relationale Datenbank</strong> mit modernem Typsystem, basierend auf PostgreSQL.</p><p>Server auf Port 5656. Zugangsdaten verwenden <code>SERVICE_PASSWORD_EDGEDB</code> mit einem dedizierten Postgres-Backend.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "postgresql"
+    ],
+    "tags": [
+      "edgedb",
+      "base-de-données",
+      "sql",
+      "graph-relationnel",
+      "postgres"
+    ],
+    "shortDescription": "Base de données graphe-relationnelle propulsée par PostgreSQL",
+    "longDescription": "<p>EdgeDB est une <strong>base de données graphe-relationnelle</strong> open source avec un système de types moderne, soutenue par PostgreSQL.</p><p>Serveur sur le port 5656. Les identifiants utilisent <code>SERVICE_PASSWORD_EDGEDB</code> avec un backend Postgres dédié.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "postgresql"
+    ],
+    "tags": [
+      "edgedb",
+      "banco-de-dados",
+      "sql",
+      "grafo-relacional",
+      "postgres"
+    ],
+    "shortDescription": "Banco de dados grafo-relacional alimentado por PostgreSQL",
+    "longDescription": "<p>EdgeDB é um <strong>banco de dados grafo-relacional</strong> open-source com um sistema de tipos moderno, apoiado pelo PostgreSQL.</p><p>Servidor na porta 5656. As credenciais usam <code>SERVICE_PASSWORD_EDGEDB</code> com um backend Postgres dedicado.</p>"
+  }
+}

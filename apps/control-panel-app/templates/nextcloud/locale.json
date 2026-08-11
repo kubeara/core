@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "storage",
+      "collaboration"
+    ],
+    "tags": [
+      "nextcloud",
+      "files",
+      "cloud",
+      "storage",
+      "collaboration",
+      "sync"
+    ],
+    "shortDescription": "Self-hosted file sync and collaboration platform",
+    "longDescription": "<p>Nextcloud is a self-hosted <strong>file sync and share</strong> platform with calendar, contacts, and collaboration apps.</p><p>Includes MariaDB and Redis. Database credentials use <code>SERVICE_USER_NEXTCLOUD</code> and <code>SERVICE_PASSWORD_NEXTCLOUD</code>; admin password uses <code>SERVICE_PASSWORD_NEXTCLOUD_ADMIN</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "speicher",
+      "kollaboration"
+    ],
+    "tags": [
+      "nextcloud",
+      "dateien",
+      "cloud",
+      "speicher",
+      "kollaboration",
+      "sync"
+    ],
+    "shortDescription": "Self-Hosted-Plattform für Datei-Sync und Zusammenarbeit",
+    "longDescription": "<p>Nextcloud ist eine selbst gehostete Plattform für <strong>Datei-Sync und -Sharing</strong> mit Kalender-, Kontakt- und Kollaborations-Apps.</p><p>Enthält MariaDB und Redis. Datenbank-Zugangsdaten verwenden <code>SERVICE_USER_NEXTCLOUD</code> und <code>SERVICE_PASSWORD_NEXTCLOUD</code>; das Admin-Passwort verwendet <code>SERVICE_PASSWORD_NEXTCLOUD_ADMIN</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "stockage",
+      "collaboration"
+    ],
+    "tags": [
+      "nextcloud",
+      "fichiers",
+      "cloud",
+      "stockage",
+      "collaboration",
+      "synchronisation"
+    ],
+    "shortDescription": "Plateforme auto-hébergée de synchronisation et de collaboration de fichiers",
+    "longDescription": "<p>Nextcloud est une plateforme auto-hébergée de <strong>synchronisation et de partage de fichiers</strong> avec calendrier, contacts et applications de collaboration.</p><p>Inclut MariaDB et Redis. Les identifiants de base de données utilisent <code>SERVICE_USER_NEXTCLOUD</code> et <code>SERVICE_PASSWORD_NEXTCLOUD</code> ; le mot de passe admin utilise <code>SERVICE_PASSWORD_NEXTCLOUD_ADMIN</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "armazenamento",
+      "colaboração"
+    ],
+    "tags": [
+      "nextcloud",
+      "arquivos",
+      "cloud",
+      "armazenamento",
+      "colaboração",
+      "sincronização"
+    ],
+    "shortDescription": "Plataforma auto-hospedada de sincronização e colaboração de arquivos",
+    "longDescription": "<p>Nextcloud é uma plataforma auto-hospedada de <strong>sincronização e compartilhamento de arquivos</strong> com calendário, contatos e apps de colaboração.</p><p>Inclui MariaDB e Redis. As credenciais do banco usam <code>SERVICE_USER_NEXTCLOUD</code> e <code>SERVICE_PASSWORD_NEXTCLOUD</code>; a senha de admin usa <code>SERVICE_PASSWORD_NEXTCLOUD_ADMIN</code>.</p>"
+  }
+}

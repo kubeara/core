@@ -1,0 +1,82 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "llm"
+    ],
+    "tags": [
+      "librechat",
+      "ai",
+      "chat",
+      "gpt",
+      "claude",
+      "openai",
+      "anthropic",
+      "ollama",
+      "llm",
+      "rag"
+    ],
+    "shortDescription": "Self-hosted multi-model AI chat UI",
+    "longDescription": "<p>LibreChat is a <strong>privacy-focused chat UI</strong> for OpenAI, Anthropic, Google, Azure, Ollama, and more.</p><p>Includes MongoDB, Meilisearch, pgvector, and RAG API. Secrets use <code>SERVICE_PASSWORD_JWT</code>, <code>SERVICE_PASSWORD_MEILI</code>, and related <code>SERVICE_*</code> keys. Set provider API keys after deploy.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "llm"
+    ],
+    "tags": [
+      "librechat",
+      "ki",
+      "chat",
+      "gpt",
+      "claude",
+      "openai",
+      "anthropic",
+      "ollama",
+      "llm",
+      "rag"
+    ],
+    "shortDescription": "Self-Hosted-Chat-UI für mehrere KI-Modelle",
+    "longDescription": "<p>LibreChat ist eine <strong>datenschutzorientierte Chat-Oberfläche</strong> für OpenAI, Anthropic, Google, Azure, Ollama und mehr.</p><p>Enthält MongoDB, Meilisearch, pgvector und RAG-API. Geheimnisse verwenden <code>SERVICE_PASSWORD_JWT</code>, <code>SERVICE_PASSWORD_MEILI</code> und zugehörige <code>SERVICE_*</code>-Schlüssel. Setze nach der Bereitstellung API-Schlüssel der Anbieter.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "llm"
+    ],
+    "tags": [
+      "librechat",
+      "ia",
+      "chat",
+      "gpt",
+      "claude",
+      "openai",
+      "anthropic",
+      "ollama",
+      "llm",
+      "rag"
+    ],
+    "shortDescription": "Interface de chat IA multi-modèles auto-hébergée",
+    "longDescription": "<p>LibreChat est une <strong>interface de chat axée sur la confidentialité</strong> pour OpenAI, Anthropic, Google, Azure, Ollama et plus.</p><p>Inclut MongoDB, Meilisearch, pgvector et l'API RAG. Les secrets utilisent <code>SERVICE_PASSWORD_JWT</code>, <code>SERVICE_PASSWORD_MEILI</code> et les clés <code>SERVICE_*</code> associées. Définissez les clés API des fournisseurs après le déploiement.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "llm"
+    ],
+    "tags": [
+      "librechat",
+      "ia",
+      "chat",
+      "gpt",
+      "claude",
+      "openai",
+      "anthropic",
+      "ollama",
+      "llm",
+      "rag"
+    ],
+    "shortDescription": "Interface de chat de IA multimodelo auto-hospedada",
+    "longDescription": "<p>LibreChat é uma <strong>interface de chat focada em privacidade</strong> para OpenAI, Anthropic, Google, Azure, Ollama e mais.</p><p>Inclui MongoDB, Meilisearch, pgvector e API RAG. Os segredos usam <code>SERVICE_PASSWORD_JWT</code>, <code>SERVICE_PASSWORD_MEILI</code> e chaves <code>SERVICE_*</code> relacionadas. Defina as chaves de API dos provedores após o deploy.</p>"
+  }
+}

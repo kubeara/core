@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "search"
+    ],
+    "tags": [
+      "typesense",
+      "search",
+      "search-engine",
+      "full-text",
+      "vector",
+      "elasticsearch-alternative"
+    ],
+    "shortDescription": "Fast typo-tolerant search engine",
+    "longDescription": "<p>Typesense is an open-source <strong>search engine</strong> for instant, typo-tolerant full-text and vector search.</p><p>HTTP API on port 8108. API key authentication uses <code>SERVICE_PASSWORD_TYPESENSE</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "suche"
+    ],
+    "tags": [
+      "typesense",
+      "suche",
+      "suchmaschine",
+      "volltext",
+      "vektor",
+      "elasticsearch-alternative"
+    ],
+    "shortDescription": "Schnelle, tippfehlertolerante Suchmaschine",
+    "longDescription": "<p>Typesense ist eine Open-Source-<strong>Suchmaschine</strong> für sofortige, tippfehlertolerante Volltext- und Vektorsuche.</p><p>HTTP-API auf Port 8108. Die API-Key-Authentifizierung verwendet <code>SERVICE_PASSWORD_TYPESENSE</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "recherche"
+    ],
+    "tags": [
+      "typesense",
+      "recherche",
+      "moteur-de-recherche",
+      "plein-texte",
+      "vecteur",
+      "alternative-elasticsearch"
+    ],
+    "shortDescription": "Moteur de recherche rapide tolérant aux fautes de frappe",
+    "longDescription": "<p>Typesense est un <strong>moteur de recherche</strong> open source pour une recherche plein texte et vectorielle instantanée et tolérante aux fautes de frappe.</p><p>API HTTP sur le port 8108. L'authentification par clé API utilise <code>SERVICE_PASSWORD_TYPESENSE</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "busca"
+    ],
+    "tags": [
+      "typesense",
+      "busca",
+      "mecanismo-de-busca",
+      "texto-completo",
+      "vetor",
+      "alternativa-elasticsearch"
+    ],
+    "shortDescription": "Mecanismo de busca rápido tolerante a erros de digitação",
+    "longDescription": "<p>Typesense é um <strong>mecanismo de busca</strong> open-source para busca instantânea de texto completo e vetorial, tolerante a erros de digitação.</p><p>API HTTP na porta 8108. A autenticação por chave de API usa <code>SERVICE_PASSWORD_TYPESENSE</code>.</p>"
+  }
+}

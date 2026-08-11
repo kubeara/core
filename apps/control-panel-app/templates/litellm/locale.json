@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "api"
+    ],
+    "tags": [
+      "litellm",
+      "ai",
+      "llm",
+      "proxy",
+      "gateway",
+      "openai",
+      "api"
+    ],
+    "shortDescription": "OpenAI-compatible proxy gateway for 100+ LLM providers",
+    "longDescription": "<p>LiteLLM is an <strong>AI gateway</strong> that exposes a unified OpenAI-compatible API across LLM providers.</p><p>Includes PostgreSQL for virtual keys and model management. Master key uses <code>SERVICE_HEX_64_LITELLM</code>; database credentials use <code>SERVICE_USER_LITELLM</code> and <code>SERVICE_PASSWORD_LITELLM</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "api"
+    ],
+    "tags": [
+      "litellm",
+      "ki",
+      "llm",
+      "proxy",
+      "gateway",
+      "openai",
+      "api"
+    ],
+    "shortDescription": "OpenAI-kompatibles Proxy-Gateway für über 100 LLM-Anbieter",
+    "longDescription": "<p>LiteLLM ist ein <strong>KI-Gateway</strong>, das eine einheitliche OpenAI-kompatible API über LLM-Anbieter hinweg bereitstellt.</p><p>Enthält PostgreSQL für virtuelle Schlüssel und Modellverwaltung. Der Master-Key verwendet <code>SERVICE_HEX_64_LITELLM</code>; Datenbank-Zugangsdaten verwenden <code>SERVICE_USER_LITELLM</code> und <code>SERVICE_PASSWORD_LITELLM</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "api"
+    ],
+    "tags": [
+      "litellm",
+      "ia",
+      "llm",
+      "proxy",
+      "passerelle",
+      "openai",
+      "api"
+    ],
+    "shortDescription": "Passerelle proxy compatible OpenAI pour plus de 100 fournisseurs LLM",
+    "longDescription": "<p>LiteLLM est une <strong>passerelle IA</strong> qui expose une API unifiée compatible OpenAI à travers les fournisseurs LLM.</p><p>Inclut PostgreSQL pour les clés virtuelles et la gestion des modèles. La clé principale utilise <code>SERVICE_HEX_64_LITELLM</code> ; les identifiants de base de données utilisent <code>SERVICE_USER_LITELLM</code> et <code>SERVICE_PASSWORD_LITELLM</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "api"
+    ],
+    "tags": [
+      "litellm",
+      "ia",
+      "llm",
+      "proxy",
+      "gateway",
+      "openai",
+      "api"
+    ],
+    "shortDescription": "Gateway proxy compatível com OpenAI para mais de 100 provedores de LLM",
+    "longDescription": "<p>LiteLLM é um <strong>gateway de IA</strong> que expõe uma API unificada compatível com OpenAI entre provedores de LLM.</p><p>Inclui PostgreSQL para chaves virtuais e gestão de modelos. A chave mestra usa <code>SERVICE_HEX_64_LITELLM</code>; as credenciais do banco usam <code>SERVICE_USER_LITELLM</code> e <code>SERVICE_PASSWORD_LITELLM</code>.</p>"
+  }
+}

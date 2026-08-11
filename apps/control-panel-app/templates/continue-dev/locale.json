@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "development"
+    ],
+    "tags": [
+      "continue",
+      "continue-dev",
+      "ai",
+      "coding",
+      "ollama",
+      "llm",
+      "ide"
+    ],
+    "shortDescription": "Ollama backend for the Continue IDE extension",
+    "longDescription": "<p>Continue is an IDE extension; this template deploys <strong>Ollama</strong> as the recommended local backend.</p><p>Point Continue at <code>${SERVICE_URL_CONTINUE_DEV}</code> with provider <code>ollama</code>. On first deploy, a one-shot init job pulls <code>llama3.2</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "entwicklung"
+    ],
+    "tags": [
+      "continue",
+      "continue-dev",
+      "ki",
+      "programmierung",
+      "ollama",
+      "llm",
+      "ide"
+    ],
+    "shortDescription": "Ollama-Backend für die Continue-IDE-Erweiterung",
+    "longDescription": "<p>Continue ist eine IDE-Erweiterung; diese Vorlage stellt <strong>Ollama</strong> als empfohlenes lokales Backend bereit.</p><p>Richte Continue auf <code>${SERVICE_URL_CONTINUE_DEV}</code> mit dem Anbieter <code>ollama</code> aus. Beim ersten Deploy lädt ein einmaliger Init-Job <code>llama3.2</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "développement"
+    ],
+    "tags": [
+      "continue",
+      "continue-dev",
+      "ia",
+      "codage",
+      "ollama",
+      "llm",
+      "ide"
+    ],
+    "shortDescription": "Backend Ollama pour l'extension d'IDE Continue",
+    "longDescription": "<p>Continue est une extension d'IDE ; ce modèle déploie <strong>Ollama</strong> comme backend local recommandé.</p><p>Pointez Continue vers <code>${SERVICE_URL_CONTINUE_DEV}</code> avec le fournisseur <code>ollama</code>. Au premier déploiement, un job init unique télécharge <code>llama3.2</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "desenvolvimento"
+    ],
+    "tags": [
+      "continue",
+      "continue-dev",
+      "ia",
+      "codificação",
+      "ollama",
+      "llm",
+      "ide"
+    ],
+    "shortDescription": "Backend Ollama para a extensão de IDE Continue",
+    "longDescription": "<p>Continue é uma extensão de IDE; este template implanta <strong>Ollama</strong> como o backend local recomendado.</p><p>Aponte o Continue para <code>${SERVICE_URL_CONTINUE_DEV}</code> com o provedor <code>ollama</code>. No primeiro deploy, um job de init único baixa <code>llama3.2</code>.</p>"
+  }
+}

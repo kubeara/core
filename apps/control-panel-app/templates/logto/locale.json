@@ -1,0 +1,82 @@
+{
+  "en": {
+    "category": [
+      "security",
+      "auth",
+      "iam"
+    ],
+    "tags": [
+      "logto",
+      "auth",
+      "oidc",
+      "oauth",
+      "sso",
+      "iam",
+      "identity",
+      "authentication",
+      "mfa"
+    ],
+    "shortDescription": "Open-source Auth and identity infrastructure",
+    "longDescription": "<p>Logto is an open-source <strong>Auth and identity</strong> platform for OIDC, OAuth 2.0, SAML, and user management.</p><p>Includes PostgreSQL. Auth/OIDC endpoint on port 3001; Admin Console on port 3002. Set <code>ENDPOINT</code> via <code>SERVICE_URL_LOGTO</code> and <code>ADMIN_ENDPOINT</code> via <code>SERVICE_URL_LOGTOADMIN</code>. Complete the Admin Console setup wizard on first launch at port 3002.</p>"
+  },
+  "de": {
+    "category": [
+      "sicherheit",
+      "auth",
+      "iam"
+    ],
+    "tags": [
+      "logto",
+      "auth",
+      "oidc",
+      "oauth",
+      "sso",
+      "iam",
+      "identität",
+      "authentifizierung",
+      "mfa"
+    ],
+    "shortDescription": "Open-Source-Auth- und Identitätsinfrastruktur",
+    "longDescription": "<p>Logto ist eine Open-Source-<strong>Auth- und Identitätsplattform</strong> für OIDC, OAuth 2.0, SAML und Benutzerverwaltung.</p><p>Enthält PostgreSQL. Auth-/OIDC-Endpunkt auf Port 3001; Admin-Konsole auf Port 3002. Setze <code>ENDPOINT</code> über <code>SERVICE_URL_LOGTO</code> und <code>ADMIN_ENDPOINT</code> über <code>SERVICE_URL_LOGTOADMIN</code>. Schließe den Einrichtungsassistenten der Admin-Konsole beim ersten Start auf Port 3002 ab.</p>"
+  },
+  "fr": {
+    "category": [
+      "sécurité",
+      "auth",
+      "iam"
+    ],
+    "tags": [
+      "logto",
+      "auth",
+      "oidc",
+      "oauth",
+      "sso",
+      "iam",
+      "identité",
+      "authentification",
+      "mfa"
+    ],
+    "shortDescription": "Infrastructure open source d'authentification et d'identité",
+    "longDescription": "<p>Logto est une plateforme open source d'<strong>authentification et d'identité</strong> pour OIDC, OAuth 2.0, SAML et la gestion des utilisateurs.</p><p>Inclut PostgreSQL. Point de terminaison Auth/OIDC sur le port 3001 ; console d'administration sur le port 3002. Définissez <code>ENDPOINT</code> via <code>SERVICE_URL_LOGTO</code> et <code>ADMIN_ENDPOINT</code> via <code>SERVICE_URL_LOGTOADMIN</code>. Terminez l'assistant de configuration de la console d'administration au premier lancement sur le port 3002.</p>"
+  },
+  "pt": {
+    "category": [
+      "segurança",
+      "auth",
+      "iam"
+    ],
+    "tags": [
+      "logto",
+      "auth",
+      "oidc",
+      "oauth",
+      "sso",
+      "iam",
+      "identidade",
+      "autenticação",
+      "mfa"
+    ],
+    "shortDescription": "Infraestrutura open-source de Auth e identidade",
+    "longDescription": "<p>Logto é uma plataforma open-source de <strong>Auth e identidade</strong> para OIDC, OAuth 2.0, SAML e gestão de usuários.</p><p>Inclui PostgreSQL. Endpoint Auth/OIDC na porta 3001; Admin Console na porta 3002. Defina <code>ENDPOINT</code> via <code>SERVICE_URL_LOGTO</code> e <code>ADMIN_ENDPOINT</code> via <code>SERVICE_URL_LOGTOADMIN</code>. Conclua o assistente de configuração da Admin Console no primeiro acesso na porta 3002.</p>"
+  }
+}

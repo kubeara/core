@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "automation",
+      "workflows",
+      "integration"
+    ],
+    "tags": [
+      "evolution-api",
+      "whatsapp",
+      "api",
+      "automation",
+      "postgresql",
+      "redis",
+      "webhook"
+    ],
+    "shortDescription": "WhatsApp API gateway and automation backend",
+    "longDescription": "<p>Evolution API is a self-hosted WhatsApp API platform for messaging automation, integrations, and webhook-driven workflows.</p><p>This template deploys Evolution API with PostgreSQL and Redis dependencies for production-style persistence and queueing.</p>"
+  },
+  "de": {
+    "category": [
+      "automatisierung",
+      "workflows",
+      "integration"
+    ],
+    "tags": [
+      "evolution-api",
+      "whatsapp",
+      "api",
+      "automatisierung",
+      "postgresql",
+      "redis",
+      "webhook"
+    ],
+    "shortDescription": "WhatsApp-API-Gateway und Automatisierungs-Backend",
+    "longDescription": "<p>Evolution API ist eine selbst gehostete WhatsApp-API-Plattform für Nachrichtenautomatisierung, Integrationen und Webhook-gesteuerte Workflows.</p><p>Diese Vorlage stellt Evolution API mit PostgreSQL- und Redis-Abhängigkeiten für produktionsnahe Persistenz und Queueing bereit.</p>"
+  },
+  "fr": {
+    "category": [
+      "automatisation",
+      "workflows",
+      "intégration"
+    ],
+    "tags": [
+      "evolution-api",
+      "whatsapp",
+      "api",
+      "automatisation",
+      "postgresql",
+      "redis",
+      "webhook"
+    ],
+    "shortDescription": "Passerelle API WhatsApp et backend d'automatisation",
+    "longDescription": "<p>Evolution API est une plateforme WhatsApp API auto-hébergée pour l'automatisation des messages, les intégrations et les workflows pilotés par webhooks.</p><p>Ce modèle déploie Evolution API avec PostgreSQL et Redis pour une persistance et une file d'attente de niveau production.</p>"
+  },
+  "pt": {
+    "category": [
+      "automação",
+      "workflows",
+      "integração"
+    ],
+    "tags": [
+      "evolution-api",
+      "whatsapp",
+      "api",
+      "automação",
+      "postgresql",
+      "redis",
+      "webhook"
+    ],
+    "shortDescription": "Gateway de API WhatsApp e backend de automação",
+    "longDescription": "<p>Evolution API é uma plataforma WhatsApp API auto-hospedada para automação de mensagens, integrações e workflows orientados a webhooks.</p><p>Este template implanta Evolution API com dependências PostgreSQL e Redis para persistência e filas de nível de produção.</p>"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "crm",
+      "productivity"
+    ],
+    "tags": [
+      "monica",
+      "crm",
+      "personal",
+      "contacts",
+      "relationships",
+      "mariadb"
+    ],
+    "shortDescription": "Personal CRM to manage relationships and contacts",
+    "longDescription": "<p>Monica is an open-source <strong>personal CRM</strong> for tracking interactions, reminders, and notes about friends, family, and colleagues.</p><p>Includes MariaDB. Register your account on first launch.</p>"
+  },
+  "de": {
+    "category": [
+      "crm",
+      "produktivität"
+    ],
+    "tags": [
+      "monica",
+      "crm",
+      "persönlich",
+      "kontakte",
+      "beziehungen",
+      "mariadb"
+    ],
+    "shortDescription": "Persönliches CRM zur Verwaltung von Beziehungen und Kontakten",
+    "longDescription": "<p>Monica ist ein Open-Source-<strong>persönliches CRM</strong> zum Verfolgen von Interaktionen, Erinnerungen und Notizen über Freunde, Familie und Kollegen.</p><p>Enthält MariaDB. Registriere dein Konto beim ersten Start.</p>"
+  },
+  "fr": {
+    "category": [
+      "crm",
+      "productivité"
+    ],
+    "tags": [
+      "monica",
+      "crm",
+      "personnel",
+      "contacts",
+      "relations",
+      "mariadb"
+    ],
+    "shortDescription": "CRM personnel pour gérer relations et contacts",
+    "longDescription": "<p>Monica est un <strong>CRM personnel</strong> open source pour suivre les interactions, rappels et notes concernant amis, famille et collègues.</p><p>Inclut MariaDB. Créez votre compte au premier lancement.</p>"
+  },
+  "pt": {
+    "category": [
+      "crm",
+      "produtividade"
+    ],
+    "tags": [
+      "monica",
+      "crm",
+      "pessoal",
+      "contatos",
+      "relacionamentos",
+      "mariadb"
+    ],
+    "shortDescription": "CRM pessoal para gerenciar relacionamentos e contatos",
+    "longDescription": "<p>Monica é um <strong>CRM pessoal</strong> open-source para acompanhar interações, lembretes e anotações sobre amigos, família e colegas.</p><p>Inclui MariaDB. Registre sua conta no primeiro acesso.</p>"
+  }
+}

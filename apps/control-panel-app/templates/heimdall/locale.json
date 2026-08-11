@@ -1,0 +1,58 @@
+{
+  "en": {
+    "category": [
+      "self-hosted-dashboards"
+    ],
+    "tags": [
+      "heimdall",
+      "dashboard",
+      "homelab",
+      "launcher",
+      "startpage"
+    ],
+    "shortDescription": "Application dashboard and launcher for self-hosted services",
+    "longDescription": "<p>Heimdall provides a simple <strong>application dashboard</strong> where you can pin your services.</p><p>Use it as a central launch page for your homelab and personal infrastructure.</p>"
+  },
+  "de": {
+    "category": [
+      "self-hosted-dashboards"
+    ],
+    "tags": [
+      "heimdall",
+      "dashboard",
+      "homelab",
+      "launcher",
+      "startseite"
+    ],
+    "shortDescription": "Anwendungs-Dashboard und Launcher für Self-Hosted-Dienste",
+    "longDescription": "<p>Heimdall bietet ein einfaches <strong>Anwendungs-Dashboard</strong>, auf dem du deine Dienste anpinnen kannst.</p><p>Nutze es als zentrale Startseite für dein Homelab und deine persönliche Infrastruktur.</p>"
+  },
+  "fr": {
+    "category": [
+      "tableaux-de-bord-self-hébergés"
+    ],
+    "tags": [
+      "heimdall",
+      "tableau-de-bord",
+      "homelab",
+      "lanceur",
+      "page-d'accueil"
+    ],
+    "shortDescription": "Tableau de bord d'applications et lanceur pour services auto-hébergés",
+    "longDescription": "<p>Heimdall fournit un <strong>tableau de bord d'applications</strong> simple où vous pouvez épingler vos services.</p><p>Utilisez-le comme page de lancement centrale pour votre homelab et votre infrastructure personnelle.</p>"
+  },
+  "pt": {
+    "category": [
+      "dashboards-auto-hospedados"
+    ],
+    "tags": [
+      "heimdall",
+      "dashboard",
+      "homelab",
+      "lançador",
+      "página-inicial"
+    ],
+    "shortDescription": "Dashboard de aplicativos e lançador para serviços auto-hospedados",
+    "longDescription": "<p>Heimdall oferece um <strong>dashboard de aplicativos</strong> simples onde você pode fixar seus serviços.</p><p>Use-o como página central de lançamento para seu homelab e infraestrutura pessoal.</p>"
+  }
+}

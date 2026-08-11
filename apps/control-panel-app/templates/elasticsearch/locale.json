@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "search"
+    ],
+    "tags": [
+      "elasticsearch",
+      "search",
+      "analytics",
+      "full-text",
+      "logs",
+      "engine"
+    ],
+    "shortDescription": "Distributed search and analytics engine",
+    "longDescription": "<p>Elasticsearch is a distributed <strong>search and analytics engine</strong> for full-text search, logs, and observability.</p><p>HTTP API on port 9200. Superuser password uses <code>SERVICE_PASSWORD_ELASTICSEARCH</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "suche"
+    ],
+    "tags": [
+      "elasticsearch",
+      "suche",
+      "analytik",
+      "volltext",
+      "logs",
+      "engine"
+    ],
+    "shortDescription": "Verteilter Such- und Analyse-Engine",
+    "longDescription": "<p>Elasticsearch ist ein verteilter <strong>Such- und Analyse-Engine</strong> für Volltextsuche, Logs und Observability.</p><p>HTTP-API auf Port 9200. Das Superuser-Passwort verwendet <code>SERVICE_PASSWORD_ELASTICSEARCH</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "recherche"
+    ],
+    "tags": [
+      "elasticsearch",
+      "recherche",
+      "analytique",
+      "plein-texte",
+      "journaux",
+      "moteur"
+    ],
+    "shortDescription": "Moteur distribué de recherche et d'analyse",
+    "longDescription": "<p>Elasticsearch est un <strong>moteur de recherche et d'analyse</strong> distribué pour la recherche plein texte, les journaux et l'observabilité.</p><p>API HTTP sur le port 9200. Le mot de passe superutilisateur utilise <code>SERVICE_PASSWORD_ELASTICSEARCH</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "busca"
+    ],
+    "tags": [
+      "elasticsearch",
+      "busca",
+      "análises",
+      "texto-completo",
+      "logs",
+      "engine"
+    ],
+    "shortDescription": "Mecanismo distribuído de busca e análise",
+    "longDescription": "<p>Elasticsearch é um <strong>mecanismo de busca e análise</strong> distribuído para busca em texto completo, logs e observabilidade.</p><p>API HTTP na porta 9200. A senha do superusuário usa <code>SERVICE_PASSWORD_ELASTICSEARCH</code>.</p>"
+  }
+}

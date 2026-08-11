@@ -1,0 +1,62 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "nosql"
+    ],
+    "tags": [
+      "mongodb",
+      "database",
+      "nosql",
+      "document",
+      "json"
+    ],
+    "shortDescription": "Document-oriented NoSQL database",
+    "longDescription": "<p>MongoDB is a popular <strong>document database</strong> for flexible schemas, JSON-like documents, and horizontal scaling.</p><p>Compose-only template using magic <code>SERVICE_*</code> variables for credentials and host port configuration.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "nosql"
+    ],
+    "tags": [
+      "mongodb",
+      "datenbank",
+      "nosql",
+      "dokument",
+      "json"
+    ],
+    "shortDescription": "Dokumentorientierte NoSQL-Datenbank",
+    "longDescription": "<p>MongoDB ist eine beliebte <strong>Dokumentdatenbank</strong> für flexible Schemas, JSON-ähnliche Dokumente und horizontale Skalierung.</p><p>Compose-only-Vorlage mit magischen <code>SERVICE_*</code>-Variablen für Zugangsdaten und Host-Port-Konfiguration.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "nosql"
+    ],
+    "tags": [
+      "mongodb",
+      "base-de-données",
+      "nosql",
+      "document",
+      "json"
+    ],
+    "shortDescription": "Base de données NoSQL orientée documents",
+    "longDescription": "<p>MongoDB est une <strong>base de données documentaire</strong> populaire pour les schémas flexibles, les documents de type JSON et la mise à l'échelle horizontale.</p><p>Modèle compose uniquement utilisant les variables magiques <code>SERVICE_*</code> pour les identifiants et la configuration du port hôte.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "nosql"
+    ],
+    "tags": [
+      "mongodb",
+      "banco-de-dados",
+      "nosql",
+      "documento",
+      "json"
+    ],
+    "shortDescription": "Banco de dados NoSQL orientado a documentos",
+    "longDescription": "<p>MongoDB é um <strong>banco de dados documental</strong> popular para schemas flexíveis, documentos semelhantes a JSON e escala horizontal.</p><p>Template apenas compose usando variáveis mágicas <code>SERVICE_*</code> para credenciais e configuração da porta do host.</p>"
+  }
+}

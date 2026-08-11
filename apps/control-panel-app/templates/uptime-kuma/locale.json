@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "monitoring",
+      "uptime"
+    ],
+    "tags": [
+      "uptime-kuma",
+      "monitoring",
+      "status",
+      "alerts",
+      "healthcheck",
+      "notifications"
+    ],
+    "shortDescription": "Self-hosted uptime and status page monitoring",
+    "longDescription": "<p>Uptime Kuma is a self-hosted monitoring tool for <strong>HTTP(s)</strong>, TCP, ping, DNS, and more.</p><p>Create monitors, receive alerts, and publish public status pages. Complete the setup wizard on first launch.</p>"
+  },
+  "de": {
+    "category": [
+      "überwachung",
+      "uptime"
+    ],
+    "tags": [
+      "uptime-kuma",
+      "überwachung",
+      "status",
+      "alerts",
+      "healthcheck",
+      "benachrichtigungen"
+    ],
+    "shortDescription": "Self-Hosted-Uptime- und Statusseiten-Überwachung",
+    "longDescription": "<p>Uptime Kuma ist ein selbst gehostetes Überwachungstool für <strong>HTTP(s)</strong>, TCP, Ping, DNS und mehr.</p><p>Erstelle Monitore, erhalte Alerts und veröffentliche öffentliche Statusseiten. Schließe den Einrichtungsassistenten beim ersten Start ab.</p>"
+  },
+  "fr": {
+    "category": [
+      "surveillance",
+      "disponibilité"
+    ],
+    "tags": [
+      "uptime-kuma",
+      "surveillance",
+      "statut",
+      "alertes",
+      "healthcheck",
+      "notifications"
+    ],
+    "shortDescription": "Surveillance auto-hébergée de la disponibilité et pages de statut",
+    "longDescription": "<p>Uptime Kuma est un outil de surveillance auto-hébergé pour <strong>HTTP(s)</strong>, TCP, ping, DNS, et plus encore.</p><p>Créez des moniteurs, recevez des alertes et publiez des pages de statut publiques. Terminez l'assistant de configuration au premier lancement.</p>"
+  },
+  "pt": {
+    "category": [
+      "monitoramento",
+      "uptime"
+    ],
+    "tags": [
+      "uptime-kuma",
+      "monitoramento",
+      "status",
+      "alertas",
+      "healthcheck",
+      "notificações"
+    ],
+    "shortDescription": "Monitoramento de uptime e páginas de status auto-hospedado",
+    "longDescription": "<p>Uptime Kuma é uma ferramenta de monitoramento auto-hospedada para <strong>HTTP(s)</strong>, TCP, ping, DNS e mais.</p><p>Crie monitores, receba alertas e publique páginas de status públicas. Conclua o assistente de configuração no primeiro acesso.</p>"
+  }
+}

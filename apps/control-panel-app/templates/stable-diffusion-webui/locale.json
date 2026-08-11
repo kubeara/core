@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "image"
+    ],
+    "tags": [
+      "stable-diffusion",
+      "automatic1111",
+      "a1111",
+      "image-generation",
+      "ai",
+      "gpu"
+    ],
+    "shortDescription": "AUTOMATIC1111 Stable Diffusion WebUI for image generation",
+    "longDescription": "<p>AUTOMATIC1111 is a popular <strong>Stable Diffusion web UI</strong> for text-to-image and image-to-image generation.</p><p>Requires an NVIDIA GPU for practical use. Models persist under <code>/data/models</code>; outputs under <code>/data/outputs</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "bild"
+    ],
+    "tags": [
+      "stable-diffusion",
+      "automatic1111",
+      "a1111",
+      "bildgenerierung",
+      "ki",
+      "gpu"
+    ],
+    "shortDescription": "AUTOMATIC1111-Stable-Diffusion-WebUI zur Bildgenerierung",
+    "longDescription": "<p>AUTOMATIC1111 ist eine beliebte <strong>Stable-Diffusion-Web-UI</strong> für Text-zu-Bild- und Bild-zu-Bild-Generierung.</p><p>Erfordert für die praktische Nutzung eine NVIDIA-GPU. Modelle bleiben unter <code>/data/models</code> erhalten; Ausgaben unter <code>/data/outputs</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "image"
+    ],
+    "tags": [
+      "stable-diffusion",
+      "automatic1111",
+      "a1111",
+      "génération-d'images",
+      "ia",
+      "gpu"
+    ],
+    "shortDescription": "AUTOMATIC1111 Stable Diffusion WebUI pour la génération d'images",
+    "longDescription": "<p>AUTOMATIC1111 est une <strong>interface web Stable Diffusion</strong> populaire pour la génération texte-vers-image et image-vers-image.</p><p>Nécessite un GPU NVIDIA pour un usage pratique. Les modèles persistent sous <code>/data/models</code> ; les sorties sous <code>/data/outputs</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "imagem"
+    ],
+    "tags": [
+      "stable-diffusion",
+      "automatic1111",
+      "a1111",
+      "geração-de-imagens",
+      "ia",
+      "gpu"
+    ],
+    "shortDescription": "WebUI AUTOMATIC1111 Stable Diffusion para geração de imagens",
+    "longDescription": "<p>AUTOMATIC1111 é uma <strong>web UI do Stable Diffusion</strong> popular para geração texto-para-imagem e imagem-para-imagem.</p><p>Requer uma GPU NVIDIA para uso prático. Os modelos persistem em <code>/data/models</code>; as saídas em <code>/data/outputs</code>.</p>"
+  }
+}
