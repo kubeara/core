@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "development",
+      "git",
+      "devops"
+    ],
+    "tags": [
+      "gitlab",
+      "git",
+      "ci",
+      "cd",
+      "devops",
+      "scm",
+      "registry"
+    ],
+    "shortDescription": "Self-hosted DevOps platform with Git, CI/CD, and registry",
+    "longDescription": "<p>GitLab Community Edition is a complete <strong>DevOps platform</strong> delivered as a single application.</p><p>Includes Git repositories, issue tracking, CI/CD pipelines, and container registry. First boot is slow and production use requires at least 4 GB RAM.</p>"
+  },
+  "de": {
+    "category": [
+      "entwicklung",
+      "git",
+      "devops"
+    ],
+    "tags": [
+      "gitlab",
+      "git",
+      "ci",
+      "cd",
+      "devops",
+      "scm",
+      "registry"
+    ],
+    "shortDescription": "Self-Hosted-DevOps-Plattform mit Git, CI/CD und Registry",
+    "longDescription": "<p>GitLab Community Edition ist eine vollständige <strong>DevOps-Plattform</strong> als einzelne Anwendung.</p><p>Enthält Git-Repositories, Issue-Tracking, CI/CD-Pipelines und Container-Registry. Der erste Start ist langsam; für den Produktionseinsatz werden mindestens 4 GB RAM benötigt.</p>"
+  },
+  "fr": {
+    "category": [
+      "développement",
+      "git",
+      "devops"
+    ],
+    "tags": [
+      "gitlab",
+      "git",
+      "ci",
+      "cd",
+      "devops",
+      "scm",
+      "registre"
+    ],
+    "shortDescription": "Plateforme DevOps auto-hébergée avec Git, CI/CD et registre",
+    "longDescription": "<p>GitLab Community Edition est une <strong>plateforme DevOps</strong> complète livrée comme une application unique.</p><p>Inclut les dépôts Git, le suivi des issues, les pipelines CI/CD et le registre de conteneurs. Le premier démarrage est lent et l'utilisation en production nécessite au moins 4 Go de RAM.</p>"
+  },
+  "pt": {
+    "category": [
+      "desenvolvimento",
+      "git",
+      "devops"
+    ],
+    "tags": [
+      "gitlab",
+      "git",
+      "ci",
+      "cd",
+      "devops",
+      "scm",
+      "registry"
+    ],
+    "shortDescription": "Plataforma DevOps auto-hospedada com Git, CI/CD e registry",
+    "longDescription": "<p>GitLab Community Edition é uma <strong>plataforma DevOps</strong> completa entregue como uma única aplicação.</p><p>Inclui repositórios Git, rastreamento de issues, pipelines CI/CD e registro de contêineres. O primeiro boot é lento e o uso em produção exige pelo menos 4 GB de RAM.</p>"
+  }
+}

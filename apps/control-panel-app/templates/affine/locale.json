@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "productivity",
+      "collaboration",
+      "notes"
+    ],
+    "tags": [
+      "affine",
+      "notes",
+      "docs",
+      "whiteboard",
+      "knowledge-base",
+      "collaboration",
+      "workspace"
+    ],
+    "shortDescription": "Open-source knowledge base and workspace",
+    "longDescription": "<p>AFFiNE is an open-source <strong>all-in-one workspace</strong> for docs, whiteboards, and knowledge management.</p><p>Includes PostgreSQL (pgvector), Redis, and a one-shot migration job. Set <code>AFFINE_SERVER_EXTERNAL_URL</code> via <code>SERVICE_URL_AFFINE</code>. Create the first admin account on first launch.</p>"
+  },
+  "de": {
+    "category": [
+      "produktivität",
+      "kollaboration",
+      "notizen"
+    ],
+    "tags": [
+      "affine",
+      "notizen",
+      "dokumente",
+      "whiteboard",
+      "wissensdatenbank",
+      "kollaboration",
+      "workspace"
+    ],
+    "shortDescription": "Open-Source-Wissensdatenbank und Workspace",
+    "longDescription": "<p>AFFiNE ist ein Open-Source-<strong>All-in-One-Workspace</strong> für Dokumente, Whiteboards und Wissensmanagement.</p><p>Enthält PostgreSQL (pgvector), Redis und einen einmaligen Migrations-Job. Setze <code>AFFINE_SERVER_EXTERNAL_URL</code> über <code>SERVICE_URL_AFFINE</code>. Erstelle beim ersten Start das erste Admin-Konto.</p>"
+  },
+  "fr": {
+    "category": [
+      "productivité",
+      "collaboration",
+      "notes"
+    ],
+    "tags": [
+      "affine",
+      "notes",
+      "documents",
+      "tableau-blanc",
+      "base-de-connaissances",
+      "collaboration",
+      "workspace"
+    ],
+    "shortDescription": "Base de connaissances et espace de travail open source",
+    "longDescription": "<p>AFFiNE est un <strong>espace de travail tout-en-un</strong> open source pour les documents, les tableaux blancs et la gestion des connaissances.</p><p>Inclut PostgreSQL (pgvector), Redis et un job de migration unique. Définissez <code>AFFINE_SERVER_EXTERNAL_URL</code> via <code>SERVICE_URL_AFFINE</code>. Créez le premier compte administrateur au premier lancement.</p>"
+  },
+  "pt": {
+    "category": [
+      "produtividade",
+      "colaboração",
+      "notas"
+    ],
+    "tags": [
+      "affine",
+      "notas",
+      "documentos",
+      "quadro-branco",
+      "base-de-conhecimento",
+      "colaboração",
+      "workspace"
+    ],
+    "shortDescription": "Base de conhecimento e workspace open-source",
+    "longDescription": "<p>AFFiNE é um <strong>workspace tudo-em-um</strong> open-source para documentos, quadros brancos e gestão de conhecimento.</p><p>Inclui PostgreSQL (pgvector), Redis e um job de migração único. Defina <code>AFFINE_SERVER_EXTERNAL_URL</code> via <code>SERVICE_URL_AFFINE</code>. Crie a primeira conta de administrador no primeiro acesso.</p>"
+  }
+}

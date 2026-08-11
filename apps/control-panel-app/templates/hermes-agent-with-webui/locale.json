@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "agent"
+    ],
+    "tags": [
+      "ai",
+      "agent",
+      "llm",
+      "chatbot",
+      "hermes",
+      "openrouter",
+      "anthropic",
+      "openai"
+    ],
+    "shortDescription": "Autonomous AI agent with persistent memory and web chat UI",
+    "longDescription": "<p>Hermes Agent is an <strong>autonomous AI agent</strong> with scheduling, persistent memory, and a self-hosted web chat UI.</p><p>Web UI password uses <code>SERVICE_PASSWORD_HERMESWEBUI</code>. Provide at least one LLM provider API key (OpenRouter, Anthropic, or OpenAI).</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "agent"
+    ],
+    "tags": [
+      "ki",
+      "agent",
+      "llm",
+      "chatbot",
+      "hermes",
+      "openrouter",
+      "anthropic",
+      "openai"
+    ],
+    "shortDescription": "Autonomer KI-Agent mit persistentem Speicher und Web-Chat-UI",
+    "longDescription": "<p>Hermes Agent ist ein <strong>autonomer KI-Agent</strong> mit Zeitplanung, persistentem Speicher und einer selbst gehosteten Web-Chat-Oberfläche.</p><p>Das Passwort der Web-UI verwendet <code>SERVICE_PASSWORD_HERMESWEBUI</code>. Gib mindestens einen API-Schlüssel eines LLM-Anbieters an (OpenRouter, Anthropic oder OpenAI).</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "agent"
+    ],
+    "tags": [
+      "ia",
+      "agent",
+      "llm",
+      "chatbot",
+      "hermes",
+      "openrouter",
+      "anthropic",
+      "openai"
+    ],
+    "shortDescription": "Agent IA autonome avec mémoire persistante et interface de chat web",
+    "longDescription": "<p>Hermes Agent est un <strong>agent IA autonome</strong> avec planification, mémoire persistante et interface de chat web auto-hébergée.</p><p>Le mot de passe de l'interface web utilise <code>SERVICE_PASSWORD_HERMESWEBUI</code>. Fournissez au moins une clé API de fournisseur LLM (OpenRouter, Anthropic ou OpenAI).</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "agente"
+    ],
+    "tags": [
+      "ia",
+      "agente",
+      "llm",
+      "chatbot",
+      "hermes",
+      "openrouter",
+      "anthropic",
+      "openai"
+    ],
+    "shortDescription": "Agente de IA autônomo com memória persistente e chat web",
+    "longDescription": "<p>Hermes Agent é um <strong>agente de IA autônomo</strong> com agendamento, memória persistente e interface de chat web auto-hospedada.</p><p>A senha da interface web usa <code>SERVICE_PASSWORD_HERMESWEBUI</code>. Forneça pelo menos uma chave de API de provedor LLM (OpenRouter, Anthropic ou OpenAI).</p>"
+  }
+}

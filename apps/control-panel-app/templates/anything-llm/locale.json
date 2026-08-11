@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "productivity"
+    ],
+    "tags": [
+      "anythingllm",
+      "ai",
+      "llm",
+      "rag",
+      "documents",
+      "chat",
+      "agents"
+    ],
+    "shortDescription": "Private all-in-one AI workspace for documents and chat",
+    "longDescription": "<p>AnythingLLM is a <strong>local-first AI workspace</strong> for chatting with documents, managing LLM connections, and running agents.</p><p>Create your admin account on first launch. JWT signing uses <code>SERVICE_HEX_64_ANYTHINGLLM</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "produktivität"
+    ],
+    "tags": [
+      "anythingllm",
+      "ki",
+      "llm",
+      "rag",
+      "dokumente",
+      "chat",
+      "agenten"
+    ],
+    "shortDescription": "Privater All-in-One-KI-Workspace für Dokumente und Chat",
+    "longDescription": "<p>AnythingLLM ist ein <strong>lokaler KI-Workspace</strong> für das Chatten mit Dokumenten, die Verwaltung von LLM-Verbindungen und das Ausführen von Agenten.</p><p>Erstelle dein Admin-Konto beim ersten Start. Die JWT-Signierung verwendet <code>SERVICE_HEX_64_ANYTHINGLLM</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "productivité"
+    ],
+    "tags": [
+      "anythingllm",
+      "ia",
+      "llm",
+      "rag",
+      "documents",
+      "chat",
+      "agents"
+    ],
+    "shortDescription": "Espace de travail IA tout-en-un et privé pour documents et chat",
+    "longDescription": "<p>AnythingLLM est un <strong>espace de travail IA local-first</strong> pour discuter avec vos documents, gérer vos connexions LLM et exécuter des agents.</p><p>Créez votre compte administrateur au premier lancement. La signature JWT utilise <code>SERVICE_HEX_64_ANYTHINGLLM</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "produtividade"
+    ],
+    "tags": [
+      "anythingllm",
+      "ia",
+      "llm",
+      "rag",
+      "documentos",
+      "chat",
+      "agentes"
+    ],
+    "shortDescription": "Workspace de IA tudo-em-um e privado para documentos e chat",
+    "longDescription": "<p>AnythingLLM é um <strong>workspace de IA local-first</strong> para conversar com documentos, gerenciar conexões de LLM e executar agentes.</p><p>Crie sua conta de administrador no primeiro acesso. A assinatura JWT usa <code>SERVICE_HEX_64_ANYTHINGLLM</code>.</p>"
+  }
+}

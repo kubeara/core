@@ -10,12 +10,16 @@ import {
 
 import { WebsocketModule } from "../../websocket/websocket.module";
 import { ServiceTemplateController } from "./controllers/service-template.controller";
+import { ServiceTemplateTranslationEntity } from "./entities/service-template-translation.entity";
 import { ServiceTemplateEntity } from "./entities/service-template.entity";
 import { ServiceTemplateService } from "./services/service-template.service";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ServiceTemplateEntity]),
+    TypeOrmModule.forFeature([
+      ServiceTemplateEntity,
+      ServiceTemplateTranslationEntity,
+    ]),
     WebsocketModule,
     TemplatePayloadModule,
     ComposeParserModule,

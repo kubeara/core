@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "image"
+    ],
+    "tags": [
+      "comfyui",
+      "stable-diffusion",
+      "image-generation",
+      "ai",
+      "workflow",
+      "gpu"
+    ],
+    "shortDescription": "Node-based workflow UI for Stable Diffusion image generation",
+    "longDescription": "<p>ComfyUI is a <strong>graph-based workflow UI</strong> for Stable Diffusion with powerful customization.</p><p>Requires an NVIDIA GPU for practical use. Models, inputs, and outputs persist in named volumes.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "bild"
+    ],
+    "tags": [
+      "comfyui",
+      "stable-diffusion",
+      "bildgenerierung",
+      "ki",
+      "workflow",
+      "gpu"
+    ],
+    "shortDescription": "Node-basierte Workflow-UI zur Stable-Diffusion-Bildgenerierung",
+    "longDescription": "<p>ComfyUI ist eine <strong>graphbasierte Workflow-UI</strong> für Stable Diffusion mit umfangreichen Anpassungsmöglichkeiten.</p><p>Für den praktischen Einsatz ist eine NVIDIA-GPU erforderlich. Modelle, Eingaben und Ausgaben bleiben in benannten Volumes erhalten.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "image"
+    ],
+    "tags": [
+      "comfyui",
+      "stable-diffusion",
+      "génération-d'images",
+      "ia",
+      "workflow",
+      "gpu"
+    ],
+    "shortDescription": "Interface de workflow par nœuds pour la génération d'images Stable Diffusion",
+    "longDescription": "<p>ComfyUI est une <strong>interface de workflow graphique</strong> pour Stable Diffusion avec une personnalisation puissante.</p><p>Nécessite un GPU NVIDIA pour une utilisation pratique. Les modèles, entrées et sorties persistent dans des volumes nommés.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "imagem"
+    ],
+    "tags": [
+      "comfyui",
+      "stable-diffusion",
+      "geração-de-imagens",
+      "ia",
+      "workflow",
+      "gpu"
+    ],
+    "shortDescription": "Interface de workflow baseada em nós para geração de imagens Stable Diffusion",
+    "longDescription": "<p>ComfyUI é uma <strong>interface de workflow gráfica</strong> para Stable Diffusion com personalização poderosa.</p><p>Requer uma GPU NVIDIA para uso prático. Modelos, entradas e saídas persistem em volumes nomeados.</p>"
+  }
+}

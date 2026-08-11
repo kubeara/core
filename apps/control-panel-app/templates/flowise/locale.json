@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "automation"
+    ],
+    "tags": [
+      "flowise",
+      "ai",
+      "llm",
+      "agents",
+      "workflow",
+      "no-code",
+      "chatbot"
+    ],
+    "shortDescription": "Visual builder for AI agents and LLM workflows",
+    "longDescription": "<p>Flowise is a drag-and-drop tool for building <strong>AI agents</strong>, chatbots, and LLM workflows.</p><p>Data persists under <code>/root/.flowise</code>. Register your admin account on first launch. Set <code>APP_URL</code> via <code>SERVICE_URL_FLOWISE</code> when behind a reverse proxy.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "automatisierung"
+    ],
+    "tags": [
+      "flowise",
+      "ki",
+      "llm",
+      "agenten",
+      "workflow",
+      "no-code",
+      "chatbot"
+    ],
+    "shortDescription": "Visueller Builder für KI-Agenten und LLM-Workflows",
+    "longDescription": "<p>Flowise ist ein Drag-and-Drop-Tool zum Erstellen von <strong>KI-Agenten</strong>, Chatbots und LLM-Workflows.</p><p>Daten bleiben unter <code>/root/.flowise</code> erhalten. Registriere dein Admin-Konto beim ersten Start. Setze <code>APP_URL</code> über <code>SERVICE_URL_FLOWISE</code>, wenn ein Reverse-Proxy verwendet wird.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "automatisation"
+    ],
+    "tags": [
+      "flowise",
+      "ia",
+      "llm",
+      "agents",
+      "workflow",
+      "no-code",
+      "chatbot"
+    ],
+    "shortDescription": "Constructeur visuel d'agents IA et de workflows LLM",
+    "longDescription": "<p>Flowise est un outil glisser-déposer pour créer des <strong>agents IA</strong>, des chatbots et des workflows LLM.</p><p>Les données persistent sous <code>/root/.flowise</code>. Créez votre compte administrateur au premier lancement. Définissez <code>APP_URL</code> via <code>SERVICE_URL_FLOWISE</code> derrière un reverse proxy.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "automação"
+    ],
+    "tags": [
+      "flowise",
+      "ia",
+      "llm",
+      "agentes",
+      "workflow",
+      "no-code",
+      "chatbot"
+    ],
+    "shortDescription": "Construtor visual de agentes de IA e workflows LLM",
+    "longDescription": "<p>Flowise é uma ferramenta de arrastar e soltar para construir <strong>agentes de IA</strong>, chatbots e workflows LLM.</p><p>Os dados persistem em <code>/root/.flowise</code>. Registre sua conta de administrador no primeiro acesso. Defina <code>APP_URL</code> via <code>SERVICE_URL_FLOWISE</code> atrás de um proxy reverso.</p>"
+  }
+}

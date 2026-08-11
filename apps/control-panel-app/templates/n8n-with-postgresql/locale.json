@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "automation",
+      "workflows",
+      "integration"
+    ],
+    "tags": [
+      "n8n",
+      "automation",
+      "workflow",
+      "integration",
+      "postgresql",
+      "database"
+    ],
+    "shortDescription": "n8n automation with PostgreSQL storage",
+    "longDescription": "<p>n8n with a dedicated <strong>PostgreSQL</strong> database for production-ready workflow persistence.</p><p>Includes Traefik-friendly URL variables and stores workflow data in Postgres instead of SQLite.</p>"
+  },
+  "de": {
+    "category": [
+      "automatisierung",
+      "workflows",
+      "integration"
+    ],
+    "tags": [
+      "n8n",
+      "automatisierung",
+      "workflow",
+      "integration",
+      "postgresql",
+      "datenbank"
+    ],
+    "shortDescription": "n8n-Automatisierung mit PostgreSQL-Speicherung",
+    "longDescription": "<p>n8n mit einer dedizierten <strong>PostgreSQL</strong>-Datenbank für produktionsreife Workflow-Persistenz.</p><p>Enthält Traefik-freundliche URL-Variablen und speichert Workflow-Daten in Postgres statt SQLite.</p>"
+  },
+  "fr": {
+    "category": [
+      "automatisation",
+      "workflows",
+      "intégration"
+    ],
+    "tags": [
+      "n8n",
+      "automatisation",
+      "workflow",
+      "intégration",
+      "postgresql",
+      "base-de-données"
+    ],
+    "shortDescription": "Automatisation n8n avec stockage PostgreSQL",
+    "longDescription": "<p>n8n avec une base <strong>PostgreSQL</strong> dédiée pour une persistance de workflows prête pour la production.</p><p>Inclut des variables d'URL compatibles Traefik et stocke les données de workflow dans Postgres plutôt que SQLite.</p>"
+  },
+  "pt": {
+    "category": [
+      "automação",
+      "workflows",
+      "integração"
+    ],
+    "tags": [
+      "n8n",
+      "automação",
+      "workflow",
+      "integração",
+      "postgresql",
+      "banco-de-dados"
+    ],
+    "shortDescription": "Automação n8n com armazenamento PostgreSQL",
+    "longDescription": "<p>n8n com um banco de dados <strong>PostgreSQL</strong> dedicado para persistência de workflows pronta para produção.</p><p>Inclui variáveis de URL amigáveis ao Traefik e armazena dados de workflows no Postgres em vez de SQLite.</p>"
+  }
+}

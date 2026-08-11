@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "analytics",
+      "monitoring"
+    ],
+    "tags": [
+      "umami",
+      "analytics",
+      "privacy",
+      "web",
+      "statistics",
+      "postgresql"
+    ],
+    "shortDescription": "Privacy-focused website analytics",
+    "longDescription": "<p>Umami is a simple, fast, and <strong>privacy-focused</strong> alternative to Google Analytics.</p><p>Includes PostgreSQL. Default login after first start: <code>admin</code> / <code>umami</code> — change the password immediately.</p>"
+  },
+  "de": {
+    "category": [
+      "analytics",
+      "überwachung"
+    ],
+    "tags": [
+      "umami",
+      "analytics",
+      "datenschutz",
+      "web",
+      "statistiken",
+      "postgresql"
+    ],
+    "shortDescription": "Datenschutzorientierte Website-Analytics",
+    "longDescription": "<p>Umami ist eine einfache, schnelle und <strong>datenschutzorientierte</strong> Alternative zu Google Analytics.</p><p>Enthält PostgreSQL. Standard-Login nach dem ersten Start: <code>admin</code> / <code>umami</code> — ändere das Passwort sofort.</p>"
+  },
+  "fr": {
+    "category": [
+      "analytique",
+      "surveillance"
+    ],
+    "tags": [
+      "umami",
+      "analytics",
+      "confidentialité",
+      "web",
+      "statistiques",
+      "postgresql"
+    ],
+    "shortDescription": "Analytique de site web axée sur la confidentialité",
+    "longDescription": "<p>Umami est une alternative simple, rapide et <strong>axée sur la confidentialité</strong> à Google Analytics.</p><p>Inclut PostgreSQL. Connexion par défaut après le premier démarrage : <code>admin</code> / <code>umami</code> — changez le mot de passe immédiatement.</p>"
+  },
+  "pt": {
+    "category": [
+      "analytics",
+      "monitoramento"
+    ],
+    "tags": [
+      "umami",
+      "analytics",
+      "privacidade",
+      "web",
+      "estatísticas",
+      "postgresql"
+    ],
+    "shortDescription": "Analytics de site web com foco em privacidade",
+    "longDescription": "<p>Umami é uma alternativa simples, rápida e <strong>focada em privacidade</strong> ao Google Analytics.</p><p>Inclui PostgreSQL. Login padrão após o primeiro início: <code>admin</code> / <code>umami</code> — altere a senha imediatamente.</p>"
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "development",
+      "git",
+      "devops"
+    ],
+    "tags": [
+      "gitea",
+      "git",
+      "scm",
+      "repository",
+      "self-hosted",
+      "version-control"
+    ],
+    "shortDescription": "Lightweight self-hosted Git service",
+    "longDescription": "<p>Gitea is a painless self-hosted <strong>Git</strong> service with issues, pull requests, and CI integration.</p><p>Uses embedded SQLite and HTTP-only mode by default. Configure <code>SERVICE_URL_GITEA_*</code> when deploying behind a reverse proxy.</p>"
+  },
+  "de": {
+    "category": [
+      "entwicklung",
+      "git",
+      "devops"
+    ],
+    "tags": [
+      "gitea",
+      "git",
+      "scm",
+      "repository",
+      "self-hosted",
+      "versionskontrolle"
+    ],
+    "shortDescription": "Leichtgewichtiger, selbst gehosteter Git-Dienst",
+    "longDescription": "<p>Gitea ist ein unkomplizierter, selbst gehosteter <strong>Git</strong>-Dienst mit Issues, Pull Requests und CI-Integration.</p><p>Verwendet standardmäßig eingebettetes SQLite und HTTP-only-Modus. Konfiguriere <code>SERVICE_URL_GITEA_*</code>, wenn hinter einem Reverse-Proxy bereitgestellt wird.</p>"
+  },
+  "fr": {
+    "category": [
+      "développement",
+      "git",
+      "devops"
+    ],
+    "tags": [
+      "gitea",
+      "git",
+      "scm",
+      "dépôt",
+      "auto-hébergé",
+      "contrôle-de-version"
+    ],
+    "shortDescription": "Service Git auto-hébergé et léger",
+    "longDescription": "<p>Gitea est un service <strong>Git</strong> auto-hébergé et sans friction avec issues, pull requests et intégration CI.</p><p>Utilise SQLite embarqué et le mode HTTP uniquement par défaut. Configurez <code>SERVICE_URL_GITEA_*</code> lors d'un déploiement derrière un reverse proxy.</p>"
+  },
+  "pt": {
+    "category": [
+      "desenvolvimento",
+      "git",
+      "devops"
+    ],
+    "tags": [
+      "gitea",
+      "git",
+      "scm",
+      "repositório",
+      "auto-hospedado",
+      "controle-de-versão"
+    ],
+    "shortDescription": "Serviço Git auto-hospedado e leve",
+    "longDescription": "<p>Gitea é um serviço <strong>Git</strong> auto-hospedado e sem fricção com issues, pull requests e integração CI.</p><p>Usa SQLite embutido e modo somente HTTP por padrão. Configure <code>SERVICE_URL_GITEA_*</code> ao implantar atrás de um proxy reverso.</p>"
+  }
+}

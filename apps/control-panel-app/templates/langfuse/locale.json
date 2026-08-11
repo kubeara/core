@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "observability"
+    ],
+    "tags": [
+      "langfuse",
+      "ai",
+      "llm",
+      "observability",
+      "tracing",
+      "evaluation"
+    ],
+    "shortDescription": "Open-source LLM observability and evaluation platform",
+    "longDescription": "<p>Langfuse provides <strong>LLM tracing, prompt management, and evaluation</strong> for production AI applications.</p><p>Includes PostgreSQL, ClickHouse, Redis, and MinIO. Create your account on first launch at port 3000.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "observability"
+    ],
+    "tags": [
+      "langfuse",
+      "ki",
+      "llm",
+      "observability",
+      "tracing",
+      "evaluation"
+    ],
+    "shortDescription": "Open-Source-Observability- und Evaluationsplattform für LLMs",
+    "longDescription": "<p>Langfuse bietet <strong>LLM-Tracing, Prompt-Verwaltung und Evaluation</strong> für KI-Anwendungen in Produktion.</p><p>Enthält PostgreSQL, ClickHouse, Redis und MinIO. Erstelle dein Konto beim ersten Start auf Port 3000.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "observabilité"
+    ],
+    "tags": [
+      "langfuse",
+      "ia",
+      "llm",
+      "observabilité",
+      "tracing",
+      "évaluation"
+    ],
+    "shortDescription": "Plateforme open source d'observabilité et d'évaluation LLM",
+    "longDescription": "<p>Langfuse fournit le <strong>tracing LLM, la gestion des prompts et l'évaluation</strong> pour les applications IA en production.</p><p>Inclut PostgreSQL, ClickHouse, Redis et MinIO. Créez votre compte au premier lancement sur le port 3000.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "observabilidade"
+    ],
+    "tags": [
+      "langfuse",
+      "ia",
+      "llm",
+      "observabilidade",
+      "tracing",
+      "avaliação"
+    ],
+    "shortDescription": "Plataforma open-source de observabilidade e avaliação de LLMs",
+    "longDescription": "<p>Langfuse fornece <strong>tracing de LLM, gerenciamento de prompts e avaliação</strong> para aplicações de IA em produção.</p><p>Inclui PostgreSQL, ClickHouse, Redis e MinIO. Crie sua conta no primeiro acesso na porta 3000.</p>"
+  }
+}

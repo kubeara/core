@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "security",
+      "auth",
+      "iam"
+    ],
+    "tags": [
+      "keycloak",
+      "sso",
+      "oauth",
+      "oidc",
+      "iam",
+      "authentication",
+      "identity"
+    ],
+    "shortDescription": "Open-source identity and access management",
+    "longDescription": "<p>Keycloak is an open-source <strong>IAM</strong> platform for single sign-on, OAuth2, and OpenID Connect.</p><p>Includes PostgreSQL. Bootstrap admin uses <code>SERVICE_USER_KEYCLOAK</code> and <code>SERVICE_PASSWORD_KEYCLOAK</code>. Set <code>KC_HOSTNAME</code> via <code>SERVICE_FQDN_KEYCLOAK</code> when deploying behind a reverse proxy.</p>"
+  },
+  "de": {
+    "category": [
+      "sicherheit",
+      "auth",
+      "iam"
+    ],
+    "tags": [
+      "keycloak",
+      "sso",
+      "oauth",
+      "oidc",
+      "iam",
+      "authentifizierung",
+      "identität"
+    ],
+    "shortDescription": "Open-Source-Identitäts- und Zugriffsverwaltung",
+    "longDescription": "<p>Keycloak ist eine Open-Source-<strong>IAM</strong>-Plattform für Single Sign-On, OAuth2 und OpenID Connect.</p><p>Enthält PostgreSQL. Der Bootstrap-Admin verwendet <code>SERVICE_USER_KEYCLOAK</code> und <code>SERVICE_PASSWORD_KEYCLOAK</code>. Setze <code>KC_HOSTNAME</code> über <code>SERVICE_FQDN_KEYCLOAK</code>, wenn du hinter einem Reverse-Proxy bereitstellst.</p>"
+  },
+  "fr": {
+    "category": [
+      "sécurité",
+      "auth",
+      "iam"
+    ],
+    "tags": [
+      "keycloak",
+      "sso",
+      "oauth",
+      "oidc",
+      "iam",
+      "authentification",
+      "identité"
+    ],
+    "shortDescription": "Gestion des identités et des accès open source",
+    "longDescription": "<p>Keycloak est une plateforme <strong>IAM</strong> open source pour l'authentification unique, OAuth2 et OpenID Connect.</p><p>Inclut PostgreSQL. L'administrateur d'amorçage utilise <code>SERVICE_USER_KEYCLOAK</code> et <code>SERVICE_PASSWORD_KEYCLOAK</code>. Définissez <code>KC_HOSTNAME</code> via <code>SERVICE_FQDN_KEYCLOAK</code> lors d'un déploiement derrière un proxy inverse.</p>"
+  },
+  "pt": {
+    "category": [
+      "segurança",
+      "auth",
+      "iam"
+    ],
+    "tags": [
+      "keycloak",
+      "sso",
+      "oauth",
+      "oidc",
+      "iam",
+      "autenticação",
+      "identidade"
+    ],
+    "shortDescription": "Gerenciamento de identidade e acesso open-source",
+    "longDescription": "<p>Keycloak é uma plataforma <strong>IAM</strong> open-source para login único, OAuth2 e OpenID Connect.</p><p>Inclui PostgreSQL. O admin de bootstrap usa <code>SERVICE_USER_KEYCLOAK</code> e <code>SERVICE_PASSWORD_KEYCLOAK</code>. Defina <code>KC_HOSTNAME</code> via <code>SERVICE_FQDN_KEYCLOAK</code> ao implantar atrás de um proxy reverso.</p>"
+  }
+}

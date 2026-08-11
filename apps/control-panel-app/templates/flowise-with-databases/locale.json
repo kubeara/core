@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "automation"
+    ],
+    "tags": [
+      "flowise",
+      "ai",
+      "llm",
+      "agents",
+      "workflow",
+      "postgres",
+      "redis",
+      "queue"
+    ],
+    "shortDescription": "Flowise with PostgreSQL, Redis, and queue workers",
+    "longDescription": "<p>Production-style Flowise deployment with <strong>PostgreSQL</strong>, <strong>Redis</strong>, and a dedicated queue worker for background jobs.</p><p>Uses queue mode for scalable agent execution. Register your admin account on first launch. Set <code>APP_URL</code> via <code>SERVICE_URL_FLOWISE_WITH_DATABASES</code> when behind a reverse proxy.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "automatisierung"
+    ],
+    "tags": [
+      "flowise",
+      "ki",
+      "llm",
+      "agenten",
+      "workflow",
+      "postgres",
+      "redis",
+      "queue"
+    ],
+    "shortDescription": "Flowise mit PostgreSQL, Redis und Queue-Workern",
+    "longDescription": "<p>Produktionsnahe Flowise-Bereitstellung mit <strong>PostgreSQL</strong>, <strong>Redis</strong> und einem dedizierten Queue-Worker für Hintergrundjobs.</p><p>Verwendet den Queue-Modus für skalierbare Agentenausführung. Registriere dein Admin-Konto beim ersten Start. Setze <code>APP_URL</code> über <code>SERVICE_URL_FLOWISE_WITH_DATABASES</code>, wenn ein Reverse-Proxy verwendet wird.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "automatisation"
+    ],
+    "tags": [
+      "flowise",
+      "ia",
+      "llm",
+      "agents",
+      "workflow",
+      "postgres",
+      "redis",
+      "queue"
+    ],
+    "shortDescription": "Flowise avec PostgreSQL, Redis et workers de file d'attente",
+    "longDescription": "<p>Déploiement Flowise de niveau production avec <strong>PostgreSQL</strong>, <strong>Redis</strong> et un worker de file d'attente dédié pour les tâches en arrière-plan.</p><p>Utilise le mode file d'attente pour une exécution d'agents évolutive. Créez votre compte administrateur au premier lancement. Définissez <code>APP_URL</code> via <code>SERVICE_URL_FLOWISE_WITH_DATABASES</code> derrière un reverse proxy.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "automação"
+    ],
+    "tags": [
+      "flowise",
+      "ia",
+      "llm",
+      "agentes",
+      "workflow",
+      "postgres",
+      "redis",
+      "fila"
+    ],
+    "shortDescription": "Flowise com PostgreSQL, Redis e workers de fila",
+    "longDescription": "<p>Implantação Flowise de nível de produção com <strong>PostgreSQL</strong>, <strong>Redis</strong> e um worker de fila dedicado para trabalhos em segundo plano.</p><p>Usa o modo de fila para execução escalável de agentes. Registre sua conta de administrador no primeiro acesso. Defina <code>APP_URL</code> via <code>SERVICE_URL_FLOWISE_WITH_DATABASES</code> atrás de um proxy reverso.</p>"
+  }
+}

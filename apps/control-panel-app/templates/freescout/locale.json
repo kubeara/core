@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "helpdesk",
+      "support",
+      "collaboration"
+    ],
+    "tags": [
+      "freescout",
+      "helpdesk",
+      "support",
+      "tickets",
+      "inbox",
+      "mariadb"
+    ],
+    "shortDescription": "Self-hosted help desk and shared inbox platform",
+    "longDescription": "<p>FreeScout is an open-source <strong>help desk</strong> and shared mailbox solution for support teams.</p><p>It includes MariaDB for persistent storage and is compatible with email workflows and team collaboration.</p>"
+  },
+  "de": {
+    "category": [
+      "helpdesk",
+      "support",
+      "kollaboration"
+    ],
+    "tags": [
+      "freescout",
+      "helpdesk",
+      "support",
+      "tickets",
+      "posteingang",
+      "mariadb"
+    ],
+    "shortDescription": "Self-Hosted-Helpdesk und gemeinsames Postfach",
+    "longDescription": "<p>FreeScout ist eine Open-Source-<strong>Helpdesk</strong>- und Shared-Mailbox-Lösung für Support-Teams.</p><p>Enthält MariaDB für persistenten Speicher und ist kompatibel mit E-Mail-Workflows und Team-Kollaboration.</p>"
+  },
+  "fr": {
+    "category": [
+      "helpdesk",
+      "support",
+      "collaboration"
+    ],
+    "tags": [
+      "freescout",
+      "helpdesk",
+      "support",
+      "tickets",
+      "boîte-de-réception",
+      "mariadb"
+    ],
+    "shortDescription": "Plateforme helpdesk et boîte mail partagée auto-hébergée",
+    "longDescription": "<p>FreeScout est une solution <strong>helpdesk</strong> et boîte mail partagée open source pour les équipes de support.</p><p>Elle inclut MariaDB pour le stockage persistant et est compatible avec les workflows e-mail et la collaboration d'équipe.</p>"
+  },
+  "pt": {
+    "category": [
+      "helpdesk",
+      "suporte",
+      "colaboração"
+    ],
+    "tags": [
+      "freescout",
+      "helpdesk",
+      "suporte",
+      "tickets",
+      "caixa-de-entrada",
+      "mariadb"
+    ],
+    "shortDescription": "Plataforma auto-hospedada de helpdesk e caixa de entrada compartilhada",
+    "longDescription": "<p>FreeScout é uma solução open-source de <strong>helpdesk</strong> e caixa de correio compartilhada para equipes de suporte.</p><p>Inclui MariaDB para armazenamento persistente e é compatível com workflows de e-mail e colaboração em equipe.</p>"
+  }
+}

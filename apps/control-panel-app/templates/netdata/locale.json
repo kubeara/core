@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "monitoring",
+      "observability"
+    ],
+    "tags": [
+      "netdata",
+      "monitoring",
+      "metrics",
+      "containers",
+      "infrastructure",
+      "alerts"
+    ],
+    "shortDescription": "Real-time infrastructure and container monitoring",
+    "longDescription": "<p>Netdata collects <strong>real-time metrics</strong> from your host, containers, and applications with per-second granularity.</p><p>Dashboard on port 19999. Mounts host paths for CPU, memory, disk, and Docker monitoring. Optionally claim to Netdata Cloud with <code>NETDATA_CLAIM_TOKEN</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "monitoring",
+      "observability"
+    ],
+    "tags": [
+      "netdata",
+      "monitoring",
+      "metriken",
+      "container",
+      "infrastruktur",
+      "alerts"
+    ],
+    "shortDescription": "Echtzeit-Infrastruktur- und Container-Monitoring",
+    "longDescription": "<p>Netdata sammelt <strong>Echtzeit-Metriken</strong> von Host, Containern und Anwendungen mit Sekundengenauigkeit.</p><p>Dashboard auf Port 19999. Bindet Host-Pfade für CPU-, Speicher-, Festplatten- und Docker-Monitoring ein. Optional bei Netdata Cloud mit <code>NETDATA_CLAIM_TOKEN</code> anmelden.</p>"
+  },
+  "fr": {
+    "category": [
+      "supervision",
+      "observabilité"
+    ],
+    "tags": [
+      "netdata",
+      "supervision",
+      "métriques",
+      "conteneurs",
+      "infrastructure",
+      "alertes"
+    ],
+    "shortDescription": "Supervision en temps réel de l'infrastructure et des conteneurs",
+    "longDescription": "<p>Netdata collecte des <strong>métriques en temps réel</strong> de votre hôte, vos conteneurs et vos applications avec une granularité à la seconde.</p><p>Tableau de bord sur le port 19999. Monte les chemins hôte pour la supervision CPU, mémoire, disque et Docker. Revendiquez éventuellement Netdata Cloud avec <code>NETDATA_CLAIM_TOKEN</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "monitoramento",
+      "observabilidade"
+    ],
+    "tags": [
+      "netdata",
+      "monitoramento",
+      "métricas",
+      "contêineres",
+      "infraestrutura",
+      "alertas"
+    ],
+    "shortDescription": "Monitoramento em tempo real de infraestrutura e contêineres",
+    "longDescription": "<p>Netdata coleta <strong>métricas em tempo real</strong> do seu host, contêineres e aplicações com granularidade por segundo.</p><p>Dashboard na porta 19999. Monta caminhos do host para monitoramento de CPU, memória, disco e Docker. Opcionalmente, reivindique o Netdata Cloud com <code>NETDATA_CLAIM_TOKEN</code>.</p>"
+  }
+}

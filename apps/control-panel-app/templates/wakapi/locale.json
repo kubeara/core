@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "monitoring",
+      "logging",
+      "observability"
+    ],
+    "tags": [
+      "wakapi",
+      "monitoring",
+      "analytics",
+      "developer-productivity",
+      "wakatime"
+    ],
+    "shortDescription": "Self-hosted coding activity tracking from WakaTime clients",
+    "longDescription": "<p>Wakapi is a lightweight, self-hosted coding activity dashboard compatible with WakaTime clients.</p><p>Track coding time and language usage trends in a private observability setup.</p>"
+  },
+  "de": {
+    "category": [
+      "überwachung",
+      "protokollierung",
+      "observability"
+    ],
+    "tags": [
+      "wakapi",
+      "überwachung",
+      "analytics",
+      "entwicklerproduktivität",
+      "wakatime"
+    ],
+    "shortDescription": "Self-Hosted-Tracking von Coding-Aktivitäten für WakaTime-Clients",
+    "longDescription": "<p>Wakapi ist ein leichtgewichtiges, selbst gehostetes Dashboard für Coding-Aktivitäten, das mit WakaTime-Clients kompatibel ist.</p><p>Verfolge Coding-Zeit und Sprachverbrauch-Trends in einem privaten Observability-Setup.</p>"
+  },
+  "fr": {
+    "category": [
+      "surveillance",
+      "journalisation",
+      "observabilité"
+    ],
+    "tags": [
+      "wakapi",
+      "surveillance",
+      "analytique",
+      "productivité-développeur",
+      "wakatime"
+    ],
+    "shortDescription": "Suivi auto-hébergé de l'activité de codage depuis les clients WakaTime",
+    "longDescription": "<p>Wakapi est un tableau de bord d'activité de codage léger et auto-hébergé compatible avec les clients WakaTime.</p><p>Suivez le temps de codage et les tendances d'utilisation des langages dans une configuration d'observabilité privée.</p>"
+  },
+  "pt": {
+    "category": [
+      "monitoramento",
+      "logging",
+      "observabilidade"
+    ],
+    "tags": [
+      "wakapi",
+      "monitoramento",
+      "analytics",
+      "produtividade-do-desenvolvedor",
+      "wakatime"
+    ],
+    "shortDescription": "Rastreamento de atividade de codificação auto-hospedado para clientes WakaTime",
+    "longDescription": "<p>Wakapi é um painel leve e auto-hospedado de atividade de codificação, compatível com clientes WakaTime.</p><p>Acompanhe o tempo de codificação e as tendências de uso de linguagens em uma configuração de observabilidade privada.</p>"
+  }
+}

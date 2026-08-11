@@ -1,0 +1,62 @@
+{
+  "en": {
+    "category": [
+      "automation",
+      "workflow"
+    ],
+    "tags": [
+      "n8n",
+      "workflow",
+      "automation",
+      "no-code",
+      "integration"
+    ],
+    "shortDescription": "Extendable workflow automation tool",
+    "longDescription": "<p>n8n is a fair-code workflow automation platform that connects APIs, databases, and services with visual flows.</p><p>Includes external task runners and Traefik-friendly <code>SERVICE_URL_*</code> variables for webhooks and the editor UI.</p>"
+  },
+  "de": {
+    "category": [
+      "automatisierung",
+      "workflow"
+    ],
+    "tags": [
+      "n8n",
+      "workflow",
+      "automatisierung",
+      "no-code",
+      "integration"
+    ],
+    "shortDescription": "Erweiterbares Workflow-Automatisierungstool",
+    "longDescription": "<p>n8n ist eine Fair-Code-Plattform für die <strong>Workflow-Automatisierung</strong>, die APIs, Datenbanken und Dienste mit visuellen Flows verbindet.</p><p>Enthält externe Task-Runner und Traefik-freundliche <code>SERVICE_URL_*</code>-Variablen für Webhooks und die Editor-UI.</p>"
+  },
+  "fr": {
+    "category": [
+      "automatisation",
+      "workflow"
+    ],
+    "tags": [
+      "n8n",
+      "workflow",
+      "automatisation",
+      "no-code",
+      "intégration"
+    ],
+    "shortDescription": "Outil d'automatisation de workflows extensible",
+    "longDescription": "<p>n8n est une plateforme d'automatisation de workflows fair-code qui connecte API, bases de données et services avec des flux visuels.</p><p>Inclut des exécuteurs de tâches externes et des variables <code>SERVICE_URL_*</code> compatibles Traefik pour les webhooks et l'interface de l'éditeur.</p>"
+  },
+  "pt": {
+    "category": [
+      "automação",
+      "workflow"
+    ],
+    "tags": [
+      "n8n",
+      "workflow",
+      "automação",
+      "no-code",
+      "integração"
+    ],
+    "shortDescription": "Ferramenta extensível de automação de fluxos de trabalho",
+    "longDescription": "<p>n8n é uma plataforma fair-code de automação de workflows que conecta APIs, bancos de dados e serviços com fluxos visuais.</p><p>Inclui runners de tarefas externos e variáveis <code>SERVICE_URL_*</code> amigáveis ao Traefik para webhooks e a UI do editor.</p>"
+  }
+}

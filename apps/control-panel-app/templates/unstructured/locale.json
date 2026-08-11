@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "data"
+    ],
+    "tags": [
+      "unstructured",
+      "ai",
+      "document",
+      "parsing",
+      "ocr",
+      "rag",
+      "nlp",
+      "data-extraction"
+    ],
+    "shortDescription": "Document ingestion and preprocessing API for RAG pipelines",
+    "longDescription": "<p>Unstructured provides an <strong>API for parsing and preprocessing</strong> documents for RAG and model fine-tuning.</p><p>API key auth uses <code>SERVICE_PASSWORD_APIKEY</code>. Access the health endpoint on port 8000 after deploy.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "daten"
+    ],
+    "tags": [
+      "unstructured",
+      "ki",
+      "dokument",
+      "parsing",
+      "ocr",
+      "rag",
+      "nlp",
+      "datenextraktion"
+    ],
+    "shortDescription": "API für Dokument-Ingestion und -Vorverarbeitung für RAG-Pipelines",
+    "longDescription": "<p>Unstructured stellt eine <strong>API zum Parsen und Vorverarbeiten</strong> von Dokumenten für RAG und Modell-Feinabstimmung bereit.</p><p>Die API-Key-Authentifizierung verwendet <code>SERVICE_PASSWORD_APIKEY</code>. Rufe den Health-Endpoint auf Port 8000 nach dem Deploy ab.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "données"
+    ],
+    "tags": [
+      "unstructured",
+      "ia",
+      "document",
+      "analyse",
+      "ocr",
+      "rag",
+      "nlp",
+      "extraction-de-données"
+    ],
+    "shortDescription": "API d'ingestion et de prétraitement de documents pour les pipelines RAG",
+    "longDescription": "<p>Unstructured fournit une <strong>API pour analyser et prétraiter</strong> des documents pour le RAG et le fine-tuning de modèles.</p><p>L'auth par clé API utilise <code>SERVICE_PASSWORD_APIKEY</code>. Accédez au point de terminaison health sur le port 8000 après le déploiement.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "dados"
+    ],
+    "tags": [
+      "unstructured",
+      "ia",
+      "documento",
+      "parsing",
+      "ocr",
+      "rag",
+      "nlp",
+      "extração-de-dados"
+    ],
+    "shortDescription": "API de ingestão e pré-processamento de documentos para pipelines RAG",
+    "longDescription": "<p>Unstructured fornece uma <strong>API para analisar e pré-processar</strong> documentos para RAG e fine-tuning de modelos.</p><p>A autenticação por chave de API usa <code>SERVICE_PASSWORD_APIKEY</code>. Acesse o endpoint de health na porta 8000 após o deploy.</p>"
+  }
+}

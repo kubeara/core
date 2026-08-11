@@ -1,5 +1,7 @@
 import { BaseEntity } from "../../../common/entity/base.entity";
-import { Entity, Column, PrimaryColumn } from "typeorm";
+import { Column, Entity, OneToMany, PrimaryColumn } from "typeorm";
+
+import { ServiceTemplateTranslationEntity } from "./service-template-translation.entity";
 
 @Entity("serviceTemplates")
 export class ServiceTemplateEntity extends BaseEntity {
@@ -8,18 +10,6 @@ export class ServiceTemplateEntity extends BaseEntity {
 
   @Column({ type: "text" })
   name!: string;
-
-  @Column({ type: "text", nullable: true })
-  shortDescription!: string | null;
-
-  @Column({ type: "text", nullable: true })
-  longDescription!: string | null;
-
-  @Column("text", { array: true, nullable: true })
-  category!: string[] | null;
-
-  @Column("text", { array: true, nullable: true })
-  tags!: string[] | null;
 
   @Column({ type: "text", nullable: true })
   documentation!: string | null;
@@ -44,4 +34,10 @@ export class ServiceTemplateEntity extends BaseEntity {
 
   @Column({ type: "boolean", default: true })
   isActive!: boolean;
+
+  @OneToMany(
+    () => ServiceTemplateTranslationEntity,
+    (translation) => translation.serviceTemplate,
+  )
+  translations?: ServiceTemplateTranslationEntity[];
 }

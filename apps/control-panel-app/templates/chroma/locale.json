@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "ai"
+    ],
+    "tags": [
+      "chroma",
+      "vector",
+      "database",
+      "embeddings",
+      "semantic-search",
+      "rag",
+      "ai"
+    ],
+    "shortDescription": "Open-source vector database for AI applications",
+    "longDescription": "<p>Chroma is an open-source <strong>vector database</strong> for embeddings, semantic search, and RAG pipelines.</p><p>HTTP API on port 8000 with persistent storage on the mounted volume.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "ki"
+    ],
+    "tags": [
+      "chroma",
+      "vektor",
+      "datenbank",
+      "embeddings",
+      "semantische-suche",
+      "rag",
+      "ki"
+    ],
+    "shortDescription": "Open-Source-Vektordatenbank für KI-Anwendungen",
+    "longDescription": "<p>Chroma ist eine Open-Source-<strong>Vektordatenbank</strong> für Embeddings, semantische Suche und RAG-Pipelines.</p><p>HTTP-API auf Port 8000 mit persistentem Speicher auf dem eingebundenen Volume.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "ia"
+    ],
+    "tags": [
+      "chroma",
+      "vecteur",
+      "base-de-données",
+      "embeddings",
+      "recherche-sémantique",
+      "rag",
+      "ia"
+    ],
+    "shortDescription": "Base de données vectorielle open source pour les applications IA",
+    "longDescription": "<p>Chroma est une <strong>base de données vectorielle</strong> open source pour les embeddings, la recherche sémantique et les pipelines RAG.</p><p>API HTTP sur le port 8000 avec stockage persistant sur le volume monté.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "ia"
+    ],
+    "tags": [
+      "chroma",
+      "vetor",
+      "banco-de-dados",
+      "embeddings",
+      "busca-semântica",
+      "rag",
+      "ia"
+    ],
+    "shortDescription": "Banco de dados vetorial open-source para aplicações de IA",
+    "longDescription": "<p>Chroma é um <strong>banco de dados vetorial</strong> open-source para embeddings, busca semântica e pipelines RAG.</p><p>API HTTP na porta 8000 com armazenamento persistente no volume montado.</p>"
+  }
+}

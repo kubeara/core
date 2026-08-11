@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "development",
+      "ci",
+      "devops"
+    ],
+    "tags": [
+      "drone",
+      "ci",
+      "cd",
+      "continuous-integration",
+      "docker",
+      "devops",
+      "pipeline"
+    ],
+    "shortDescription": "Container-native continuous integration platform",
+    "longDescription": "<p>Drone CI is a lightweight <strong>continuous integration</strong> platform built for containers and Kubernetes.</p><p>Includes a Docker runner. Configure a Git forge OAuth app (GitHub, Gitea, GitLab, etc.) before first use. Uses embedded SQLite by default.</p>"
+  },
+  "de": {
+    "category": [
+      "entwicklung",
+      "ci",
+      "devops"
+    ],
+    "tags": [
+      "drone",
+      "ci",
+      "cd",
+      "continuous-integration",
+      "docker",
+      "devops",
+      "pipeline"
+    ],
+    "shortDescription": "Container-native Plattform für kontinuierliche Integration",
+    "longDescription": "<p>Drone CI ist eine leichtgewichtige Plattform für <strong>kontinuierliche Integration</strong>, gebaut für Container und Kubernetes.</p><p>Enthält einen Docker-Runner. Konfiguriere vor der ersten Nutzung eine Git-Forge-OAuth-App (GitHub, Gitea, GitLab usw.). Verwendet standardmäßig eingebettetes SQLite.</p>"
+  },
+  "fr": {
+    "category": [
+      "développement",
+      "ci",
+      "devops"
+    ],
+    "tags": [
+      "drone",
+      "ci",
+      "cd",
+      "intégration-continue",
+      "docker",
+      "devops",
+      "pipeline"
+    ],
+    "shortDescription": "Plateforme d'intégration continue native conteneurs",
+    "longDescription": "<p>Drone CI est une plateforme légère d'<strong>intégration continue</strong> conçue pour les conteneurs et Kubernetes.</p><p>Inclut un runner Docker. Configurez une application OAuth de forge Git (GitHub, Gitea, GitLab, etc.) avant la première utilisation. Utilise SQLite embarqué par défaut.</p>"
+  },
+  "pt": {
+    "category": [
+      "desenvolvimento",
+      "ci",
+      "devops"
+    ],
+    "tags": [
+      "drone",
+      "ci",
+      "cd",
+      "integração-contínua",
+      "docker",
+      "devops",
+      "pipeline"
+    ],
+    "shortDescription": "Plataforma de integração contínua nativa de contêineres",
+    "longDescription": "<p>Drone CI é uma plataforma leve de <strong>integração contínua</strong> construída para contêineres e Kubernetes.</p><p>Inclui um runner Docker. Configure um app OAuth de forja Git (GitHub, Gitea, GitLab, etc.) antes do primeiro uso. Usa SQLite embutido por padrão.</p>"
+  }
+}

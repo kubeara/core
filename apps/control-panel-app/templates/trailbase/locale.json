@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "backend"
+    ],
+    "tags": [
+      "trailbase",
+      "backend",
+      "sqlite",
+      "firebase-alternative",
+      "api",
+      "realtime"
+    ],
+    "shortDescription": "Single-executable Firebase alternative on SQLite",
+    "longDescription": "<p>TrailBase is a blazingly fast <strong>Rust/SQLite/Wasmtime</strong> backend with type-safe APIs, auth, and admin UI in a single executable.</p><p>All data is stored in the mounted <code>traildepot</code> volume. Admin credentials are printed on first startup.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "backend"
+    ],
+    "tags": [
+      "trailbase",
+      "backend",
+      "sqlite",
+      "firebase-alternative",
+      "api",
+      "realtime"
+    ],
+    "shortDescription": "Firebase-Alternative in einer einzigen ausführbaren Datei auf SQLite",
+    "longDescription": "<p>TrailBase ist ein blitzschnelles <strong>Rust/SQLite/Wasmtime</strong>-Backend mit typsicheren APIs, Auth und Admin-UI in einer einzigen ausführbaren Datei.</p><p>Alle Daten werden im eingebundenen <code>traildepot</code>-Volume gespeichert. Admin-Zugangsdaten werden beim ersten Start ausgegeben.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "backend"
+    ],
+    "tags": [
+      "trailbase",
+      "backend",
+      "sqlite",
+      "alternative-firebase",
+      "api",
+      "temps-réel"
+    ],
+    "shortDescription": "Alternative Firebase en un seul exécutable sur SQLite",
+    "longDescription": "<p>TrailBase est un backend <strong>Rust/SQLite/Wasmtime</strong> extrêmement rapide avec des API typées, de l'auth et une UI admin dans un seul exécutable.</p><p>Toutes les données sont stockées dans le volume monté <code>traildepot</code>. Les identifiants admin sont affichés au premier démarrage.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "backend"
+    ],
+    "tags": [
+      "trailbase",
+      "backend",
+      "sqlite",
+      "alternativa-firebase",
+      "api",
+      "tempo-real"
+    ],
+    "shortDescription": "Alternativa Firebase em um único executável sobre SQLite",
+    "longDescription": "<p>TrailBase é um backend <strong>Rust/SQLite/Wasmtime</strong> extremamente rápido com APIs com tipagem segura, auth e UI de admin em um único executável.</p><p>Todos os dados são armazenados no volume <code>traildepot</code> montado. As credenciais de admin são exibidas no primeiro início.</p>"
+  }
+}

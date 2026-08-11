@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "llm"
+    ],
+    "tags": [
+      "open-webui",
+      "ai",
+      "llm",
+      "chat",
+      "ollama",
+      "ui"
+    ],
+    "shortDescription": "Self-hosted AI chat interface for Ollama and OpenAI",
+    "longDescription": "<p>Open WebUI is a <strong>self-hosted chat interface</strong> for Ollama, OpenAI, and other LLM backends.</p><p>Point <code>OLLAMA_BASE_URL</code> at your Ollama instance (defaults to <code>host.docker.internal:11434</code>). Session signing uses <code>SERVICE_HEX_64_OPENWEBUI</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "llm"
+    ],
+    "tags": [
+      "open-webui",
+      "ki",
+      "llm",
+      "chat",
+      "ollama",
+      "ui"
+    ],
+    "shortDescription": "Self-Hosted-KI-Chat-Oberfläche für Ollama und OpenAI",
+    "longDescription": "<p>Open WebUI ist eine <strong>selbst gehostete Chat-Oberfläche</strong> für Ollama, OpenAI und andere LLM-Backends.</p><p>Richte <code>OLLAMA_BASE_URL</code> auf deine Ollama-Instanz (Standard: <code>host.docker.internal:11434</code>). Die Session-Signierung verwendet <code>SERVICE_HEX_64_OPENWEBUI</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "llm"
+    ],
+    "tags": [
+      "open-webui",
+      "ia",
+      "llm",
+      "chat",
+      "ollama",
+      "ui"
+    ],
+    "shortDescription": "Interface de chat IA auto-hébergée pour Ollama et OpenAI",
+    "longDescription": "<p>Open WebUI est une <strong>interface de chat auto-hébergée</strong> pour Ollama, OpenAI et d'autres backends LLM.</p><p>Pointez <code>OLLAMA_BASE_URL</code> vers votre instance Ollama (défaut : <code>host.docker.internal:11434</code>). La signature de session utilise <code>SERVICE_HEX_64_OPENWEBUI</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "llm"
+    ],
+    "tags": [
+      "open-webui",
+      "ia",
+      "llm",
+      "chat",
+      "ollama",
+      "ui"
+    ],
+    "shortDescription": "Interface de chat de IA auto-hospedada para Ollama e OpenAI",
+    "longDescription": "<p>Open WebUI é uma <strong>interface de chat auto-hospedada</strong> para Ollama, OpenAI e outros backends de LLM.</p><p>Aponte <code>OLLAMA_BASE_URL</code> para sua instância do Ollama (padrão: <code>host.docker.internal:11434</code>). A assinatura de sessão usa <code>SERVICE_HEX_64_OPENWEBUI</code>.</p>"
+  }
+}

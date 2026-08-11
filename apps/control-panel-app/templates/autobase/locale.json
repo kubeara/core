@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "postgresql"
+    ],
+    "tags": [
+      "autobase",
+      "postgresql",
+      "database",
+      "dbaas",
+      "automation",
+      "patroni",
+      "cluster"
+    ],
+    "shortDescription": "Self-hosted PostgreSQL DBaaS automation platform",
+    "longDescription": "<p>Autobase is an open-source <strong>PostgreSQL DBaaS</strong> platform for deploying and managing highly available Postgres clusters.</p><p>Console UI on port 80. Authorization uses <code>SERVICE_PASSWORD_AUTOBASE</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "postgresql"
+    ],
+    "tags": [
+      "autobase",
+      "postgresql",
+      "datenbank",
+      "dbaas",
+      "automatisierung",
+      "patroni",
+      "cluster"
+    ],
+    "shortDescription": "Self-Hosted-Plattform zur PostgreSQL-DBaaS-Automatisierung",
+    "longDescription": "<p>Autobase ist eine Open-Source-<strong>PostgreSQL-DBaaS</strong>-Plattform zum Bereitstellen und Verwalten hochverfügbarer Postgres-Cluster.</p><p>Konsolen-UI auf Port 80. Die Autorisierung verwendet <code>SERVICE_PASSWORD_AUTOBASE</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "postgresql"
+    ],
+    "tags": [
+      "autobase",
+      "postgresql",
+      "base-de-données",
+      "dbaas",
+      "automatisation",
+      "patroni",
+      "cluster"
+    ],
+    "shortDescription": "Plateforme d'automatisation PostgreSQL DBaaS auto-hébergée",
+    "longDescription": "<p>Autobase est une plateforme open source <strong>PostgreSQL DBaaS</strong> pour déployer et gérer des clusters Postgres hautement disponibles.</p><p>Console web sur le port 80. L'autorisation utilise <code>SERVICE_PASSWORD_AUTOBASE</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "postgresql"
+    ],
+    "tags": [
+      "autobase",
+      "postgresql",
+      "banco-de-dados",
+      "dbaas",
+      "automação",
+      "patroni",
+      "cluster"
+    ],
+    "shortDescription": "Plataforma de automação PostgreSQL DBaaS auto-hospedada",
+    "longDescription": "<p>Autobase é uma plataforma open-source <strong>PostgreSQL DBaaS</strong> para implantar e gerenciar clusters Postgres altamente disponíveis.</p><p>Console web na porta 80. A autorização usa <code>SERVICE_PASSWORD_AUTOBASE</code>.</p>"
+  }
+}

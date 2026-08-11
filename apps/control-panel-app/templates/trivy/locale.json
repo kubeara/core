@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "security",
+      "devops"
+    ],
+    "tags": [
+      "trivy",
+      "security",
+      "vulnerability",
+      "scanner",
+      "container",
+      "cve",
+      "sbom"
+    ],
+    "shortDescription": "Vulnerability scanner server with cached CVE database",
+    "longDescription": "<p>Trivy Server runs in <strong>client-server mode</strong> so scanners share a local vulnerability database cache.</p><p>Clients scan with <code>trivy image --server http://host:4954 &lt;image&gt;</code>. Health is exposed at <code>/healthz</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "sicherheit",
+      "devops"
+    ],
+    "tags": [
+      "trivy",
+      "sicherheit",
+      "schwachstelle",
+      "scanner",
+      "container",
+      "cve",
+      "sbom"
+    ],
+    "shortDescription": "Schwachstellen-Scanner-Server mit gecachter CVE-Datenbank",
+    "longDescription": "<p>Der Trivy Server läuft im <strong>Client-Server-Modus</strong>, sodass Scanner einen gemeinsamen lokalen Schwachstellen-Datenbank-Cache nutzen.</p><p>Clients scannen mit <code>trivy image --server http://host:4954 &lt;image&gt;</code>. Die Health wird unter <code>/healthz</code> bereitgestellt.</p>"
+  },
+  "fr": {
+    "category": [
+      "sécurité",
+      "devops"
+    ],
+    "tags": [
+      "trivy",
+      "sécurité",
+      "vulnérabilité",
+      "scanner",
+      "conteneur",
+      "cve",
+      "sbom"
+    ],
+    "shortDescription": "Serveur de scanner de vulnérabilités avec base CVE mise en cache",
+    "longDescription": "<p>Trivy Server fonctionne en <strong>mode client-serveur</strong> afin que les scanners partagent un cache local de base de vulnérabilités.</p><p>Les clients scannent avec <code>trivy image --server http://host:4954 &lt;image&gt;</code>. La santé est exposée sur <code>/healthz</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "segurança",
+      "devops"
+    ],
+    "tags": [
+      "trivy",
+      "segurança",
+      "vulnerabilidade",
+      "scanner",
+      "contêiner",
+      "cve",
+      "sbom"
+    ],
+    "shortDescription": "Servidor de varredura de vulnerabilidades com banco CVE em cache",
+    "longDescription": "<p>O Trivy Server roda em <strong>modo cliente-servidor</strong> para que os scanners compartilhem um cache local do banco de vulnerabilidades.</p><p>Os clientes escaneiam com <code>trivy image --server http://host:4954 &lt;image&gt;</code>. O health é exposto em <code>/healthz</code>.</p>"
+  }
+}

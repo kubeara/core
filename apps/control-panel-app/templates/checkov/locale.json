@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "security",
+      "development",
+      "devops"
+    ],
+    "tags": [
+      "checkov",
+      "iac",
+      "security",
+      "terraform",
+      "kubernetes",
+      "cloudformation",
+      "static-analysis"
+    ],
+    "shortDescription": "IaC static analysis for Terraform, Kubernetes, CloudFormation, and more",
+    "longDescription": "<p>Checkov scans <strong>infrastructure-as-code</strong> for security misconfigurations and compliance violations.</p><p>Mount IaC under <code>/scan</code> and run <code>docker compose exec --entrypoint checkov checkov checkov -d /scan</code>. Port 8080 serves the scan directory for read-only browsing.</p>"
+  },
+  "de": {
+    "category": [
+      "sicherheit",
+      "entwicklung",
+      "devops"
+    ],
+    "tags": [
+      "checkov",
+      "iac",
+      "sicherheit",
+      "terraform",
+      "kubernetes",
+      "cloudformation",
+      "statische-analyse"
+    ],
+    "shortDescription": "IaC-Statische-Analyse für Terraform, Kubernetes, CloudFormation und mehr",
+    "longDescription": "<p>Checkov scannt <strong>Infrastruktur-as-Code</strong> auf Sicherheits-Fehlkonfigurationen und Compliance-Verstöße.</p><p>Binde die IaC-Dateien unter <code>/scan</code> ein und führe <code>docker compose exec --entrypoint checkov checkov checkov -d /scan</code> aus. Port 8080 dient dem schreibgeschützten Durchsuchen des Scan-Verzeichnisses.</p>"
+  },
+  "fr": {
+    "category": [
+      "sécurité",
+      "développement",
+      "devops"
+    ],
+    "tags": [
+      "checkov",
+      "iac",
+      "sécurité",
+      "terraform",
+      "kubernetes",
+      "cloudformation",
+      "analyse-statique"
+    ],
+    "shortDescription": "Analyse statique IaC pour Terraform, Kubernetes, CloudFormation et plus",
+    "longDescription": "<p>Checkov analyse vos <strong>infrastructures-as-code</strong> pour détecter les mauvaises configurations de sécurité et les violations de conformité.</p><p>Montez votre IaC sous <code>/scan</code> et exécutez <code>docker compose exec --entrypoint checkov checkov checkov -d /scan</code>. Le port 8080 sert au parcours en lecture seule du répertoire de scan.</p>"
+  },
+  "pt": {
+    "category": [
+      "segurança",
+      "desenvolvimento",
+      "devops"
+    ],
+    "tags": [
+      "checkov",
+      "iac",
+      "segurança",
+      "terraform",
+      "kubernetes",
+      "cloudformation",
+      "análise-estática"
+    ],
+    "shortDescription": "Análise estática de IaC para Terraform, Kubernetes, CloudFormation e mais",
+    "longDescription": "<p>Checkov analisa <strong>infraestrutura-como-código</strong> em busca de configurações incorretas de segurança e violações de conformidade.</p><p>Monte a IaC em <code>/scan</code> e execute <code>docker compose exec --entrypoint checkov checkov checkov -d /scan</code>. A porta 8080 serve o diretório de varredura para navegação somente leitura.</p>"
+  }
+}

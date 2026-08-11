@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "automation",
+      "workflows",
+      "integration"
+    ],
+    "tags": [
+      "hatchet",
+      "workflow",
+      "automation",
+      "queue",
+      "jobs",
+      "postgresql"
+    ],
+    "shortDescription": "Background jobs and workflow orchestration platform",
+    "longDescription": "<p>Hatchet provides durable background jobs and workflow orchestration with retries, scheduling, and queue-based execution.</p><p>This template deploys Hatchet with PostgreSQL for persistent state.</p>"
+  },
+  "de": {
+    "category": [
+      "automatisierung",
+      "workflows",
+      "integration"
+    ],
+    "tags": [
+      "hatchet",
+      "workflow",
+      "automatisierung",
+      "warteschlange",
+      "jobs",
+      "postgresql"
+    ],
+    "shortDescription": "Plattform für Hintergrund-Jobs und Workflow-Orchestrierung",
+    "longDescription": "<p>Hatchet bietet langlebige <strong>Hintergrund-Jobs und Workflow-Orchestrierung</strong> mit Wiederholungen, Zeitplanung und warteschlangenbasierter Ausführung.</p><p>Diese Vorlage stellt Hatchet mit PostgreSQL für den persistenten Zustand bereit.</p>"
+  },
+  "fr": {
+    "category": [
+      "automatisation",
+      "workflows",
+      "intégration"
+    ],
+    "tags": [
+      "hatchet",
+      "workflow",
+      "automatisation",
+      "file",
+      "jobs",
+      "postgresql"
+    ],
+    "shortDescription": "Plateforme de jobs en arrière-plan et d'orchestration de workflows",
+    "longDescription": "<p>Hatchet fournit des jobs en arrière-plan durables et une orchestration de workflows avec réessais, planification et exécution basée sur des files.</p><p>Ce modèle déploie Hatchet avec PostgreSQL pour un état persistant.</p>"
+  },
+  "pt": {
+    "category": [
+      "automação",
+      "workflows",
+      "integração"
+    ],
+    "tags": [
+      "hatchet",
+      "workflow",
+      "automação",
+      "fila",
+      "jobs",
+      "postgresql"
+    ],
+    "shortDescription": "Plataforma de jobs em segundo plano e orquestração de workflows",
+    "longDescription": "<p>Hatchet oferece jobs em segundo plano duráveis e orquestração de workflows com novas tentativas, agendamento e execução baseada em filas.</p><p>Este template implanta o Hatchet com PostgreSQL para estado persistente.</p>"
+  }
+}

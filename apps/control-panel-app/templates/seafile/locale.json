@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "storage",
+      "collaboration"
+    ],
+    "tags": [
+      "seafile",
+      "files",
+      "cloud",
+      "storage",
+      "sync",
+      "sharing"
+    ],
+    "shortDescription": "Self-hosted file sync and sharing platform",
+    "longDescription": "<p>Seafile is an open-source <strong>file sync and share</strong> platform for teams and organizations.</p><p>Includes MariaDB and Redis. Admin login uses <code>SEAFILE_ADMIN_EMAIL</code> and <code>SERVICE_PASSWORD_SEAFILE_ADMIN</code> on first launch.</p>"
+  },
+  "de": {
+    "category": [
+      "speicher",
+      "kollaboration"
+    ],
+    "tags": [
+      "seafile",
+      "dateien",
+      "cloud",
+      "speicher",
+      "sync",
+      "sharing"
+    ],
+    "shortDescription": "Self-Hosted-Plattform für Datei-Sync und -Sharing",
+    "longDescription": "<p>Seafile ist eine Open-Source-<strong>Datei-Sync- und Sharing</strong>-Plattform für Teams und Organisationen.</p><p>Enthält MariaDB und Redis. Der Admin-Login verwendet beim ersten Start <code>SEAFILE_ADMIN_EMAIL</code> und <code>SERVICE_PASSWORD_SEAFILE_ADMIN</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "stockage",
+      "collaboration"
+    ],
+    "tags": [
+      "seafile",
+      "fichiers",
+      "cloud",
+      "stockage",
+      "synchronisation",
+      "partage"
+    ],
+    "shortDescription": "Plateforme auto-hébergée de synchronisation et de partage de fichiers",
+    "longDescription": "<p>Seafile est une plateforme open source de <strong>synchronisation et de partage de fichiers</strong> pour les équipes et les organisations.</p><p>Inclut MariaDB et Redis. La connexion admin utilise <code>SEAFILE_ADMIN_EMAIL</code> et <code>SERVICE_PASSWORD_SEAFILE_ADMIN</code> au premier lancement.</p>"
+  },
+  "pt": {
+    "category": [
+      "armazenamento",
+      "colaboração"
+    ],
+    "tags": [
+      "seafile",
+      "arquivos",
+      "cloud",
+      "armazenamento",
+      "sincronização",
+      "compartilhamento"
+    ],
+    "shortDescription": "Plataforma auto-hospedada de sincronização e compartilhamento de arquivos",
+    "longDescription": "<p>Seafile é uma plataforma open-source de <strong>sincronização e compartilhamento de arquivos</strong> para equipes e organizações.</p><p>Inclui MariaDB e Redis. O login de admin usa <code>SEAFILE_ADMIN_EMAIL</code> e <code>SERVICE_PASSWORD_SEAFILE_ADMIN</code> no primeiro acesso.</p>"
+  }
+}

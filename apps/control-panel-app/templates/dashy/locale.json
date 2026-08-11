@@ -1,0 +1,58 @@
+{
+  "en": {
+    "category": [
+      "self-hosted-dashboards"
+    ],
+    "tags": [
+      "dashy",
+      "dashboard",
+      "homelab",
+      "startpage",
+      "bookmarks"
+    ],
+    "shortDescription": "Customizable self-hosted dashboard for app links and widgets",
+    "longDescription": "<p>Dashy is a lightweight <strong>self-hosted dashboard</strong> for organizing your homelab and app shortcuts.</p><p>Add links, status widgets, and custom sections with a simple YAML-based configuration.</p>"
+  },
+  "de": {
+    "category": [
+      "self-hosted-dashboards"
+    ],
+    "tags": [
+      "dashy",
+      "dashboard",
+      "homelab",
+      "startseite",
+      "lesezeichen"
+    ],
+    "shortDescription": "Anpassbares Self-Hosted-Dashboard für App-Links und Widgets",
+    "longDescription": "<p>Dashy ist ein leichtes <strong>Self-Hosted-Dashboard</strong> zum Organisieren deines Homelab und deiner App-Verknüpfungen.</p><p>Füge Links, Status-Widgets und eigene Bereiche mit einer einfachen YAML-basierten Konfiguration hinzu.</p>"
+  },
+  "fr": {
+    "category": [
+      "tableaux-de-bord-self-hébergés"
+    ],
+    "tags": [
+      "dashy",
+      "tableau-de-bord",
+      "homelab",
+      "page-d'accueil",
+      "signets"
+    ],
+    "shortDescription": "Tableau de bord auto-hébergé personnalisable pour liens et widgets",
+    "longDescription": "<p>Dashy est un <strong>tableau de bord auto-hébergé</strong> léger pour organiser votre homelab et vos raccourcis d'applications.</p><p>Ajoutez des liens, des widgets de statut et des sections personnalisées avec une configuration simple basée sur YAML.</p>"
+  },
+  "pt": {
+    "category": [
+      "dashboards-auto-hospedados"
+    ],
+    "tags": [
+      "dashy",
+      "dashboard",
+      "homelab",
+      "página-inicial",
+      "favoritos"
+    ],
+    "shortDescription": "Dashboard auto-hospedado personalizável para links de apps e widgets",
+    "longDescription": "<p>Dashy é um <strong>dashboard auto-hospedado</strong> leve para organizar seu homelab e atalhos de aplicativos.</p><p>Adicione links, widgets de status e seções personalizadas com uma configuração simples baseada em YAML.</p>"
+  }
+}

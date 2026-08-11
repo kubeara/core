@@ -1,0 +1,58 @@
+{
+  "en": {
+    "category": [
+      "self-hosted-dashboards"
+    ],
+    "tags": [
+      "homepage",
+      "dashboard",
+      "homelab",
+      "startpage",
+      "widgets"
+    ],
+    "shortDescription": "Highly configurable homepage dashboard for self-hosted apps",
+    "longDescription": "<p>Homepage is a flexible <strong>dashboard start page</strong> for homelab and self-hosted environments.</p><p>Show service links, bookmarks, and widgets from one customizable UI.</p>"
+  },
+  "de": {
+    "category": [
+      "self-hosted-dashboards"
+    ],
+    "tags": [
+      "homepage",
+      "dashboard",
+      "homelab",
+      "startseite",
+      "widgets"
+    ],
+    "shortDescription": "Hochkonfigurierbares Startseiten-Dashboard für Self-Hosted-Apps",
+    "longDescription": "<p>Homepage ist eine flexible <strong>Dashboard-Startseite</strong> für Homelab- und Self-Hosted-Umgebungen.</p><p>Zeige Dienst-Links, Lesezeichen und Widgets in einer anpassbaren Oberfläche.</p>"
+  },
+  "fr": {
+    "category": [
+      "tableaux-de-bord-self-hébergés"
+    ],
+    "tags": [
+      "homepage",
+      "tableau-de-bord",
+      "homelab",
+      "page-d'accueil",
+      "widgets"
+    ],
+    "shortDescription": "Tableau de bord d'accueil hautement configurable pour applications auto-hébergées",
+    "longDescription": "<p>Homepage est une <strong>page de démarrage de tableau de bord</strong> flexible pour les environnements homelab et auto-hébergés.</p><p>Affichez liens de services, favoris et widgets depuis une interface personnalisable.</p>"
+  },
+  "pt": {
+    "category": [
+      "dashboards-auto-hospedados"
+    ],
+    "tags": [
+      "homepage",
+      "dashboard",
+      "homelab",
+      "página-inicial",
+      "widgets"
+    ],
+    "shortDescription": "Dashboard de página inicial altamente configurável para apps auto-hospedadas",
+    "longDescription": "<p>Homepage é uma <strong>página inicial de dashboard</strong> flexível para ambientes homelab e auto-hospedados.</p><p>Exiba links de serviços, favoritos e widgets em uma interface personalizável.</p>"
+  }
+}

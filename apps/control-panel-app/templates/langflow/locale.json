@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "automation"
+    ],
+    "tags": [
+      "langflow",
+      "ai",
+      "llm",
+      "agents",
+      "rag",
+      "workflow",
+      "low-code"
+    ],
+    "shortDescription": "Visual IDE for building LLM applications and agents",
+    "longDescription": "<p>Langflow is a visual <strong>low-code IDE</strong> for building LLM apps, agents, and RAG pipelines.</p><p>Includes PostgreSQL for persistent storage. Data and secrets persist under <code>/app/langflow</code>. Open the UI on first launch to get started.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "automatisierung"
+    ],
+    "tags": [
+      "langflow",
+      "ki",
+      "llm",
+      "agenten",
+      "rag",
+      "workflow",
+      "low-code"
+    ],
+    "shortDescription": "Visuelle IDE zum Erstellen von LLM-Anwendungen und Agenten",
+    "longDescription": "<p>Langflow ist eine visuelle <strong>Low-Code-IDE</strong> zum Erstellen von LLM-Apps, Agenten und RAG-Pipelines.</p><p>Enthält PostgreSQL für die dauerhafte Speicherung. Daten und Geheimnisse bleiben unter <code>/app/langflow</code> erhalten. Öffne die UI beim ersten Start, um loszulegen.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "automatisation"
+    ],
+    "tags": [
+      "langflow",
+      "ia",
+      "llm",
+      "agents",
+      "rag",
+      "workflow",
+      "low-code"
+    ],
+    "shortDescription": "IDE visuelle pour créer des applications et agents LLM",
+    "longDescription": "<p>Langflow est une <strong>IDE low-code</strong> visuelle pour créer des applications LLM, des agents et des pipelines RAG.</p><p>Inclut PostgreSQL pour un stockage persistant. Les données et secrets persistent sous <code>/app/langflow</code>. Ouvrez l'interface au premier lancement pour commencer.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "automação"
+    ],
+    "tags": [
+      "langflow",
+      "ia",
+      "llm",
+      "agentes",
+      "rag",
+      "workflow",
+      "low-code"
+    ],
+    "shortDescription": "IDE visual para criar aplicações e agentes LLM",
+    "longDescription": "<p>Langflow é uma <strong>IDE low-code</strong> visual para criar apps LLM, agentes e pipelines RAG.</p><p>Inclui PostgreSQL para armazenamento persistente. Dados e segredos persistem em <code>/app/langflow</code>. Abra a UI no primeiro acesso para começar.</p>"
+  }
+}

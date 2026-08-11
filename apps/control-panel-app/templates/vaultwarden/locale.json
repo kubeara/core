@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "security",
+      "passwords"
+    ],
+    "tags": [
+      "vaultwarden",
+      "bitwarden",
+      "passwords",
+      "secrets",
+      "security",
+      "self-hosted"
+    ],
+    "shortDescription": "Self-hosted Bitwarden-compatible password manager",
+    "longDescription": "<p>Vaultwarden is a lightweight, <strong>Bitwarden-compatible</strong> password manager server written in Rust.</p><p>Set <code>DOMAIN</code> via <code>SERVICE_URL_VAULTWARDEN</code> (include <code>https://</code> in production). Admin panel at <code>/admin</code> uses <code>SERVICE_PASSWORD_VAULTWARDEN</code> as <code>ADMIN_TOKEN</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "sicherheit",
+      "passwörter"
+    ],
+    "tags": [
+      "vaultwarden",
+      "bitwarden",
+      "passwörter",
+      "geheimnisse",
+      "sicherheit",
+      "self-hosted"
+    ],
+    "shortDescription": "Self-Hosted-, Bitwarden-kompatibler Passwort-Manager",
+    "longDescription": "<p>Vaultwarden ist ein leichtgewichtiger, <strong>Bitwarden-kompatibler</strong> Passwort-Manager-Server, geschrieben in Rust.</p><p>Setze <code>DOMAIN</code> über <code>SERVICE_URL_VAULTWARDEN</code> (in Produktion mit <code>https://</code>). Das Admin-Panel unter <code>/admin</code> verwendet <code>SERVICE_PASSWORD_VAULTWARDEN</code> als <code>ADMIN_TOKEN</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "sécurité",
+      "mots-de-passe"
+    ],
+    "tags": [
+      "vaultwarden",
+      "bitwarden",
+      "mots-de-passe",
+      "secrets",
+      "sécurité",
+      "auto-hébergé"
+    ],
+    "shortDescription": "Gestionnaire de mots de passe auto-hébergé compatible Bitwarden",
+    "longDescription": "<p>Vaultwarden est un serveur de gestionnaire de mots de passe léger et <strong>compatible Bitwarden</strong> écrit en Rust.</p><p>Définissez <code>DOMAIN</code> via <code>SERVICE_URL_VAULTWARDEN</code> (incluez <code>https://</code> en production). Le panneau admin sur <code>/admin</code> utilise <code>SERVICE_PASSWORD_VAULTWARDEN</code> comme <code>ADMIN_TOKEN</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "segurança",
+      "senhas"
+    ],
+    "tags": [
+      "vaultwarden",
+      "bitwarden",
+      "senhas",
+      "segredos",
+      "segurança",
+      "auto-hospedado"
+    ],
+    "shortDescription": "Gerenciador de senhas auto-hospedado compatível com Bitwarden",
+    "longDescription": "<p>Vaultwarden é um servidor de gerenciador de senhas leve e <strong>compatível com Bitwarden</strong>, escrito em Rust.</p><p>Defina <code>DOMAIN</code> via <code>SERVICE_URL_VAULTWARDEN</code> (inclua <code>https://</code> em produção). O painel admin em <code>/admin</code> usa <code>SERVICE_PASSWORD_VAULTWARDEN</code> como <code>ADMIN_TOKEN</code>.</p>"
+  }
+}

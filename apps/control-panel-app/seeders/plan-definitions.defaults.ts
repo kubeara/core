@@ -1,150 +1,112 @@
 import { PlanSlug } from "../src/modules/subscriptions/enums/plan-slug.enum";
 import { BillingCycleSlug } from "../src/modules/subscriptions/enums/billing-cycle.enum";
-import { PlanFeatures } from "../src/modules/subscriptions/interfaces/plan-features.interface";
-import { DEFAULT_PLAN_FEATURES } from "../src/modules/subscriptions/utils/plan-features.util";
 
 export const PLAN_DEFINITIONS: Array<{
   slug: PlanSlug;
   tierSlug: string;
   billingCycle: BillingCycleSlug;
-  name: string;
-  description: string;
   price: number;
   listPrice: number | null;
   stripePriceId: string | null;
   sortOrder: number;
-  features: PlanFeatures;
 }> = [
   {
     slug: PlanSlug.FREE,
     tierSlug: "free",
     billingCycle: BillingCycleSlug.MONTHLY,
-    name: "Free",
-    description: "For individuals exploring Kubeara",
     price: 0,
     listPrice: 0,
     stripePriceId: "price_1TjvBKDwyDm0QIBwMvOA1RnY",
     sortOrder: 0,
-    features: DEFAULT_PLAN_FEATURES.free,
   },
   {
     slug: PlanSlug.STARTER_MONTHLY,
     tierSlug: "starter",
     billingCycle: BillingCycleSlug.MONTHLY,
-    name: "Starter",
-    description: "For small teams getting production-ready",
     price: 5,
     listPrice: 5,
     stripePriceId: "price_1TjvCMDwyDm0QIBwaaphIOtV",
     sortOrder: 1,
-    features: DEFAULT_PLAN_FEATURES.starter,
   },
   {
     slug: PlanSlug.STARTER_QUARTERLY,
     tierSlug: "starter",
     billingCycle: BillingCycleSlug.QUARTERLY,
-    name: "Starter",
-    description: "For small teams getting production-ready",
     price: 13.5,
     listPrice: 15,
     stripePriceId: "price_1TnZtLDwyDm0QIBwQDSKj8TV",
     sortOrder: 1,
-    features: DEFAULT_PLAN_FEATURES.starter,
   },
   {
     slug: PlanSlug.STARTER_YEARLY,
     tierSlug: "starter",
     billingCycle: BillingCycleSlug.YEARLY,
-    name: "Starter",
-    description: "For small teams getting production-ready",
     price: 30,
     listPrice: 60,
     stripePriceId: "price_1TnZtiDwyDm0QIBwkR4i2BRv",
     sortOrder: 1,
-    features: DEFAULT_PLAN_FEATURES.starter,
   },
   {
     slug: PlanSlug.PRO_MONTHLY,
     tierSlug: "pro",
     billingCycle: BillingCycleSlug.MONTHLY,
-    name: "Pro",
-    description: "For growing teams with collaboration needs",
     price: 29,
     listPrice: 29,
     stripePriceId: "price_1TlkRnDwyDm0QIBwx5DVaQCF",
     sortOrder: 2,
-    features: DEFAULT_PLAN_FEATURES.pro,
   },
   {
     slug: PlanSlug.PRO_QUARTERLY,
     tierSlug: "pro",
     billingCycle: BillingCycleSlug.QUARTERLY,
-    name: "Pro",
-    description: "For growing teams with collaboration needs",
     price: 78,
     listPrice: 87,
     stripePriceId: "price_1TnZoPDwyDm0QIBwX9oN0nrV",
     sortOrder: 2,
-    features: DEFAULT_PLAN_FEATURES.pro,
   },
   {
     slug: PlanSlug.PRO_YEARLY,
     tierSlug: "pro",
     billingCycle: BillingCycleSlug.YEARLY,
-    name: "Pro",
-    description: "For growing teams with collaboration needs",
     price: 174,
     listPrice: 348,
     stripePriceId: "price_1TnZnwDwyDm0QIBwQqJobY3t",
     sortOrder: 2,
-    features: DEFAULT_PLAN_FEATURES.pro,
   },
   {
     slug: PlanSlug.MAX_MONTHLY,
     tierSlug: "max",
     billingCycle: BillingCycleSlug.MONTHLY,
-    name: "Max",
-    description: "For advanced teams running at scale",
     price: 99,
     listPrice: 99,
     stripePriceId: "price_1TlkT9DwyDm0QIBwfMRRNakN",
     sortOrder: 3,
-    features: DEFAULT_PLAN_FEATURES.max,
   },
   {
     slug: PlanSlug.MAX_QUARTERLY,
     tierSlug: "max",
     billingCycle: BillingCycleSlug.QUARTERLY,
-    name: "Max",
-    description: "For advanced teams running at scale",
     price: 267,
     listPrice: 297,
     stripePriceId: "price_1TnZrhDwyDm0QIBwydE7ywWO",
     sortOrder: 3,
-    features: DEFAULT_PLAN_FEATURES.max,
   },
   {
     slug: PlanSlug.MAX_YEARLY,
     tierSlug: "max",
     billingCycle: BillingCycleSlug.YEARLY,
-    name: "Max",
-    description: "For advanced teams running at scale",
     price: 582,
     listPrice: 1188,
     stripePriceId: "price_1TnZrGDwyDm0QIBwxBTehD9n",
     sortOrder: 3,
-    features: DEFAULT_PLAN_FEATURES.max,
   },
   {
     slug: PlanSlug.ENTERPRISE,
     tierSlug: "enterprise",
     billingCycle: BillingCycleSlug.MONTHLY,
-    name: "Enterprise",
-    description: "For compliance-heavy organizations",
     price: 0,
     listPrice: 0,
     stripePriceId: null,
     sortOrder: 4,
-    features: DEFAULT_PLAN_FEATURES.enterprise,
   },
 ];

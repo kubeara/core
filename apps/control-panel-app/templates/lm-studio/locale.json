@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "llm"
+    ],
+    "tags": [
+      "lm-studio",
+      "llm",
+      "local",
+      "inference",
+      "openai-api",
+      "llmster"
+    ],
+    "shortDescription": "Headless LM Studio daemon with OpenAI-compatible API",
+    "longDescription": "<p>llmster is the <strong>headless LM Studio daemon</strong> for server deployments without a GUI.</p><p>API listens on port <code>1234</code>. Use the <code>lms</code> CLI or OpenAI-compatible REST API. Default image is CPU-only; set <code>LM_STUDIO_IMAGE</code> for GPU variants when available.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "llm"
+    ],
+    "tags": [
+      "lm-studio",
+      "llm",
+      "lokal",
+      "inference",
+      "openai-api",
+      "llmster"
+    ],
+    "shortDescription": "Headless-LM-Studio-Daemon mit OpenAI-kompatibler API",
+    "longDescription": "<p>llmster ist der <strong>headless LM Studio Daemon</strong> für Serverbereitstellungen ohne grafische Oberfläche.</p><p>Die API lauscht auf Port <code>1234</code>. Nutze die <code>lms</code>-CLI oder die OpenAI-kompatible REST-API. Das Standard-Image ist nur für CPU; setze <code>LM_STUDIO_IMAGE</code> für GPU-Varianten, sofern verfügbar.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "llm"
+    ],
+    "tags": [
+      "lm-studio",
+      "llm",
+      "local",
+      "inférence",
+      "openai-api",
+      "llmster"
+    ],
+    "shortDescription": "Daemon LM Studio sans interface avec API compatible OpenAI",
+    "longDescription": "<p>llmster est le <strong>daemon LM Studio sans interface</strong> pour les déploiements serveur sans GUI.</p><p>L'API écoute sur le port <code>1234</code>. Utilisez la CLI <code>lms</code> ou l'API REST compatible OpenAI. L'image par défaut est CPU uniquement ; définissez <code>LM_STUDIO_IMAGE</code> pour les variantes GPU lorsqu'elles sont disponibles.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "llm"
+    ],
+    "tags": [
+      "lm-studio",
+      "llm",
+      "local",
+      "inferência",
+      "openai-api",
+      "llmster"
+    ],
+    "shortDescription": "Daemon headless do LM Studio com API compatível com OpenAI",
+    "longDescription": "<p>llmster é o <strong>daemon headless do LM Studio</strong> para implantações em servidor sem GUI.</p><p>A API escuta na porta <code>1234</code>. Use a CLI <code>lms</code> ou a API REST compatível com OpenAI. A imagem padrão é apenas CPU; defina <code>LM_STUDIO_IMAGE</code> para variantes GPU quando disponíveis.</p>"
+  }
+}

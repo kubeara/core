@@ -1,0 +1,62 @@
+{
+  "en": {
+    "category": [
+      "monitoring",
+      "observability"
+    ],
+    "tags": [
+      "grafana",
+      "monitoring",
+      "dashboards",
+      "metrics",
+      "visualization"
+    ],
+    "shortDescription": "Observability dashboards for metrics, logs, and traces",
+    "longDescription": "<p>Grafana is an open source platform for <strong>monitoring and observability</strong>.</p><p>Visualize Prometheus metrics, logs, traces, and alerts in customizable dashboards. Admin credentials are set via <code>SERVICE_USER_GRAFANA</code> and <code>SERVICE_PASSWORD_GRAFANA</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "monitoring",
+      "observability"
+    ],
+    "tags": [
+      "grafana",
+      "monitoring",
+      "dashboards",
+      "metriken",
+      "visualisierung"
+    ],
+    "shortDescription": "Observability-Dashboards für Metriken, Logs und Traces",
+    "longDescription": "<p>Grafana ist eine Open-Source-Plattform für <strong>Monitoring und Observability</strong>.</p><p>Visualisiere Prometheus-Metriken, Logs, Traces und Alerts in anpassbaren Dashboards. Admin-Zugangsdaten werden über <code>SERVICE_USER_GRAFANA</code> und <code>SERVICE_PASSWORD_GRAFANA</code> gesetzt.</p>"
+  },
+  "fr": {
+    "category": [
+      "supervision",
+      "observabilité"
+    ],
+    "tags": [
+      "grafana",
+      "supervision",
+      "tableaux-de-bord",
+      "métriques",
+      "visualisation"
+    ],
+    "shortDescription": "Tableaux de bord d'observabilité pour métriques, logs et traces",
+    "longDescription": "<p>Grafana est une plateforme open source pour la <strong>supervision et l'observabilité</strong>.</p><p>Visualisez les métriques Prometheus, les logs, les traces et les alertes dans des tableaux de bord personnalisables. Les identifiants admin sont définis via <code>SERVICE_USER_GRAFANA</code> et <code>SERVICE_PASSWORD_GRAFANA</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "monitoramento",
+      "observabilidade"
+    ],
+    "tags": [
+      "grafana",
+      "monitoramento",
+      "dashboards",
+      "métricas",
+      "visualização"
+    ],
+    "shortDescription": "Dashboards de observabilidade para métricas, logs e traces",
+    "longDescription": "<p>Grafana é uma plataforma open-source de <strong>monitoramento e observabilidade</strong>.</p><p>Visualize métricas do Prometheus, logs, traces e alertas em dashboards personalizáveis. As credenciais de administrador são definidas via <code>SERVICE_USER_GRAFANA</code> e <code>SERVICE_PASSWORD_GRAFANA</code>.</p>"
+  }
+}

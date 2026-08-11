@@ -1,0 +1,78 @@
+{
+  "en": {
+    "category": [
+      "git",
+      "scm",
+      "source-control"
+    ],
+    "tags": [
+      "onedev",
+      "git",
+      "scm",
+      "ci",
+      "cd",
+      "kanban",
+      "self-hosted",
+      "devops"
+    ],
+    "shortDescription": "Self-hosted Git server with built-in CI/CD",
+    "longDescription": "<p>OneDev is an all-in-one <strong>Git hosting</strong> platform with kanban, code search, and integrated CI/CD pipelines.</p><p>Mounts the host Docker socket so build agents can spawn job containers. Set <code>SERVICE_URL_ONEDEV_*</code> and initial admin credentials before first deploy.</p>"
+  },
+  "de": {
+    "category": [
+      "git",
+      "scm",
+      "quellcodeverwaltung"
+    ],
+    "tags": [
+      "onedev",
+      "git",
+      "scm",
+      "ci",
+      "cd",
+      "kanban",
+      "self-hosted",
+      "devops"
+    ],
+    "shortDescription": "Self-Hosted-Git-Server mit integrierter CI/CD",
+    "longDescription": "<p>OneDev ist eine All-in-One-<strong>Git-Hosting</strong>-Plattform mit Kanban, Codesuche und integrierten CI/CD-Pipelines.</p><p>Bindet den Docker-Socket des Hosts ein, damit Build-Agenten Job-Container starten können. Setze <code>SERVICE_URL_ONEDEV_*</code> und die anfänglichen Admin-Zugangsdaten vor dem ersten Deploy.</p>"
+  },
+  "fr": {
+    "category": [
+      "git",
+      "scm",
+      "contrôle-de-source"
+    ],
+    "tags": [
+      "onedev",
+      "git",
+      "scm",
+      "ci",
+      "cd",
+      "kanban",
+      "auto-hébergé",
+      "devops"
+    ],
+    "shortDescription": "Serveur Git auto-hébergé avec CI/CD intégré",
+    "longDescription": "<p>OneDev est une plateforme tout-en-un d'<strong>hébergement Git</strong> avec kanban, recherche de code et pipelines CI/CD intégrées.</p><p>Monte le socket Docker de l'hôte afin que les agents de build puissent lancer des conteneurs de jobs. Définissez <code>SERVICE_URL_ONEDEV_*</code> et les identifiants admin initiaux avant le premier déploiement.</p>"
+  },
+  "pt": {
+    "category": [
+      "git",
+      "scm",
+      "controle-de-fonte"
+    ],
+    "tags": [
+      "onedev",
+      "git",
+      "scm",
+      "ci",
+      "cd",
+      "kanban",
+      "auto-hospedado",
+      "devops"
+    ],
+    "shortDescription": "Servidor Git auto-hospedado com CI/CD integrado",
+    "longDescription": "<p>OneDev é uma plataforma tudo-em-um de <strong>hospedagem Git</strong> com kanban, busca de código e pipelines CI/CD integradas.</p><p>Monta o socket Docker do host para que agentes de build possam iniciar contêineres de jobs. Defina <code>SERVICE_URL_ONEDEV_*</code> e as credenciais de admin iniciais antes do primeiro deploy.</p>"
+  }
+}

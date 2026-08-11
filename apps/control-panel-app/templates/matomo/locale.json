@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "analytics",
+      "monitoring"
+    ],
+    "tags": [
+      "matomo",
+      "analytics",
+      "privacy",
+      "web",
+      "statistics",
+      "piwik",
+      "mariadb"
+    ],
+    "shortDescription": "Full-featured open-source web analytics",
+    "longDescription": "<p>Matomo (formerly Piwik) is a comprehensive <strong>web analytics</strong> platform with dashboards, goals, heatmaps, and GDPR-friendly self-hosting.</p><p>Includes MariaDB. Complete the web installer on first launch. Add a cron container for report archiving in production.</p>"
+  },
+  "de": {
+    "category": [
+      "analytik",
+      "monitoring"
+    ],
+    "tags": [
+      "matomo",
+      "analytik",
+      "datenschutz",
+      "web",
+      "statistiken",
+      "piwik",
+      "mariadb"
+    ],
+    "shortDescription": "Vollwertige Open-Source-Web-Analytics",
+    "longDescription": "<p>Matomo (ehemals Piwik) ist eine umfassende <strong>Web-Analytics-Plattform</strong> mit Dashboards, Zielen, Heatmaps und DSGVO-freundlichem Self-Hosting.</p><p>Enthält MariaDB. Schließe den Web-Installer beim ersten Start ab. Füge in Produktion einen Cron-Container für die Berichtarchivierung hinzu.</p>"
+  },
+  "fr": {
+    "category": [
+      "analytique",
+      "supervision"
+    ],
+    "tags": [
+      "matomo",
+      "analytique",
+      "confidentialité",
+      "web",
+      "statistiques",
+      "piwik",
+      "mariadb"
+    ],
+    "shortDescription": "Analyse web open source complète",
+    "longDescription": "<p>Matomo (anciennement Piwik) est une plateforme complète d'<strong>analyse web</strong> avec tableaux de bord, objectifs, heatmaps et auto-hébergement compatible RGPD.</p><p>Inclut MariaDB. Terminez l'installation web au premier lancement. Ajoutez un conteneur cron pour l'archivage des rapports en production.</p>"
+  },
+  "pt": {
+    "category": [
+      "análises",
+      "monitoramento"
+    ],
+    "tags": [
+      "matomo",
+      "análises",
+      "privacidade",
+      "web",
+      "estatísticas",
+      "piwik",
+      "mariadb"
+    ],
+    "shortDescription": "Web analytics open-source completo",
+    "longDescription": "<p>Matomo (antigo Piwik) é uma plataforma abrangente de <strong>web analytics</strong> com dashboards, metas, mapas de calor e auto-hospedagem compatível com LGPD.</p><p>Inclui MariaDB. Conclua o instalador web no primeiro acesso. Adicione um contêiner cron para arquivamento de relatórios em produção.</p>"
+  }
+}

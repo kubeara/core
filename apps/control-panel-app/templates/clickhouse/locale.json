@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "analytics"
+    ],
+    "tags": [
+      "clickhouse",
+      "database",
+      "analytics",
+      "olap",
+      "columnar",
+      "sql"
+    ],
+    "shortDescription": "Column-oriented OLAP database for analytics",
+    "longDescription": "<p>ClickHouse is a high-performance <strong>column-oriented database</strong> for real-time analytics and large-scale aggregations.</p><p>Exposes HTTP on port 8123 and the native protocol on port 9000. Credentials use <code>SERVICE_USER_CLICKHOUSE</code> and <code>SERVICE_PASSWORD_CLICKHOUSE</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "analytik"
+    ],
+    "tags": [
+      "clickhouse",
+      "datenbank",
+      "analytik",
+      "olap",
+      "spaltenorientiert",
+      "sql"
+    ],
+    "shortDescription": "Spaltenorientierte OLAP-Datenbank für Analytik",
+    "longDescription": "<p>ClickHouse ist eine leistungsstarke <strong>spaltenorientierte Datenbank</strong> für Echtzeit-Analytik und große Aggregationen.</p><p>Bietet HTTP auf Port 8123 und das native Protokoll auf Port 9000. Zugangsdaten verwenden <code>SERVICE_USER_CLICKHOUSE</code> und <code>SERVICE_PASSWORD_CLICKHOUSE</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "analytique"
+    ],
+    "tags": [
+      "clickhouse",
+      "base-de-données",
+      "analytique",
+      "olap",
+      "colonnaire",
+      "sql"
+    ],
+    "shortDescription": "Base de données OLAP orientée colonnes pour l'analytique",
+    "longDescription": "<p>ClickHouse est une <strong>base de données orientée colonnes</strong> haute performance pour l'analytique en temps réel et les agrégations à grande échelle.</p><p>Expose HTTP sur le port 8123 et le protocole natif sur le port 9000. Les identifiants utilisent <code>SERVICE_USER_CLICKHOUSE</code> et <code>SERVICE_PASSWORD_CLICKHOUSE</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "análises"
+    ],
+    "tags": [
+      "clickhouse",
+      "banco-de-dados",
+      "análises",
+      "olap",
+      "colunar",
+      "sql"
+    ],
+    "shortDescription": "Banco de dados OLAP orientado a colunas para análises",
+    "longDescription": "<p>ClickHouse é um <strong>banco de dados orientado a colunas</strong> de alta performance para análises em tempo real e agregações em grande escala.</p><p>Expõe HTTP na porta 8123 e o protocolo nativo na porta 9000. As credenciais usam <code>SERVICE_USER_CLICKHOUSE</code> e <code>SERVICE_PASSWORD_CLICKHOUSE</code>.</p>"
+  }
+}

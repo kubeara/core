@@ -1,0 +1,78 @@
+{
+  "en": {
+    "category": [
+      "security",
+      "auth",
+      "iam"
+    ],
+    "tags": [
+      "authentik",
+      "sso",
+      "oauth",
+      "saml",
+      "mfa",
+      "iam",
+      "identity",
+      "authentication"
+    ],
+    "shortDescription": "Open-source identity provider with SSO and MFA",
+    "longDescription": "<p>Authentik is an open-source <strong>identity provider</strong> for SSO, OAuth2, SAML, and MFA.</p><p>Includes PostgreSQL and Redis with server and worker containers. Secrets use <code>SERVICE_PASSWORD_AUTHENTIK</code> and <code>SERVICE_BASE64_64_AUTHENTIK</code>. Complete the setup wizard on first launch at port 9000.</p>"
+  },
+  "de": {
+    "category": [
+      "sicherheit",
+      "auth",
+      "iam"
+    ],
+    "tags": [
+      "authentik",
+      "sso",
+      "oauth",
+      "saml",
+      "mfa",
+      "iam",
+      "identität",
+      "authentifizierung"
+    ],
+    "shortDescription": "Open-Source-Identitätsanbieter mit SSO und MFA",
+    "longDescription": "<p>Authentik ist ein Open-Source-<strong>Identitätsanbieter</strong> für SSO, OAuth2, SAML und MFA.</p><p>Enthält PostgreSQL und Redis mit Server- und Worker-Containern. Geheimnisse verwenden <code>SERVICE_PASSWORD_AUTHENTIK</code> und <code>SERVICE_BASE64_64_AUTHENTIK</code>. Schließe den Einrichtungsassistenten beim ersten Start auf Port 9000 ab.</p>"
+  },
+  "fr": {
+    "category": [
+      "sécurité",
+      "auth",
+      "iam"
+    ],
+    "tags": [
+      "authentik",
+      "sso",
+      "oauth",
+      "saml",
+      "mfa",
+      "iam",
+      "identité",
+      "authentification"
+    ],
+    "shortDescription": "Fournisseur d'identité open source avec SSO et MFA",
+    "longDescription": "<p>Authentik est un <strong>fournisseur d'identité</strong> open source pour SSO, OAuth2, SAML et MFA.</p><p>Inclut PostgreSQL et Redis avec des conteneurs serveur et worker. Les secrets utilisent <code>SERVICE_PASSWORD_AUTHENTIK</code> et <code>SERVICE_BASE64_64_AUTHENTIK</code>. Terminez l'assistant de configuration au premier lancement sur le port 9000.</p>"
+  },
+  "pt": {
+    "category": [
+      "segurança",
+      "auth",
+      "iam"
+    ],
+    "tags": [
+      "authentik",
+      "sso",
+      "oauth",
+      "saml",
+      "mfa",
+      "iam",
+      "identidade",
+      "autenticação"
+    ],
+    "shortDescription": "Provedor de identidade open-source com SSO e MFA",
+    "longDescription": "<p>Authentik é um <strong>provedor de identidade</strong> open-source para SSO, OAuth2, SAML e MFA.</p><p>Inclui PostgreSQL e Redis com contêineres de servidor e worker. Os segredos usam <code>SERVICE_PASSWORD_AUTHENTIK</code> e <code>SERVICE_BASE64_64_AUTHENTIK</code>. Conclua o assistente de configuração no primeiro acesso na porta 9000.</p>"
+  }
+}

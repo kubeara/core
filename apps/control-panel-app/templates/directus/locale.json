@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "cms",
+      "content",
+      "api"
+    ],
+    "tags": [
+      "directus",
+      "cms",
+      "headless",
+      "api",
+      "postgresql",
+      "content",
+      "data"
+    ],
+    "shortDescription": "Open-source headless CMS and data platform",
+    "longDescription": "<p>Directus is an open-source <strong>headless CMS</strong> that wraps any SQL database with a real-time API and admin app.</p><p>Includes PostgreSQL. Secrets use <code>SERVICE_HEX_32_DIRECTUS</code>, <code>SERVICE_HEX_64_DIRECTUS</code>, <code>SERVICE_USER_DIRECTUS</code>, and <code>SERVICE_PASSWORD_DIRECTUS</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "cms",
+      "content",
+      "api"
+    ],
+    "tags": [
+      "directus",
+      "cms",
+      "headless",
+      "api",
+      "postgresql",
+      "content",
+      "daten"
+    ],
+    "shortDescription": "Open-Source-Headless-CMS und Datenplattform",
+    "longDescription": "<p>Directus ist ein Open-Source-<strong>Headless-CMS</strong>, das jede SQL-Datenbank mit einer Echtzeit-API und einer Admin-App umhüllt.</p><p>Enthält PostgreSQL. Geheimnisse verwenden <code>SERVICE_HEX_32_DIRECTUS</code>, <code>SERVICE_HEX_64_DIRECTUS</code>, <code>SERVICE_USER_DIRECTUS</code> und <code>SERVICE_PASSWORD_DIRECTUS</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "cms",
+      "contenu",
+      "api"
+    ],
+    "tags": [
+      "directus",
+      "cms",
+      "headless",
+      "api",
+      "postgresql",
+      "contenu",
+      "données"
+    ],
+    "shortDescription": "CMS headless et plateforme de données open source",
+    "longDescription": "<p>Directus est un <strong>CMS headless</strong> open source qui enveloppe n'importe quelle base de données SQL avec une API temps réel et une application d'administration.</p><p>Inclut PostgreSQL. Les secrets utilisent <code>SERVICE_HEX_32_DIRECTUS</code>, <code>SERVICE_HEX_64_DIRECTUS</code>, <code>SERVICE_USER_DIRECTUS</code> et <code>SERVICE_PASSWORD_DIRECTUS</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "cms",
+      "conteúdo",
+      "api"
+    ],
+    "tags": [
+      "directus",
+      "cms",
+      "headless",
+      "api",
+      "postgresql",
+      "conteúdo",
+      "dados"
+    ],
+    "shortDescription": "CMS headless e plataforma de dados open-source",
+    "longDescription": "<p>Directus é um <strong>CMS headless</strong> open-source que envolve qualquer banco de dados SQL com uma API em tempo real e um app de administração.</p><p>Inclui PostgreSQL. Os segredos usam <code>SERVICE_HEX_32_DIRECTUS</code>, <code>SERVICE_HEX_64_DIRECTUS</code>, <code>SERVICE_USER_DIRECTUS</code> e <code>SERVICE_PASSWORD_DIRECTUS</code>.</p>"
+  }
+}

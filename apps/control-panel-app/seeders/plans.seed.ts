@@ -7,10 +7,17 @@ import { DataSource } from "typeorm";
 import dayjs from "dayjs";
 
 import { PlanEntity } from "../src/modules/subscriptions/entities/plan.entity";
+import { PlanTranslationEntity } from "../src/modules/subscriptions/entities/plan-translation.entity";
 import { PlanSlug } from "../src/modules/subscriptions/enums/plan-slug.enum";
 import { EntityStatus } from "../src/common/entity/base.entity";
 import { PLAN_DEFINITIONS } from "./plan-definitions.defaults";
+import {
+  buildPlanFeatureMap,
+  getPlanTranslationKey,
+  normalizePlanFeatures,
+} from "../src/modules/subscriptions/utils/plan-features.util";
 import { isDbSslEnabled } from "../src/constants/env.constant";
+import planLocaleCatalog from "../plans/locale.json";
 
 const ROOT_DIR = process.cwd();
 const APP_ENV_PATH = path.join(ROOT_DIR, "apps/control-panel-app/.env");
@@ -34,7 +41,7 @@ export async function seedPlans(): Promise<void> {
     username: configService.get<string>("DB_USERNAME"),
     password: configService.get<string>("DB_PASSWORD"),
     database: configService.get<string>("DB_DATABASE"),
-    entities: [PlanEntity],
+    entities: [PlanEntity, PlanTranslationEntity],
     synchronize: false,
     ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
   });
@@ -44,6 +51,7 @@ export async function seedPlans(): Promise<void> {
   }
 
   const planRepository = ds.getRepository(PlanEntity);
+  const translationRepository = ds.getRepository(PlanTranslationEntity);
   const now = dayjs().unix();
 
   for (const def of PLAN_DEFINITIONS) {
@@ -52,14 +60,11 @@ export async function seedPlans(): Promise<void> {
     });
 
     if (existing) {
-      existing.name = def.name;
-      existing.description = def.description;
       existing.tierSlug = def.tierSlug;
       existing.billingCycle = def.billingCycle;
       existing.price = def.price;
       existing.listPrice = def.listPrice;
       existing.stripePriceId = def.stripePriceId;
-      existing.features = def.features;
       existing.sortOrder = def.sortOrder;
       existing.status = EntityStatus.ACTIVE;
       existing.updatedAt = now;
@@ -69,12 +74,9 @@ export async function seedPlans(): Promise<void> {
         slug: def.slug,
         tierSlug: def.tierSlug,
         billingCycle: def.billingCycle,
-        name: def.name,
-        description: def.description,
         price: def.price,
         listPrice: def.listPrice,
         stripePriceId: def.stripePriceId,
-        features: def.features,
         sortOrder: def.sortOrder,
         status: EntityStatus.ACTIVE,
         createdAt: now,
@@ -96,6 +98,68 @@ export async function seedPlans(): Promise<void> {
   }
 
   console.log(`Seeded ${PLAN_DEFINITIONS.length} subscription plans`);
+
+  // Seed plan translations from plans/locale.json.
+  // Each active plan gets one translation row per supported locale, keyed by
+  // (planId, locale) so reruns update existing rows without duplicates.
+  // The features column stores a human-readable label→value map built from the
+  // plan's DEFAULT_PLAN_FEATURES entry and the locale's features labels.
+  const activePlans = await planRepository.find({
+    where: { status: EntityStatus.ACTIVE },
+    select: { id: true, slug: true },
+  });
+
+  const catalog = planLocaleCatalog as Record<
+    string,
+    {
+      plans: Record<string, { name: string; description: string }>;
+      features: Record<string, string>;
+    }
+  >;
+
+  let seededTranslationCount = 0;
+
+  for (const plan of activePlans) {
+    const translationKey = getPlanTranslationKey(plan.slug);
+    const planFeatures = normalizePlanFeatures(undefined, plan.slug);
+
+    for (const [locale, localeContent] of Object.entries(catalog)) {
+      const content = localeContent.plans[translationKey];
+
+      if (!content) {
+        continue;
+      }
+
+      const featureMap = buildPlanFeatureMap(
+        planFeatures,
+        localeContent.features,
+      );
+
+      try {
+        await translationRepository.upsert(
+          {
+            planId: plan.id,
+            locale,
+            name: content.name?.trim() || null,
+            description: content.description?.trim() || null,
+            features: featureMap,
+            status: EntityStatus.ACTIVE,
+            createdAt: now,
+            updatedAt: now,
+          },
+          ["planId", "locale"],
+        );
+
+        seededTranslationCount += 1;
+      } catch (error: unknown) {
+        throw new Error(
+          `Failed to upsert translation for plan "${plan.slug}" (${locale}): ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+  }
+
+  console.log(`Seeded ${seededTranslationCount} plan translation(s)`);
 
   await ds.destroy();
 }

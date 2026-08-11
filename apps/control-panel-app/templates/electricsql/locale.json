@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "database",
+      "postgresql"
+    ],
+    "tags": [
+      "electricsql",
+      "electric",
+      "postgres",
+      "sync",
+      "realtime",
+      "replication",
+      "database"
+    ],
+    "shortDescription": "Postgres sync engine for local-first apps",
+    "longDescription": "<p>ElectricSQL syncs subsets of <strong>PostgreSQL</strong> data to local apps and services in real time.</p><p>Sync API on port 3000. Uses a dedicated Postgres instance with logical replication enabled.</p>"
+  },
+  "de": {
+    "category": [
+      "datenbank",
+      "postgresql"
+    ],
+    "tags": [
+      "electricsql",
+      "electric",
+      "postgres",
+      "sync",
+      "realtime",
+      "replikation",
+      "datenbank"
+    ],
+    "shortDescription": "Postgres-Sync-Engine für Local-First-Apps",
+    "longDescription": "<p>ElectricSQL synchronisiert Teilmengen von <strong>PostgreSQL</strong>-Daten in Echtzeit mit lokalen Apps und Diensten.</p><p>Sync-API auf Port 3000. Verwendet eine dedizierte Postgres-Instanz mit aktivierter logischer Replikation.</p>"
+  },
+  "fr": {
+    "category": [
+      "base-de-données",
+      "postgresql"
+    ],
+    "tags": [
+      "electricsql",
+      "electric",
+      "postgres",
+      "synchronisation",
+      "temps-réel",
+      "réplication",
+      "base-de-données"
+    ],
+    "shortDescription": "Moteur de synchronisation Postgres pour les applications local-first",
+    "longDescription": "<p>ElectricSQL synchronise des sous-ensembles de données <strong>PostgreSQL</strong> vers des applications et services locaux en temps réel.</p><p>API de synchronisation sur le port 3000. Utilise une instance Postgres dédiée avec réplication logique activée.</p>"
+  },
+  "pt": {
+    "category": [
+      "banco-de-dados",
+      "postgresql"
+    ],
+    "tags": [
+      "electricsql",
+      "electric",
+      "postgres",
+      "sync",
+      "tempo-real",
+      "replicação",
+      "banco-de-dados"
+    ],
+    "shortDescription": "Mecanismo de sincronização Postgres para apps local-first",
+    "longDescription": "<p>ElectricSQL sincroniza subconjuntos de dados do <strong>PostgreSQL</strong> com aplicações e serviços locais em tempo real.</p><p>API de sincronização na porta 3000. Usa uma instância Postgres dedicada com replicação lógica habilitada.</p>"
+  }
+}

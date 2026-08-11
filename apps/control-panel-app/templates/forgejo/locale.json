@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "git",
+      "scm",
+      "source-control"
+    ],
+    "tags": [
+      "forgejo",
+      "git",
+      "scm",
+      "repository",
+      "self-hosted",
+      "actions",
+      "forge"
+    ],
+    "shortDescription": "Community-driven self-hosted Git forge",
+    "longDescription": "<p>Forgejo is a community-led <strong>Git hosting</strong> platform with issues, pull requests, and Forgejo Actions CI/CD.</p><p>Uses embedded SQLite by default. Set <code>SERVICE_URL_FORGEJO_*</code> when deploying behind a reverse proxy. Enable Actions in the admin UI before attaching runners.</p>"
+  },
+  "de": {
+    "category": [
+      "git",
+      "scm",
+      "quellcode"
+    ],
+    "tags": [
+      "forgejo",
+      "git",
+      "scm",
+      "repository",
+      "self-hosted",
+      "actions",
+      "forge"
+    ],
+    "shortDescription": "Community-getriebene, selbst gehostete Git-Forge",
+    "longDescription": "<p>Forgejo ist eine von der Community geführte Plattform zum <strong>Hosting von Git</strong> mit Issues, Pull Requests und Forgejo-Actions-CI/CD.</p><p>Verwendet standardmäßig eingebettetes SQLite. Setze <code>SERVICE_URL_FORGEJO_*</code>, wenn hinter einem Reverse-Proxy bereitgestellt wird. Aktiviere Actions in der Admin-UI, bevor Runner angebunden werden.</p>"
+  },
+  "fr": {
+    "category": [
+      "git",
+      "scm",
+      "contrôle-de-source"
+    ],
+    "tags": [
+      "forgejo",
+      "git",
+      "scm",
+      "dépôt",
+      "auto-hébergé",
+      "actions",
+      "forge"
+    ],
+    "shortDescription": "Forge Git auto-hébergée pilotée par la communauté",
+    "longDescription": "<p>Forgejo est une plateforme d'<strong>hébergement Git</strong> menée par la communauté avec issues, pull requests et CI/CD Forgejo Actions.</p><p>Utilise SQLite embarqué par défaut. Définissez <code>SERVICE_URL_FORGEJO_*</code> lors d'un déploiement derrière un reverse proxy. Activez Actions dans l'interface admin avant de connecter des runners.</p>"
+  },
+  "pt": {
+    "category": [
+      "git",
+      "scm",
+      "controle-de-fonte"
+    ],
+    "tags": [
+      "forgejo",
+      "git",
+      "scm",
+      "repositório",
+      "auto-hospedado",
+      "actions",
+      "forge"
+    ],
+    "shortDescription": "Forja Git auto-hospedada conduzida pela comunidade",
+    "longDescription": "<p>Forgejo é uma plataforma de <strong>hospedagem Git</strong> liderada pela comunidade com issues, pull requests e CI/CD Forgejo Actions.</p><p>Usa SQLite embutido por padrão. Defina <code>SERVICE_URL_FORGEJO_*</code> ao implantar atrás de um proxy reverso. Ative Actions na UI de administração antes de conectar runners.</p>"
+  }
+}

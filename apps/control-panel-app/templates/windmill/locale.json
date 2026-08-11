@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "automation",
+      "workflow"
+    ],
+    "tags": [
+      "windmill",
+      "workflow",
+      "automation",
+      "scripts",
+      "flows",
+      "developer"
+    ],
+    "shortDescription": "Developer platform for scripts, flows, and apps",
+    "longDescription": "<p>Windmill is an open-source <strong>developer platform</strong> for building and running scripts, flows, and internal apps with scheduling and webhooks.</p><p>Includes PostgreSQL and a default worker. Set <code>BASE_URL</code> via <code>SERVICE_URL_WINDMILL</code> for OAuth and webhooks. Default login: <code>admin@windmill.dev</code> / <code>changeme</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "automatisierung",
+      "workflow"
+    ],
+    "tags": [
+      "windmill",
+      "workflow",
+      "automatisierung",
+      "skripte",
+      "flows",
+      "entwickler"
+    ],
+    "shortDescription": "Entwicklerplattform für Skripte, Flows und Apps",
+    "longDescription": "<p>Windmill ist eine Open-Source-<strong>Entwicklerplattform</strong> zum Erstellen und Ausführen von Skripten, Flows und internen Apps mit Planung und Webhooks.</p><p>Enthält PostgreSQL und einen Standard-Worker. Setze <code>BASE_URL</code> über <code>SERVICE_URL_WINDMILL</code> für OAuth und Webhooks. Standard-Login: <code>admin@windmill.dev</code> / <code>changeme</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "automatisation",
+      "workflow"
+    ],
+    "tags": [
+      "windmill",
+      "workflow",
+      "automatisation",
+      "scripts",
+      "flows",
+      "développeur"
+    ],
+    "shortDescription": "Plateforme développeur pour scripts, flux et applications",
+    "longDescription": "<p>Windmill est une <strong>plateforme développeur</strong> open source pour créer et exécuter des scripts, des flux et des applications internes avec planification et webhooks.</p><p>Inclut PostgreSQL et un worker par défaut. Définissez <code>BASE_URL</code> via <code>SERVICE_URL_WINDMILL</code> pour OAuth et les webhooks. Connexion par défaut : <code>admin@windmill.dev</code> / <code>changeme</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "automação",
+      "workflow"
+    ],
+    "tags": [
+      "windmill",
+      "workflow",
+      "automação",
+      "scripts",
+      "flows",
+      "desenvolvedor"
+    ],
+    "shortDescription": "Plataforma de desenvolvedor para scripts, flows e apps",
+    "longDescription": "<p>Windmill é uma <strong>plataforma de desenvolvedor</strong> open-source para criar e executar scripts, flows e apps internos com agendamento e webhooks.</p><p>Inclui PostgreSQL e um worker padrão. Defina <code>BASE_URL</code> via <code>SERVICE_URL_WINDMILL</code> para OAuth e webhooks. Login padrão: <code>admin@windmill.dev</code> / <code>changeme</code>.</p>"
+  }
+}
