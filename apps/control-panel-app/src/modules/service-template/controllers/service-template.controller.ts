@@ -13,7 +13,7 @@ import { PaginatedResponse } from "@shared/common";
 import { toErrorMessage } from "@control-panel/common/utils/error.util";
 import { ServiceResponse } from "@control-panel/common/interfaces/success-response.interface";
 
-import { DEFAULT_TEMPLATE_LOCALE } from "../constants/template-list.constants";
+import { DEFAULT_LOCALE } from "@control-panel/constants/default-locale";
 import { ListTemplatesQueryDto } from "../dto/list-templates-query.dto";
 import type { TemplateListItemDto } from "../dto/template-marketplace.dto";
 import { ServiceTemplateService } from "../services/service-template.service";
@@ -65,7 +65,7 @@ export class ServiceTemplateController {
   async getTemplate(
     @Param("slug") slug: string,
     @Query("format") format = "details",
-    @Query("locale") locale = DEFAULT_TEMPLATE_LOCALE,
+    @Query("locale") locale = DEFAULT_LOCALE,
     @Res({ passthrough: true }) res: Response,
   ) {
     try {

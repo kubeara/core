@@ -33,7 +33,6 @@ import { PaginatedResponse } from "@shared/common";
 import { ServiceTemplateEntity } from "../entities/service-template.entity";
 import { ServiceTemplateTranslationEntity } from "../entities/service-template-translation.entity";
 import {
-  DEFAULT_TEMPLATE_LOCALE,
   DEFAULT_TEMPLATE_LIST_LIMIT,
   DEFAULT_TEMPLATE_LIST_PAGE,
 } from "../constants/template-list.constants";
@@ -48,6 +47,7 @@ import type {
   TemplateDetailsDto,
   TemplateListItemDto,
 } from "../dto/template-marketplace.dto";
+import { DEFAULT_LOCALE } from "@control-panel/constants/default-locale";
 
 @Injectable()
 export class ServiceTemplateService {
@@ -124,7 +124,7 @@ export class ServiceTemplateService {
    */
   private buildActiveListTranslationWhere(
     category?: string,
-    locale: string = DEFAULT_TEMPLATE_LOCALE,
+    locale: string = DEFAULT_LOCALE,
   ): FindOptionsWhere<ServiceTemplateTranslationEntity> | undefined {
     if (category === undefined || category.trim() === "") {
       return undefined;
@@ -154,7 +154,7 @@ export class ServiceTemplateService {
       FindOptionsWhere<ServiceTemplateTranslationEntity> | undefined,
     tierWhere: FindOptionsWhere<ServiceTemplateEntity> | undefined,
     excludedSlugs: string[],
-    locale: string = DEFAULT_TEMPLATE_LOCALE,
+    locale: string = DEFAULT_LOCALE,
   ): Promise<ServiceTemplateEntity[]> {
     const slugFilter =
       tierWhere?.slug !== undefined
@@ -190,7 +190,7 @@ export class ServiceTemplateService {
   private async findActiveListTemplates(
     category?: string,
     search?: string,
-    locale: string = DEFAULT_TEMPLATE_LOCALE,
+    locale: string = DEFAULT_LOCALE,
   ): Promise<ServiceTemplateEntity[]> {
     const baseWhere = this.buildActiveListBaseWhere(category);
     const categoryTranslationWhere = this.buildActiveListTranslationWhere(
@@ -255,7 +255,7 @@ export class ServiceTemplateService {
    */
   private async loadTranslations(
     serviceTemplateIds: string[],
-    locale: string = DEFAULT_TEMPLATE_LOCALE,
+    locale: string = DEFAULT_LOCALE,
   ): Promise<Map<string, ServiceTemplateTranslationEntity>> {
     if (serviceTemplateIds.length === 0) {
       return new Map();
@@ -508,7 +508,7 @@ export class ServiceTemplateService {
    * @returns Sorted list of distinct category names.
    */
   async listUniqueCategories(
-    locale: string = DEFAULT_TEMPLATE_LOCALE,
+    locale: string = DEFAULT_LOCALE,
   ): Promise<string[]> {
     try {
       const templates = await this.findMany({
@@ -583,7 +583,7 @@ export class ServiceTemplateService {
    */
   async getTemplateDetails(
     slug: string,
-    locale: string = DEFAULT_TEMPLATE_LOCALE,
+    locale: string = DEFAULT_LOCALE,
   ): Promise<TemplateDetailsDto> {
     try {
       this.assertTemplateIsListable(slug);

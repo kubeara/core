@@ -11,8 +11,7 @@ import type {
   SubscriptionsApiResponse,
 } from "../types";
 import { getPlanTierSlug } from "../plan-slug.util";
-
-const DEFAULT_PLAN_LOCALE = "en";
+import { DEFAULT_LOCALE } from "@/constants/default-locale";
 
 type RawPlan = Plan & { priceMonthly?: number; priceMonthlyCents?: number; listPriceMonthly?: number | null };
 type RawSubscription = Subscription & {
@@ -106,7 +105,7 @@ export async function fetchPlans(): Promise<PlansListData> {
   const response = await apiClient.get<
     SubscriptionsApiResponse<RawPlan[] | RawPlansListData>
   >("/subscriptions/plans", {
-    params: { locale: DEFAULT_PLAN_LOCALE },
+    params: { locale: DEFAULT_LOCALE },
   });
   const data = response.data.data;
 
@@ -129,7 +128,7 @@ export async function fetchCurrentSubscription(): Promise<Subscription> {
   const response = await apiClient.get<SubscriptionsApiResponse<RawSubscription>>(
     "/subscriptions/current",
     {
-      params: { locale: DEFAULT_PLAN_LOCALE },
+      params: { locale: DEFAULT_LOCALE },
     },
   );
   const subscription = response.data.data;
@@ -170,7 +169,7 @@ export async function confirmCheckoutPayment(
   const response = await apiClient.post<
     SubscriptionsApiResponse<RawSubscription>
   >("/subscriptions/confirm", input, {
-    params: { locale: DEFAULT_PLAN_LOCALE },
+    params: { locale: DEFAULT_LOCALE },
   });
   const subscription = response.data.data;
   if (!subscription) {
@@ -189,7 +188,7 @@ export async function cancelPendingDowngrade(): Promise<{
   const response = await apiClient.post<
     SubscriptionsApiResponse<RawSubscription>
   >("/subscriptions/cancel-pending-downgrade", undefined, {
-    params: { locale: DEFAULT_PLAN_LOCALE },
+    params: { locale: DEFAULT_LOCALE },
   });
   const subscription = response.data.data;
   if (!subscription) {
@@ -208,7 +207,7 @@ export async function changePlan(
   const response = await apiClient.post<
     SubscriptionsApiResponse<RawSubscription>
   >("/subscriptions/change-plan", input, {
-    params: { locale: DEFAULT_PLAN_LOCALE },
+    params: { locale: DEFAULT_LOCALE },
   });
   const subscription = response.data.data;
   if (!subscription) {
@@ -227,7 +226,7 @@ export async function cancelSubscription(input: CancelSubscriptionRequest): Prom
   const response = await apiClient.post<
     SubscriptionsApiResponse<RawSubscription>
   >("/subscriptions/cancel", input, {
-    params: { locale: DEFAULT_PLAN_LOCALE },
+    params: { locale: DEFAULT_LOCALE },
   });
   const subscription = response.data.data;
   if (!subscription) {

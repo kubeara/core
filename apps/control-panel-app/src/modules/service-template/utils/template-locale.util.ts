@@ -1,10 +1,10 @@
 import { BadRequestException } from "@nestjs/common";
 
 import {
-  DEFAULT_TEMPLATE_LOCALE,
   SUPPORTED_TEMPLATE_LOCALES,
   type TemplateLocale,
 } from "../constants/template-list.constants";
+import { DEFAULT_LOCALE } from "@control-panel/constants/default-locale";
 
 /**
  * Normalizes and validates a template listing locale.
@@ -15,7 +15,7 @@ import {
  */
 export function normalizeTemplateLocale(locale?: string): TemplateLocale {
   if (locale === undefined || locale === null || locale.trim() === "") {
-    return DEFAULT_TEMPLATE_LOCALE;
+    return DEFAULT_LOCALE;
   }
 
   const normalized = locale.trim().toLowerCase();

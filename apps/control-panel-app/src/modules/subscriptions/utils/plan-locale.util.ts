@@ -1,10 +1,10 @@
 import { BadRequestException } from "@nestjs/common";
 
 import {
-  DEFAULT_PLAN_LOCALE,
   SUPPORTED_PLAN_LOCALES,
   type PlanLocale,
 } from "../constants/plan-list.constants";
+import { DEFAULT_LOCALE } from "@control-panel/constants/default-locale";
 
 /**
  * Normalizes and validates a plan listing locale.
@@ -15,7 +15,7 @@ import {
  */
 export function normalizePlanLocale(locale?: string): PlanLocale {
   if (locale === undefined || locale === null || locale.trim() === "") {
-    return DEFAULT_PLAN_LOCALE;
+    return DEFAULT_LOCALE;
   }
 
   const normalized = locale.trim().toLowerCase();

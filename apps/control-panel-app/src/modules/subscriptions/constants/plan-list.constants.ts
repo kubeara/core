@@ -1,6 +1,3 @@
-/** Default locale served when no locale is requested by a plan listing API. */
-export const DEFAULT_PLAN_LOCALE = "en";
-
 /** Locales that plan translations are available in. */
 export const SUPPORTED_PLAN_LOCALES = ["en", "de", "fr", "pt"] as const;
 
