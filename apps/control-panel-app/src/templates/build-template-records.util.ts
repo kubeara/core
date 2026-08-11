@@ -214,6 +214,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Nextcloud Office (Collabora)",
     version: "latest",
   },
+  "nextcloud-all-in-one": {
+    name: "Nextcloud All-in-One",
+    version: "latest",
+  },
   seafile: {
     name: "Seafile",
     version: "13.0",
