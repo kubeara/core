@@ -14,6 +14,7 @@ import { AgentInstallService } from "./services/agent-install.service";
 import { RemoteAgentInstallService } from "./services/remote-agent-install.service";
 import { LocalServerService } from "./services/local-server.service";
 import { AgentServerBindingService } from "./services/agent-server-binding.service";
+import { AgentSocketTunnelService } from "./services/agent-socket-tunnel.service";
 import { UserEntity } from "@control-panel/modules/users/entities/users.entity";
 import { SshModule } from "@shared/ssh";
 
@@ -36,12 +37,14 @@ import { SshModule } from "@shared/ssh";
     RemoteAgentInstallService,
     LocalServerService,
     AgentServerBindingService,
+    AgentSocketTunnelService,
   ],
   exports: [
     ServerConnectionsService,
     AgentInstallService,
     LocalServerService,
     AgentServerBindingService,
+    AgentSocketTunnelService,
   ],
 })
 export class ServerConnectionsModule {}
