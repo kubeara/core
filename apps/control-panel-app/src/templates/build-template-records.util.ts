@@ -226,6 +226,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Nextcloud Contacts (Baikal)",
     version: "0.10",
   },
+  "nextcloud-sharepoint": {
+    name: "Nextcloud SharePoint (rclone)",
+    version: "latest",
+  },
   seafile: {
     name: "Seafile",
     version: "13.0",
