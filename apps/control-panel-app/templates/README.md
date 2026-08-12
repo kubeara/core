@@ -245,6 +245,7 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `lm-studio/` | Headless LM Studio daemon with OpenAI-compatible API on port 1234 |
 | `metamcp/` | MCP aggregator and gateway with PostgreSQL on port 12008 |
 | `openclaw/` | AI coding assistant with browser automation on port 8080 |
+| `opencode/` | Open-source AI coding agent with web UI on port 4096 |
 | `stable-diffusion-webui/` | AUTOMATIC1111 Stable Diffusion WebUI on port 7860; requires NVIDIA GPU |
 | `tabby/` | Self-hosted AI coding assistant on port 8080 |
 | `argilla/` | Dataset annotation platform with PostgreSQL, Redis, Elasticsearch, and worker on port 6900 |

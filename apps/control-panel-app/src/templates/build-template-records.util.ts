@@ -430,6 +430,11 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "OpenClaw",
     version: "2026.2.6",
   },
+  opencode: {
+    name: "OpenCode",
+    version: "1.18.16",
+  },
+
   "stable-diffusion-webui": {
     name: "Stable Diffusion WebUI",
     version: "latest",
