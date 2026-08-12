@@ -54,6 +54,7 @@ import {
 import { AgentInstallService } from "./agent-install.service";
 import { AgentServerBindingService } from "./agent-server-binding.service";
 import { RemoteAgentInstallService } from "./remote-agent-install.service";
+import { AgentSocketTunnelService } from "./agent-socket-tunnel.service";
 import { ServerType } from "../enums/server-type.enum";
 import {
   DEFAULT_SSH_PORT,
@@ -146,6 +147,7 @@ export class ServerConnectionsService {
     private readonly executor: SshCommandExecutorService,
     private readonly sshManager: SshConnectionManager,
     private readonly remoteAgentInstall: RemoteAgentInstallService,
+    private readonly agentSocketTunnel: AgentSocketTunnelService,
     private readonly agentInstall: AgentInstallService,
     private readonly agentServerBinding: AgentServerBindingService,
     @Inject(forwardRef(() => DeploymentGateway))
@@ -158,7 +160,15 @@ export class ServerConnectionsService {
 
   /**
    * Installs (or refreshes) the agent on the target host when it is not connected.
+   *
    * Local servers use the same prerequisite + docker-compose flow as remote SSH onboard.
+   * Remote self-host: opens an SSH reverse tunnel via {@link AgentSocketTunnelService}
+   * before install so the agent can reach the panel at `host.docker.internal:{AGENT_SOCKET_TUNNEL_PORT}`.
+   *
+   * @param serverId - Active server UUID.
+   * @param options.plainPrivateKey - Optional decrypted key for tunnel + install SSH.
+   * @param options.onLogLine - Optional install log stream callback.
+   * @returns Install result; fails early if the self-host tunnel cannot be opened.
    */
   async ensureAgentInstalledForServer(
     serverId: string,
@@ -199,6 +209,18 @@ export class ServerConnectionsService {
         );
       }
 
+      const tunnel = await this.agentSocketTunnel.ensureForServerId(
+        serverId,
+        options?.plainPrivateKey,
+      );
+      if (!tunnel.ok) {
+        return {
+          success: false,
+          logs: [],
+          error: tunnel.error ?? "Failed to open self-host SSH socket tunnel",
+        };
+      }
+
       const credential = await this.credentialRepository.findOne({
         where: { serverId, status: EntityStatus.ACTIVE, deletedAt: IsNull() },
       });
@@ -234,6 +256,8 @@ export class ServerConnectionsService {
   /**
    * Restores agent connectivity: remove orphans, start a stopped container, recreate a broken one, or install fresh.
    *
+   * Self-host remotes: ensures the SSH reverse tunnel is up before recovery/install.
+   *
    * @param serverId - Active server to recover.
    * @param options.plainPrivateKey - Optional decrypted SSH key for remote install.
    * @param options.onLogLine - Optional install log callback.
@@ -249,6 +273,18 @@ export class ServerConnectionsService {
     try {
       if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
         return { success: true, logs: [], skipped: true };
+      }
+
+      const tunnel = await this.agentSocketTunnel.ensureForServerId(
+        serverId,
+        options?.plainPrivateKey,
+      );
+      if (!tunnel.ok) {
+        return {
+          success: false,
+          logs: [],
+          error: tunnel.error ?? "Failed to open self-host SSH socket tunnel",
+        };
       }
 
       const serverRow = await this.serverRepository.findOne({
@@ -1031,44 +1067,98 @@ export class ServerConnectionsService {
     };
   }
 
+  /**
+   * Background agent install after onboard (or restore).
+   *
+   * Self-host: opens the SSH reverse tunnel before install (or when install is skipped
+   * but the server still needs socket connectivity). Always disconnects the short-lived
+   * install SSH session in `finally`; the tunnel uses a separate long-lived SSH client.
+   *
+   * @param params.installAgent - When false, only ensures tunnel then skips agent install.
+   * @param params.server - Newly onboarded server entity.
+   * @param params.credential - SSH credential used for install and tunnel auth.
+   * @param params.plainPrivateKey - Optional onboard-time decrypted private key.
+   * @param params.logs - Mutable onboard log lines appended by this method.
+   * @returns Agent install result including tunnel failures.
+   */
   private async runAgentInstallAfterOnboard(
     params: RunAgentInstallAfterOnboardParams,
   ): Promise<AgentInstallResult> {
-    if (!this.shouldInstallAgent(params.installAgent)) {
-      this.sshManager.disconnect(params.server.id);
-      return {
-        success: true,
-        logs: [SERVER_ONBOARD_LOGS.AGENT_INSTALL_SKIPPED],
-        skipped: true,
-      };
-    }
-
     try {
-      const reused = await this.attachToExistingHostAgentIfOnline(
-        params.server,
-      );
-      if (reused) {
-        params.logs.push(SERVER_ONBOARD_LOGS.AGENT_REUSED_EXISTING);
+      if (!this.shouldInstallAgent(params.installAgent)) {
+        const tunnel = await this.agentSocketTunnel.ensureForServer({
+          server: params.server,
+          credential: params.credential,
+          plainPrivateKey: params.plainPrivateKey,
+        });
+        if (!tunnel.ok) {
+          this.sshManager.disconnect(params.server.id);
+          return {
+            success: false,
+            logs: params.logs,
+            error: tunnel.error ?? "Failed to open self-host SSH socket tunnel",
+          };
+        }
+        this.sshManager.disconnect(params.server.id);
         return {
           success: true,
-          logs: [SERVER_ONBOARD_LOGS.AGENT_REUSED_EXISTING],
+          logs: [SERVER_ONBOARD_LOGS.AGENT_INSTALL_SKIPPED],
           skipped: true,
         };
       }
 
-      const result = await this.remoteAgentInstall.install({
-        connection: this.buildSshOptions(
+      try {
+        const tunnel = await this.agentSocketTunnel.ensureForServer({
+          server: params.server,
+          credential: params.credential,
+          plainPrivateKey: params.plainPrivateKey,
+        });
+        if (!tunnel.ok) {
+          return {
+            success: false,
+            logs: params.logs,
+            error: tunnel.error ?? "Failed to open self-host SSH socket tunnel",
+          };
+        }
+        if (!tunnel.skipped) {
+          params.logs.push(SERVER_ONBOARD_LOGS.AGENT_SOCKET_TUNNEL_READY);
+        }
+
+        const reused = await this.attachToExistingHostAgentIfOnline(
           params.server,
-          params.credential,
-          params.plainPrivateKey,
-        ),
-        serverHost: params.server.host,
-        plainPrivateKey: params.plainPrivateKey,
-      });
-      params.logs.push(...result.logs);
-      return result;
-    } finally {
-      this.sshManager.disconnect(params.server.id);
+        );
+        if (reused) {
+          params.logs.push(SERVER_ONBOARD_LOGS.AGENT_REUSED_EXISTING);
+          return {
+            success: true,
+            logs: [SERVER_ONBOARD_LOGS.AGENT_REUSED_EXISTING],
+            skipped: true,
+          };
+        }
+
+        const result = await this.remoteAgentInstall.install({
+          connection: this.buildSshOptions(
+            params.server,
+            params.credential,
+            params.plainPrivateKey,
+          ),
+          serverHost: params.server.host,
+          plainPrivateKey: params.plainPrivateKey,
+        });
+        params.logs.push(...result.logs);
+        return result;
+      } finally {
+        this.sshManager.disconnect(params.server.id);
+      }
+    } catch (error) {
+      this.logger.error(
+        `runAgentInstallAfterOnboard failed for server '${params.server.id}': ${toErrorMessage(error)}`,
+      );
+      return {
+        success: false,
+        logs: params.logs,
+        error: toErrorMessage(error),
+      };
     }
   }
 
@@ -1271,6 +1361,13 @@ export class ServerConnectionsService {
 
   /**
    * Runs the server deletion process asynchronously.
+   *
+   * After removing the remote agent, releases the self-host SSH reverse tunnel when
+   * no other active servers share the same host ({@link AgentSocketTunnelService.releaseIfHostUnused}).
+   *
+   * @param userId - Owner of the server being deleted.
+   * @param serverId - Server UUID to delete.
+   * @param options.removeManagedServices - When true, purge deployments on the host via agent.
    */
   private runServerDeletionAsync(
     userId: string,
@@ -1287,8 +1384,19 @@ export class ServerConnectionsService {
           { removeManagedServices },
         );
 
+        const hostForTunnel = await this.serverRepository.findOne({
+          where: { id: serverId },
+          select: { id: true, host: true },
+        });
+
         await this.removeAgentFromRemoteServer(serverId);
         await this.finalizeServerDeletion(serverId);
+        if (hostForTunnel?.host) {
+          await this.agentSocketTunnel.releaseIfHostUnused(
+            hostForTunnel.host,
+            serverId,
+          );
+        }
         this.notifyServerOperationUpdated(serverId, null, { deleted: true });
       } catch (error) {
         this.logger.error(

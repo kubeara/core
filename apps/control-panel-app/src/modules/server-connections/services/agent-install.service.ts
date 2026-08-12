@@ -18,6 +18,13 @@ import {
   AGENT_INSTALL,
   AGENT_INSTALL_ENV_KEYS,
 } from "../constants/agent-install.constants";
+import {
+  AGENT_SOCKET_TUNNEL_PORT_ENV,
+  IS_CLOUD_VERSION_ENV,
+} from "../constants/agent-socket-tunnel.constants";
+import { isCloudVersionEnabled } from "../utils/cloud-version.util";
+import { parseAgentSocketTunnelPort } from "../utils/agent-socket-tunnel-port.util";
+import { resolveAgentControlPanelUrl } from "../utils/resolve-agent-control-panel-url.util";
 import { LOCAL_SERVER } from "../constants/local-server.constants";
 import { AgentHostAdapter } from "../interfaces/agent-host.adapter";
 import {
@@ -269,6 +276,7 @@ export class AgentInstallService {
         input.serverId,
         input.serverHost,
         agentPort,
+        host.label === "ssh",
       );
       if (!envBuild.ok) {
         return { success: false, logs, error: envBuild.error };
@@ -840,7 +848,12 @@ export class AgentInstallService {
       }
       const agentPort = portResult.port;
 
-      const envBuild = this.buildAgentEnvFile(serverId, serverHost, agentPort);
+      const envBuild = this.buildAgentEnvFile(
+        serverId,
+        serverHost,
+        agentPort,
+        host.label === "ssh",
+      );
       if (!envBuild.ok) {
         return {
           ok: false,
@@ -898,69 +911,101 @@ export class AgentInstallService {
   }
 
   /**
-   * Builds the agent environment file content.
-   * @param serverId - The server id.
-   * @param serverHost - The server host.
-   * @param agentPort - The agent port.
-   * @returns The built agent environment file content.
+   * Builds the agent `.env.agent` file content for compose install.
+   *
+   * Resolves `CONTROL_PANEL_URL` via {@link resolveAgentControlPanelUrl}:
+   * remote self-host uses the SSH tunnel URL (`host.docker.internal:{AGENT_SOCKET_TUNNEL_PORT}`);
+   * cloud and local installs use the panel's configured URL.
+   *
+   * @param serverId - Server UUID written as `KUBEARA_SERVER_ID`.
+   * @param serverHost - Host/IP written as `AGENT_PUBLIC_IP` for binding.
+   * @param agentPort - Dynamic host port mapped to the agent container.
+   * @param remoteHost - True when installing over SSH (not {@link ServerType.LOCAL}).
+   * @returns Env file body and image tag, or a validation error.
    */
   private buildAgentEnvFile(
     serverId: string,
     serverHost: string,
     agentPort: number,
+    remoteHost: boolean,
   ):
     | { ok: true; content: string; agentImage: string }
     | { ok: false; error: string } {
-    const normalizedServerId = serverId?.trim();
-    if (!normalizedServerId) {
+    try {
+      const normalizedServerId = serverId?.trim();
+      if (!normalizedServerId) {
+        return {
+          ok: false,
+          error:
+            "Cannot install agent without a server id. " +
+            "Ensure the server record exists before provisioning the agent.",
+        };
+      }
+
+      const isCloudVersion = isCloudVersionEnabled(
+        this.configService.get<string>(IS_CLOUD_VERSION_ENV),
+      );
+
+      let tunnelPort: number | undefined;
+      if (remoteHost && !isCloudVersion) {
+        const portResult = parseAgentSocketTunnelPort(
+          this.configService.get<string>(AGENT_SOCKET_TUNNEL_PORT_ENV),
+        );
+        if (!portResult.ok) {
+          return { ok: false, error: portResult.error };
+        }
+        tunnelPort = portResult.port;
+      }
+
+      const urlResult = resolveAgentControlPanelUrl({
+        remoteHost,
+        isCloudVersion,
+        tunnelPort,
+        configuredUrl: this.configService.get<string>(
+          AGENT_INSTALL_ENV_KEYS.CONTROL_PANEL_URL,
+        ),
+      });
+      if (!urlResult.ok) {
+        return { ok: false, error: urlResult.error };
+      }
+      const controlPanelUrl = urlResult.url;
+
+      const encryptionSecret = this.configService.get<string>(
+        AGENT_INSTALL_ENV_KEYS.ENCRYPTION_SECRET,
+      );
+      if (!encryptionSecret?.trim()) {
+        return {
+          ok: false,
+          error: `Missing ${AGENT_INSTALL_ENV_KEYS.ENCRYPTION_SECRET} on the control panel.`,
+        };
+      }
+
+      const agentImage =
+        this.configService.get<string>(
+          AGENT_INSTALL_ENV_KEYS.KUBEARA_AGENT_IMAGE,
+        ) ?? AGENT_INSTALL.DEFAULT_IMAGE;
+
+      const content = [
+        `KUBEARA_AGENT_IMAGE=${agentImage}`,
+        `AGENT_PORT=${agentPort}`,
+        `CONTROL_PANEL_URL=${controlPanelUrl.trim()}`,
+        `ENCRYPTION_SECRET=${encryptionSecret}`,
+        `KUBEARA_SERVER_ID=${normalizedServerId}`,
+        `AGENT_PUBLIC_IP=${serverHost.trim()}`,
+        "TRAEFIK_ENABLED=false",
+        "DOCKER_PLATFORM=linux/amd64",
+        "",
+      ].join("\n");
+
+      return { ok: true, content, agentImage };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`buildAgentEnvFile failed: ${message}`);
       return {
         ok: false,
-        error:
-          "Cannot install agent without a server id. " +
-          "Ensure the server record exists before provisioning the agent.",
+        error: message,
       };
     }
-
-    const controlPanelUrl = this.configService.get<string>(
-      AGENT_INSTALL_ENV_KEYS.CONTROL_PANEL_URL,
-    );
-    if (!controlPanelUrl?.trim()) {
-      return {
-        ok: false,
-        error:
-          `Missing ${AGENT_INSTALL_ENV_KEYS.CONTROL_PANEL_URL} on the control panel. ` +
-          "Add it to apps/control-panel-app/.env (e.g. http://host.docker.internal:3000 for local agent, or your public URL for remote servers) and restart the app.",
-      };
-    }
-
-    const encryptionSecret = this.configService.get<string>(
-      AGENT_INSTALL_ENV_KEYS.ENCRYPTION_SECRET,
-    );
-    if (!encryptionSecret?.trim()) {
-      return {
-        ok: false,
-        error: `Missing ${AGENT_INSTALL_ENV_KEYS.ENCRYPTION_SECRET} on the control panel.`,
-      };
-    }
-
-    const agentImage =
-      this.configService.get<string>(
-        AGENT_INSTALL_ENV_KEYS.KUBEARA_AGENT_IMAGE,
-      ) ?? AGENT_INSTALL.DEFAULT_IMAGE;
-
-    const content = [
-      `KUBEARA_AGENT_IMAGE=${agentImage}`,
-      `AGENT_PORT=${agentPort}`,
-      `CONTROL_PANEL_URL=${controlPanelUrl.trim()}`,
-      `ENCRYPTION_SECRET=${encryptionSecret}`,
-      `KUBEARA_SERVER_ID=${normalizedServerId}`,
-      `AGENT_PUBLIC_IP=${serverHost.trim()}`,
-      "TRAEFIK_ENABLED=false",
-      "DOCKER_PLATFORM=linux/amd64",
-      "",
-    ].join("\n");
-
-    return { ok: true, content, agentImage };
   }
 
   /**
