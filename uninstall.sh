@@ -21,7 +21,7 @@
 #   A later install.sh run is a fresh INSTALL with a new installation UUID.
 
 # POSIX-safe bootstrap for Ubuntu/Debian dash (`curl | sh`).
-# Prefer `| bash`. For `| sh`, re-fetch under bash (set KUBEARA_UNINSTALL_URL for custom hosts).
+# For `| sh`, re-fetch under bash (override host with KUBEARA_UNINSTALL_URL if needed).
 if [ -z "${BASH_VERSION:-}" ]; then
   if ! command -v bash >/dev/null 2>&1; then
     echo "[kubeara-uninstall] ERROR: bash is required." >&2
@@ -44,9 +44,6 @@ if [ -z "${BASH_VERSION:-}" ]; then
     exit 1
   fi
   echo "[kubeara-uninstall] Detected sh/dash; re-running under bash from ${_kubeara_uninstall_url}" >&2
-  if [ -z "${KUBEARA_UNINSTALL_URL:-}" ]; then
-    echo "[kubeara-uninstall] TIP: for ngrok/local tests use \`curl … | bash\`, or set KUBEARA_UNINSTALL_URL." >&2
-  fi
   exec bash -c 'curl -fsSL "$1" | bash -s -- "${@:2}"' bash "${_kubeara_uninstall_url}" "$@"
 fi
 

@@ -97,13 +97,11 @@ must run on your own servers.
 
 ### Self-hosted (free forever)
 
-**macOS / Linux / Windows (WSL or Git Bash)** — same command:
+**macOS / Linux / Windows (WSL or Git Bash):**
 
 ```bash
 curl -fsSL https://get.kubeara.dev | sh
 ```
-
-(`| bash` also works. On Ubuntu, `sh` is dash; the installer re-execs under bash automatically.)
 
 **Windows PowerShell** (Docker Desktop):
 

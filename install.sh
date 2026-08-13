@@ -7,12 +7,7 @@
 # .env.control-panel (no git clone). Images from Docker Hub.
 #
 # Usage (macOS / Linux / Windows WSL or Git Bash):
-#   curl -fsSL https://get.kubeara.dev | bash
-#   curl -fsSL https://get.kubeara.dev | sh    # re-fetches under bash (production URL)
-#
-# Local / ngrok test (must use bash, or set KUBEARA_INSTALL_URL to the same URL):
-#   curl -fsSL "https://<ngrok>/install.sh" | bash
-#   KUBEARA_INSTALL_URL="https://<ngrok>/install.sh" curl -fsSL "$KUBEARA_INSTALL_URL" | sh
+#   curl -fsSL https://get.kubeara.dev | sh
 #
 # Windows PowerShell (native):
 #   irm https://get.kubeara.dev/install.ps1 | iex
@@ -55,10 +50,9 @@
 # Piping a bash script to dash cannot safely continue the same stdin stream
 # (dash buffers ahead; forked readers lose those bytes). Supported handoffs:
 #   1) sh ./install.sh          → exec bash on the file
-#   2) curl URL | bash          → no handoff needed (preferred)
-#   3) curl URL | sh            → re-fetch URL under bash
-#      Custom/ngrok/local URLs must set KUBEARA_INSTALL_URL to that same URL,
-#      otherwise we re-fetch https://get.kubeara.dev (production).
+#   2) curl URL | bash          → no handoff needed
+#   3) curl URL | sh            → re-fetch under bash (defaults to https://get.kubeara.dev;
+#      override with KUBEARA_INSTALL_URL when the script is served from another host)
 # ---------------------------------------------------------------------------
 if [ -z "${BASH_VERSION:-}" ]; then
   if ! command -v bash >/dev/null 2>&1; then
@@ -84,9 +78,6 @@ if [ -z "${BASH_VERSION:-}" ]; then
   fi
 
   echo "[kubeara-install] Detected sh/dash; re-running under bash from ${_kubeara_install_url}" >&2
-  if [ -z "${KUBEARA_INSTALL_URL:-}" ]; then
-    echo "[kubeara-install] TIP: for ngrok/local tests use \`curl … | bash\`, or set KUBEARA_INSTALL_URL to your script URL." >&2
-  fi
   exec bash -c 'curl -fsSL "$1" | bash -s -- "${@:2}"' bash "${_kubeara_install_url}" "$@"
 fi
 

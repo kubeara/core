@@ -4,7 +4,7 @@ No source code required — only Docker, Docker Compose, `curl`, and `openssl`.
 
 The installer lives at the **repo root**: [`install.sh`](../../../install.sh) and [`uninstall.sh`](../../../uninstall.sh).
 
-`install.sh` is **self-contained** for `curl | bash`: it embeds `docker-compose.control-panel.yml`, generates `.env.control-panel`, and pulls images from **Docker Hub**. Compose files in this directory are used for manual installs and when running `./install.sh` from a git clone.
+`install.sh` is **self-contained** for `curl | sh`: it embeds `docker-compose.control-panel.yml`, generates `.env.control-panel`, and pulls images from **Docker Hub**. Compose files in this directory are used for manual installs and when running `./install.sh` from a git clone.
 
 ## One-line install
 
@@ -16,18 +16,10 @@ Review the script before piping to your shell.
 curl -fsSL https://get.kubeara.dev | sh
 ```
 
-`| bash` also works. On Ubuntu/Debian, `/bin/sh` is often **dash**, which rejects `pipefail`; the installer detects that and re-runs under **bash**.
-
-**Windows PowerShell** (native Docker Desktop):
-
-```powershell
-irm https://get.kubeara.dev/install.ps1 | iex
-```
-
 Or from GitHub raw:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kubeara/core/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/kubeara/core/main/install.sh | sh
 ```
 
 ### Docker prerequisites (by OS)
