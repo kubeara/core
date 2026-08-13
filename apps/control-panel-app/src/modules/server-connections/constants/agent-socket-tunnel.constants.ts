@@ -24,8 +24,19 @@ export function buildAgentSocketTunnelControlPanelUrl(port: number): string {
 
 /** SSH tunnel bind/forward targets and reconnect backoff for {@link AgentSocketTunnelService}. */
 export const AGENT_SOCKET_TUNNEL = {
-  /** Remote side of `forwardIn` (agent connects to this on the VPS). */
-  REMOTE_BIND_HOST: "127.0.0.1",
+  /**
+   * Remote side of `forwardIn`. Empty string = all interfaces (ssh2 / OpenSSH),
+   * so Docker can reach the tunnel via `host.docker.internal` (host-gateway).
+   * Loopback-only (`127.0.0.1`) is reachable from the VPS host but not from
+   * bridge-network containers.
+   *
+   * Requires `GatewayPorts clientspecified` (or `yes`) in remote `sshd_config`.
+   * Configured on a **separate** SSH session before the tunnel connection opens
+   * (sshd reload must not apply to the tunnel session).
+   */
+  REMOTE_BIND_HOST: "",
+  /** Display label for logs when {@link AGENT_SOCKET_TUNNEL.REMOTE_BIND_HOST} is empty. */
+  REMOTE_BIND_HOST_LOG: "0.0.0.0/*",
   /** Local control-panel HTTP port target on the laptop running the panel. */
   LOCAL_FORWARD_HOST: "127.0.0.1",
   /** Initial reconnect delay after unexpected SSH disconnect (ms). */
