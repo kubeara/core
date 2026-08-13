@@ -3,6 +3,7 @@
 #
 # One-line install:
 #   curl -fsSL https://get.kubeara.dev | sh
+#   (Windows PowerShell: irm https://get.kubeara.dev/install.ps1 | iex)
 #
 # Manual usage:
 #   cp .env.control-panel.example .env.control-panel

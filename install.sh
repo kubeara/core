@@ -2,14 +2,19 @@
 #
 # Kubeara control panel — self-hosted installer (Docker Compose).
 #
-# Fully standalone for curl | bash: only requires Docker + Compose + openssl + curl.
-# Embeds docker-compose.control-panel.yml and generates .env.control-panel (no git clone).
-# Images are pulled from Docker Hub (kubeara/control-panel, kubeara/console, postgres).
+# Fully standalone for curl | bash (or curl | sh): requires bash, Docker, Compose,
+# openssl, and curl. Embeds docker-compose.control-panel.yml and generates
+# .env.control-panel (no git clone). Images from Docker Hub.
 #
-# Usage:
+# Usage (macOS / Linux / Windows WSL or Git Bash):
 #   curl -fsSL https://get.kubeara.dev | sh
-#   curl -fsSL https://kubeara.dev/control-panel/install.sh | bash
-#   ./install.sh   (from a git clone — uses apps/control-panel-app/deploy/ compose files)
+#   curl -fsSL https://get.kubeara.dev | bash
+#
+# Windows PowerShell (native):
+#   irm https://get.kubeara.dev/install.ps1 | iex
+#
+# From a git clone:
+#   ./install.sh
 #
 # Environment:
 #   KUBEARA_INSTALL_DIR     Install directory (default: /opt/kubeara/control-panel or ~/.kubeara/control-panel)
@@ -23,6 +28,7 @@
 #   IS_CLOUD_VERSION        true = agents connect via CONTROL_PANEL_URL; false/omit = SSH reverse tunnels
 #   KUBEARA_TRACKING_URL    Override installation tracking endpoint
 #                           Default: https://api.kubeara.dev/api/public/installations/events
+#   KUBEARA_SKIP_DOCKER_INSTALL=1  On Linux, do not auto-install Docker Engine when missing
 #
 # Installation lifecycle tracking (POST …/api/public/installations/events):
 #   INSTALL   — no .installation-id yet (or id exists but .version never saved)
@@ -39,6 +45,29 @@
 #   SKIP_MIGRATE=1            Skip database migrations + seed
 #   KUBEARA_FORCE_ENV=1       Regenerate .env.control-panel from example
 
+# ---------------------------------------------------------------------------
+# POSIX-safe bootstrap: Ubuntu/Debian `sh` is dash and rejects `pipefail`.
+# When piped via `curl | sh`, re-exec the remainder of stdin under bash.
+# ---------------------------------------------------------------------------
+if [ -z "${BASH_VERSION:-}" ]; then
+  if ! command -v bash >/dev/null 2>&1; then
+    echo "[kubeara-install] ERROR: bash is required." >&2
+    echo "  Install bash, then re-run: curl -fsSL https://get.kubeara.dev | bash" >&2
+    exit 1
+  fi
+  # File invocation: sh ./install.sh
+  case "$0" in
+    sh | -sh | /bin/sh | /usr/bin/sh | dash | /bin/dash | /usr/bin/dash) ;;
+    *)
+      if [ -f "$0" ]; then
+        exec bash "$0" "$@"
+      fi
+      ;;
+  esac
+  # Piped invocation: curl … | sh  → continue reading this script with bash -s
+  exec bash -s -- "$@"
+fi
+
 set -euo pipefail
 
 readonly LOG_PREFIX="[kubeara-install]"
@@ -48,6 +77,11 @@ readonly ENV_EXAMPLE=".env.control-panel.example"
 readonly INSTALLATION_ID_FILE=".installation-id"
 readonly INSTALLATION_VERSION_FILE=".version"
 readonly DEFAULT_TRACKING_URL="https://api.kubeara.dev/api/public/installations/events"
+readonly DOCKER_ENGINE_INSTALL_URL="https://get.docker.com"
+
+# How we invoke the Docker CLI: direct | sudo | sudo-n | sg
+KUBEARA_DOCKER_MODE="direct"
+
 KUBEARA_REPO="${KUBEARA_REPO:-kubeara/core}"
 KUBEARA_VERSION="${KUBEARA_VERSION:-main}"
 KUBEARA_CHANNEL="${KUBEARA_CHANNEL:-prod}"
@@ -128,17 +162,228 @@ detect_docker_platform() {
   esac
 }
 
-require_docker() {
+detect_host_os() {
+  case "$(uname -s 2>/dev/null || true)" in
+    Darwin) echo "macos" ;;
+    Linux) echo "linux" ;;
+    MINGW* | MSYS* | CYGWIN*) echo "windows" ;;
+    *) echo "unknown" ;;
+  esac
+}
+
+# Runs docker with the resolved privilege mode (direct / sudo / sg).
+run_docker() {
+  case "${KUBEARA_DOCKER_MODE}" in
+    sudo)
+      sudo docker "$@"
+      ;;
+    sudo-n)
+      sudo -n docker "$@"
+      ;;
+    sg)
+      # Quote each arg for safe eval inside sg docker -c.
+      local quoted="" arg
+      for arg in "$@"; do
+        quoted+=" $(printf '%q' "${arg}")"
+      done
+      sg docker -c "docker${quoted}"
+      ;;
+    *)
+      docker "$@"
+      ;;
+  esac
+}
+
+docker_info_ok() {
+  local mode="$1"
+  case "${mode}" in
+    direct) docker info >/dev/null 2>&1 ;;
+    sudo-n) sudo -n docker info >/dev/null 2>&1 ;;
+    sudo) sudo docker info >/dev/null 2>&1 ;;
+    sg) command -v sg >/dev/null 2>&1 && sg docker -c "docker info >/dev/null 2>&1" ;;
+    *) return 1 ;;
+  esac
+}
+
+docker_compose_ok() {
+  run_docker compose version >/dev/null 2>&1
+}
+
+# Prefer unprivileged docker; fall back to passwordless sudo, interactive sudo, then sg docker.
+resolve_docker_mode() {
   if ! command -v docker >/dev/null 2>&1; then
+    return 1
+  fi
+
+  if docker_info_ok direct; then
+    KUBEARA_DOCKER_MODE="direct"
+    return 0
+  fi
+
+  if docker_info_ok sudo-n; then
+    KUBEARA_DOCKER_MODE="sudo-n"
+    info "Docker requires elevated privileges; using sudo -n docker"
+    return 0
+  fi
+
+  if docker_info_ok sg; then
+    KUBEARA_DOCKER_MODE="sg"
+    info "Docker group is inactive in this session; using sg docker"
+    return 0
+  fi
+
+  # sudo reads the password from /dev/tty even when stdin is a curl pipe.
+  if docker_info_ok sudo; then
+    KUBEARA_DOCKER_MODE="sudo"
+    info "Docker requires elevated privileges; using sudo docker"
+    return 0
+  fi
+
+  return 1
+}
+
+wait_for_docker_daemon() {
+  local seconds="${1:-120}"
+  local i
+  for i in $(seq 1 "${seconds}"); do
+    if resolve_docker_mode; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+# macOS: never install Docker Desktop from this script — only start it if present.
+ensure_docker_macos() {
+  if resolve_docker_mode; then
+    return 0
+  fi
+
+  if ! command -v docker >/dev/null 2>&1 && [[ ! -d "/Applications/Docker.app" ]]; then
+    error "Docker Desktop is not installed on this Mac.
+  Install it from https://docs.docker.com/desktop/setup/install/mac-install/
+  then start Docker Desktop and re-run this script."
+  fi
+
+  info "Docker is installed but the daemon is not running. Starting Docker Desktop…"
+  if [[ -d "/Applications/Docker.app" ]]; then
+    open -a Docker >/dev/null 2>&1 || true
+  else
+    warn "Could not find /Applications/Docker.app — open Docker Desktop manually."
+  fi
+
+  info "Waiting for Docker Desktop to become ready (up to 2 minutes)…"
+  if wait_for_docker_daemon 120; then
+    return 0
+  fi
+
+  error "Docker Desktop did not become ready in time.
+  Open Docker Desktop from Applications, wait until it says Running, then re-run:
+  curl -fsSL https://get.kubeara.dev | bash"
+}
+
+# Linux: optionally install Docker Engine when the CLI is missing.
+install_docker_engine_linux() {
+  if [[ "${KUBEARA_SKIP_DOCKER_INSTALL:-}" == "1" ]]; then
     error "Docker is not installed. Install Docker Engine, then re-run this script.
-  https://docs.docker.com/engine/install/"
+  https://docs.docker.com/engine/install/
+  Or unset KUBEARA_SKIP_DOCKER_INSTALL to let this installer run get.docker.com."
   fi
-  if ! docker info >/dev/null 2>&1; then
-    error "Docker daemon is not running or you lack permission. Try: sudo usermod -aG docker \$USER"
+
+  if ! command -v curl >/dev/null 2>&1; then
+    error "curl is required to install Docker. Install curl, then re-run this script."
   fi
-  if ! docker compose version >/dev/null 2>&1; then
-    error "Docker Compose v2 plugin is required (docker compose). See https://docs.docker.com/compose/install/"
+
+  info "Docker is not installed. Installing Docker Engine via ${DOCKER_ENGINE_INSTALL_URL}…"
+  if [[ "$(id -u)" -eq 0 ]]; then
+    sh -c "curl -fsSL ${DOCKER_ENGINE_INSTALL_URL} | sh"
+  else
+    if ! command -v sudo >/dev/null 2>&1; then
+      error "Docker is not installed and sudo is unavailable. Install Docker as root, then re-run."
+    fi
+    curl -fsSL "${DOCKER_ENGINE_INSTALL_URL}" | sudo sh
   fi
+
+  if command -v systemctl >/dev/null 2>&1; then
+    sudo systemctl enable --now docker >/dev/null 2>&1 || sudo systemctl start docker >/dev/null 2>&1 || true
+  elif command -v service >/dev/null 2>&1; then
+    sudo service docker start >/dev/null 2>&1 || true
+  fi
+
+  if [[ "$(id -u)" -ne 0 ]] && command -v usermod >/dev/null 2>&1; then
+    if ! id -nG "${USER}" 2>/dev/null | tr ' ' '\n' | grep -qx docker; then
+      info "Adding ${USER} to the docker group (takes effect in new sessions)…"
+      sudo usermod -aG docker "${USER}" >/dev/null 2>&1 || true
+    fi
+  fi
+}
+
+ensure_docker_linux() {
+  if ! command -v docker >/dev/null 2>&1; then
+    install_docker_engine_linux
+  fi
+
+  if resolve_docker_mode; then
+    return 0
+  fi
+
+  info "Starting Docker daemon…"
+  if command -v systemctl >/dev/null 2>&1; then
+    sudo systemctl start docker >/dev/null 2>&1 || true
+  elif command -v service >/dev/null 2>&1; then
+    sudo service docker start >/dev/null 2>&1 || true
+  fi
+
+  if wait_for_docker_daemon 30; then
+    return 0
+  fi
+
+  error "Docker is installed but not usable from this session.
+  Try one of:
+    sudo usermod -aG docker \$USER && newgrp docker
+    sudo docker info
+  Then re-run: curl -fsSL https://get.kubeara.dev | bash"
+}
+
+ensure_docker_windows_shell() {
+  if resolve_docker_mode; then
+    return 0
+  fi
+
+  if ! command -v docker >/dev/null 2>&1; then
+    error "Docker is not available in this shell.
+  Install Docker Desktop for Windows, enable WSL2 (or Git Bash) integration,
+  start Docker Desktop, then re-run this script.
+  Native PowerShell: irm https://get.kubeara.dev/install.ps1 | iex"
+  fi
+
+  error "Docker Desktop appears installed but the daemon is not running.
+  Start Docker Desktop, wait until it is Running, then re-run this script."
+}
+
+require_docker() {
+  local os
+  os="$(detect_host_os)"
+
+  case "${os}" in
+    macos) ensure_docker_macos ;;
+    linux) ensure_docker_linux ;;
+    windows) ensure_docker_windows_shell ;;
+    *)
+      if ! resolve_docker_mode; then
+        error "Unsupported OS ($(uname -s 2>/dev/null || echo unknown)).
+  Supported: macOS, Linux, Windows (WSL / Git Bash / PowerShell)."
+      fi
+      ;;
+  esac
+
+  if ! docker_compose_ok; then
+    error "Docker Compose v2 plugin is required (docker compose).
+  See https://docs.docker.com/compose/install/"
+  fi
+
+  info "Docker ready (mode: ${KUBEARA_DOCKER_MODE})"
 }
 
 fetch_deploy_file() {
@@ -590,7 +835,7 @@ ensure_core_env_config() {
 }
 
 compose() {
-  docker compose -f "${KUBEARA_INSTALL_DIR}/${COMPOSE_FILE}" --env-file "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" "$@"
+  run_docker compose -f "${KUBEARA_INSTALL_DIR}/${COMPOSE_FILE}" --env-file "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" "$@"
 }
 
 run_migrate() {
@@ -761,13 +1006,13 @@ get_architecture() {
 }
 
 get_docker_version() {
-  docker version --format '{{.Server.Version}}' 2>/dev/null || true
+  run_docker version --format '{{.Server.Version}}' 2>/dev/null || true
 }
 
 # Handles both "5.1.4" (--short) and "Docker Compose version v5.1.4".
 get_compose_version() {
   local raw
-  raw="$(docker compose version --short 2>/dev/null || docker compose version 2>/dev/null || true)"
+  raw="$(run_docker compose version --short 2>/dev/null || run_docker compose version 2>/dev/null || true)"
   raw="$(printf '%s' "${raw}" | head -n1 | sed -E 's/^[^0-9]*v?([0-9]+(\.[0-9]+)*).*$/\1/' || true)"
   printf '%s\n' "${raw}"
 }

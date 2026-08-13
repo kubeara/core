@@ -8,17 +8,35 @@ The installer lives at the **repo root**: [`install.sh`](../../../install.sh) an
 
 ## One-line install
 
-Review the script before piping to your shell:
+Review the script before piping to your shell.
+
+**macOS / Linux / Windows (WSL or Git Bash)** — same command:
 
 ```bash
 curl -fsSL https://get.kubeara.dev | sh
 ```
 
-Or:
+`| bash` also works. On Ubuntu/Debian, `/bin/sh` is often **dash**, which rejects `pipefail`; the installer detects that and re-runs under **bash**.
+
+**Windows PowerShell** (native Docker Desktop):
+
+```powershell
+irm https://get.kubeara.dev/install.ps1 | iex
+```
+
+Or from GitHub raw:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kubeara/core/main/install.sh | bash
 ```
+
+### Docker prerequisites (by OS)
+
+| OS | If Docker is missing | If Docker is installed but not running |
+|----|----------------------|----------------------------------------|
+| **Linux** | Installer runs [get.docker.com](https://get.docker.com) (disable with `KUBEARA_SKIP_DOCKER_INSTALL=1`) | Starts the daemon; uses `sudo` / `sg docker` when the socket needs elevation |
+| **macOS** | Error with Docker Desktop install link (never auto-installs) | Starts Docker Desktop (`open -a Docker`) and waits |
+| **Windows** | Error with Docker Desktop install link | Starts Docker Desktop and waits (PowerShell) / requires Desktop running (WSL) |
 
 Optional environment variables:
 
@@ -29,14 +47,21 @@ Optional environment variables:
 | `KUBEARA_PUBLIC_URL` | Public control panel URL for console + remote agents |
 | `ENCRYPTION_SECRET` | Use a fixed secret instead of auto-generating |
 | `SKIP_MIGRATE=1` | Skip migrations/seed on re-run |
+| `KUBEARA_SKIP_DOCKER_INSTALL=1` | Linux only: do not auto-install Docker Engine |
 
-Uninstall (keeps volumes unless `KUBEARA_REMOVE_VOLUMES=1`):
+Uninstall:
 
 ```bash
-curl -fsSL https://kubeara.dev/control-panel/uninstall.sh | bash
+# macOS / Linux / WSL / Git Bash
+curl -fsSL https://get.kubeara.dev/uninstall.sh | sh
 ```
 
-**Hosting:** publish root `install.sh` at `https://get.kubeara.dev` (and optionally `uninstall.sh`). Keep the embedded compose inside root `install.sh` in sync when you change `docker-compose.control-panel.yml` here.
+```powershell
+# Windows PowerShell
+irm https://get.kubeara.dev/uninstall.ps1 | iex
+```
+
+**Hosting:** publish root `install.sh` at `https://get.kubeara.dev`, `uninstall.sh` at `/uninstall.sh`, and optionally `install.ps1` / `uninstall.ps1`. Keep the embedded compose inside root `install.sh` in sync when you change `docker-compose.control-panel.yml` here.
 
 ## Files
 
