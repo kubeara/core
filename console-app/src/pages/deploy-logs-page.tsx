@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Navigate,
   useLocation,
@@ -40,6 +40,76 @@ type PendingDeployLocationState = {
   /** Optional override when opening logs from Activity (or elsewhere). */
   backHref?: string;
 };
+
+type PendingDeployRequest = NonNullable<
+  PendingDeployLocationState["deployRequest"]
+>;
+
+type DeployStartResult = {
+  deploymentId: string;
+};
+
+/**
+ * Share in-flight deploy starts across React Strict Mode remounts so we do not
+ * create duplicate deployments or strand the page on a cancelled skeleton.
+ */
+const inflightDeployStarts = new Map<string, Promise<DeployStartResult>>();
+
+function pendingDeployStartKey(
+  serverId: string,
+  templateSlug: string,
+  pendingDeploy: PendingDeployRequest,
+): string {
+  return JSON.stringify({
+    serverId,
+    templateSlug,
+    env: pendingDeploy.env ?? {},
+    ports: pendingDeploy.ports ?? {},
+    acknowledgeResourceWarning: Boolean(
+      pendingDeploy.acknowledgeResourceWarning,
+    ),
+    composeYaml: pendingDeploy.composeYaml ?? null,
+    envFileContent: pendingDeploy.envFileContent ?? null,
+    displayName: pendingDeploy.displayName ?? null,
+  });
+}
+
+function startPendingDeploy(
+  serverId: string,
+  templateSlug: string,
+  pendingDeploy: PendingDeployRequest,
+): Promise<DeployStartResult> {
+  const key = pendingDeployStartKey(serverId, templateSlug, pendingDeploy);
+  const existing = inflightDeployStarts.get(key);
+  if (existing) {
+    return existing;
+  }
+
+  const promise = (
+    pendingDeploy.composeYaml
+      ? deployCustomCompose({
+          composeYaml: pendingDeploy.composeYaml,
+          envFileContent: pendingDeploy.envFileContent,
+          serverId,
+          displayName: pendingDeploy.displayName ?? "Custom Compose",
+          env: pendingDeploy.env,
+          ports: pendingDeploy.ports,
+          acknowledgeResourceWarning: pendingDeploy.acknowledgeResourceWarning,
+        })
+      : deployTemplate({
+          templateSlug,
+          serverId,
+          env: pendingDeploy.env,
+          ports: pendingDeploy.ports,
+          acknowledgeResourceWarning: pendingDeploy.acknowledgeResourceWarning,
+        })
+  ).finally(() => {
+    inflightDeployStarts.delete(key);
+  });
+
+  inflightDeployStarts.set(key, promise);
+  return promise;
+}
 
 /**
  * Deployment logs page for a template or custom-compose deployment on a server.
@@ -89,8 +159,6 @@ export function DeployLogsPage() {
     [backHref, navigate],
   );
 
-  const deployStartedRef = useRef(false);
-
   useEffect(() => {
     const socket = getDeploymentSocket();
     if (!socket.connected) {
@@ -113,41 +181,15 @@ export function DeployLogsPage() {
   }, [deploymentId]);
 
   useEffect(() => {
-    if (
-      deploymentId ||
-      !pendingDeploy ||
-      !serverId ||
-      !templateSlug ||
-      deployStartedRef.current
-    ) {
+    if (deploymentId || !pendingDeploy || !serverId || !templateSlug) {
       return;
     }
-
-    deployStartedRef.current = true;
 
     let cancelled = false;
     setIsStarting(true);
     setStartError(null);
 
-    const deployPromise = pendingDeploy.composeYaml
-      ? deployCustomCompose({
-          composeYaml: pendingDeploy.composeYaml,
-          envFileContent: pendingDeploy.envFileContent,
-          serverId,
-          displayName: pendingDeploy.displayName ?? "Custom Compose",
-          env: pendingDeploy.env,
-          ports: pendingDeploy.ports,
-          acknowledgeResourceWarning: pendingDeploy.acknowledgeResourceWarning,
-        })
-      : deployTemplate({
-          templateSlug,
-          serverId,
-          env: pendingDeploy.env,
-          ports: pendingDeploy.ports,
-          acknowledgeResourceWarning: pendingDeploy.acknowledgeResourceWarning,
-        });
-
-    void deployPromise
+    void startPendingDeploy(serverId, templateSlug, pendingDeploy)
       .then((result) => {
         if (cancelled) return;
         const id = result.deploymentId;
@@ -166,7 +208,7 @@ export function DeployLogsPage() {
               ...(locationState?.backHref
                 ? { backHref: locationState.backHref }
                 : {}),
-              ...(pendingDeploy?.displayName
+              ...(pendingDeploy.displayName
                 ? {
                     deployRequest: {
                       displayName: pendingDeploy.displayName,
@@ -215,7 +257,9 @@ export function DeployLogsPage() {
     return <NotFoundPage />;
   }
 
-  if (!deploymentId && pendingDeploy && isStarting) {
+  // Keep the skeleton up while a deploy is starting so xterm is not mounted
+  // against a zero-size / transitional layout (FitAddon crashes otherwise).
+  if (!deploymentId && pendingDeploy && !startError) {
     return <DeployLogsPageSkeleton />;
   }
 
