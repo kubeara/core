@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/kubeara/core/compare/v1.1.0...v1.1.1) (2026-08-13)
+
+
+### Bug Fixes
+
+* bind the remote tunnel port with the agent app and fixed the connection issue ([bb78c2c](https://github.com/kubeara/core/commit/bb78c2ceb6fbd1d3cdc16ae4392e2a39569058f5))
+* Deployment logs page breaks due to dimentions issue ([7e729ac](https://github.com/kubeara/core/commit/7e729ac5a980e30f99babb249b64c3beb36d446d))
+
 ## [1.1.0](https://github.com/kubeara/core/compare/v1.0.0...v1.1.0) (2026-08-12)
 
 
