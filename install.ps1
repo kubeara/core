@@ -140,7 +140,7 @@ if ($LASTEXITCODE -ne 0) { Write-Err "docker compose up failed" }
 
 if ($env:SKIP_MIGRATE -ne "1") {
   Write-Info "Running migrations…"
-  docker compose -f $ComposeFile --env-file $EnvFile --profile migrate run --rm migrate
+  docker compose -f $ComposeFile --env-file $EnvFile --profile migrate run -T --rm migrate
 }
 
 Write-Info "Kubeara control panel install finished in $installDir"

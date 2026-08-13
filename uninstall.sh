@@ -20,7 +20,8 @@
 #   Reports UNINSTALL with the last successfully tracked version from .version.
 #   A later install.sh run is a fresh INSTALL with a new installation UUID.
 
-# POSIX-safe bootstrap for `curl | sh` on Ubuntu/Debian (dash rejects pipefail).
+# POSIX-safe bootstrap for Ubuntu/Debian dash (`curl | sh`).
+# Prefer `| bash`. For `| sh`, re-fetch under bash (set KUBEARA_UNINSTALL_URL for custom hosts).
 if [ -z "${BASH_VERSION:-}" ]; then
   if ! command -v bash >/dev/null 2>&1; then
     echo "[kubeara-uninstall] ERROR: bash is required." >&2
@@ -35,7 +36,18 @@ if [ -z "${BASH_VERSION:-}" ]; then
       fi
       ;;
   esac
-  exec bash -s -- "$@"
+
+  _kubeara_uninstall_url="${KUBEARA_UNINSTALL_URL:-https://get.kubeara.dev/uninstall.sh}"
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "[kubeara-uninstall] ERROR: curl is required when piping to sh/dash." >&2
+    echo "  Prefer: curl -fsSL ${_kubeara_uninstall_url} | bash" >&2
+    exit 1
+  fi
+  echo "[kubeara-uninstall] Detected sh/dash; re-running under bash from ${_kubeara_uninstall_url}" >&2
+  if [ -z "${KUBEARA_UNINSTALL_URL:-}" ]; then
+    echo "[kubeara-uninstall] TIP: for ngrok/local tests use \`curl … | bash\`, or set KUBEARA_UNINSTALL_URL." >&2
+  fi
+  exec bash -c 'curl -fsSL "$1" | bash -s -- "${@:2}"' bash "${_kubeara_uninstall_url}" "$@"
 fi
 
 set -euo pipefail
@@ -48,6 +60,7 @@ readonly INSTALLATION_VERSION_FILE=".version"
 readonly DEFAULT_TRACKING_URL="https://api.kubeara.dev/api/public/installations/events"
 
 KUBEARA_DOCKER_MODE="direct"
+KUBEARA_COMPOSE_KIND="plugin"
 
 info() {
   echo "${LOG_PREFIX} $*"
@@ -83,6 +96,34 @@ run_docker() {
   esac
 }
 
+run_compose() {
+  case "${KUBEARA_COMPOSE_KIND}" in
+    standalone)
+      case "${KUBEARA_DOCKER_MODE}" in
+        sudo)
+          sudo docker-compose "$@"
+          ;;
+        sudo-n)
+          sudo -n docker-compose "$@"
+          ;;
+        sg)
+          local quoted="" arg
+          for arg in "$@"; do
+            quoted+=" $(printf '%q' "${arg}")"
+          done
+          sg docker -c "docker-compose${quoted}"
+          ;;
+        *)
+          docker-compose "$@"
+          ;;
+      esac
+      ;;
+    *)
+      run_docker compose "$@"
+      ;;
+  esac
+}
+
 docker_info_ok() {
   local mode="$1"
   case "${mode}" in
@@ -92,6 +133,24 @@ docker_info_ok() {
     sg) command -v sg >/dev/null 2>&1 && sg docker -c "docker info >/dev/null 2>&1" ;;
     *) return 1 ;;
   esac
+}
+
+resolve_compose_kind() {
+  if run_docker compose version >/dev/null 2>&1; then
+    KUBEARA_COMPOSE_KIND="plugin"
+    return 0
+  fi
+  if ! command -v docker-compose >/dev/null 2>&1; then
+    return 1
+  fi
+  case "${KUBEARA_DOCKER_MODE}" in
+    sudo) sudo docker-compose version >/dev/null 2>&1 || return 1 ;;
+    sudo-n) sudo -n docker-compose version >/dev/null 2>&1 || return 1 ;;
+    sg) sg docker -c "docker-compose version >/dev/null 2>&1" || return 1 ;;
+    *) docker-compose version >/dev/null 2>&1 || return 1 ;;
+  esac
+  KUBEARA_COMPOSE_KIND="standalone"
+  return 0
 }
 
 resolve_docker_mode() {
@@ -134,6 +193,9 @@ require_docker() {
         error "Docker is not usable from this session (try sudo or start the daemon)."
         ;;
     esac
+  fi
+  if ! resolve_compose_kind; then
+    error "Docker Compose v2 is required (docker compose or docker-compose)."
   fi
 }
 
@@ -219,7 +281,7 @@ get_docker_version() {
 # Handles both "5.1.4" (--short) and "Docker Compose version v5.1.4".
 get_compose_version() {
   local raw
-  raw="$(run_docker compose version --short 2>/dev/null || run_docker compose version 2>/dev/null || true)"
+  raw="$(run_compose version --short 2>/dev/null || run_compose version 2>/dev/null || true)"
   raw="$(printf '%s' "${raw}" | head -n1 | sed -E 's/^[^0-9]*v?([0-9]+(\.[0-9]+)*).*$/\1/' || true)"
   printf '%s\n' "${raw}"
 }
@@ -360,12 +422,12 @@ main() {
 
   info "Removing containers, networks, volumes, and service images…"
   if [[ -f "${ENV_FILE}" ]]; then
-    run_docker compose \
+    run_compose \
       -f "${COMPOSE_FILE}" \
       --env-file "${ENV_FILE}" \
       down --volumes --rmi all --remove-orphans
   else
-    run_docker compose \
+    run_compose \
       -f "${COMPOSE_FILE}" \
       down --volumes --rmi all --remove-orphans
   fi

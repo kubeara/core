@@ -7,8 +7,12 @@
 # .env.control-panel (no git clone). Images from Docker Hub.
 #
 # Usage (macOS / Linux / Windows WSL or Git Bash):
-#   curl -fsSL https://get.kubeara.dev | sh
 #   curl -fsSL https://get.kubeara.dev | bash
+#   curl -fsSL https://get.kubeara.dev | sh    # re-fetches under bash (production URL)
+#
+# Local / ngrok test (must use bash, or set KUBEARA_INSTALL_URL to the same URL):
+#   curl -fsSL "https://<ngrok>/install.sh" | bash
+#   KUBEARA_INSTALL_URL="https://<ngrok>/install.sh" curl -fsSL "$KUBEARA_INSTALL_URL" | sh
 #
 # Windows PowerShell (native):
 #   irm https://get.kubeara.dev/install.ps1 | iex
@@ -46,8 +50,15 @@
 #   KUBEARA_FORCE_ENV=1       Regenerate .env.control-panel from example
 
 # ---------------------------------------------------------------------------
-# POSIX-safe bootstrap: Ubuntu/Debian `sh` is dash and rejects `pipefail`.
-# When piped via `curl | sh`, re-exec the remainder of stdin under bash.
+# POSIX-safe bootstrap: Ubuntu/Debian `sh` is dash (no pipefail).
+#
+# Piping a bash script to dash cannot safely continue the same stdin stream
+# (dash buffers ahead; forked readers lose those bytes). Supported handoffs:
+#   1) sh ./install.sh          → exec bash on the file
+#   2) curl URL | bash          → no handoff needed (preferred)
+#   3) curl URL | sh            → re-fetch URL under bash
+#      Custom/ngrok/local URLs must set KUBEARA_INSTALL_URL to that same URL,
+#      otherwise we re-fetch https://get.kubeara.dev (production).
 # ---------------------------------------------------------------------------
 if [ -z "${BASH_VERSION:-}" ]; then
   if ! command -v bash >/dev/null 2>&1; then
@@ -64,8 +75,19 @@ if [ -z "${BASH_VERSION:-}" ]; then
       fi
       ;;
   esac
-  # Piped invocation: curl … | sh  → continue reading this script with bash -s
-  exec bash -s -- "$@"
+
+  _kubeara_install_url="${KUBEARA_INSTALL_URL:-https://get.kubeara.dev}"
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "[kubeara-install] ERROR: curl is required when piping to sh/dash." >&2
+    echo "  Prefer: curl -fsSL ${_kubeara_install_url} | bash" >&2
+    exit 1
+  fi
+
+  echo "[kubeara-install] Detected sh/dash; re-running under bash from ${_kubeara_install_url}" >&2
+  if [ -z "${KUBEARA_INSTALL_URL:-}" ]; then
+    echo "[kubeara-install] TIP: for ngrok/local tests use \`curl … | bash\`, or set KUBEARA_INSTALL_URL to your script URL." >&2
+  fi
+  exec bash -c 'curl -fsSL "$1" | bash -s -- "${@:2}"' bash "${_kubeara_install_url}" "$@"
 fi
 
 set -euo pipefail
@@ -81,6 +103,8 @@ readonly DOCKER_ENGINE_INSTALL_URL="https://get.docker.com"
 
 # How we invoke the Docker CLI: direct | sudo | sudo-n | sg
 KUBEARA_DOCKER_MODE="direct"
+# Compose invocation: plugin (`docker compose`) | standalone (`docker-compose`)
+KUBEARA_COMPOSE_KIND="plugin"
 
 KUBEARA_REPO="${KUBEARA_REPO:-kubeara/core}"
 KUBEARA_VERSION="${KUBEARA_VERSION:-main}"
@@ -205,8 +229,74 @@ docker_info_ok() {
   esac
 }
 
-docker_compose_ok() {
+docker_compose_plugin_ok() {
   run_docker compose version >/dev/null 2>&1
+}
+
+# Standalone binary (`docker-compose`), including under the same privilege mode as docker.
+docker_compose_standalone_ok() {
+  if ! command -v docker-compose >/dev/null 2>&1; then
+    return 1
+  fi
+  case "${KUBEARA_DOCKER_MODE}" in
+    sudo)
+      sudo docker-compose version >/dev/null 2>&1 \
+        || sudo docker-compose --version >/dev/null 2>&1
+      ;;
+    sudo-n)
+      sudo -n docker-compose version >/dev/null 2>&1 \
+        || sudo -n docker-compose --version >/dev/null 2>&1
+      ;;
+    sg)
+      sg docker -c "docker-compose version >/dev/null 2>&1" \
+        || sg docker -c "docker-compose --version >/dev/null 2>&1"
+      ;;
+    *)
+      docker-compose version >/dev/null 2>&1 \
+        || docker-compose --version >/dev/null 2>&1
+      ;;
+  esac
+}
+
+resolve_compose_kind() {
+  if docker_compose_plugin_ok; then
+    KUBEARA_COMPOSE_KIND="plugin"
+    return 0
+  fi
+  if docker_compose_standalone_ok; then
+    KUBEARA_COMPOSE_KIND="standalone"
+    return 0
+  fi
+  return 1
+}
+
+# Runs Compose with the resolved docker privilege mode + plugin/standalone kind.
+run_compose() {
+  case "${KUBEARA_COMPOSE_KIND}" in
+    standalone)
+      case "${KUBEARA_DOCKER_MODE}" in
+        sudo)
+          sudo docker-compose "$@"
+          ;;
+        sudo-n)
+          sudo -n docker-compose "$@"
+          ;;
+        sg)
+          local quoted="" arg
+          for arg in "$@"; do
+            quoted+=" $(printf '%q' "${arg}")"
+          done
+          sg docker -c "docker-compose${quoted}"
+          ;;
+        *)
+          docker-compose "$@"
+          ;;
+      esac
+      ;;
+    *)
+      run_docker compose "$@"
+      ;;
+  esac
 }
 
 # Prefer unprivileged docker; fall back to passwordless sudo, interactive sudo, then sg docker.
@@ -378,12 +468,16 @@ require_docker() {
       ;;
   esac
 
-  if ! docker_compose_ok; then
-    error "Docker Compose v2 plugin is required (docker compose).
-  See https://docs.docker.com/compose/install/"
+  if ! resolve_compose_kind; then
+    error "Docker Compose v2 is required (docker compose plugin or docker-compose).
+  Found docker-compose: $(command -v docker-compose 2>/dev/null || echo 'no')
+  Plugin check: $(run_docker compose version 2>&1 | head -n1 || true)
+  Standalone check: $(docker-compose --version 2>&1 | head -n1 || true)
+  Plugin: https://docs.docker.com/compose/install/linux/
+  Standalone: https://docs.docker.com/compose/install/standalone/"
   fi
 
-  info "Docker ready (mode: ${KUBEARA_DOCKER_MODE})"
+  info "Docker ready (mode: ${KUBEARA_DOCKER_MODE}, compose: ${KUBEARA_COMPOSE_KIND})"
 }
 
 fetch_deploy_file() {
@@ -835,7 +929,7 @@ ensure_core_env_config() {
 }
 
 compose() {
-  run_docker compose -f "${KUBEARA_INSTALL_DIR}/${COMPOSE_FILE}" --env-file "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" "$@"
+  run_compose -f "${KUBEARA_INSTALL_DIR}/${COMPOSE_FILE}" --env-file "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" "$@"
 }
 
 run_migrate() {
@@ -844,7 +938,8 @@ run_migrate() {
     return 0
   fi
   info "Running database migrations and seeding templates…"
-  compose --profile migrate run --rm migrate
+  # -T: no TTY — required when install is piped (curl | bash) or run non-interactively.
+  compose --profile migrate run -T --rm migrate
 }
 
 wait_for_control_panel() {
@@ -1012,7 +1107,7 @@ get_docker_version() {
 # Handles both "5.1.4" (--short) and "Docker Compose version v5.1.4".
 get_compose_version() {
   local raw
-  raw="$(run_docker compose version --short 2>/dev/null || run_docker compose version 2>/dev/null || true)"
+  raw="$(run_compose version --short 2>/dev/null || run_compose version 2>/dev/null || true)"
   raw="$(printf '%s' "${raw}" | head -n1 | sed -E 's/^[^0-9]*v?([0-9]+(\.[0-9]+)*).*$/\1/' || true)"
   printf '%s\n' "${raw}"
 }

@@ -10,7 +10,7 @@
 #   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel pull
 #   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel up -d
 # Migrations + template seed (once, before first use):
-#   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel --profile migrate run --rm migrate
+#   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel --profile migrate run -T --rm migrate
 
 services:
   postgres:
