@@ -98,8 +98,8 @@ function resizeFromFitProposal(
   term: Terminal,
   fitAddon: FitAddon,
 ): boolean {
-  const proposed = fitAddon.proposeDimensions();
-  if (!proposed || Number.isNaN(proposed.cols) || Number.isNaN(proposed.rows)) {
+  const proposed = safeProposeDimensions(fitAddon);
+  if (!proposed) {
     return false;
   }
 
@@ -109,6 +109,30 @@ function resizeFromFitProposal(
 
   term.resize(proposed.cols, proposed.rows);
   return true;
+}
+
+/**
+ * FitAddon.proposeDimensions() can throw when xterm's render service is not
+ * ready yet (`dimensions` undefined) — e.g. hidden log panes on deploy logs.
+ */
+function safeProposeDimensions(
+  fitAddon: FitAddon,
+): { cols: number; rows: number } | undefined {
+  try {
+    const proposed = fitAddon.proposeDimensions();
+    if (
+      !proposed ||
+      Number.isNaN(proposed.cols) ||
+      Number.isNaN(proposed.rows) ||
+      proposed.cols < MIN_TERMINAL_COLS ||
+      proposed.rows < 1
+    ) {
+      return undefined;
+    }
+    return proposed;
+  } catch {
+    return undefined;
+  }
 }
 
 export function fitAndSyncTerminal(
@@ -126,17 +150,13 @@ export function fitAndSyncTerminal(
       scrollContainer.scrollLeft = 0;
     }
 
-    try {
-      resizeFromFitProposal(term, fitAddon);
-    } catch {
-      // hidden containers cannot be measured yet
-    }
+    resizeFromFitProposal(term, fitAddon);
     return;
   }
 
   if (!scrollContainer) {
-    const proposed = fitAddon.proposeDimensions();
-    if (!proposed || Number.isNaN(proposed.cols) || Number.isNaN(proposed.rows)) {
+    const proposed = safeProposeDimensions(fitAddon);
+    if (!proposed) {
       return;
     }
 
@@ -154,8 +174,8 @@ export function fitAndSyncTerminal(
 
   resetHostToViewportWidth(host, viewportWidth);
 
-  const proposed = fitAddon.proposeDimensions();
-  if (!proposed || Number.isNaN(proposed.cols) || Number.isNaN(proposed.rows)) {
+  const proposed = safeProposeDimensions(fitAddon);
+  if (!proposed) {
     return;
   }
 

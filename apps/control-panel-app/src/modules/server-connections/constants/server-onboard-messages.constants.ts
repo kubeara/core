@@ -13,5 +13,5 @@ export const SERVER_ONBOARD_LOGS = {
   AGENT_INSTALL_SKIPPED: "Agent install skipped (installAgent=false)",
   AGENT_REUSED_EXISTING: "Existing host agent reused (no reinstall)",
   AGENT_SOCKET_TUNNEL_READY:
-    "SSH reverse tunnel ready (remote 127.0.0.1 → control panel)",
+    "SSH reverse tunnel ready (remote 0.0.0.0 → control panel)",
 } as const;

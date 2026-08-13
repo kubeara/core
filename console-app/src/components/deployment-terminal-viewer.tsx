@@ -74,9 +74,11 @@ export function DeploymentTerminalViewer({
 
     const fitTerminal = () => {
       if (!hostRef.current || !fitRef.current || !termRef.current) return;
+      const host = hostRef.current;
+      if (host.clientWidth <= 0 || host.clientHeight <= 0) return;
       try {
         fitAndSyncTerminal(
-          hostRef.current,
+          host,
           termRef.current,
           fitRef.current,
           contentColsRef.current,
@@ -127,9 +129,11 @@ export function DeploymentTerminalViewer({
 
     const fit = () => {
       if (!hostRef.current || !fitRef.current || !termRef.current) return;
+      const host = hostRef.current;
+      if (host.clientWidth <= 0 || host.clientHeight <= 0) return;
       try {
         fitAndSyncTerminal(
-          hostRef.current,
+          host,
           termRef.current,
           fitRef.current,
           contentColsRef.current,
@@ -140,12 +144,16 @@ export function DeploymentTerminalViewer({
       }
     };
 
+    let nestedFrameId = 0;
     const frameId = requestAnimationFrame(() => {
       fit();
-      requestAnimationFrame(fit);
+      nestedFrameId = requestAnimationFrame(fit);
     });
 
-    return () => cancelAnimationFrame(frameId);
+    return () => {
+      cancelAnimationFrame(frameId);
+      cancelAnimationFrame(nestedFrameId);
+    };
   }, [isActive, wordWrap]);
 
   useEffect(() => {
@@ -173,10 +181,12 @@ export function DeploymentTerminalViewer({
 
     if (!wordWrapRef.current) {
       requestAnimationFrame(() => {
-        if (!hostRef.current || !fitRef.current) return;
+        if (!hostRef.current || !fitRef.current || !termRef.current) return;
+        const host = hostRef.current;
+        if (host.clientWidth <= 0 || host.clientHeight <= 0) return;
         try {
           fitAndSyncTerminal(
-            hostRef.current,
+            host,
             term,
             fitRef.current,
             contentColsRef.current,

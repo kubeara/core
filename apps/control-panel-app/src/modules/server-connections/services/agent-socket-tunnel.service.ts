@@ -28,6 +28,7 @@ import {
 } from "../interfaces/agent-socket-tunnel.interface";
 import { readAgentSocketTunnelPortFromEnv } from "../utils/agent-socket-tunnel-port.util";
 import type { ParseAgentSocketTunnelPortResult } from "../utils/agent-socket-tunnel-port.util";
+import { buildEnsureSshGatewayPortsCommand } from "../utils/ensure-ssh-gateway-ports.util";
 import { isCloudVersionEnabled } from "../utils/cloud-version.util";
 
 interface HostTunnelState {
@@ -44,9 +45,12 @@ interface HostTunnelState {
 
 /**
  * Self-host only: long-lived SSH reverse tunnel per remote host.
- * Remote `127.0.0.1:{AGENT_SOCKET_TUNNEL_PORT}` is forwarded to this process's
+ * Remote `0.0.0.0/*:{AGENT_SOCKET_TUNNEL_PORT}` is forwarded to this process's
  * control-panel port so the agent container can connect via
- * `host.docker.internal:{AGENT_SOCKET_TUNNEL_PORT}`.
+ * `host.docker.internal:{AGENT_SOCKET_TUNNEL_PORT}` (Docker host-gateway).
+ *
+ * GatewayPorts is configured on a separate SSH session before the long-lived
+ * tunnel connection opens.
  *
  * Uses its own ssh2 clients (not {@link SshConnectionManager}) so install /
  * terminal disconnects do not tear the tunnel down.
@@ -355,7 +359,17 @@ export class AgentSocketTunnelService implements OnModuleInit, OnModuleDestroy {
         return await pending;
       }
 
-      const job = this.openTunnel(options);
+      const job = (async (): Promise<AgentSocketTunnelResult> => {
+        // GatewayPorts must be applied on a throwaway SSH session. Reloading
+        // sshd on the tunnel connection leaves that session with old policy
+        // (loopback-only reverse binds).
+        const gatewayPorts = await this.prepareRemoteGatewayPorts(options);
+        if (!gatewayPorts.ok) {
+          return gatewayPorts;
+        }
+        return this.openTunnel(options);
+      })();
+
       this.inflight.set(hostKey, job);
       try {
         return await job;
@@ -372,9 +386,11 @@ export class AgentSocketTunnelService implements OnModuleInit, OnModuleDestroy {
   /**
    * Opens a new SSH session and registers `forwardIn` on the remote host.
    *
-   * Binds remote `127.0.0.1:{AGENT_SOCKET_TUNNEL_PORT}` to the local
-   * control-panel HTTP port. Pipes each incoming tunnel TCP stream to localhost.
-   * Schedules reconnect on unexpected close via {@link scheduleReconnect}.
+   * Binds remote all-interfaces:{AGENT_SOCKET_TUNNEL_PORT} to the local
+   * control-panel HTTP port. Caller must have already ensured GatewayPorts
+   * via {@link prepareRemoteGatewayPorts}. Pipes each incoming tunnel TCP
+   * stream to localhost. Schedules reconnect on unexpected close via
+   * {@link scheduleReconnect}.
    *
    * @param options - SSH target and credentials for this host.
    * @returns Resolves when `forwardIn` succeeds or the initial connect fails.
@@ -389,6 +405,7 @@ export class AgentSocketTunnelService implements OnModuleInit, OnModuleDestroy {
       return Promise.resolve({ ok: false, error: portResult.error });
     }
     const remoteTunnelPort = portResult.port;
+    const remoteBindLog = AGENT_SOCKET_TUNNEL.REMOTE_BIND_HOST_LOG;
 
     return new Promise((resolve) => {
       try {
@@ -447,7 +464,7 @@ export class AgentSocketTunnelService implements OnModuleInit, OnModuleDestroy {
                     },
                   );
                   this.logger.log(
-                    `SSH reverse tunnel ready host=${options.host} remote=${AGENT_SOCKET_TUNNEL.REMOTE_BIND_HOST}:${remoteTunnelPort} → 127.0.0.1:${localPort}`,
+                    `SSH reverse tunnel ready host=${options.host} remote=${remoteBindLog}:${remoteTunnelPort} → 127.0.0.1:${localPort}`,
                   );
                   settle({ ok: true });
                 } catch (forwardError) {
@@ -589,6 +606,170 @@ export class AgentSocketTunnelService implements OnModuleInit, OnModuleDestroy {
         const message = error instanceof Error ? error.message : String(error);
         this.logger.error(`openTunnel failed host=${options.host}: ${message}`);
         resolve({ ok: false, error: message });
+      }
+    });
+  }
+
+  /**
+   * Ensures GatewayPorts on a short-lived SSH session, then disconnects.
+   *
+   * Must run before {@link openTunnel}. Reloading sshd on the tunnel connection
+   * itself leaves reverse-forwards stuck on loopback for that session.
+   *
+   * @param options - SSH target and credentials for this host.
+   */
+  private prepareRemoteGatewayPorts(
+    options: SshConnectionOptions,
+  ): Promise<AgentSocketTunnelResult> {
+    return new Promise((resolve) => {
+      const client = new Client();
+      let settled = false;
+      const settle = (result: AgentSocketTunnelResult) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        try {
+          client.removeAllListeners();
+          client.end();
+        } catch {
+          // ignore disconnect errors after config step
+        }
+        resolve(result);
+      };
+
+      const timer = setTimeout(() => {
+        settle({
+          ok: false,
+          error: `Timed out configuring SSH GatewayPorts on ${options.host}`,
+        });
+      }, 60_000);
+
+      client.on("ready", () => {
+        void this.ensureRemoteGatewayPorts(client, options.host).then(
+          (result) => {
+            clearTimeout(timer);
+            settle(result);
+          },
+        );
+      });
+
+      client.on("error", (error) => {
+        clearTimeout(timer);
+        settle({
+          ok: false,
+          error: `Failed to configure SSH GatewayPorts on ${options.host}: ${error.message}`,
+        });
+      });
+
+      try {
+        client.connect(this.buildConnectConfig(options));
+      } catch (error) {
+        clearTimeout(timer);
+        settle({
+          ok: false,
+          error: `Failed to configure SSH GatewayPorts on ${options.host}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        });
+      }
+    });
+  }
+
+  /**
+   * Ensures remote sshd allows reverse tunnels to bind on non-loopback addresses.
+   *
+   * Writes `/etc/ssh/sshd_config.d/99-kubeara-agent-tunnel.conf` when needed
+   * (`AllowTcpForwarding yes`, `GatewayPorts clientspecified`) and reloads sshd.
+   * Required so Docker agents can reach the tunnel via host-gateway.
+   *
+   * @param client - Connected ssh2 client (throwaway prep session).
+   * @param host - Remote host (logging only).
+   */
+  private ensureRemoteGatewayPorts(
+    client: Client,
+    host: string,
+  ): Promise<AgentSocketTunnelResult> {
+    return new Promise((resolve) => {
+      try {
+        const command = buildEnsureSshGatewayPortsCommand();
+        const timeoutMs = 60_000;
+        let settled = false;
+        const settle = (result: AgentSocketTunnelResult) => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          resolve(result);
+        };
+
+        const timer = setTimeout(() => {
+          settle({
+            ok: false,
+            error: `Timed out configuring SSH GatewayPorts on ${host}`,
+          });
+        }, timeoutMs);
+
+        client.exec(command, (error, stream) => {
+          try {
+            if (error) {
+              clearTimeout(timer);
+              settle({
+                ok: false,
+                error: `Failed to configure SSH GatewayPorts on ${host}: ${error.message}`,
+              });
+              return;
+            }
+
+            let stdout = "";
+            let stderr = "";
+            stream.on("data", (chunk: Buffer | string) => {
+              stdout += chunk.toString();
+            });
+            stream.stderr.on("data", (chunk: Buffer | string) => {
+              stderr += chunk.toString();
+            });
+            stream.on("close", (code: number | null) => {
+              clearTimeout(timer);
+              const detail = [stdout, stderr]
+                .map((s) => s.trim())
+                .filter(Boolean)
+                .join(" | ");
+              if (code !== 0) {
+                settle({
+                  ok: false,
+                  error:
+                    `Failed to configure SSH GatewayPorts on ${host}` +
+                    (detail ? `: ${detail}` : ""),
+                });
+                return;
+              }
+              if (detail) {
+                this.logger.log(
+                  `SSH GatewayPorts ready host=${host}: ${detail}`,
+                );
+              }
+              settle({ ok: true });
+            });
+          } catch (execError) {
+            clearTimeout(timer);
+            settle({
+              ok: false,
+              error: `Failed to configure SSH GatewayPorts on ${host}: ${
+                execError instanceof Error
+                  ? execError.message
+                  : String(execError)
+              }`,
+            });
+          }
+        });
+      } catch (error) {
+        resolve({
+          ok: false,
+          error: `Failed to configure SSH GatewayPorts on ${host}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        });
       }
     });
   }

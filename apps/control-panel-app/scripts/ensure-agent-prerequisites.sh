@@ -259,6 +259,74 @@ agent_core_prerequisites_met() {
     return 0
 }
 
+# Required for self-host reverse tunnels: Docker agents reach host-gateway:tunnelPort.
+# Primary enforcement is in AgentSocketTunnelService before forwardIn; this is a backup.
+ensure_ssh_gateway_ports_for_agent_tunnel() {
+    local sshd_bin dropin value reloaded
+    sshd_bin="$(command -v sshd 2>/dev/null || true)"
+    if [[ -z "${sshd_bin}" && -x /usr/sbin/sshd ]]; then
+        sshd_bin=/usr/sbin/sshd
+    fi
+    if [[ -z "${sshd_bin}" ]]; then
+        warn "sshd not found — skipping GatewayPorts ensure"
+        return 0
+    fi
+
+    value="$("${sshd_bin}" -T 2>/dev/null | awk '/^gatewayports / { print $2; exit }' || true)"
+    if [[ "${value}" == "clientspecified" || "${value}" == "yes" ]]; then
+        info "SSH GatewayPorts already configured (${value})"
+        return 0
+    fi
+
+    info "Configuring SSH GatewayPorts clientspecified for agent socket tunnel..."
+
+    if [[ "$(id -u)" -ne 0 ]]; then
+        if ! command -v sudo >/dev/null 2>&1 || ! sudo -n true 2>/dev/null; then
+            warn "Cannot configure GatewayPorts without root/passwordless sudo (tunnel step should have done this)."
+            return 0
+        fi
+        SUDO=(sudo -n)
+    else
+        SUDO=()
+    fi
+
+    dropin="/etc/ssh/sshd_config.d/99-kubeara-agent-tunnel.conf"
+    run_privileged mkdir -p /etc/ssh/sshd_config.d
+    run_privileged tee "${dropin}" >/dev/null <<'EOF'
+# Managed by Kubeara — required for self-host agent reverse tunnels.
+AllowTcpForwarding yes
+GatewayPorts clientspecified
+EOF
+
+    if ! run_privileged "${sshd_bin}" -t; then
+        warn "sshd -t failed after writing ${dropin}"
+        run_privileged rm -f "${dropin}" || true
+        return 1
+    fi
+
+    reloaded=0
+    if run_privileged systemctl reload ssh 2>/dev/null \
+        || run_privileged systemctl reload sshd 2>/dev/null \
+        || run_privileged service ssh reload 2>/dev/null \
+        || run_privileged service sshd reload 2>/dev/null \
+        || run_privileged rc-service sshd reload 2>/dev/null; then
+        reloaded=1
+    fi
+    if [[ "${reloaded}" -ne 1 ]]; then
+        warn "Failed to reload sshd after writing ${dropin}"
+        return 1
+    fi
+
+    sleep 1
+    value="$("${sshd_bin}" -T 2>/dev/null | awk '/^gatewayports / { print $2; exit }' || true)"
+    if [[ "${value}" != "clientspecified" && "${value}" != "yes" ]]; then
+        warn "GatewayPorts still '${value:-unknown}' after reload"
+        return 1
+    fi
+    info "SSH GatewayPorts configured (${value})"
+    return 0
+}
+
 run_prerequisite_checks() {
     info "Running prerequisite checks..."
     log_check "curl" curl || true
@@ -561,6 +629,11 @@ main() {
         info "Check-only mode — skipping installation."
         verify_prerequisites
         return
+    fi
+
+    # Self-host agent tunnels need GatewayPorts so Docker can reach reverse binds.
+    if [[ "${os_name}" == "linux" ]]; then
+        ensure_ssh_gateway_ports_for_agent_tunnel || true
     fi
 
     info "Starting install phase for missing prerequisites (if any)..."
