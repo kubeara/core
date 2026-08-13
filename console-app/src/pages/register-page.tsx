@@ -6,6 +6,7 @@ import { FormFieldLabel } from "@/components/shared/form-field-label";
 import { PasswordField } from "@/components/shared/password-field";
 import { useSignupMutation } from "@/features/auth/hooks";
 import { getErrorMessage } from "@/api/api-error";
+import { showSuccessToast } from "@/lib/toast";
 import {
     PASSWORDS_DO_NOT_MATCH_MESSAGE,
     validateEmail,
@@ -65,16 +66,22 @@ export function RegisterPage() {
         setFieldErrors({});
 
         try {
-            await signupMutation.mutateAsync({
+            const result = await signupMutation.mutateAsync({
                 name: name.trim(),
                 email: email.trim(),
                 password,
             });
 
-            navigate(
-                `/verify-email?email=${encodeURIComponent(email.trim())}`,
-                { replace: true },
-            );
+            if (result.emailVerificationRequired) {
+                navigate(
+                    `/verify-email?email=${encodeURIComponent(email.trim())}`,
+                    { replace: true },
+                );
+                return;
+            }
+
+            showSuccessToast(result.message);
+            navigate("/login", { replace: true });
         } catch (err) {
             setError(getErrorMessage(err));
         }

@@ -25,6 +25,8 @@ export type SignupResponse = {
   name: string;
   email: string;
   organizationId: string;
+  /** Cloud requires OTP; self-host creates the user already verified. */
+  emailVerificationRequired: boolean;
 };
 
 /**

@@ -30,7 +30,9 @@ function getAuthMessage(response: AuthApiResponse, fallback: string): string {
   return message;
 }
 
-export async function signup(input: SignupRequest): Promise<User> {
+export async function signup(
+  input: SignupRequest,
+): Promise<SignupResponse & { message: string }> {
   const response = await apiClient.post<AuthApiResponse<SignupResponse>>(
     "/auth/signup",
     input,
@@ -39,7 +41,16 @@ export async function signup(input: SignupRequest): Promise<User> {
   if (!userData) {
     throw new Error("No user data in signup response");
   }
-  return userData;
+  return {
+    ...userData,
+    emailVerificationRequired: Boolean(userData.emailVerificationRequired),
+    message: getAuthMessage(
+      response.data,
+      userData.emailVerificationRequired
+        ? AUTH_TOAST_MESSAGES.SIGNUP
+        : AUTH_TOAST_MESSAGES.SIGNUP_SELF_HOST,
+    ),
+  };
 }
 
 export async function login(input: LoginRequest): Promise<{ user: User }> {
