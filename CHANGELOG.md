@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.2](https://github.com/kubeara/core/compare/v1.1.1...v1.1.2) (2026-08-13)
+
+
+### Bug Fixes
+
+* Updated the authentication flow for the self host version and fi… ([bd4a1df](https://github.com/kubeara/core/commit/bd4a1dfe3d41efa98da46a8af6f615ce04735462))
+* Updated the authentication flow for the self host version and fixed few minor issues on signin ([449beac](https://github.com/kubeara/core/commit/449beace5d0e361bab26264410f0a836dad43073))
+
 ## [1.1.1](https://github.com/kubeara/core/compare/v1.1.0...v1.1.1) (2026-08-13)
 
 
