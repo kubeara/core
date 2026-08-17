@@ -28,7 +28,7 @@ curl -fsSL https://raw.githubusercontent.com/kubeara/core/main/install.sh | sh
 |----|----------------------|----------------------------------------|
 | **Linux** | Installer runs [get.docker.com](https://get.docker.com) (disable with `KUBEARA_SKIP_DOCKER_INSTALL=1`) | Starts the daemon; uses `sudo` / `sg docker` when the socket needs elevation |
 | **macOS** | Error with Docker Desktop install link (never auto-installs) | Starts Docker Desktop (`open -a Docker`) and waits |
-| **Windows** | Error with Docker Desktop install link | Starts Docker Desktop and waits (PowerShell) / requires Desktop running (WSL) |
+| **Windows** | PowerShell installer downloads Docker Desktop and installs WSL2 if missing (UAC). Skip with `KUBEARA_SKIP_DOCKER_INSTALL=1`. First WSL install usually needs a reboot. | Starts Docker Desktop and waits (PowerShell) / requires Desktop running (WSL) |
 
 Optional environment variables:
 
@@ -39,7 +39,7 @@ Optional environment variables:
 | `VITE_API_URL` | Browser API URL incl. `/api`. Default: public IP on VPS, else `http://localhost:3000/api`. Override for domain/LAN. |
 | `ENCRYPTION_SECRET` | Use a fixed secret instead of auto-generating |
 | `SKIP_MIGRATE=1` | Skip migrations/seed on re-run |
-| `KUBEARA_SKIP_DOCKER_INSTALL=1` | Linux only: do not auto-install Docker Engine |
+| `KUBEARA_SKIP_DOCKER_INSTALL=1` | Linux: skip Docker Engine auto-install. Windows PowerShell: skip Docker Desktop auto-install |
 
 Uninstall:
 
@@ -53,7 +53,16 @@ curl -fsSL https://get.kubeara.dev/uninstall.sh | sh
 irm https://get.kubeara.dev/uninstall.ps1 | iex
 ```
 
-**Hosting:** publish root `install.sh` at `https://get.kubeara.dev`, `uninstall.sh` at `/uninstall.sh`, and optionally `install.ps1` / `uninstall.ps1`. Keep the embedded compose inside root `install.sh` in sync when you change `docker-compose.control-panel.yml` here.
+**Hosting:** publish these files at `https://get.kubeara.dev`:
+
+| Path | File |
+|------|------|
+| `/` (root) | `install.sh` |
+| `/install.ps1` | PowerShell installer (must be real `.ps1`, not a copy of `install.sh`) |
+| `/uninstall.sh` | `uninstall.sh` |
+| `/uninstall.ps1` | PowerShell uninstaller |
+
+Keep the embedded compose inside root `install.sh` in sync when you change `docker-compose.control-panel.yml` here.
 
 ## Files
 

@@ -18,7 +18,7 @@ $EnvFile = ".env.control-panel"
 $UninstallScriptUrl = if ($env:KUBEARA_UNINSTALL_SH_URL) {
   $env:KUBEARA_UNINSTALL_SH_URL
 } else {
-  "https://raw.githubusercontent.com/kubeara/core/main/uninstall.sh"
+  "https://get.kubeara.dev/uninstall.sh"
 }
 
 function Write-Info([string]$Message) {
