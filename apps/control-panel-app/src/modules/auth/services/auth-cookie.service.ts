@@ -84,7 +84,7 @@ export class AuthCookieService {
    * Build the cookie options
    */
   private buildOptions(maxAgeMs: number): CookieOptions {
-    const domain = this.configService.get<string>("COOKIE_DOMAIN")?.trim();
+    const domainRaw = this.configService.get<string>("COOKIE_DOMAIN")?.trim();
     const secure = this.configService.get<string>("COOKIE_SECURE") === "true";
     const sameSite = this.configService.get<
       "strict" | "lax" | "none" | "Strict" | "Lax" | "None"
@@ -92,6 +92,12 @@ export class AuthCookieService {
 
     const normalizedSameSite = (sameSite?.toLowerCase() ?? "lax") as
       "strict" | "lax" | "none";
+
+    // Self-host / local HTTP: leave COOKIE_DOMAIN empty (host-only cookie).
+    // Domain must not be an IP — browsers reject it; localhost vs 127.0.0.1
+    // cannot share a Domain cookie either.
+    const domain =
+      domainRaw && !this.isIpLiteral(domainRaw) ? domainRaw : undefined;
 
     return {
       httpOnly: true,
@@ -101,6 +107,18 @@ export class AuthCookieService {
       maxAge: maxAgeMs,
       ...(domain ? { domain } : {}),
     };
+  }
+
+  private isIpLiteral(value: string): boolean {
+    const host = value.replace(/^\./, "");
+    if (host === "localhost") {
+      return false;
+    }
+    return (
+      /^(\d{1,3}\.){3}\d{1,3}$/.test(host) ||
+      host.includes(":") ||
+      host === "127.0.0.1"
+    );
   }
 
   /**

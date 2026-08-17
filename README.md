@@ -97,14 +97,22 @@ must run on your own servers.
 
 ### Self-hosted (free forever)
 
+**macOS / Linux / Windows (WSL or Git Bash):**
+
 ```bash
 curl -fsSL https://get.kubeara.dev | sh
+```
+
+**Windows PowerShell** (Docker Desktop):
+
+```powershell
+irm https://get.kubeara.dev/install.ps1 | iex
 ```
 
 > View the install script before running:
 > [install.sh](https://github.com/kubeara/core/blob/main/install.sh)
 
-Open dashboard: http://your-server-ip:3000
+Open dashboard: http://your-server-ip:3000 (or the console port from your install output).
 
 **Manual install:**
 ```bash
