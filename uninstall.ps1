@@ -46,14 +46,36 @@ function Get-InstallDir {
   return (Join-Path $env:USERPROFILE ".kubeara\control-panel")
 }
 
-$bash = Get-Command bash -ErrorAction SilentlyContinue
-if ($bash) {
-  Write-Info "bash detected — delegating to uninstall.sh…"
+function Test-IsGitBash {
+  $bash = Get-Command bash -ErrorAction SilentlyContinue
+  if (-not $bash) {
+    return $false
+  }
+  $src = [string]$bash.Source
+  if ($src -match '\\(System32|Sysnative)\\bash\.exe$') {
+    return $false
+  }
+  $uname = ""
+  try {
+    $uname = (& bash -c "uname -s" 2>$null | Select-Object -First 1)
+  } catch {
+    return $false
+  }
+  return [string]$uname -match "MINGW|MSYS|CYGWIN"
+}
+
+if (Test-IsGitBash) {
+  Write-Info "Git Bash detected - delegating to uninstall.sh..."
   & bash -c "curl -fsSL '$UninstallScriptUrl' | bash"
   if ($LASTEXITCODE -ne 0) {
     Write-Err "uninstall.sh failed (exit $LASTEXITCODE)"
   }
   exit 0
+}
+
+$bash = Get-Command bash -ErrorAction SilentlyContinue
+if ($bash) {
+  Write-Info "Skipping WSL/Linux bash; uninstalling with Docker Desktop from PowerShell."
 }
 
 if (-not (Test-DockerReady)) {
