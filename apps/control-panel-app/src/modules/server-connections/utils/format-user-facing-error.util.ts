@@ -1,32 +1,24 @@
-/** Canonical user-facing server connection error messages. */
+/** Distinct user-facing server error messages (no duplicates). */
 export const SERVER_USER_ERROR_MESSAGES = {
-  NOT_CONNECTED: "This server is not connected to Kubeara.",
-  NOT_RUNNING: "The server service is not running.",
-  SETUP_INCOMPLETE: "Server setup has not completed yet.",
+  /** Generic fallback for unknown or empty errors. */
+  GENERIC_ERROR: "Something went wrong. Please try again.",
+  CONNECTION_LOST: "Connection to this server was lost.",
+  UNABLE_TO_CONNECT: "Unable to connect to this server.",
+  SETUP_INCOMPLETE: "Server setup is incomplete.",
   RESTORING_CONNECTION: "Restoring the connection…",
-  UNABLE_VERIFY_STATUS: "Unable to verify server status. Check SSH access.",
+  UNABLE_VERIFY_STATUS: "Unable to verify this server. Check SSH access.",
   UNABLE_RESTORE_CONNECTION:
     "Unable to restore the connection. Please try again.",
-  UNABLE_ESTABLISH_CONNECTION:
-    "Unable to establish a connection. Please try again.",
   SSH_AUTH_FAILED: "SSH authentication failed. Verify your credentials.",
-  CONNECTION_TIMED_OUT: "Connection timed out. Check the host and network.",
+  CONNECTION_TIMED_OUT: "Connection timed out.",
   UNABLE_REACH_SERVER:
     "Unable to reach this server. Check the address and network.",
   SUDO_REQUIRED: "This server user requires root or passwordless sudo access.",
-  SETUP_START_FAILED: "Server setup could not be started.",
-  DOCKER_UNAVAILABLE: "Docker is not available on this server.",
-  SETUP_PREREQUISITES_FAILED: "Server setup requirements were not met.",
-  SOFTWARE_DOWNLOAD_FAILED: "Unable to download required software.",
-  UNABLE_CONNECT_KUBEARA: "This server could not connect to Kubeara.",
-  KUBEARA_MISCONFIGURED:
-    "Kubeara is misconfigured. Contact your administrator.",
-  DOCKER_NOT_SUPPORTED: "This host cannot run Docker.",
-  SSH_CREDENTIALS_MISSING: "SSH credentials are missing. Add the server again.",
   SETUP_FAILED: "Server setup could not be completed.",
-  UNABLE_REMOVE_SERVER: "Unable to remove this server. Please try again.",
-  UNABLE_CONNECT_SSH: "Unable to connect to this server. Verify SSH access.",
-  OPERATION_FAILED: "The operation could not be completed. Please try again.",
+  SETUP_CONFIGURATION_FAILED: "Unable to setup configuration.",
+  DOCKER_UNAVAILABLE: "Docker is not available on this server.",
+  SSH_CREDENTIALS_MISSING: "SSH credentials are missing. Add the server again.",
+  UNABLE_REMOVE_SERVER: "Unable to remove this server.",
 } as const;
 
 const MSG = SERVER_USER_ERROR_MESSAGES;
@@ -43,7 +35,7 @@ function matchesAny(text: string, patterns: RegExp[]): boolean {
 export function formatUserFacingAgentError(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) {
-    return MSG.UNABLE_ESTABLISH_CONNECTION;
+    return MSG.GENERIC_ERROR;
   }
 
   if (CONNECTION_PASS_THROUGH.has(trimmed)) {
@@ -94,13 +86,21 @@ export function formatUserFacingAgentError(raw: string): string {
       /agent container failed/,
       /compose up failed/,
       /docker compose up failed/,
+      /agent install failed/,
+      /agent setup failed/,
+      /agent recovery failed/,
+      /docker install failed/,
     ])
   ) {
-    return MSG.SETUP_START_FAILED;
+    return MSG.SETUP_FAILED;
   }
 
   if (
     matchesAny(lower, [
+      /ssh-in-docker/,
+      /cannot run a local docker daemon/,
+      /without a working local docker/,
+      /docker still unavailable/,
       /docker compose/,
       /docker cli/,
       /docker daemon/,
@@ -111,19 +111,22 @@ export function formatUserFacingAgentError(raw: string): string {
     return MSG.DOCKER_UNAVAILABLE;
   }
 
-  if (matchesAny(lower, [/prerequisite/, /agent-prereq/])) {
-    return MSG.SETUP_PREREQUISITES_FAILED;
-  }
-
   if (
     matchesAny(lower, [
+      /prerequisite/,
+      /agent-prereq/,
+      /prerequisite script/,
       /pull agent image/,
       /no such image/,
       /manifest unknown/,
       /pull access denied/,
+      /encryption_secret/,
+      /control_panel_url/,
+      /agent_socket_tunnel_port/,
+      /misconfigured/,
     ])
   ) {
-    return MSG.SOFTWARE_DOWNLOAD_FAILED;
+    return MSG.SETUP_CONFIGURATION_FAILED;
   }
 
   if (
@@ -132,30 +135,12 @@ export function formatUserFacingAgentError(raw: string): string {
       /reverse tunnel/,
       /self-host ssh/,
       /failed to open self-host/,
+      /ssh connection test failed/,
+      /ssh test failed/,
+      /ssh connection failed/,
     ])
   ) {
-    return MSG.UNABLE_CONNECT_KUBEARA;
-  }
-
-  if (
-    matchesAny(lower, [
-      /encryption_secret/,
-      /control_panel_url/,
-      /agent_socket_tunnel_port/,
-      /misconfigured/,
-    ])
-  ) {
-    return MSG.KUBEARA_MISCONFIGURED;
-  }
-
-  if (
-    matchesAny(lower, [
-      /ssh-in-docker/,
-      /cannot run a local docker daemon/,
-      /without a working local docker/,
-    ])
-  ) {
-    return MSG.DOCKER_NOT_SUPPORTED;
+    return MSG.UNABLE_TO_CONNECT;
   }
 
   if (
@@ -168,19 +153,8 @@ export function formatUserFacingAgentError(raw: string): string {
     return MSG.SSH_CREDENTIALS_MISSING;
   }
 
-  if (
-    matchesAny(lower, [
-      /agent install failed/,
-      /agent setup failed/,
-      /agent recovery failed/,
-      /docker install failed/,
-    ])
-  ) {
-    return MSG.SETUP_FAILED;
-  }
-
   if (matchesAny(lower, [/websocket/, /web socket/, /not connected/])) {
-    return MSG.NOT_CONNECTED;
+    return MSG.CONNECTION_LOST;
   }
 
   if (
@@ -188,14 +162,10 @@ export function formatUserFacingAgentError(raw: string): string {
     lower.includes("docker logs") ||
     lower.includes(".env.agent")
   ) {
-    return MSG.NOT_CONNECTED;
+    return MSG.CONNECTION_LOST;
   }
 
-  if (lower.includes("agent")) {
-    return MSG.UNABLE_ESTABLISH_CONNECTION;
-  }
-
-  return MSG.UNABLE_ESTABLISH_CONNECTION;
+  return MSG.GENERIC_ERROR;
 }
 
 /**
@@ -204,7 +174,7 @@ export function formatUserFacingAgentError(raw: string): string {
 export function formatUserFacingServerError(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) {
-    return MSG.OPERATION_FAILED;
+    return MSG.GENERIC_ERROR;
   }
 
   if (CONNECTION_PASS_THROUGH.has(trimmed)) {
@@ -231,12 +201,12 @@ export function formatUserFacingServerError(raw: string): string {
       /connection failed/,
     ])
   ) {
-    return MSG.UNABLE_CONNECT_SSH;
+    return MSG.UNABLE_TO_CONNECT;
   }
 
   if (matchesAny(lower, [/connection timed out/, /timeout/])) {
     return MSG.CONNECTION_TIMED_OUT;
   }
 
-  return MSG.OPERATION_FAILED;
+  return MSG.GENERIC_ERROR;
 }

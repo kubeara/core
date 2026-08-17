@@ -2563,11 +2563,11 @@ export class ServerConnectionsService {
     }
 
     if (input.hasRunningAgentContainer) {
-      return MSG.NOT_CONNECTED;
+      return MSG.CONNECTION_LOST;
     }
 
     if (input.agentContainerCount > 0) {
-      return MSG.NOT_RUNNING;
+      return MSG.UNABLE_TO_CONNECT;
     }
 
     return MSG.SETUP_INCOMPLETE;
