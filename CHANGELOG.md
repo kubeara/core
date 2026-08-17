@@ -1,5 +1,37 @@
 # Changelog
 
+## [1.1.2](https://github.com/kubeara/core/compare/v1.1.1...v1.1.2) (2026-08-13)
+
+
+### Bug Fixes
+
+* Updated the authentication flow for the self host version and fi… ([bd4a1df](https://github.com/kubeara/core/commit/bd4a1dfe3d41efa98da46a8af6f615ce04735462))
+* Updated the authentication flow for the self host version and fixed few minor issues on signin ([449beac](https://github.com/kubeara/core/commit/449beace5d0e361bab26264410f0a836dad43073))
+
+## [1.1.1](https://github.com/kubeara/core/compare/v1.1.0...v1.1.1) (2026-08-13)
+
+
+### Bug Fixes
+
+* bind the remote tunnel port with the agent app and fixed the connection issue ([bb78c2c](https://github.com/kubeara/core/commit/bb78c2ceb6fbd1d3cdc16ae4392e2a39569058f5))
+* Deployment logs page breaks due to dimentions issue ([7e729ac](https://github.com/kubeara/core/commit/7e729ac5a980e30f99babb249b64c3beb36d446d))
+
+## [1.1.0](https://github.com/kubeara/core/compare/v1.0.0...v1.1.0) (2026-08-12)
+
+
+### Features
+
+* Add multilingual support for service template translations ([ff81e94](https://github.com/kubeara/core/commit/ff81e94dbc7c4996efce3d25be4847b49bb9ab79))
+* Add plan translations and locale support ([d0d5cd7](https://github.com/kubeara/core/commit/d0d5cd767edecb8735c1e560609dcb8980455dd2))
+* Implement template translations and locale support ([8c19f2f](https://github.com/kubeara/core/commit/8c19f2f1436f4e0d4a4723c96623fcce2a193b59))
+* Update the socket connection configuration to establish the ssh tunnel for the self host version ([087f094](https://github.com/kubeara/core/commit/087f0943cca8ebf4266302ff74fbe81f4f038e74))
+
+
+### Bug Fixes
+
+* create default locale env for plan and templates ([5b2e45d](https://github.com/kubeara/core/commit/5b2e45dc9410eb062258f59b10cfc0ff6ff40cff))
+* Update the default value of the agent socket tunner port variable in installation script ([a13b1ba](https://github.com/kubeara/core/commit/a13b1ba4c3ecdcc090e078297e2e5d9ce1790027))
+
 ## [1.0.0](https://github.com/kubeara/core/compare/v0.0.15...v1.0.0) (2026-08-05)
 
 
