@@ -23,8 +23,11 @@
 #   KUBEARA_SET_IMAGE_TAGS  1 = set all images to KUBEARA_CHANNEL; 0 = keep .env.example tags (local default)
 #   KUBEARA_CONSOLE_IMAGE_OVERRIDE  Explicit console image (do not export KUBEARA_CONSOLE_IMAGE — same name as .env key)
 #   KUBEARA_CONTROL_PANEL_IMAGE / KUBEARA_AGENT_IMAGE  Override API/agent images
-#   KUBEARA_PUBLIC_URL      Public panel URL for remote agents (optional; console API defaults to localhost)
-#   IS_CLOUD_VERSION        true = agents connect via CONTROL_PANEL_URL; false/omit = SSH reverse tunnels
+#   VITE_API_URL            Browser API URL (incl. /api). Default: auto public IP on VPS,
+#                           else http://localhost:3000/api. Override for domain/LAN/custom.
+#   CONTROL_PANEL_URL       Agent/onboard URL (default: derived from VITE_API_URL)
+#   IS_CLOUD_VERSION        true = agents use CONTROL_PANEL_URL directly (no SSH tunnels);
+#                           false/omit = self-host SSH reverse tunnels
 #   KUBEARA_TRACKING_URL    Override installation tracking endpoint
 #                           Default: https://api.kubeara.dev/api/public/installations/events
 #   KUBEARA_SKIP_DOCKER_INSTALL=1  On Linux, do not auto-install Docker Engine when missing
@@ -125,7 +128,8 @@ Environment variables:
   KUBEARA_INSTALL_BASE     URL prefix for remote compose/env files
   KUBEARA_VERSION            Git ref when downloading from GitHub (default: main)
   KUBEARA_CHANNEL            Image tag: prod, dev, etc. (default: prod)
-  KUBEARA_PUBLIC_URL         e.g. http://203.0.113.10:3000 or https://panel.example.com
+  VITE_API_URL               Browser API URL + /api (default: auto public IP or localhost)
+  CONTROL_PANEL_URL          Agent URL (default: derived from VITE_API_URL)
   ENCRYPTION_SECRET          Skip auto-generation if set
   SKIP_MIGRATE=1             Do not run migrations/seed
   KUBEARA_FORCE_ENV=1        Overwrite .env.control-panel
@@ -503,18 +507,128 @@ default_local_api_url() {
   echo "http://127.0.0.1:${PORT:-3000}"
 }
 
-# Console SPA calls this from the browser — localhost avoids broken NAT/public-IP routing on the same host.
+normalize_vite_api_url() {
+  local base="${1%/}"
+  [[ -z "${base}" ]] && return 1
+  if [[ "${base}" == */api ]]; then
+    echo "${base}"
+  else
+    echo "${base}/api"
+  fi
+}
+
+# Origin used by agents / CORS (strip trailing /api).
+vite_api_url_to_origin() {
+  local u="${1%/}"
+  echo "${u%/api}"
+}
+
+is_private_or_local_ipv4() {
+  local ip="$1"
+  case "${ip}" in
+    127.* | 10.* | 192.168.* | 169.254.*) return 0 ;;
+    172.1[6-9].* | 172.2[0-9].* | 172.3[0-1].*) return 0 ;;
+    "") return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Outbound default-route IPv4 (public on many VPS images; private on laptops).
+detect_default_route_ipv4() {
+  local ip=""
+
+  if command -v ip >/dev/null 2>&1; then
+    ip="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{
+      for (i = 1; i <= NF; i++) if ($i == "src") { print $(i + 1); exit }
+    }' || true)"
+  fi
+
+  if [[ -z "${ip}" ]] && [[ "$(uname -s)" == "Darwin" ]]; then
+    local iface=""
+    iface="$(route -n get default 2>/dev/null | awk '/interface:/{print $2; exit}' || true)"
+    if [[ -n "${iface}" ]]; then
+      ip="$(ipconfig getifaddr "${iface}" 2>/dev/null || true)"
+    fi
+  fi
+
+  if [[ "${ip}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && [[ "${ip}" != 127.* ]]; then
+    echo "${ip}"
+    return 0
+  fi
+  return 1
+}
+
+# Browser-facing API URL. Only knob users need to override for remote/domain/LAN.
+# Default: public default-route IP → http://IP:PORT/api; else localhost.
 default_vite_api_url() {
+  local ip=""
+
+  if [[ -n "${VITE_API_URL:-}" ]]; then
+    normalize_vite_api_url "${VITE_API_URL}"
+    return 0
+  fi
+
+  ip="$(detect_default_route_ipv4 || true)"
+  if [[ -n "${ip}" ]] && ! is_private_or_local_ipv4 "${ip}"; then
+    info "Using detected public IP for VITE_API_URL: ${ip}"
+    echo "http://${ip}:${PORT:-3000}/api"
+    return 0
+  fi
+
   echo "http://localhost:${PORT:-3000}/api"
 }
 
-# Remote agents / onboard SSH install; set KUBEARA_PUBLIC_URL when the panel has a public hostname.
+# Agent URL: explicit CONTROL_PANEL_URL, else same host as VITE_API_URL (127.0.0.1 when local).
+# Pass the resolved VITE_API_URL as $1 when known (avoids a second detect).
 default_control_panel_url() {
-  if [[ -n "${KUBEARA_PUBLIC_URL:-}" ]]; then
-    echo "${KUBEARA_PUBLIC_URL}"
+  local origin=""
+  local vite_api_url="${1:-}"
+
+  if [[ -n "${CONTROL_PANEL_URL:-}" ]]; then
+    echo "${CONTROL_PANEL_URL%/}"
     return 0
   fi
-  default_local_api_url
+
+  if [[ -z "${vite_api_url}" ]]; then
+    vite_api_url="$(default_vite_api_url)"
+  fi
+  origin="$(vite_api_url_to_origin "${vite_api_url}")"
+  case "${origin}" in
+    http://localhost:* | http://127.0.0.1:* | https://localhost:* | https://127.0.0.1:*)
+      default_local_api_url
+      ;;
+    *)
+      echo "${origin}"
+      ;;
+  esac
+}
+
+# Add console + API origins from VITE_API_URL when it is not loopback.
+cors_origins_with_vite_api() {
+  local cors_origins="$1"
+  local console_port="${2:-8080}"
+  local vite_api_url="$3"
+  local origin host scheme
+
+  origin="$(vite_api_url_to_origin "${vite_api_url}")"
+  case "${origin}" in
+    http://localhost:* | http://127.0.0.1:* | https://localhost:* | https://127.0.0.1:* | "")
+      echo "${cors_origins}"
+      return 0
+      ;;
+  esac
+
+  cors_origins="${cors_origins},${origin}"
+  case "${origin}" in
+    http://* | https://*)
+      host="${origin#*://}"
+      host="${host%%/*}"
+      host="${host%%:*}"
+      scheme="${origin%%://*}"
+      cors_origins="${cors_origins},${scheme}://${host}:${console_port}"
+      ;;
+  esac
+  echo "${cors_origins}"
 }
 
 generate_encryption_secret() {
@@ -704,14 +818,15 @@ write_fresh_env_file() {
   port="${PORT:-3000}"
   console_port="${CONSOLE_PORT:-8080}"
   vite_api_url="$(default_vite_api_url)"
-  control_panel_url="$(default_control_panel_url)"
+  control_panel_url="$(default_control_panel_url "${vite_api_url}")"
   jwt_access="${JWT_SECRET:-$(openssl rand -hex 32)}"
   jwt_refresh="${JWT_REFRESH_SECRET:-$(openssl rand -hex 32)}"
   cp_image="${KUBEARA_CONTROL_PANEL_IMAGE:-kubeara/control-panel:${KUBEARA_CHANNEL}}"
   console_image="${KUBEARA_CONSOLE_IMAGE_OVERRIDE:-kubeara/console:${KUBEARA_CHANNEL}}"
   agent_image="${KUBEARA_AGENT_IMAGE:-kubeara/agent:${KUBEARA_CHANNEL}}"
   cors_origins="${CORS_ALLOWED_ORIGINS:-http://localhost:${port},http://localhost:${console_port},http://127.0.0.1:${port},http://127.0.0.1:${console_port}}"
-  if [[ "${IS_CLOUD_VERSION:-}" == "true" || -n "${KUBEARA_PUBLIC_URL:-}" ]]; then
+  cors_origins="$(cors_origins_with_vite_api "${cors_origins}" "${console_port}" "${vite_api_url}")"
+  if [[ "${IS_CLOUD_VERSION:-}" == "true" ]]; then
     is_cloud_version="true"
   else
     is_cloud_version="false"
@@ -783,7 +898,7 @@ create_env_file() {
     secret="$(generate_encryption_secret)"
     platform="${DOCKER_PLATFORM:-$(detect_docker_platform)}"
     vite_api_url="$(default_vite_api_url)"
-    control_panel_url="$(default_control_panel_url)"
+    control_panel_url="$(default_control_panel_url "${vite_api_url}")"
 
     local set_image_tags="${KUBEARA_SET_IMAGE_TAGS:-}"
     if [[ -z "${set_image_tags}" ]]; then
@@ -826,11 +941,41 @@ create_env_file() {
 ensure_core_env_config() {
   local env_path="$1"
   local current
-  local port console_port cors_origins
+  local port console_port cors_origins vite_api_url control_panel_url
 
   port="$(grep -E '^[[:space:]]*PORT=' "${env_path}" 2>/dev/null | head -n1 | cut -d= -f2- || echo 3000)"
   console_port="$(grep -E '^[[:space:]]*CONSOLE_PORT=' "${env_path}" 2>/dev/null | head -n1 | cut -d= -f2- || echo 8080)"
+
+  # VITE_API_URL is the primary browser knob — set when missing or explicitly overridden.
+  current="$(grep -E '^[[:space:]]*VITE_API_URL=' "${env_path}" 2>/dev/null | head -n1 | cut -d= -f2- || true)"
+  if [[ -n "${VITE_API_URL:-}" || -z "${current}" ]]; then
+    vite_api_url="$(default_vite_api_url)"
+    set_env_var "VITE_API_URL" "${vite_api_url}" "${env_path}"
+  elif [[ "${current}" == *localhost* || "${current}" == *127.0.0.1* ]]; then
+    # Upgrade localhost → detected public IP on VPS re-installs.
+    vite_api_url="$(default_vite_api_url)"
+    if [[ "${vite_api_url}" != *localhost* && "${vite_api_url}" != *127.0.0.1* ]]; then
+      set_env_var "VITE_API_URL" "${vite_api_url}" "${env_path}"
+    else
+      vite_api_url="${current}"
+    fi
+  else
+    vite_api_url="${current}"
+  fi
+
+  current="$(grep -E '^[[:space:]]*CONTROL_PANEL_URL=' "${env_path}" 2>/dev/null | head -n1 | cut -d= -f2- || true)"
+  if [[ -n "${CONTROL_PANEL_URL:-}" || -n "${VITE_API_URL:-}" || -z "${current}" ]]; then
+    control_panel_url="$(default_control_panel_url "${vite_api_url}")"
+    set_env_var "CONTROL_PANEL_URL" "${control_panel_url}" "${env_path}"
+  elif [[ "${current}" == *localhost* || "${current}" == *127.0.0.1* ]]; then
+    control_panel_url="$(default_control_panel_url "${vite_api_url}")"
+    if [[ "${control_panel_url}" != *localhost* && "${control_panel_url}" != *127.0.0.1* ]]; then
+      set_env_var "CONTROL_PANEL_URL" "${control_panel_url}" "${env_path}"
+    fi
+  fi
+
   cors_origins="http://localhost:${port},http://localhost:${console_port},http://127.0.0.1:${port},http://127.0.0.1:${console_port}"
+  cors_origins="$(cors_origins_with_vite_api "${cors_origins}" "${console_port}" "${vite_api_url}")"
 
   current="$(grep -E '^[[:space:]]*JWT_SECRET=' "${env_path}" 2>/dev/null | head -n1 | cut -d= -f2- || true)"
   if [[ -z "${current}" || "${current}" == change-me-jwt-secret ]]; then
@@ -886,9 +1031,17 @@ ensure_core_env_config() {
     set_env_var "PUBLIC_API_ALLOWED_ORIGINS" \
       "${PUBLIC_API_ALLOWED_ORIGINS:-${cors_origins}}" \
       "${env_path}"
+  elif [[ -n "${VITE_API_URL:-}" ]]; then
+    set_env_var "PUBLIC_API_ALLOWED_ORIGINS" \
+      "${PUBLIC_API_ALLOWED_ORIGINS:-${cors_origins}}" \
+      "${env_path}"
   fi
 
   if ! grep -qE '^[[:space:]]*CORS_ALLOWED_ORIGINS=' "${env_path}"; then
+    set_env_var "CORS_ALLOWED_ORIGINS" \
+      "${CORS_ALLOWED_ORIGINS:-${cors_origins}}" \
+      "${env_path}"
+  elif [[ -n "${VITE_API_URL:-}" || -n "${CORS_ALLOWED_ORIGINS:-}" ]]; then
     set_env_var "CORS_ALLOWED_ORIGINS" \
       "${CORS_ALLOWED_ORIGINS:-${cors_origins}}" \
       "${env_path}"
@@ -899,7 +1052,7 @@ ensure_core_env_config() {
   fi
 
   if ! grep -qE '^[[:space:]]*IS_CLOUD_VERSION=' "${env_path}"; then
-    if [[ "${IS_CLOUD_VERSION:-}" == "true" || -n "${KUBEARA_PUBLIC_URL:-}" ]]; then
+    if [[ "${IS_CLOUD_VERSION:-}" == "true" ]]; then
       set_env_var "IS_CLOUD_VERSION" "true" "${env_path}"
     else
       set_env_var "IS_CLOUD_VERSION" "false" "${env_path}"
@@ -1209,17 +1362,34 @@ track_installation_event() {
 }
 
 print_success() {
-  local port console_port
+  local port console_port vite_api_url console_url api_host
   port="$(grep -E '^PORT=' "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" | cut -d= -f2- || echo 3000)"
   console_port="$(grep -E '^CONSOLE_PORT=' "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" | cut -d= -f2- || echo 8080)"
+  vite_api_url="$(grep -E '^VITE_API_URL=' "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" | cut -d= -f2- || echo "http://localhost:${port}/api")"
+
+  # Console must be opened on the same host the API URL uses (cookies).
+  console_url="http://localhost:${console_port}"
+  case "${vite_api_url}" in
+    http://* | https://*)
+      api_host="${vite_api_url#*://}"
+      api_host="${api_host%%/*}"
+      api_host="${api_host%%:*}"
+      if [[ -n "${api_host}" && "${api_host}" != "localhost" && "${api_host}" != "127.0.0.1" ]]; then
+        console_url="http://${api_host}:${console_port}"
+      fi
+      ;;
+  esac
 
   cat <<EOF
 
 ${LOG_PREFIX} Kubeara control panel is running.
 
   Install directory: ${KUBEARA_INSTALL_DIR}
-  Control panel API: http://127.0.0.1:${port}
-  Console (SPA):     http://127.0.0.1:${console_port}
+  Console (SPA):     ${console_url}
+  API (browser):     ${vite_api_url}
+
+  Open the console URL above (host must match VITE_API_URL for auth cookies).
+  Leave COOKIE_DOMAIN empty unless you run multi-subdomain HTTPS (cloud).
 
 EOF
 }

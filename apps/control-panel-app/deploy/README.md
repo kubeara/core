@@ -36,7 +36,7 @@ Optional environment variables:
 |----------|---------|
 | `KUBEARA_INSTALL_DIR` | Where compose and `.env` are stored (default `/opt/kubeara/control-panel` or `~/.kubeara/control-panel`) |
 | `KUBEARA_CHANNEL` | Docker image tag (`prod`, `dev`, …) |
-| `KUBEARA_PUBLIC_URL` | Public control panel URL for console + remote agents |
+| `VITE_API_URL` | Browser API URL incl. `/api`. Default: public IP on VPS, else `http://localhost:3000/api`. Override for domain/LAN. |
 | `ENCRYPTION_SECRET` | Use a fixed secret instead of auto-generating |
 | `SKIP_MIGRATE=1` | Skip migrations/seed on re-run |
 | `KUBEARA_SKIP_DOCKER_INSTALL=1` | Linux only: do not auto-install Docker Engine |
@@ -143,13 +143,29 @@ Pulls images from Docker Hub automatically if they are not on the machine. To fo
 docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel up -d --pull always
 ```
 
-Open:
+Open (local):
 
 - Control panel API: http://localhost:3000
 - Console SPA: http://localhost:8080
 
-When console and API run on different origins/ports, set `VITE_API_URL` in `.env.control-panel`
-so browser calls go to the control panel API origin.
+### Local vs remote self-host vs cloud
+
+Set **`VITE_API_URL`** to whatever URL the browser should use for the API (must be reachable from the user's machine). Leave **`COOKIE_DOMAIN` empty** for self-host. `CONTROL_PANEL_URL` defaults from `VITE_API_URL`.
+
+| Scenario | `VITE_API_URL` | Notes |
+|----------|----------------|-------|
+| Laptop | `http://localhost:3000/api` (default) | Open `http://localhost:8080` |
+| VPS with public IP on the NIC | auto `http://PUBLIC_IP:3000/api` | Open the console URL printed at install end |
+| Domain / HTTPS / LAN IP / AWS EIP | set explicitly, e.g. `VITE_API_URL=https://panel.example.com/api` | Also set `CONTROL_PANEL_URL` if agents should use a different base |
+| Cloud product | public API + `/api` | `COOKIE_DOMAIN=.example.com`, `COOKIE_SECURE=true`, `IS_CLOUD_VERSION=true` |
+
+Example override:
+
+```bash
+VITE_API_URL=https://panel.example.com/api curl -fsSL https://get.kubeara.dev | sh
+```
+
+Self-host remote ≠ cloud: leave `IS_CLOUD_VERSION=false` unless agents should connect directly (no SSH tunnels).
 
 ## Agent
 
@@ -245,13 +261,14 @@ docker pull kubeara/agent:prod
 | `REFRESH_TOKEN_COOKIE_NAME` | HTTP-only refresh token cookie name (default `kubeara_refresh_token`) |
 | `ACCESS_TOKEN_EXPIRES_IN` | Access token and cookie TTL (default `15m`) |
 | `REFRESH_TOKEN_EXPIRES_IN` | Refresh token and cookie TTL (default `7d`) |
-| `COOKIE_DOMAIN` | Optional cookie domain |
+| `COOKIE_DOMAIN` | Leave empty for self-host (local or remote IP / single host). Only set for multi-subdomain HTTPS cloud (e.g. `.kubeara.dev`). Do not set to an IP. |
 | `COOKIE_SECURE` | Set cookie `Secure` flag (`true` / `false`) |
 | `COOKIE_SAME_SITE` | Cookie `SameSite` policy (`lax`, `strict`, `none`) | Use of strict is recommended for production |
-| `CONTROL_PANEL_URL` | Public URL for remote agents / onboard install |
+| `CONTROL_PANEL_URL` | URL agents/onboard use (default: derived from `VITE_API_URL`) |
+| `IS_CLOUD_VERSION` | `true` = agents connect via `CONTROL_PANEL_URL` (no SSH tunnels). Self-host: leave `false`. |
 | `PORT` | Control panel port (default 3000) |
 | `CONSOLE_PORT` | Console SPA host port (default 8080) |
-| `VITE_API_URL` | Console API base URL incl. `/api` (e.g. `http://localhost:3000/api`; origin-only also works — SPA normalizes) |
+| `VITE_API_URL` | Browser API base incl. `/api`. Primary setting for local / remote / domain. |
 | `DB_HOST` | `postgres` inside compose (do not use `127.0.0.1`) |
 | `DB_*` | Postgres credentials and database name |
 | `GRAFANA_CLOUD_LOKI_*` | Optional Grafana Cloud Loki push (see below) |
