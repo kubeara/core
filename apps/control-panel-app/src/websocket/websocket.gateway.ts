@@ -52,6 +52,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { DeploymentsService } from "@control-panel/modules/deployments/deployments.service";
 import { AgentServerBindingService } from "@control-panel/modules/server-connections/services/agent-server-binding.service";
+import { ServerConnectionsService } from "@control-panel/modules/server-connections/services/server-connections.service";
 import { SshTerminalService } from "@control-panel/modules/terminal/ssh-terminal.service";
 import { TerminalTransport } from "@control-panel/modules/terminal/enums/terminal-transport.enum";
 import { DeploymentStreamBufferService } from "./deployment-stream-buffer.service";
@@ -129,6 +130,8 @@ export class DeploymentGateway
     private readonly streamBuffer: DeploymentStreamBufferService,
     @Inject(forwardRef(() => SshTerminalService))
     private readonly sshTerminalService: SshTerminalService,
+    @Inject(forwardRef(() => ServerConnectionsService))
+    private readonly serverConnectionsService: ServerConnectionsService,
   ) {}
 
   @WebSocketServer()
@@ -256,6 +259,12 @@ export class DeploymentGateway
           timestamp: new Date().toISOString(),
           totalAgents: this.connectedAgents.size,
         });
+
+        if (boundServerId) {
+          await this.serverConnectionsService.handleAgentConnected(
+            boundServerId,
+          );
+        }
       }
 
       logSocketLifecycle(this.logger, "client_connected", {
@@ -2904,6 +2913,7 @@ export class DeploymentGateway
         timestamp: new Date().toISOString(),
         totalAgents: this.connectedAgents.size,
       });
+      void this.serverConnectionsService.handleAgentConnected(serverId);
       return true;
     } catch (error) {
       this.logger.error(

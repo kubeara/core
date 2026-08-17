@@ -33,6 +33,10 @@
   color: var(--success);
 }
 
+.kubeara-tooltip--error {
+  color: var(--danger);
+}
+
 .kubeara-tooltip-arrow {
   fill: var(--surface-elevated);
 }

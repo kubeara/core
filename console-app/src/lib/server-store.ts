@@ -32,7 +32,8 @@ export function createServer(input: {
     connected: input.connected ?? false,
     agentConnected: false,
     operationStatus: null,
-    operationError: null,
+    serverError: null,
+    agentError: null,
     createdAt: now,
     lastConnectedAt: now,
   };

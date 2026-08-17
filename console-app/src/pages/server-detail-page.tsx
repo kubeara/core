@@ -2,8 +2,14 @@ import { useParams } from "react-router";
 import { BackLink } from "@/components/shared/back-link";
 import { SensitiveHost } from "@/components/shared/sensitive-host";
 import { ServerDetailTabs } from "@/components/server-detail-tabs";
-import { useServerQuery } from "@/features/servers/hooks";
+import {
+  useServerErrorOverlay,
+  useServerQuery,
+} from "@/features/servers/hooks";
 import { isServerOperationBusy } from "@/features/servers/types";
+import {
+  getServerDisplayError,
+} from "@/features/servers/utils/server-error-display";
 import { ApiError, getErrorMessage } from "@/api/api-error";
 import {
   SERVER_OPERATION_REMOVING_LABEL,
@@ -24,6 +30,10 @@ import { NotFoundPage } from "./not-found-page";
 export function ServerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: server, isPending, isError, error, refetch } = useServerQuery(id);
+  const busy = server ? isServerOperationBusy(server.operationStatus) : false;
+  const displayError = server ? getServerDisplayError(server) : null;
+
+  useServerErrorOverlay(id, busy ? null : displayError);
 
   if (isPending) {
     return <ServerDetailPageSkeleton />;
@@ -52,7 +62,6 @@ export function ServerDetailPage() {
     return <NotFoundPage />;
   }
 
-  const busy = isServerOperationBusy(server.operationStatus);
   const operationLabel =
     server.operationStatus === "starting"
       ? SERVER_OPERATION_SETTING_UP_LABEL
@@ -67,7 +76,7 @@ export function ServerDetailPage() {
         <div className="server-detail-header-main">
           <h1>{server.name}</h1>
           <p>
-            {server.username} · {" "} 
+            {server.username} · {" "}
             <span className="server-detail-host-row">
               <SensitiveHost
                 host={server.host}
@@ -80,11 +89,7 @@ export function ServerDetailPage() {
               className={`server-tag-pill ${
                 server.operationStatus === "starting"
                   ? "starting"
-                  : server.operationStatus === "removing"
-                    ? "removing"
-                    : server.operationStatus === "error"
-                      ? "error"
-                      : "pending"
+                  : "removing"
               }`}
             >
               {operationLabel}
@@ -96,7 +101,7 @@ export function ServerDetailPage() {
       {busy ? (
         <p className="server-detail-operation-notice" role="status">
           {server.operationStatus === "starting"
-            ? "Agent installation is in progress. Server features will be available when setup completes."
+            ? "Server setup is in progress. Features will be available when setup completes."
             : "Server removal is in progress."}
         </p>
       ) : (

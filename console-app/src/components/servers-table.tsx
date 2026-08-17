@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { SensitiveHost } from "@/components/shared/sensitive-host";
 import { TooltipHint } from "@/components/ui/tooltip";
 import {
@@ -23,8 +23,11 @@ import {
 } from "@/features/servers/constants/messages";
 import { DeleteServerConfirmModal } from "@/features/servers/components/delete-server-confirm-modal";
 import { ServerFeedbackMessage } from "@/features/servers/components/server-feedback-message";
+import {
+  getServerDisplayError,
+  hasServerDisplayError,
+} from "@/features/servers/utils/server-error-display";
 import { ServersTableSkeleton } from "@/components/shared/skeleton";
-import { showErrorToast } from "@/lib/toast";
 import "./servers-table.css";
 
 type SortDir = "asc" | "desc";
@@ -84,8 +87,6 @@ function operationStatusLabel(status: ServerOperationStatus): string {
       return SERVER_OPERATION_SETTING_UP_LABEL;
     case "removing":
       return SERVER_OPERATION_REMOVING_LABEL;
-    case "error":
-      return "Error";
     default:
       return "";
   }
@@ -96,21 +97,25 @@ function operationStatusLabel(status: ServerOperationStatus): string {
  */
 function ServerNameCell({ server }: { server: Server }) {
   const busy = isServerOperationBusy(server.operationStatus);
+  const hasError = !busy && hasServerDisplayError(server);
+  const errorMessage = hasError ? getServerDisplayError(server) : null;
   const statusLabel = server.operationStatus
     ? operationStatusLabel(server.operationStatus)
-    : null;
+    : hasError
+      ? "Error"
+      : null;
   const statusPillClass =
     server.operationStatus === "starting"
       ? "starting"
       : server.operationStatus === "removing"
         ? "removing"
-        : server.operationStatus === "error"
+        : hasError
           ? "error"
           : null;
   const statusDotClass =
     server.operationStatus === "removing"
       ? "removing"
-      : server.operationStatus === "error"
+      : hasError
         ? "error"
         : server.agentConnected
           ? "online"
@@ -147,11 +152,25 @@ function ServerNameCell({ server }: { server: Server }) {
               </Link>
             </TooltipHint>
           )}
-          {statusLabel && statusPillClass && (
+          {statusLabel && statusPillClass && errorMessage ? (
+            <TooltipHint
+              content={errorMessage}
+              multiline
+              side="top"
+              variant="error"
+            >
+              <span
+                className={`server-tag-pill ${statusPillClass} tooltip-trigger-wrap--inline`}
+                aria-label={`Error: ${errorMessage}`}
+              >
+                {statusLabel}
+              </span>
+            </TooltipHint>
+          ) : statusLabel && statusPillClass ? (
             <span className={`server-tag-pill ${statusPillClass}`}>
               {statusLabel}
             </span>
-          )}
+          ) : null}
         </div>
         <p className="server-name-meta">{server.username}</p>
       </div>
@@ -253,29 +272,6 @@ export function ServersTable() {
     () => (listResponse?.data ?? []).map(mapServerApiToServer),
     [listResponse?.data],
   );
-  /**
-   * Ref to track notified operation errors.
-   */
-  const notifiedOperationErrorsRef = useRef<Set<string>>(new Set());
-
-  /**
-   * Effect to show error toast for operation errors.
-   */
-  useEffect(() => {
-    for (const server of servers) {
-      if (server.operationStatus !== "error" || !server.operationError) {
-        continue;
-      }
-
-      const key = `${server.id}:${server.operationError}`;
-      if (notifiedOperationErrorsRef.current.has(key)) {
-        continue;
-      }
-
-      notifiedOperationErrorsRef.current.add(key);
-      showErrorToast(server.operationError);
-    }
-  }, [servers]);
 
   const pagination = listResponse?.pagination;
   const total = pagination?.total ?? 0;

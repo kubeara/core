@@ -116,6 +116,13 @@ import {
 } from "../constants/agent-install.constants";
 import { buildAgentHostCleanupShellCommand } from "../utils/agent-host-cleanup.util";
 import { SERVER_CONNECTIONS } from "../constants/server-connections.constants";
+import { SERVER_USER_ERROR_MESSAGES as MSG } from "../utils/format-user-facing-error.util";
+import {
+  buildServerAgentError,
+  buildServerHealthError,
+  extractAgentErrorMessage,
+  extractServerErrorMessage,
+} from "../utils/server-error.util";
 import {
   buildServerOperationMetadata,
   readServerOperationFromMetadata,
@@ -125,6 +132,7 @@ import {
 import {
   AgentHealthCronResult,
   ServerAgentError,
+  ServerHealthError,
 } from "../interfaces/server-health.interface";
 
 @Injectable()
@@ -1200,12 +1208,11 @@ export class ServerConnectionsService {
   }
 
   /**
-   * Sets the operation status for a server in the database.
+   * Sets the in-progress operation status for a server in metadata (starting/removing).
    */
   private async setServerOperationStatus(
     serverId: string,
     status: ServerOperationStatus | null,
-    error?: string | null,
   ): Promise<void> {
     try {
       const server = await this.serverRepository.findOne({
@@ -1216,15 +1223,11 @@ export class ServerConnectionsService {
         return;
       }
 
-      const metadata = buildServerOperationMetadata(
-        server.metadata,
-        status,
-        error,
-      );
+      const metadata = buildServerOperationMetadata(server.metadata, status);
 
       server.metadata = metadata;
       await this.serverRepository.save(server);
-      this.notifyServerOperationUpdated(serverId, metadata);
+      await this.notifyServerStateUpdated(serverId);
     } catch (error) {
       this.logger.error(
         `Failed to set server operation status: ${String(error)}`,
@@ -1234,27 +1237,177 @@ export class ServerConnectionsService {
   }
 
   /**
-   * Broadcasts the server operation status update to the websocket.
+   * Persists an agent installation/connection error on the server row.
    */
-  private notifyServerOperationUpdated(
+  private async setAgentError(
     serverId: string,
-    metadata: Record<string, unknown> | null,
+    message: string,
+  ): Promise<void> {
+    if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+      await this.clearServerHealthErrors(serverId);
+      return;
+    }
+
+    const server = await this.serverRepository.findOne({
+      where: { id: serverId, deletedAt: IsNull() },
+      select: { id: true, host: true, retryCount: true },
+    });
+
+    if (!server) {
+      return;
+    }
+
+    await this.serverRepository.update(serverId, {
+      isServerUp: false,
+      agentError: buildServerAgentError({
+        message,
+        serverId,
+        host: server.host,
+        retryCount: server.retryCount,
+      }),
+    });
+
+    await this.notifyServerStateUpdated(serverId);
+  }
+
+  /**
+   * Persists a server-level operation error on the server row.
+   */
+  private async setServerError(
+    serverId: string,
+    message: string,
+  ): Promise<void> {
+    await this.serverRepository.update(serverId, {
+      serverError: buildServerHealthError(message),
+    });
+
+    await this.notifyServerStateUpdated(serverId);
+  }
+
+  /**
+   * Clears persisted health errors after the agent connects and the server is healthy.
+   */
+  async clearServerHealthErrors(serverId: string): Promise<void> {
+    const server = await this.serverRepository.findOne({
+      where: { id: serverId, deletedAt: IsNull() },
+      select: { id: true, agentError: true, serverError: true },
+    });
+
+    if (!server) {
+      return;
+    }
+
+    if (!server.agentError && !server.serverError) {
+      return;
+    }
+
+    await this.serverRepository.update(serverId, {
+      isServerUp: true,
+      retryCount: 0,
+      agentError: null,
+      serverError: null,
+      lastAgentCheckedAt: dayjs().unix(),
+    });
+
+    await this.notifyServerStateUpdated(serverId);
+  }
+
+  /**
+   * Waits for the agent WebSocket, then clears persisted connection errors.
+   * Used after install/recovery when the container may start before the socket connects.
+   *
+   * @returns True when the agent connected and errors were cleared (or none existed).
+   */
+  async waitForAgentConnectionAndClearErrors(
+    serverId: string,
+  ): Promise<boolean> {
+    const deadline = Date.now() + AGENT_INSTALL.CONNECT_WAIT_MS;
+
+    while (Date.now() < deadline) {
+      if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+        await this.handleAgentConnected(serverId);
+        return true;
+      }
+
+      await new Promise((resolve) =>
+        setTimeout(resolve, AGENT_INSTALL.CONNECT_POLL_MS),
+      );
+    }
+
+    return false;
+  }
+
+  /**
+   * Called when an agent WebSocket connects for a server.
+   * Clears stale installation/connection errors immediately.
+   */
+  async handleAgentConnected(serverId: string): Promise<void> {
+    if (!serverId) {
+      return;
+    }
+
+    if (!this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+      return;
+    }
+
+    await this.clearServerHealthErrors(serverId);
+  }
+
+  /**
+   * Clears stale errors and marks a server operation as in progress.
+   */
+  private async beginServerOperation(
+    serverId: string,
+    status: ServerOperationStatus,
+  ): Promise<void> {
+    await this.serverRepository.update(serverId, {
+      agentError: null,
+      serverError: null,
+    });
+    await this.setServerOperationStatus(serverId, status);
+  }
+
+  /**
+   * Broadcasts the current server operation and error state to websocket clients.
+   */
+  private async notifyServerStateUpdated(
+    serverId: string,
     options?: { deleted?: boolean },
-  ): void {
+  ): Promise<void> {
     try {
-      const { operationStatus, operationError } =
-        readServerOperationFromMetadata(metadata);
+      const server = await this.serverRepository.findOne({
+        where: { id: serverId },
+        select: {
+          id: true,
+          metadata: true,
+          serverError: true,
+          agentError: true,
+        },
+      });
+
+      if (!server) {
+        return;
+      }
+
+      const { operationStatus } = readServerOperationFromMetadata(
+        server.metadata,
+      );
+      const agentConnected =
+        this.deploymentGateway.isAgentConnectedForServer(serverId);
 
       this.deploymentGateway.broadcastServerOperationUpdated({
         serverId,
         operationStatus,
-        operationError,
+        serverError: extractServerErrorMessage(server.serverError),
+        agentError: agentConnected
+          ? null
+          : extractAgentErrorMessage(server.agentError),
         deleted: options?.deleted ?? false,
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
       this.logger.error(
-        `Failed to broadcast server operation updated: ${String(error)}`,
+        `Failed to broadcast server state updated: ${String(error)}`,
       );
       throw error;
     }
@@ -1272,12 +1425,19 @@ export class ServerConnectionsService {
 
         if (result.success || result.skipped) {
           await this.setServerOperationStatus(params.server.id, null);
+          if (
+            this.deploymentGateway.isAgentConnectedForServer(params.server.id)
+          ) {
+            await this.clearServerHealthErrors(params.server.id);
+          } else {
+            void this.waitForAgentConnectionAndClearErrors(params.server.id);
+          }
           return;
         }
 
-        await this.setServerOperationStatus(
+        await this.setServerOperationStatus(params.server.id, null);
+        await this.setAgentError(
           params.server.id,
-          SERVER_OPERATION_STATUS.ERROR,
           result.error ?? ERROR_MESSAGES.SERVER.SSH_TEST_FAILED,
         );
       } catch (error) {
@@ -1286,9 +1446,9 @@ export class ServerConnectionsService {
             error instanceof Error ? error.message : String(error)
           }`,
         );
-        await this.setServerOperationStatus(
+        await this.setServerOperationStatus(params.server.id, null);
+        await this.setAgentError(
           params.server.id,
-          SERVER_OPERATION_STATUS.ERROR,
           error instanceof Error ? error.message : String(error),
         );
       }
@@ -1397,7 +1557,7 @@ export class ServerConnectionsService {
             serverId,
           );
         }
-        this.notifyServerOperationUpdated(serverId, null, { deleted: true });
+        await this.notifyServerStateUpdated(serverId, { deleted: true });
       } catch (error) {
         this.logger.error(
           `Background server deletion failed for server '${serverId}': ${
@@ -1405,9 +1565,9 @@ export class ServerConnectionsService {
           }`,
         );
 
-        await this.setServerOperationStatus(
+        await this.setServerOperationStatus(serverId, null);
+        await this.setServerError(
           serverId,
-          SERVER_OPERATION_STATUS.ERROR,
           error instanceof Error
             ? error.message
             : ERROR_MESSAGES.SERVER.DELETE_FAILED,
@@ -1633,7 +1793,7 @@ export class ServerConnectionsService {
     const restoreLogs: string[] = [SERVER_ONBOARD_LOGS.DELETED_SERVER_RESTORED];
 
     if (this.shouldInstallAgent(input.installAgent)) {
-      await this.setServerOperationStatus(
+      await this.beginServerOperation(
         existingServer.id,
         SERVER_OPERATION_STATUS.STARTING,
       );
@@ -1770,7 +1930,7 @@ export class ServerConnectionsService {
       });
 
       if (this.shouldInstallAgent(input.installAgent)) {
-        await this.setServerOperationStatus(
+        await this.beginServerOperation(
           savedServer.id,
           SERVER_OPERATION_STATUS.STARTING,
         );
@@ -1950,7 +2110,7 @@ export class ServerConnectionsService {
         );
       }
 
-      await this.setServerOperationStatus(id, SERVER_OPERATION_STATUS.REMOVING);
+      await this.beginServerOperation(id, SERVER_OPERATION_STATUS.REMOVING);
 
       await this.activityService.recordActivity({
         userId,
@@ -2185,12 +2345,20 @@ export class ServerConnectionsService {
       );
 
       if (isConnected) {
-        await this.serverRepository.update(server.id, {
-          isServerUp: true,
-          lastAgentCheckedAt: checkedAt,
-          retryCount: 0,
-          agentError: null,
-        });
+        const hadVisibleIssues =
+          !!server.agentError ||
+          !!server.serverError ||
+          server.isServerUp === false;
+
+        if (hadVisibleIssues) {
+          await this.clearServerHealthErrors(server.id);
+        } else {
+          await this.serverRepository.update(server.id, {
+            isServerUp: true,
+            lastAgentCheckedAt: checkedAt,
+            retryCount: 0,
+          });
+        }
 
         return {
           processed: true,
@@ -2199,25 +2367,31 @@ export class ServerConnectionsService {
         };
       }
 
+      if (this.deploymentGateway.isAgentConnectedForServer(server.id)) {
+        await this.clearServerHealthErrors(server.id);
+        return {
+          processed: true,
+          serverId: server.id,
+          connected: true,
+        };
+      }
+
       const nextRetryCount = server.retryCount + 1;
-      let agentContainersSummary = "no agent container found";
+      let agentContainerCount = 0;
       let hasRunningAgentContainer = false;
+      let discoveryFailed = false;
 
       try {
         const agentContainers = await this.findAgentContainersOnHost(server.id);
+        agentContainerCount = agentContainers.length;
         hasRunningAgentContainer = agentContainers.some((container) =>
           this.isDockerContainerRunning(container.status),
         );
-        if (agentContainers.length > 0) {
-          agentContainersSummary = agentContainers
-            .map(
-              (container) =>
-                `${container.containerName} (${container.status || "unknown"})`,
-            )
-            .join(", ");
-        }
       } catch (error) {
-        agentContainersSummary = `container discovery failed: ${toErrorMessage(error)}`;
+        discoveryFailed = true;
+        this.logger.warn(
+          `Agent container discovery failed for server '${server.id}': ${toErrorMessage(error)}`,
+        );
       }
 
       const shouldRecover =
@@ -2225,16 +2399,18 @@ export class ServerConnectionsService {
         nextRetryCount >= 5 &&
         !this.isRecoveryInProgress(server.agentError);
 
-      const agentError: ServerAgentError = {
-        message: shouldRecover
-          ? `Agent WebSocket is not connected (${agentContainersSummary})`
-          : `Agent WebSocket is not connected — waiting before recovery (${agentContainersSummary})`,
+      const agentError: ServerAgentError = buildServerAgentError({
+        message: this.buildAgentDisconnectMessage({
+          hasRunningAgentContainer,
+          agentContainerCount,
+          discoveryFailed,
+          attemptingRecovery: shouldRecover,
+        }),
         serverId: server.id,
         host: server.host,
-        checkedAt,
         retryCount: nextRetryCount,
         recoveryInProgress: server.agentError?.recoveryInProgress,
-      };
+      });
 
       await this.serverRepository.update(server.id, {
         isServerUp: false,
@@ -2242,6 +2418,20 @@ export class ServerConnectionsService {
         retryCount: nextRetryCount,
         agentError,
       });
+
+      const previousAgentMessage = extractAgentErrorMessage(server.agentError);
+      const nextAgentMessage = extractAgentErrorMessage(agentError);
+      const recoveryFlagChanged =
+        !!server.agentError?.recoveryInProgress !==
+        !!agentError.recoveryInProgress;
+      const shouldNotifyClient =
+        previousAgentMessage !== nextAgentMessage ||
+        recoveryFlagChanged ||
+        shouldRecover;
+
+      if (shouldNotifyClient) {
+        await this.notifyServerStateUpdated(server.id);
+      }
 
       if (shouldRecover) {
         this.triggerAgentRecoveryAsync(server.id);
@@ -2271,6 +2461,15 @@ export class ServerConnectionsService {
       try {
         const result = await this.recoverAgentForServer(serverId);
 
+        if (result.success) {
+          if (this.deploymentGateway.isAgentConnectedForServer(serverId)) {
+            await this.handleAgentConnected(serverId);
+          } else {
+            void this.waitForAgentConnectionAndClearErrors(serverId);
+          }
+          return;
+        }
+
         if (!result.success) {
           logStructured(
             this.logger,
@@ -2283,12 +2482,20 @@ export class ServerConnectionsService {
               error: result.error ?? "unknown error",
             },
           );
+          await this.setAgentError(
+            serverId,
+            result.error ?? MSG.UNABLE_RESTORE_CONNECTION,
+          );
         }
       } catch (error) {
         logStructuredError(this.logger, "agent.recovery.background", error, {
           module: "ServerConnectionsService",
           serverId,
         });
+        await this.setAgentError(
+          serverId,
+          toErrorMessage(error) || MSG.UNABLE_RESTORE_CONNECTION,
+        );
       }
     })();
   }
@@ -2302,13 +2509,17 @@ export class ServerConnectionsService {
     id: string;
     host: string;
     retryCount: number;
+    isServerUp: boolean;
     agentError: ServerAgentError | null;
+    serverError: ServerHealthError | null;
   } | null> {
     const healthSelect = {
       id: true,
       host: true,
       retryCount: true,
+      isServerUp: true,
       agentError: true,
+      serverError: true,
     } as const;
     const activeWhere = {
       status: EntityStatus.ACTIVE,
@@ -2337,6 +2548,31 @@ export class ServerConnectionsService {
    *
    * @param agentError - Persisted agent error payload for the server.
    */
+  private buildAgentDisconnectMessage(input: {
+    hasRunningAgentContainer: boolean;
+    agentContainerCount: number;
+    discoveryFailed: boolean;
+    attemptingRecovery: boolean;
+  }): string {
+    if (input.attemptingRecovery) {
+      return MSG.RESTORING_CONNECTION;
+    }
+
+    if (input.discoveryFailed) {
+      return MSG.UNABLE_VERIFY_STATUS;
+    }
+
+    if (input.hasRunningAgentContainer) {
+      return MSG.NOT_CONNECTED;
+    }
+
+    if (input.agentContainerCount > 0) {
+      return MSG.NOT_RUNNING;
+    }
+
+    return MSG.SETUP_INCOMPLETE;
+  }
+
   private isRecoveryInProgress(agentError: ServerAgentError | null): boolean {
     if (!agentError?.recoveryInProgress) {
       return false;
@@ -2358,19 +2594,33 @@ export class ServerConnectionsService {
     try {
       const server = await this.serverRepository.findOne({
         where: { id: serverId },
-        select: { id: true, agentError: true },
+        select: {
+          id: true,
+          host: true,
+          retryCount: true,
+          agentError: true,
+        },
       });
 
-      if (!server?.agentError) {
+      if (!server) {
         return;
       }
 
-      await this.serverRepository.update(serverId, {
-        agentError: {
-          ...server.agentError,
-          recoveryInProgress: inProgress,
-        },
-      });
+      const agentError = server.agentError
+        ? {
+            ...server.agentError,
+            recoveryInProgress: inProgress,
+            checkedAt: dayjs().unix(),
+          }
+        : buildServerAgentError({
+            message: MSG.RESTORING_CONNECTION,
+            serverId,
+            host: server.host,
+            retryCount: server.retryCount,
+            recoveryInProgress: inProgress,
+          });
+
+      await this.serverRepository.update(serverId, { agentError });
     } catch (error) {
       this.logger.error(
         `Failed to update recoveryInProgress for server '${serverId}': ${toErrorMessage(error)}`,
