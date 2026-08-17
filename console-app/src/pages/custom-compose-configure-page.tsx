@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Navigate, useLocation, useNavigate, useParams } from "react-router";
+import { Navigate, useLocation, useNavigate } from "react-router";
 import { getErrorMessage } from "@/api/api-error";
 import { BackLink } from "@/components/shared/back-link";
 import { DeployConfigurePageSkeleton } from "@/components/shared/skeleton";
@@ -19,7 +19,6 @@ import { DEPLOYMENT_VALIDATION_IN_PROGRESS_MESSAGE } from "@/features/deployment
 import type { DeploymentResourceWarningCode } from "@/features/deployments/types";
 import { DeployServiceSummaryCard } from "@/features/templates/components/deploy-service-summary-card";
 import { useServerQuery } from "@/features/servers/hooks";
-import { buildServerDetailHref } from "@/features/servers/components/server-detail/utils/server-detail-tab-url";
 import type { ApiTemplate, TemplateVariable } from "@/features/templates/types";
 import { getDeploymentSocket } from "@/lib/socket/deployment-socket-client";
 import { showErrorToast } from "@/lib/toast";
@@ -31,21 +30,25 @@ type CustomComposeConfigureLocationState = {
   composeYaml: string;
   envFileContent?: string;
   displayName: string;
+  serverId?: string;
   variables?: TemplateVariable[];
   serviceEnvironments?: CustomComposeServiceEnvironment[];
   composeFileName?: string;
   envFileName?: string;
+  backHref?: string;
 };
 
 /**
  * Edit, validate, and preview environment values for a custom compose stack.
+ *
+ * Receives all data (compose YAML, env, displayName, serverId) via navigation state.
  */
 export function CustomComposeConfigurePage() {
-  const { serverId } = useParams<{ serverId: string }>();
   const location = useLocation();
   const navigate = useNavigate();
   const locationState =
     location.state as CustomComposeConfigureLocationState | null;
+  const serverId = locationState?.serverId;
   const serverQuery = useServerQuery(serverId);
 
   const [composeYaml, setComposeYaml] = useState(locationState?.composeYaml ?? "");
@@ -67,12 +70,8 @@ export function CustomComposeConfigurePage() {
 
   const displayName = locationState?.displayName;
 
-  const backHref = serverId
-    ? `/servers/${encodeURIComponent(serverId)}/custom-compose/upload`
-    : "/servers";
-  const deployLogsBackHref = serverId
-    ? buildServerDetailHref(serverId, "overview")
-    : "/servers";
+  const backHref = locationState?.backHref ?? "/compose";
+  const deployLogsBackHref = locationState?.backHref ?? "/compose";
 
   const syntheticTemplate = useMemo<ApiTemplate>(() => {
     const resolvedName = displayName?.trim() || "Custom Compose";
@@ -146,11 +145,7 @@ export function CustomComposeConfigurePage() {
     void validateContent(yaml, env, locationState.composeFileName);
   }, [locationState, validateContent]);
 
-  if (!serverId) {
-    return <Navigate to="/servers" replace />;
-  }
-
-  if (!locationState?.composeYaml || !displayName) {
+  if (!serverId || !locationState?.composeYaml || !displayName) {
     return <Navigate to={backHref} replace />;
   }
 

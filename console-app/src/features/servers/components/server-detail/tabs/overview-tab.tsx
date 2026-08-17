@@ -251,17 +251,6 @@ export function ServerOverviewTab({
           <div className="connected-services-toolbar-spacer" aria-hidden="true" />
         )}
 
-        <button
-          type="button"
-          className="btn-primary connected-services-upload-btn"
-          onClick={() =>
-            navigate(
-              `/servers/${encodeURIComponent(serverId)}/custom-compose/upload`,
-            )
-          }
-        >
-          Brew docker compose
-        </button>
       </div>
 
       {isLoading ? (
