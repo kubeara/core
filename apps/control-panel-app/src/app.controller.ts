@@ -26,4 +26,20 @@ export class AppController {
       throw error;
     }
   }
+
+  /**
+   * Liveness probe alias for the versioned API route (GET /api/health).
+   */
+  @Get("health")
+  getApiHealth(): {
+    message: string;
+    data: { status: string; service: string };
+  } {
+    try {
+      return this.getHealth();
+    } catch (error) {
+      this.logger.error(`Health check failed: ${toErrorMessage(error)}`);
+      throw error;
+    }
+  }
 }
