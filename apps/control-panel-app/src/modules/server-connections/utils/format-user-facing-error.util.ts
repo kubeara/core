@@ -33,50 +33,6 @@ const MSG = SERVER_USER_ERROR_MESSAGES;
 
 const CONNECTION_PASS_THROUGH = new Set<string>(Object.values(MSG));
 
-/** Maps previously persisted messages to the current canonical copy. */
-const LEGACY_MESSAGE_MAP: Record<string, string> = {
-  "Agent is running but not connected.": MSG.NOT_CONNECTED,
-  "Agent is not running.": MSG.NOT_RUNNING,
-  "Agent is not installed.": MSG.SETUP_INCOMPLETE,
-  "Reconnecting agent…": MSG.RESTORING_CONNECTION,
-  "Reconnecting…": MSG.RESTORING_CONNECTION,
-  "Could not verify agent status.": MSG.UNABLE_VERIFY_STATUS,
-  "Could not verify server status.": MSG.UNABLE_VERIFY_STATUS,
-  "Could not reconnect agent.": MSG.UNABLE_RESTORE_CONNECTION,
-  "Could not reconnect.": MSG.UNABLE_RESTORE_CONNECTION,
-  "Agent connection failed.": MSG.UNABLE_ESTABLISH_CONNECTION,
-  "Connection failed.": MSG.UNABLE_ESTABLISH_CONNECTION,
-  "Agent setup failed.": MSG.SETUP_FAILED,
-  "Setup failed.": MSG.SETUP_FAILED,
-  "Agent failed to start on the server.": MSG.SETUP_START_FAILED,
-  "Setup failed to start.": MSG.SETUP_START_FAILED,
-  "Agent setup prerequisites failed.": MSG.SETUP_PREREQUISITES_FAILED,
-  "Setup prerequisites failed.": MSG.SETUP_PREREQUISITES_FAILED,
-  "Could not download the agent image.": MSG.SOFTWARE_DOWNLOAD_FAILED,
-  "Could not download required software.": MSG.SOFTWARE_DOWNLOAD_FAILED,
-  "Could not connect the agent to Kubeara.": MSG.UNABLE_CONNECT_KUBEARA,
-  "Could not connect to Kubeara.": MSG.UNABLE_CONNECT_KUBEARA,
-  "Agent is not connected.": MSG.NOT_CONNECTED,
-  "Server is not connected.": MSG.NOT_CONNECTED,
-  "Server is not running.": MSG.NOT_RUNNING,
-  "Setup incomplete.": MSG.SETUP_INCOMPLETE,
-  "SSH authentication failed. Check your credentials.": MSG.SSH_AUTH_FAILED,
-  "Connection timed out. Check the host and network.": MSG.CONNECTION_TIMED_OUT,
-  "Could not reach the server.": MSG.UNABLE_REACH_SERVER,
-  "Server user needs root or passwordless sudo.": MSG.SUDO_REQUIRED,
-  "Docker is not available on the server.": MSG.DOCKER_UNAVAILABLE,
-  "Kubeara is misconfigured. Contact your administrator.":
-    MSG.KUBEARA_MISCONFIGURED,
-  "This server cannot run Docker. Use a machine with Docker installed.":
-    MSG.DOCKER_NOT_SUPPORTED,
-  "SSH credentials are missing. Re-add the server.":
-    MSG.SSH_CREDENTIALS_MISSING,
-  "Could not remove the server.": MSG.UNABLE_REMOVE_SERVER,
-  "Could not connect to the server.": MSG.UNABLE_CONNECT_SSH,
-  "Connection timed out.": MSG.CONNECTION_TIMED_OUT,
-  "Server operation failed.": MSG.OPERATION_FAILED,
-};
-
 function matchesAny(text: string, patterns: RegExp[]): boolean {
   return patterns.some((pattern) => pattern.test(text));
 }
@@ -88,11 +44,6 @@ export function formatUserFacingAgentError(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) {
     return MSG.UNABLE_ESTABLISH_CONNECTION;
-  }
-
-  const legacy = LEGACY_MESSAGE_MAP[trimmed];
-  if (legacy) {
-    return legacy;
   }
 
   if (CONNECTION_PASS_THROUGH.has(trimmed)) {
@@ -254,11 +205,6 @@ export function formatUserFacingServerError(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) {
     return MSG.OPERATION_FAILED;
-  }
-
-  const legacy = LEGACY_MESSAGE_MAP[trimmed];
-  if (legacy) {
-    return legacy;
   }
 
   if (CONNECTION_PASS_THROUGH.has(trimmed)) {
