@@ -1,7 +1,10 @@
 #!/bin/sh
 set -eu
 
-api_url="${VITE_API_URL:-http://localhost:3000/api}"
+api_url="${VITE_API_URL:-}"
+if [ -z "${api_url}" ]; then
+  echo "kubeara-console: WARNING: VITE_API_URL is not set (compose/.env should provide it)" >&2
+fi
 escaped_api_url="$(printf '%s' "$api_url" | sed 's/\\/\\\\/g; s/"/\\"/g')"
 
 # Align loopback API host to the page host in the browser (localhost vs 127.0.0.1 are
