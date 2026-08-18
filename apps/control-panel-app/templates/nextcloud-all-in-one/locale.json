@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "storage",
+      "collaboration"
+    ],
+    "tags": [
+      "nextcloud",
+      "aio",
+      "all-in-one",
+      "files",
+      "cloud",
+      "office",
+      "talk",
+      "self-hosted"
+    ],
+    "shortDescription": "Official Nextcloud All-in-One with optional Talk, Office, and more",
+    "longDescription": "<p>Nextcloud All-in-One deploys the official <strong>AIO mastercontainer</strong>, which manages Nextcloud and optional add-ons (Talk, Collabora, OnlyOffice, backups) via the Docker socket.</p><p>Open the AIO interface at <code>SERVICE_URL_NEXTCLOUD_AIO</code> (port 8080, HTTPS self-signed). With reverse-proxy defaults, Nextcloud Apache is published on host port <code>NEXTCLOUD_AIO_APACHE_PORT</code> (11000). <code>container_name</code> and volume name are fixed by upstream — only one AIO instance per host. Requires Docker socket access.</p>"
+  },
+  "de": {
+    "category": [
+      "speicher",
+      "kollaboration"
+    ],
+    "tags": [
+      "nextcloud",
+      "aio",
+      "all-in-one",
+      "dateien",
+      "cloud",
+      "office",
+      "talk",
+      "self-hosted"
+    ],
+    "shortDescription": "Offizielles Nextcloud All-in-One mit optional Talk, Office und mehr",
+    "longDescription": "<p>Nextcloud All-in-One stellt den offiziellen <strong>AIO-Mastercontainer</strong> bereit, der Nextcloud und optionale Add-ons (Talk, Collabora, OnlyOffice, Backups) über den Docker-Socket verwaltet.</p><p>Öffne die AIO-Oberfläche unter <code>SERVICE_URL_NEXTCLOUD_AIO</code> (Port 8080, HTTPS selbstsigniert). Mit Reverse-Proxy-Defaults wird Nextcloud-Apache auf Host-Port <code>NEXTCLOUD_AIO_APACHE_PORT</code> (11000) veröffentlicht. <code>container_name</code> und Volume-Name sind upstream festgelegt — nur eine AIO-Instanz pro Host. Benötigt Docker-Socket-Zugriff.</p>"
+  },
+  "fr": {
+    "category": [
+      "stockage",
+      "collaboration"
+    ],
+    "tags": [
+      "nextcloud",
+      "aio",
+      "all-in-one",
+      "fichiers",
+      "cloud",
+      "office",
+      "talk",
+      "auto-hébergé"
+    ],
+    "shortDescription": "Nextcloud All-in-One officiel avec Talk, Office et plus en option",
+    "longDescription": "<p>Nextcloud All-in-One déploie le <strong>mastercontainer AIO</strong> officiel, qui gère Nextcloud et des modules optionnels (Talk, Collabora, OnlyOffice, sauvegardes) via le socket Docker.</p><p>Ouvrez l'interface AIO sur <code>SERVICE_URL_NEXTCLOUD_AIO</code> (port 8080, HTTPS auto-signé). Avec les défauts reverse-proxy, Apache Nextcloud est publié sur le port hôte <code>NEXTCLOUD_AIO_APACHE_PORT</code> (11000). Le <code>container_name</code> et le nom du volume sont imposés en amont — une seule instance AIO par hôte. Nécessite l'accès au socket Docker.</p>"
+  },
+  "pt": {
+    "category": [
+      "armazenamento",
+      "colaboração"
+    ],
+    "tags": [
+      "nextcloud",
+      "aio",
+      "all-in-one",
+      "arquivos",
+      "cloud",
+      "office",
+      "talk",
+      "auto-hospedado"
+    ],
+    "shortDescription": "Nextcloud All-in-One oficial com Talk, Office e mais opcionais",
+    "longDescription": "<p>Nextcloud All-in-One faz o deploy do <strong>mastercontainer AIO</strong> oficial, que gere o Nextcloud e extras opcionais (Talk, Collabora, OnlyOffice, backups) via o socket Docker.</p><p>Abra a interface AIO em <code>SERVICE_URL_NEXTCLOUD_AIO</code> (porta 8080, HTTPS autoassinado). Com os defaults de reverse proxy, o Apache do Nextcloud é publicado na porta do host <code>NEXTCLOUD_AIO_APACHE_PORT</code> (11000). O <code>container_name</code> e o nome do volume são fixos upstream — só uma instância AIO por host. Requer acesso ao socket Docker.</p>"
+  }
+}

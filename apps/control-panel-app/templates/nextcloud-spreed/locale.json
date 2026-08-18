@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "collaboration",
+      "communication"
+    ],
+    "tags": [
+      "nextcloud",
+      "spreed",
+      "talk",
+      "video",
+      "webrtc",
+      "signaling",
+      "turn",
+      "self-hosted"
+    ],
+    "shortDescription": "Nextcloud Talk high-performance backend (signaling + TURN)",
+    "longDescription": "<p>Nextcloud Spreed is the <strong>Talk high-performance backend</strong> (HPB): signaling, Janus MCU, NATS, and eturnal TURN/STUN in one container.</p><p>Point <code>NEXTCLOUD_SPREED_NC_DOMAIN</code> at your Nextcloud host. In Talk admin settings use <code>SERVICE_URL_NEXTCLOUD_SPREED</code> as the HPB URL and <code>SERVICE_HEX_64_SPREEDSIG</code> as the shared secret; TURN is <code>SERVICE_FQDN_NEXTCLOUD_SPREED:3478</code> with <code>SERVICE_HEX_64_SPREEDTURN</code>. Expose TCP/UDP 3478 for TURN.</p>"
+  },
+  "de": {
+    "category": [
+      "kollaboration",
+      "kommunikation"
+    ],
+    "tags": [
+      "nextcloud",
+      "spreed",
+      "talk",
+      "video",
+      "webrtc",
+      "signaling",
+      "turn",
+      "self-hosted"
+    ],
+    "shortDescription": "Nextcloud Talk High-Performance-Backend (Signaling + TURN)",
+    "longDescription": "<p>Nextcloud Spreed ist das <strong>Talk High-Performance-Backend</strong> (HPB): Signaling, Janus-MCU, NATS und eturnal TURN/STUN in einem Container.</p><p>Setze <code>NEXTCLOUD_SPREED_NC_DOMAIN</code> auf deinen Nextcloud-Host. In den Talk-Admin-Einstellungen nutze <code>SERVICE_URL_NEXTCLOUD_SPREED</code> als HPB-URL und <code>SERVICE_HEX_64_SPREEDSIG</code> als Shared Secret; TURN ist <code>SERVICE_FQDN_NEXTCLOUD_SPREED:3478</code> mit <code>SERVICE_HEX_64_SPREEDTURN</code>. TCP/UDP 3478 für TURN freigeben.</p>"
+  },
+  "fr": {
+    "category": [
+      "collaboration",
+      "communication"
+    ],
+    "tags": [
+      "nextcloud",
+      "spreed",
+      "talk",
+      "vidéo",
+      "webrtc",
+      "signaling",
+      "turn",
+      "auto-hébergé"
+    ],
+    "shortDescription": "Backend haute performance Nextcloud Talk (signaling + TURN)",
+    "longDescription": "<p>Nextcloud Spreed est le <strong>backend haute performance Talk</strong> (HPB) : signaling, MCU Janus, NATS et TURN/STUN eturnal dans un seul conteneur.</p><p>Définissez <code>NEXTCLOUD_SPREED_NC_DOMAIN</code> sur l'hôte Nextcloud. Dans les réglages admin Talk, utilisez <code>SERVICE_URL_NEXTCLOUD_SPREED</code> comme URL HPB et <code>SERVICE_HEX_64_SPREEDSIG</code> comme secret partagé ; TURN est <code>SERVICE_FQDN_NEXTCLOUD_SPREED:3478</code> avec <code>SERVICE_HEX_64_SPREEDTURN</code>. Exposez TCP/UDP 3478 pour TURN.</p>"
+  },
+  "pt": {
+    "category": [
+      "colaboração",
+      "comunicação"
+    ],
+    "tags": [
+      "nextcloud",
+      "spreed",
+      "talk",
+      "vídeo",
+      "webrtc",
+      "signaling",
+      "turn",
+      "auto-hospedado"
+    ],
+    "shortDescription": "Backend de alto desempenho do Nextcloud Talk (signaling + TURN)",
+    "longDescription": "<p>Nextcloud Spreed é o <strong>backend de alto desempenho do Talk</strong> (HPB): signaling, MCU Janus, NATS e TURN/STUN eturnal num único contentor.</p><p>Defina <code>NEXTCLOUD_SPREED_NC_DOMAIN</code> para o host do Nextcloud. Nas definições de admin do Talk use <code>SERVICE_URL_NEXTCLOUD_SPREED</code> como URL do HPB e <code>SERVICE_HEX_64_SPREEDSIG</code> como segredo partilhado; o TURN é <code>SERVICE_FQDN_NEXTCLOUD_SPREED:3478</code> com <code>SERVICE_HEX_64_SPREEDTURN</code>. Exponha TCP/UDP 3478 para o TURN.</p>"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "storage",
+      "collaboration"
+    ],
+    "tags": [
+      "nextcloud",
+      "sharepoint",
+      "onedrive",
+      "webdav",
+      "rclone",
+      "external-storage",
+      "microsoft",
+      "self-hosted"
+    ],
+    "shortDescription": "SharePoint Online WebDAV bridge for Nextcloud External Storage",
+    "longDescription": "<p>Nextcloud SharePoint companion that runs an <strong>rclone WebDAV bridge</strong> in front of SharePoint Online (or on-prem NTLM SharePoint).</p><p>Set <code>NEXTCLOUD_SHAREPOINT_SITE_URL</code> to your library URL (for example <code>https://tenant-my.sharepoint.com/personal/user_tenant_com/Documents</code>) plus <code>SERVICE_USER_SHAREPOINT</code> / <code>SERVICE_PASSWORD_SHAREPOINT</code> (use an app password if MFA is enabled). In Nextcloud, enable External storage and add a WebDAV mount pointing at <code>SERVICE_URL_NEXTCLOUD_SHAREPOINT</code>. You can also use the official SharePoint external-storage app against Microsoft directly.</p>"
+  },
+  "de": {
+    "category": [
+      "speicher",
+      "kollaboration"
+    ],
+    "tags": [
+      "nextcloud",
+      "sharepoint",
+      "onedrive",
+      "webdav",
+      "rclone",
+      "external-storage",
+      "microsoft",
+      "self-hosted"
+    ],
+    "shortDescription": "SharePoint-Online-WebDAV-Bridge für Nextcloud External Storage",
+    "longDescription": "<p>Nextcloud-SharePoint-Begleitdienst mit einer <strong>rclone-WebDAV-Bridge</strong> vor SharePoint Online (oder On-Prem-NTLM-SharePoint).</p><p>Setze <code>NEXTCLOUD_SHAREPOINT_SITE_URL</code> auf deine Bibliotheks-URL sowie <code>SERVICE_USER_SHAREPOINT</code> / <code>SERVICE_PASSWORD_SHAREPOINT</code> (App-Passwort bei MFA). In Nextcloud External Storage eine WebDAV-Freigabe auf <code>SERVICE_URL_NEXTCLOUD_SHAREPOINT</code> einrichten. Alternativ die offizielle SharePoint-App direkt gegen Microsoft nutzen.</p>"
+  },
+  "fr": {
+    "category": [
+      "stockage",
+      "collaboration"
+    ],
+    "tags": [
+      "nextcloud",
+      "sharepoint",
+      "onedrive",
+      "webdav",
+      "rclone",
+      "external-storage",
+      "microsoft",
+      "auto-hébergé"
+    ],
+    "shortDescription": "Pont WebDAV SharePoint Online pour le stockage externe Nextcloud",
+    "longDescription": "<p>Companion Nextcloud SharePoint qui expose une <strong>passerelle WebDAV rclone</strong> devant SharePoint Online (ou SharePoint NTLM on-prem).</p><p>Définissez <code>NEXTCLOUD_SHAREPOINT_SITE_URL</code> vers l'URL de la bibliothèque et <code>SERVICE_USER_SHAREPOINT</code> / <code>SERVICE_PASSWORD_SHAREPOINT</code> (mot de passe d'application si MFA). Dans Nextcloud, ajoutez un montage WebDAV vers <code>SERVICE_URL_NEXTCLOUD_SHAREPOINT</code>. L'app SharePoint officielle peut aussi se connecter directement à Microsoft.</p>"
+  },
+  "pt": {
+    "category": [
+      "armazenamento",
+      "colaboração"
+    ],
+    "tags": [
+      "nextcloud",
+      "sharepoint",
+      "onedrive",
+      "webdav",
+      "rclone",
+      "external-storage",
+      "microsoft",
+      "auto-hospedado"
+    ],
+    "shortDescription": "Ponte WebDAV SharePoint Online para armazenamento externo Nextcloud",
+    "longDescription": "<p>Companion Nextcloud SharePoint com uma <strong>ponte WebDAV rclone</strong> à frente do SharePoint Online (ou SharePoint NTLM on-prem).</p><p>Defina <code>NEXTCLOUD_SHAREPOINT_SITE_URL</code> para o URL da biblioteca e <code>SERVICE_USER_SHAREPOINT</code> / <code>SERVICE_PASSWORD_SHAREPOINT</code> (palavra-passe de app se MFA). No Nextcloud, adicione um montagem WebDAV para <code>SERVICE_URL_NEXTCLOUD_SHAREPOINT</code>. A app SharePoint oficial também pode ligar diretamente à Microsoft.</p>"
+  }
+}

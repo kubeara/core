@@ -1,0 +1,59 @@
+# documentation: https://github.com/nextcloud/all-in-one#nextcloud-all-in-one
+# logo: svgs/nextcloud-all-in-one.svg
+# port: 8080
+
+services:
+  nextcloud-aio-mastercontainer:
+    image: ${NEXTCLOUD_AIO_IMAGE:-ghcr.io/nextcloud-releases/all-in-one:latest}
+    restart: ${NEXTCLOUD_AIO_RESTART_POLICY:-unless-stopped}
+    init: true
+    container_name: nextcloud-aio-mastercontainer
+    network_mode: bridge
+
+    ports:
+      - '${SERVICE_PORT_NEXTCLOUD_AIO:-8080}:8080'
+
+    environment:
+      - SERVICE_URL_NEXTCLOUD_AIO_8080
+      - APACHE_PORT=${NEXTCLOUD_AIO_APACHE_PORT:-11000}
+      - APACHE_IP_BINDING=${NEXTCLOUD_AIO_APACHE_IP_BINDING:-0.0.0.0}
+      - SKIP_DOMAIN_VALIDATION=${NEXTCLOUD_AIO_SKIP_DOMAIN_VALIDATION:-false}
+      - TALK_PORT=${NEXTCLOUD_AIO_TALK_PORT:-3478}
+      - AIO_DISABLE_BACKUP_SECTION=${NEXTCLOUD_AIO_DISABLE_BACKUP_SECTION:-false}
+      - AIO_LOG_LEVEL=${NEXTCLOUD_AIO_LOG_LEVEL:-warn}
+      - NEXTCLOUD_UPLOAD_LIMIT=${NEXTCLOUD_AIO_UPLOAD_LIMIT:-16G}
+      - NEXTCLOUD_MAX_TIME=${NEXTCLOUD_AIO_MAX_TIME:-3600}
+      - NEXTCLOUD_MEMORY_LIMIT=${NEXTCLOUD_AIO_MEMORY_LIMIT:-512M}
+      - COLLABORA_SECCOMP_DISABLED=${NEXTCLOUD_AIO_COLLABORA_SECCOMP_DISABLED:-false}
+      - WATCHTOWER_DOCKER_SOCKET_PATH=${NEXTCLOUD_AIO_DOCKER_SOCKET_PATH:-/var/run/docker.sock}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - nextcloud_aio_mastercontainer:/mnt/docker-aio-config
+      - ${NEXTCLOUD_AIO_DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock:ro
+
+    healthcheck:
+      test: ['CMD-SHELL', '/healthcheck.sh']
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  nextcloud_aio_mastercontainer:
+    name: nextcloud_aio_mastercontainer
