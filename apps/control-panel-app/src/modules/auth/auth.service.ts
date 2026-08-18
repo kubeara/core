@@ -43,6 +43,7 @@ import { hashToken } from "./utils/token-hash.util";
 import { AuthSessionLookupService } from "./services/auth-session-lookup.service";
 import { SubscriptionService } from "../subscriptions/services/subscription.service";
 import { EmailService } from "../email/email.service";
+import { readIsCloudVersionFromEnv } from "../server-connections/utils/cloud-version.util";
 
 export interface AuthTokens {
   accessToken: string;
@@ -364,7 +365,20 @@ export class AuthService {
   }
 
   /**
-   * Sign up a new user
+   * Cloud (`IS_CLOUD_VERSION=true`) requires email OTP verification.
+   * Self-host skips OTP/email and marks the account verified at signup.
+   */
+  private isCloudVersion(): boolean {
+    return readIsCloudVersionFromEnv((key) =>
+      this.configService.get<string>(key),
+    );
+  }
+
+  /**
+   * Sign up a new user.
+   *
+   * Cloud: creates an unverified user and emails an OTP.
+   * Self-host: creates the user as verified and skips OTP/email.
    */
   async signup(signupDto: SignupDto) {
     const emailNormalized = signupDto.email.toLowerCase().trim();
@@ -397,6 +411,8 @@ export class AuthService {
       const savedOrganization = await organizationRepository.save(organization);
 
       const passwordHash = await bcrypt.hash(signupDto.password, SALT_ROUNDS);
+      const emailVerificationRequired = this.isCloudVersion();
+      const verifiedAt = emailVerificationRequired ? undefined : dayjs().unix();
 
       const userRepository = queryRunner.manager.getRepository(UserEntity);
 
@@ -406,19 +422,21 @@ export class AuthService {
         passwordHash,
         organizationId: savedOrganization.id,
         signUpAt: dayjs().unix(),
-        isEmailVerified: false,
-        emailVerifiedAt: undefined,
+        isEmailVerified: !emailVerificationRequired,
+        emailVerifiedAt: verifiedAt,
         dateOfBirth: undefined,
       });
 
       const savedUser = await userRepository.save(user);
 
-      const { otp } = await this.createOtpRecord(
-        savedUser.id,
-        CODE_TYPE.EMAIL_VERIFICATION,
-        queryRunner.manager,
-      );
-      await this.sendOtpEmail(savedUser, CODE_TYPE.EMAIL_VERIFICATION, otp);
+      if (emailVerificationRequired) {
+        const { otp } = await this.createOtpRecord(
+          savedUser.id,
+          CODE_TYPE.EMAIL_VERIFICATION,
+          queryRunner.manager,
+        );
+        await this.sendOtpEmail(savedUser, CODE_TYPE.EMAIL_VERIFICATION, otp);
+      }
 
       await queryRunner.commitTransaction();
 
@@ -429,12 +447,15 @@ export class AuthService {
       });
 
       return {
-        message: SUCCESS_MESSAGES.AUTH.SIGNUP,
+        message: emailVerificationRequired
+          ? SUCCESS_MESSAGES.AUTH.SIGNUP
+          : SUCCESS_MESSAGES.AUTH.SIGNUP_SELF_HOST,
         data: {
           id: savedUser.id,
           name: savedUser.name,
           email: savedUser.email,
           organizationId: savedUser.organizationId,
+          emailVerificationRequired,
         },
       };
     } catch (error) {
@@ -483,6 +504,17 @@ export class AuthService {
         throw new UnauthorizedException(
           ERROR_MESSAGES.AUTH.INVALID_CREDENTIALS,
         );
+      }
+
+      if (!user.isEmailVerified) {
+        if (this.isCloudVersion()) {
+          throw new UnauthorizedException(
+            ERROR_MESSAGES.AUTH.EMAIL_NOT_VERIFIED,
+          );
+        }
+
+        user.isEmailVerified = true;
+        user.emailVerifiedAt = dayjs().unix();
       }
 
       user.lastLoginAt = dayjs().valueOf();
@@ -742,6 +774,20 @@ export class AuthService {
 
     if (!user) {
       throw new UnauthorizedException(ERROR_MESSAGES.AUTH.UNAUTHORIZED);
+    }
+
+    if (user.isEmailVerified) {
+      return {
+        message: SUCCESS_MESSAGES.AUTH.EMAIL_ALREADY_VERIFIED,
+        data: null,
+      };
+    }
+
+    if (!this.isCloudVersion()) {
+      return {
+        message: SUCCESS_MESSAGES.AUTH.EMAIL_VERIFICATION_NOT_REQUIRED,
+        data: null,
+      };
     }
 
     await this.assertOtpResendAllowed(user.id, CODE_TYPE.EMAIL_VERIFICATION);

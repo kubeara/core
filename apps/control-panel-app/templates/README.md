@@ -194,6 +194,12 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `monica/` | Personal CRM with MariaDB on port 80 |
 | `minio/` | S3-compatible object storage on ports 9000 (API) and 9001 (console) |
 | `nextcloud/` | File sync and collaboration with MariaDB and Redis on port 80 |
+| `nextcloud-spreed/` | Nextcloud Talk HPB (signaling + TURN) on ports 8081 and 3478 |
+| `nextcloud-office/` | Collabora Online (CODE) for Nextcloud document editing on port 9980 |
+| `nextcloud-all-in-one/` | Official Nextcloud AIO mastercontainer (Talk/Office/backups via Docker socket) on port 8080 |
+| `nextcloud-maps/` | GraphHopper routing engine for Nextcloud Maps on port 8989 |
+| `nextcloud-contacts/` | Baikal CardDAV/CalDAV server for contacts and calendars on port 80 |
+| `nextcloud-sharepoint/` | rclone WebDAV bridge for SharePoint Online / Nextcloud External Storage on port 8080 |
 | `seafile/` | File sync and sharing with MariaDB and Redis on port 80 |
 | `onlyoffice/` | ONLYOFFICE Docs (Document Server) on port 80 with JWT |
 | `flowise/` | Visual AI agent builder on port 3000 |
@@ -216,6 +222,8 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `ghost/` | Publishing platform for blogs and newsletters with MariaDB on port 2368 |
 | `healthchecks/` | Cron job and heartbeat monitoring with PostgreSQL on port 8000 |
 | `vaultwarden/` | Bitwarden-compatible password manager on port 8080 |
+| `vikunja/` | Open-source task and project management with PostgreSQL on port 3456 |
+| `radicale/` | Lightweight CalDAV/CardDAV server on port 5232 |
 | `authentik/` | Identity provider with SSO and MFA; PostgreSQL, Redis, server, and worker on port 9000 |
 | `authelia/` | SSO and 2FA portal with Redis on port 9091; embedded config and file-based users |
 | `keycloak/` | IAM platform with PostgreSQL on port 8080 |
@@ -238,6 +246,7 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `lm-studio/` | Headless LM Studio daemon with OpenAI-compatible API on port 1234 |
 | `metamcp/` | MCP aggregator and gateway with PostgreSQL on port 12008 |
 | `openclaw/` | AI coding assistant with browser automation on port 8080 |
+| `opencode/` | Open-source AI coding agent with web UI on port 4096 |
 | `stable-diffusion-webui/` | AUTOMATIC1111 Stable Diffusion WebUI on port 7860; requires NVIDIA GPU |
 | `tabby/` | Self-hosted AI coding assistant on port 8080 |
 | `argilla/` | Dataset annotation platform with PostgreSQL, Redis, Elasticsearch, and worker on port 6900 |

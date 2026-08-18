@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "collaboration",
+      "productivity"
+    ],
+    "tags": [
+      "nextcloud",
+      "contacts",
+      "carddav",
+      "caldav",
+      "baikal",
+      "addressbook",
+      "sync",
+      "self-hosted"
+    ],
+    "shortDescription": "Baikal CardDAV/CalDAV server for contacts and calendars",
+    "longDescription": "<p>Nextcloud Contacts companion based on <strong>Baikal</strong> — a lightweight CardDAV/CalDAV server with a web admin UI for address books and calendars.</p><p>Open <code>SERVICE_URL_NEXTCLOUD_CONTACTS</code> to complete the first-run wizard. CardDAV clients (including those used with Nextcloud Contacts) sync via <code>/dav.php</code>. Config and data persist under Baikal's config and Specific volumes.</p>"
+  },
+  "de": {
+    "category": [
+      "kollaboration",
+      "produktivität"
+    ],
+    "tags": [
+      "nextcloud",
+      "contacts",
+      "carddav",
+      "caldav",
+      "baikal",
+      "adressbuch",
+      "sync",
+      "self-hosted"
+    ],
+    "shortDescription": "Baikal CardDAV/CalDAV-Server für Kontakte und Kalender",
+    "longDescription": "<p>Nextcloud-Contacts-Begleitdienst auf Basis von <strong>Baikal</strong> — ein leichtgewichtiger CardDAV/CalDAV-Server mit Web-Admin-UI für Adressbücher und Kalender.</p><p>Öffne <code>SERVICE_URL_NEXTCLOUD_CONTACTS</code> für den Erst-Setup-Assistenten. CardDAV-Clients synchronisieren über <code>/dav.php</code>. Konfiguration und Daten liegen in Baikal-Config- und Specific-Volumes.</p>"
+  },
+  "fr": {
+    "category": [
+      "collaboration",
+      "productivité"
+    ],
+    "tags": [
+      "nextcloud",
+      "contacts",
+      "carddav",
+      "caldav",
+      "baikal",
+      "carnet",
+      "sync",
+      "auto-hébergé"
+    ],
+    "shortDescription": "Serveur CardDAV/CalDAV Baikal pour contacts et calendriers",
+    "longDescription": "<p>Companion Nextcloud Contacts basé sur <strong>Baikal</strong> — serveur CardDAV/CalDAV léger avec interface d'administration web pour carnets d'adresses et calendriers.</p><p>Ouvrez <code>SERVICE_URL_NEXTCLOUD_CONTACTS</code> pour l'assistant de première configuration. Les clients CardDAV se synchronisent via <code>/dav.php</code>. Config et données persistent dans les volumes config et Specific de Baikal.</p>"
+  },
+  "pt": {
+    "category": [
+      "colaboração",
+      "produtividade"
+    ],
+    "tags": [
+      "nextcloud",
+      "contacts",
+      "carddav",
+      "caldav",
+      "baikal",
+      "contactos",
+      "sync",
+      "auto-hospedado"
+    ],
+    "shortDescription": "Servidor CardDAV/CalDAV Baikal para contactos e calendários",
+    "longDescription": "<p>Companion Nextcloud Contacts baseado no <strong>Baikal</strong> — servidor CardDAV/CalDAV leve com UI de administração web para livros de endereços e calendários.</p><p>Abra <code>SERVICE_URL_NEXTCLOUD_CONTACTS</code> para o assistente de primeira configuração. Clientes CardDAV sincronizam via <code>/dav.php</code>. Config e dados persistem nos volumes config e Specific do Baikal.</p>"
+  }
+}

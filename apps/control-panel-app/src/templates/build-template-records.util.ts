@@ -206,6 +206,30 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Nextcloud",
     version: "latest",
   },
+  "nextcloud-spreed": {
+    name: "Nextcloud Spreed (Talk HPB)",
+    version: "latest",
+  },
+  "nextcloud-office": {
+    name: "Nextcloud Office (Collabora)",
+    version: "latest",
+  },
+  "nextcloud-all-in-one": {
+    name: "Nextcloud All-in-One",
+    version: "latest",
+  },
+  "nextcloud-maps": {
+    name: "Nextcloud Maps (GraphHopper)",
+    version: "latest",
+  },
+  "nextcloud-contacts": {
+    name: "Nextcloud Contacts (Baikal)",
+    version: "0.10",
+  },
+  "nextcloud-sharepoint": {
+    name: "Nextcloud SharePoint (rclone)",
+    version: "latest",
+  },
   seafile: {
     name: "Seafile",
     version: "13.0",
@@ -305,6 +329,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
   vaultwarden: {
     name: "Vaultwarden",
     version: "latest",
+  },
+  vikunja: {
+    name: "Vikunja",
+    version: "2.5.0",
   },
   zulip: {
     name: "Zulip",
@@ -406,6 +434,11 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "OpenClaw",
     version: "2026.2.6",
   },
+  opencode: {
+    name: "OpenCode",
+    version: "1.18.16",
+  },
+
   "stable-diffusion-webui": {
     name: "Stable Diffusion WebUI",
     version: "latest",
@@ -481,6 +514,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
   rabbitmq: {
     name: "RabbitMQ",
     version: "3",
+  },
+  radicale: {
+    name: "Radicale",
+    version: "latest",
   },
   chroma: {
     name: "Chroma",

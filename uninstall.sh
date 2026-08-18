@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 #
 # Kubeara control panel — remove the Docker Compose stack.
-# Usage:
+# Usage (macOS / Linux / Windows WSL or Git Bash):
+#   curl -fsSL https://get.kubeara.dev/uninstall.sh | sh
 #   curl -fsSL https://get.kubeara.dev/uninstall.sh | bash
-#   curl -fsSL https://kubeara.dev/control-panel/uninstall.sh | bash
+#
+# Windows PowerShell (native):
+#   irm https://get.kubeara.dev/uninstall.ps1 | iex
 #
 # Environment:
 #   KUBEARA_INSTALL_DIR        Same directory used by install.sh
@@ -17,6 +20,33 @@
 #   Reports UNINSTALL with the last successfully tracked version from .version.
 #   A later install.sh run is a fresh INSTALL with a new installation UUID.
 
+# POSIX-safe bootstrap for Ubuntu/Debian dash (`curl | sh`).
+# For `| sh`, re-fetch under bash (override host with KUBEARA_UNINSTALL_URL if needed).
+if [ -z "${BASH_VERSION:-}" ]; then
+  if ! command -v bash >/dev/null 2>&1; then
+    echo "[kubeara-uninstall] ERROR: bash is required." >&2
+    echo "  curl -fsSL https://get.kubeara.dev/uninstall.sh | bash" >&2
+    exit 1
+  fi
+  case "$0" in
+    sh | -sh | /bin/sh | /usr/bin/sh | dash | /bin/dash | /usr/bin/dash) ;;
+    *)
+      if [ -f "$0" ]; then
+        exec bash "$0" "$@"
+      fi
+      ;;
+  esac
+
+  _kubeara_uninstall_url="${KUBEARA_UNINSTALL_URL:-https://get.kubeara.dev/uninstall.sh}"
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "[kubeara-uninstall] ERROR: curl is required when piping to sh/dash." >&2
+    echo "  Prefer: curl -fsSL ${_kubeara_uninstall_url} | bash" >&2
+    exit 1
+  fi
+  echo "[kubeara-uninstall] Detected sh/dash; re-running under bash from ${_kubeara_uninstall_url}" >&2
+  exec bash -c 'curl -fsSL "$1" | bash -s -- "${@:2}"' bash "${_kubeara_uninstall_url}" "$@"
+fi
+
 set -euo pipefail
 
 readonly LOG_PREFIX="[kubeara-uninstall]"
@@ -25,6 +55,9 @@ readonly ENV_FILE=".env.control-panel"
 readonly INSTALLATION_ID_FILE=".installation-id"
 readonly INSTALLATION_VERSION_FILE=".version"
 readonly DEFAULT_TRACKING_URL="https://api.kubeara.dev/api/public/installations/events"
+
+KUBEARA_DOCKER_MODE="direct"
+KUBEARA_COMPOSE_KIND="plugin"
 
 info() {
   echo "${LOG_PREFIX} $*"
@@ -37,6 +70,130 @@ warn() {
 error() {
   echo "${LOG_PREFIX} ERROR: $*" >&2
   exit 1
+}
+
+run_docker() {
+  case "${KUBEARA_DOCKER_MODE}" in
+    sudo)
+      sudo docker "$@"
+      ;;
+    sudo-n)
+      sudo -n docker "$@"
+      ;;
+    sg)
+      local quoted="" arg
+      for arg in "$@"; do
+        quoted+=" $(printf '%q' "${arg}")"
+      done
+      sg docker -c "docker${quoted}"
+      ;;
+    *)
+      docker "$@"
+      ;;
+  esac
+}
+
+run_compose() {
+  case "${KUBEARA_COMPOSE_KIND}" in
+    standalone)
+      case "${KUBEARA_DOCKER_MODE}" in
+        sudo)
+          sudo docker-compose "$@"
+          ;;
+        sudo-n)
+          sudo -n docker-compose "$@"
+          ;;
+        sg)
+          local quoted="" arg
+          for arg in "$@"; do
+            quoted+=" $(printf '%q' "${arg}")"
+          done
+          sg docker -c "docker-compose${quoted}"
+          ;;
+        *)
+          docker-compose "$@"
+          ;;
+      esac
+      ;;
+    *)
+      run_docker compose "$@"
+      ;;
+  esac
+}
+
+docker_info_ok() {
+  local mode="$1"
+  case "${mode}" in
+    direct) docker info >/dev/null 2>&1 ;;
+    sudo-n) sudo -n docker info >/dev/null 2>&1 ;;
+    sudo) sudo docker info >/dev/null 2>&1 ;;
+    sg) command -v sg >/dev/null 2>&1 && sg docker -c "docker info >/dev/null 2>&1" ;;
+    *) return 1 ;;
+  esac
+}
+
+resolve_compose_kind() {
+  if run_docker compose version >/dev/null 2>&1; then
+    KUBEARA_COMPOSE_KIND="plugin"
+    return 0
+  fi
+  if ! command -v docker-compose >/dev/null 2>&1; then
+    return 1
+  fi
+  case "${KUBEARA_DOCKER_MODE}" in
+    sudo) sudo docker-compose version >/dev/null 2>&1 || return 1 ;;
+    sudo-n) sudo -n docker-compose version >/dev/null 2>&1 || return 1 ;;
+    sg) sg docker -c "docker-compose version >/dev/null 2>&1" || return 1 ;;
+    *) docker-compose version >/dev/null 2>&1 || return 1 ;;
+  esac
+  KUBEARA_COMPOSE_KIND="standalone"
+  return 0
+}
+
+resolve_docker_mode() {
+  if ! command -v docker >/dev/null 2>&1; then
+    return 1
+  fi
+  if docker_info_ok direct; then
+    KUBEARA_DOCKER_MODE="direct"
+    return 0
+  fi
+  if docker_info_ok sudo-n; then
+    KUBEARA_DOCKER_MODE="sudo-n"
+    info "Using sudo -n docker"
+    return 0
+  fi
+  if docker_info_ok sg; then
+    KUBEARA_DOCKER_MODE="sg"
+    info "Using sg docker"
+    return 0
+  fi
+  # sudo can prompt on /dev/tty even when stdin is a curl pipe.
+  if docker_info_ok sudo; then
+    KUBEARA_DOCKER_MODE="sudo"
+    info "Using sudo docker"
+    return 0
+  fi
+  return 1
+}
+
+require_docker() {
+  if ! resolve_docker_mode; then
+    if ! command -v docker >/dev/null 2>&1; then
+      error "Docker is not installed"
+    fi
+    case "$(uname -s 2>/dev/null || true)" in
+      Darwin)
+        error "Docker Desktop is not running. Start it, then re-run uninstall."
+        ;;
+      *)
+        error "Docker is not usable from this session (try sudo or start the daemon)."
+        ;;
+    esac
+  fi
+  if ! resolve_compose_kind; then
+    error "Docker Compose v2 is required (docker compose or docker-compose)."
+  fi
 }
 
 default_install_dir() {
@@ -115,13 +272,13 @@ get_architecture() {
 }
 
 get_docker_version() {
-  docker version --format '{{.Server.Version}}' 2>/dev/null || true
+  run_docker version --format '{{.Server.Version}}' 2>/dev/null || true
 }
 
 # Handles both "5.1.4" (--short) and "Docker Compose version v5.1.4".
 get_compose_version() {
   local raw
-  raw="$(docker compose version --short 2>/dev/null || docker compose version 2>/dev/null || true)"
+  raw="$(run_compose version --short 2>/dev/null || run_compose version 2>/dev/null || true)"
   raw="$(printf '%s' "${raw}" | head -n1 | sed -E 's/^[^0-9]*v?([0-9]+(\.[0-9]+)*).*$/\1/' || true)"
   printf '%s\n' "${raw}"
 }
@@ -250,9 +407,7 @@ main() {
 
   validate_install_dir_for_removal
 
-  if ! command -v docker >/dev/null 2>&1; then
-    error "Docker is not installed"
-  fi
+  require_docker
 
   cd "${KUBEARA_INSTALL_DIR}"
 
@@ -264,12 +419,12 @@ main() {
 
   info "Removing containers, networks, volumes, and service images…"
   if [[ -f "${ENV_FILE}" ]]; then
-    docker compose \
+    run_compose \
       -f "${COMPOSE_FILE}" \
       --env-file "${ENV_FILE}" \
       down --volumes --rmi all --remove-orphans
   else
-    docker compose \
+    run_compose \
       -f "${COMPOSE_FILE}" \
       down --volumes --rmi all --remove-orphans
   fi

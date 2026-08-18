@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "development"
+    ],
+    "tags": [
+      "opencode",
+      "ai",
+      "coding",
+      "assistant",
+      "llm",
+      "agent",
+      "self-hosted"
+    ],
+    "shortDescription": "Open-source AI coding agent with a web UI",
+    "longDescription": "<p>OpenCode is an open-source <strong>AI coding agent</strong> with a browser UI, multi-provider LLM support, and a headless API.</p><p>Access on port <code>4096</code>. Basic auth uses <code>SERVICE_USER_OPENCODE</code> / <code>SERVICE_PASSWORD_OPENCODE</code>. Configure providers in the UI or via optional API key env vars. Workspace data persists under <code>/workspace</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "entwicklung"
+    ],
+    "tags": [
+      "opencode",
+      "ki",
+      "programmierung",
+      "assistent",
+      "llm",
+      "agent",
+      "self-hosted"
+    ],
+    "shortDescription": "Open-Source-KI-Coding-Agent mit Web-UI",
+    "longDescription": "<p>OpenCode ist ein quelloffener <strong>KI-Coding-Agent</strong> mit Browser-UI, Multi-Provider-LLM-Support und Headless-API.</p><p>Zugriff auf Port <code>4096</code>. Basic Auth über <code>SERVICE_USER_OPENCODE</code> / <code>SERVICE_PASSWORD_OPENCODE</code>. Provider in der UI oder über optionale API-Key-Umgebungsvariablen konfigurieren. Workspace-Daten bleiben unter <code>/workspace</code>.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "développement"
+    ],
+    "tags": [
+      "opencode",
+      "ia",
+      "codage",
+      "assistant",
+      "llm",
+      "agent",
+      "auto-hébergé"
+    ],
+    "shortDescription": "Agent de codage IA open source avec interface web",
+    "longDescription": "<p>OpenCode est un <strong>agent de codage IA</strong> open source avec interface web, support multi-fournisseurs LLM et API headless.</p><p>Accès sur le port <code>4096</code>. Auth basique via <code>SERVICE_USER_OPENCODE</code> / <code>SERVICE_PASSWORD_OPENCODE</code>. Configurez les fournisseurs dans l'UI ou via des clés API optionnelles. Les données workspace persistent sous <code>/workspace</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "desenvolvimento"
+    ],
+    "tags": [
+      "opencode",
+      "ia",
+      "programação",
+      "assistente",
+      "llm",
+      "agente",
+      "auto-hospedado"
+    ],
+    "shortDescription": "Agente de coding IA open source com UI web",
+    "longDescription": "<p>OpenCode é um <strong>agente de coding IA</strong> open source com UI no browser, suporte multi-fornecedor LLM e API headless.</p><p>Acesso na porta <code>4096</code>. Auth básica com <code>SERVICE_USER_OPENCODE</code> / <code>SERVICE_PASSWORD_OPENCODE</code>. Configure fornecedores na UI ou via chaves API opcionais. Dados do workspace persistem em <code>/workspace</code>.</p>"
+  }
+}

@@ -1,0 +1,71 @@
+# documentation: https://opencode.ai/docs/web/
+# logo: svgs/opencode.svg
+# port: 4096
+
+services:
+  opencode:
+    image: ${OPENCODE_IMAGE:-ghcr.io/anomalyco/opencode:1.18.16}
+    restart: ${OPENCODE_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_OPENCODE:-4096}:4096'
+
+    environment:
+      - SERVICE_URL_OPENCODE_4096
+      - OPENCODE_SERVER_USERNAME=${SERVICE_USER_OPENCODE}
+      - OPENCODE_SERVER_PASSWORD=${SERVICE_PASSWORD_OPENCODE}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-optional}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-optional}
+      - OPENCODE_API_KEY=${OPENCODE_API_KEY:-optional}
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY:-optional}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-optional}
+      - TZ=${TZ:-UTC}
+
+    command:
+      - web
+      - --hostname
+      - 0.0.0.0
+      - --port
+      - '4096'
+      - --cors
+      - ${SERVICE_URL_OPENCODE:-${SERVICE_URL_OPENCODE_4096:-http://localhost:4096}}
+
+    volumes:
+      - opencode_config:/root/.config/opencode
+      - opencode_data:/root/.local/share/opencode
+      - opencode_state:/root/.local/state/opencode
+      - opencode_workspace:/workspace
+
+    working_dir: /workspace
+
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'wget -qO- "http://$${OPENCODE_SERVER_USERNAME}:$${OPENCODE_SERVER_PASSWORD}@127.0.0.1:4096/global/health" | grep -q healthy || exit 1',
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 45s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  opencode_config:
+  opencode_data:
+  opencode_state:
+  opencode_workspace:

@@ -1,0 +1,56 @@
+# documentation: https://sdk.collaboraonline.com/docs/installation/CODE_Docker_image.html
+# logo: svgs/nextcloud-office.svg
+# port: 9980
+
+services:
+  collabora:
+    image: ${NEXTCLOUD_OFFICE_IMAGE:-collabora/code:latest}
+    restart: ${NEXTCLOUD_OFFICE_RESTART_POLICY:-unless-stopped}
+    init: true
+
+    ports:
+      - '${SERVICE_PORT_NEXTCLOUD_OFFICE:-9980}:9980'
+
+    environment:
+      - SERVICE_URL_NEXTCLOUD_OFFICE_9980
+      - aliasgroup1=https://${NEXTCLOUD_OFFICE_NC_DOMAIN:-localhost}:443,http://${NEXTCLOUD_OFFICE_NC_DOMAIN:-localhost}
+      - server_name=${SERVICE_FQDN_NEXTCLOUD_OFFICE:-${SERVICE_FQDN_NEXTCLOUD_OFFICE_9980:-localhost}}
+      - username=${SERVICE_USER_COLABORA}
+      - password=${SERVICE_PASSWORD_COLABORA}
+      - dictionaries=${NEXTCLOUD_OFFICE_DICTIONARIES:-en_US}
+      - DONT_GEN_SSL_CERT=${NEXTCLOUD_OFFICE_DONT_GEN_SSL_CERT:-1}
+      - TZ=${TZ:-UTC}
+
+    command:
+      - '--o:ssl.enable=false'
+      - '--o:ssl.termination=true'
+      - '--o:welcome.enable=false'
+      - '--o:logging.level=${NEXTCLOUD_OFFICE_LOG_LEVEL:-warning}'
+      - '--o:net.post_allow.host[0]=.+'
+
+    cap_add:
+      - MKNOD
+
+    shm_size: ${NEXTCLOUD_OFFICE_SHM_SIZE:-256mb}
+
+    healthcheck:
+      test: ['CMD', 'coolwsd', '--probe', '--disable-ssl']
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 120s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

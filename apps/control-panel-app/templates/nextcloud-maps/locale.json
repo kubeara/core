@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "collaboration",
+      "productivity"
+    ],
+    "tags": [
+      "nextcloud",
+      "maps",
+      "graphhopper",
+      "routing",
+      "osm",
+      "navigation",
+      "self-hosted"
+    ],
+    "shortDescription": "GraphHopper routing engine for Nextcloud Maps",
+    "longDescription": "<p>Nextcloud Maps companion that runs a self-hosted <strong>GraphHopper</strong> routing server for the Nextcloud Maps app.</p><p>Default extract is Andorra via <code>NEXTCLOUD_MAPS_PBF_URL</code> (change to your Geofabrik region and raise <code>NEXTCLOUD_MAPS_JAVA_OPTS</code> for larger areas). In Nextcloud Administration → Additional settings → Maps, set the GraphHopper URL to <code>SERVICE_URL_NEXTCLOUD_MAPS</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "kollaboration",
+      "produktivität"
+    ],
+    "tags": [
+      "nextcloud",
+      "maps",
+      "graphhopper",
+      "routing",
+      "osm",
+      "navigation",
+      "self-hosted"
+    ],
+    "shortDescription": "GraphHopper-Routing-Engine für Nextcloud Maps",
+    "longDescription": "<p>Nextcloud-Maps-Begleitdienst mit selbst gehostetem <strong>GraphHopper</strong>-Routing-Server für die Nextcloud-Maps-App.</p><p>Standard-Extrakt ist Andorra über <code>NEXTCLOUD_MAPS_PBF_URL</code> (auf deine Geofabrik-Region ändern und <code>NEXTCLOUD_MAPS_JAVA_OPTS</code> für größere Gebiete erhöhen). Unter Nextcloud Administration → Zusätzliche Einstellungen → Maps die GraphHopper-URL auf <code>SERVICE_URL_NEXTCLOUD_MAPS</code> setzen.</p>"
+  },
+  "fr": {
+    "category": [
+      "collaboration",
+      "productivité"
+    ],
+    "tags": [
+      "nextcloud",
+      "maps",
+      "graphhopper",
+      "itinéraire",
+      "osm",
+      "navigation",
+      "auto-hébergé"
+    ],
+    "shortDescription": "Moteur de routage GraphHopper pour Nextcloud Maps",
+    "longDescription": "<p>Companion Nextcloud Maps qui exécute un serveur de routage <strong>GraphHopper</strong> auto-hébergé pour l'app Maps.</p><p>L'extrait par défaut est Andorre via <code>NEXTCLOUD_MAPS_PBF_URL</code> (changez pour votre région Geofabrik et augmentez <code>NEXTCLOUD_MAPS_JAVA_OPTS</code> pour de plus grandes zones). Dans Nextcloud Administration → Paramètres supplémentaires → Maps, définissez l'URL GraphHopper sur <code>SERVICE_URL_NEXTCLOUD_MAPS</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "colaboração",
+      "produtividade"
+    ],
+    "tags": [
+      "nextcloud",
+      "maps",
+      "graphhopper",
+      "rotas",
+      "osm",
+      "navegação",
+      "auto-hospedado"
+    ],
+    "shortDescription": "Motor de rotas GraphHopper para Nextcloud Maps",
+    "longDescription": "<p>Companion do Nextcloud Maps com um servidor de rotas <strong>GraphHopper</strong> auto-hospedado para a app Maps.</p><p>O extrato padrão é Andorra via <code>NEXTCLOUD_MAPS_PBF_URL</code> (altere para a sua região Geofabrik e aumente <code>NEXTCLOUD_MAPS_JAVA_OPTS</code> para áreas maiores). Em Nextcloud Administração → Definições adicionais → Maps, defina o URL do GraphHopper para <code>SERVICE_URL_NEXTCLOUD_MAPS</code>.</p>"
+  }
+}

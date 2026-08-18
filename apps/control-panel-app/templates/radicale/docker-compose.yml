@@ -1,0 +1,59 @@
+# documentation: https://radicale.org/master.html
+# logo: svgs/radicale.svg
+# port: 5232
+
+services:
+  radicale:
+    image: ${RADICALE_IMAGE:-tomsquest/docker-radicale:latest}
+    restart: ${RADICALE_RESTART_POLICY:-unless-stopped}
+    init: true
+
+    ports:
+      - '${SERVICE_PORT_RADICALE:-5232}:5232'
+
+    environment:
+      - SERVICE_URL_RADICALE_5232
+      - RADICALE_USER=${SERVICE_USER_RADICALE}
+      - RADICALE_PASSWORD=${SERVICE_PASSWORD_RADICALE}
+      - RADICALE_CONFIG_AUTH_TYPE=${RADICALE_AUTH_TYPE:-htpasswd}
+      - RADICALE_CONFIG_AUTH_HTPASSWD_FILENAME=/data/users
+      - RADICALE_CONFIG_AUTH_HTPASSWD_ENCRYPTION=plain
+      - RADICALE_CONFIG_SERVER_HOSTS=0.0.0.0:5232
+      - RADICALE_CONFIG_STORAGE_FILESYSTEM_FOLDER=/data/collections
+      - TAKE_FILE_OWNERSHIP=${RADICALE_TAKE_FILE_OWNERSHIP:-true}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - radicale_data:/data
+
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        set -e
+        printf '%s:%s\n' "$${RADICALE_USER}" "$${RADICALE_PASSWORD}" > /data/users
+        exec docker-entrypoint.sh /venv/bin/radicale --config /config/config
+
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://127.0.0.1:5232']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  radicale_data:

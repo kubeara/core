@@ -24,6 +24,7 @@ export const SUCCESS_MESSAGES = {
 
   AUTH: {
     SIGNUP: "Account created. Check your email for a verification code.",
+    SIGNUP_SELF_HOST: "Account created. You can sign in now.",
     LOGIN: "User logged in successfully",
     REFRESH: "Tokens refreshed successfully",
     LOGOUT: "User logged out successfully",
@@ -33,6 +34,9 @@ export const SUCCESS_MESSAGES = {
     OTP_SENT: "Verification code sent to your email.",
     OTP_RESENT: "A new verification code has been sent to your email.",
     EMAIL_VERIFIED: "Your email has been verified. You can sign in now.",
+    EMAIL_ALREADY_VERIFIED: "Your email is already verified. You can sign in.",
+    EMAIL_VERIFICATION_NOT_REQUIRED:
+      "Email verification is not required. You can sign in.",
     RESET_CODE_VERIFIED: "Code verified. You can set a new password.",
     PASSWORD_RESET: "Your password has been updated. You can sign in now.",
   },

@@ -1,0 +1,54 @@
+# documentation: https://github.com/nextcloud/maps
+# logo: svgs/nextcloud-maps.svg
+# port: 8989
+
+services:
+  graphhopper:
+    image: ${NEXTCLOUD_MAPS_IMAGE:-israelhikingmap/graphhopper:latest}
+    restart: ${NEXTCLOUD_MAPS_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_NEXTCLOUD_MAPS:-8989}:8989'
+
+    environment:
+      - SERVICE_URL_NEXTCLOUD_MAPS_8989
+      - JAVA_OPTS=${NEXTCLOUD_MAPS_JAVA_OPTS:--Xmx1g -Xms1g}
+      - TZ=${TZ:-UTC}
+
+    command:
+      - --url
+      - ${NEXTCLOUD_MAPS_PBF_URL:-https://download.geofabrik.de/europe/andorra-latest.osm.pbf}
+      - --host
+      - 0.0.0.0
+      - --port
+      - '8989'
+      - -o
+      - /data/default-gh
+
+    volumes:
+      - nextcloud_maps_graphhopper_data:/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl --fail http://127.0.0.1:8989/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 300s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  nextcloud_maps_graphhopper_data:

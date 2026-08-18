@@ -59,6 +59,8 @@ export function getOtpResendRetryMinutesRemaining(startedAt: number): number {
 }
 
 export const AUTH_TOAST_MESSAGES = {
+  SIGNUP: "Account created. Check your email for a verification code.",
+  SIGNUP_SELF_HOST: "Account created. You can sign in now.",
   OTP_SENT: "Verification code sent to your email.",
   OTP_RESENT: "A new verification code has been sent to your email.",
   EMAIL_VERIFIED: "Your email has been verified. You can sign in now.",
