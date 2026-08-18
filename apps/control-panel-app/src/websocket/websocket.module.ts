@@ -8,7 +8,7 @@ import { TerminalModule } from "@control-panel/modules/terminal/terminal.module"
 @Module({
   imports: [
     forwardRef(() => DeploymentsModule),
-    ServerConnectionsModule,
+    forwardRef(() => ServerConnectionsModule),
     forwardRef(() => TerminalModule),
   ],
   providers: [DeploymentStreamBufferService, DeploymentGateway],

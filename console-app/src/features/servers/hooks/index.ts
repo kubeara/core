@@ -23,6 +23,7 @@ import { mapServerApiToServer } from "../types";
 import type { Server } from "@/types";
 
 export { useServerOperationUpdates } from "./use-server-operation-updates";
+export { useServerErrorOverlay } from "./use-server-error-overlay";
 
 function withServerMutationError<TData, TVariables>(
   mutationFn: (variables: TVariables) => Promise<TData>,
@@ -41,6 +42,8 @@ export function useServersQuery(params: ServersListParams) {
     queryKey: QUERY_KEYS.servers.list(params),
     queryFn: () => fetchServers(params),
     placeholderData: (previousData) => previousData,
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
   });
 }
 

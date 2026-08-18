@@ -484,14 +484,14 @@ export interface DeploymentValidateResponsePayload {
   warning?: DeploymentResourceWarning;
 }
 
-export type ServerOperationStatusValue =
-  "starting" | "removing" | "error" | null;
+export type ServerOperationStatusValue = "starting" | "removing" | null;
 
 /** Control panel → console when a server background operation changes. */
 export interface ServerOperationUpdatedPayload {
   serverId: string;
   operationStatus: ServerOperationStatusValue;
-  operationError?: string | null;
+  serverError?: string | null;
+  agentError?: string | null;
   /** True when the server row was soft-deleted and should disappear from lists. */
   deleted?: boolean;
   timestamp: string;

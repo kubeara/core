@@ -3,6 +3,7 @@ import { queryClient } from "@/api/query-client";
 import { ThemeProvider } from "@/components/shared/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ToastContainer } from "@/components/toast/toast-container";
+import { ErrorOverlay } from "@/components/error-overlay/error-overlay";
 
 /**
  * Root providers component.
@@ -33,6 +34,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
                 <TooltipProvider delayDuration={280} skipDelayDuration={100}>
                     {children}
                     <ToastContainer />
+                    <ErrorOverlay />
                 </TooltipProvider>
             </ThemeProvider>
         </QueryClientProvider>

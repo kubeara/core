@@ -359,6 +359,8 @@ export class DeploymentsService {
       if (deploymentId) {
         streamInstallLine("Agent connected.");
       }
+
+      await this.serverConnectionsService.handleAgentConnected(serverId);
     } catch (error) {
       if (error instanceof ConflictException) {
         throw error;
@@ -690,6 +692,8 @@ export class DeploymentsService {
           `Agent is installed on server '${serverId}' but is not connected. Cannot validate deployment resources.`,
         );
       }
+
+      await this.serverConnectionsService.handleAgentConnected(serverId);
     }
 
     const serverUrlContext = await this.buildServerUrlContext({
@@ -1382,6 +1386,8 @@ export class DeploymentsService {
             `Agent is installed on server '${serverId}' but is not connected. Cannot validate deployment resources.`,
           );
         }
+
+        await this.serverConnectionsService.handleAgentConnected(serverId);
       }
 
       const serverUrlContext = await this.buildServerUrlContext({

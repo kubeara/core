@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { clearAppErrorSource } from "@/components/error-overlay/error-overlay-store";
 import { DEPLOYMENT_SOCKET_EVENTS } from "@/constants/deployment-events";
 import { QUERY_KEYS } from "@/constants/query-keys";
 import { getDeploymentSocket } from "@/lib/socket/deployment-socket-client";
@@ -28,6 +29,10 @@ export function useServerOperationUpdates(): void {
       }
     }
 
+    function clearServerErrorOverlay(serverId: string) {
+      clearAppErrorSource(`server:${serverId}`);
+    }
+
     function handleServerOperationUpdated(
       payload: ServerOperationUpdatedPayload,
     ) {
@@ -35,11 +40,19 @@ export function useServerOperationUpdates(): void {
         return;
       }
 
+      if (
+        (payload.serverError ?? null) === null &&
+        (payload.agentError ?? null) === null
+      ) {
+        clearServerErrorOverlay(payload.serverId);
+      }
+
       void queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.servers.lists(),
       });
 
       if (payload.deleted) {
+        clearServerErrorOverlay(payload.serverId);
         queryClient.removeQueries({
           queryKey: QUERY_KEYS.servers.detail(payload.serverId),
         });
@@ -52,6 +65,9 @@ export function useServerOperationUpdates(): void {
     }
 
     function handleAgentConnectionChange(payload: { serverId?: string }) {
+      if (payload.serverId) {
+        clearServerErrorOverlay(payload.serverId);
+      }
       invalidateServerQueries(payload.serverId);
     }
 

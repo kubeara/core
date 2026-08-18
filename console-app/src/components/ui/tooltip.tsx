@@ -14,7 +14,7 @@ export const TooltipContent = React.forwardRef<
   React.ComponentRef<typeof TooltipPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content> & {
     multiline?: boolean;
-    variant?: "default" | "success";
+    variant?: "default" | "success" | "error";
   }
 >(
   (
@@ -36,6 +36,7 @@ export const TooltipContent = React.forwardRef<
           "kubeara-tooltip",
           multiline && "kubeara-tooltip--multiline",
           variant === "success" && "kubeara-tooltip--success",
+          variant === "error" && "kubeara-tooltip--error",
           className,
         )}
         {...props}
@@ -55,7 +56,7 @@ type TooltipHintProps = {
   align?: React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>["align"];
   sideOffset?: number;
   multiline?: boolean;
-  variant?: "default" | "success";
+  variant?: "default" | "success" | "error";
   disabled?: boolean;
   open?: boolean;
   defaultOpen?: boolean;

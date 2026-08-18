@@ -451,6 +451,26 @@
   color: #b91c1c;
 }
 
+.server-error-modal-message {
+  margin-bottom: 0.5rem;
+}
+
+.server-error-modal-hint {
+  margin: 0 0 1rem;
+  color: #62788e;
+  font-size: 0.875rem;
+}
+
+.server-connection-error-banner {
+  margin-bottom: 1rem;
+}
+
+.server-connection-error-meta {
+  margin: 0.5rem 0 0;
+  color: #62788e;
+  font-size: 0.875rem;
+}
+
 /* Row actions */
 .server-row-actions {
   display: inline-flex;
