@@ -14,6 +14,7 @@ import {
   CUSTOM_TEMPLATE_SLUG,
 } from "@/features/deployments/api/custom-compose";
 import { useDeploymentQuery } from "@/features/deployments/hooks";
+import { useServerQuery } from "@/features/servers/hooks";
 import { useTemplateDetailsQuery } from "@/features/templates/hooks";
 import {
   getDeploymentSocket,
@@ -142,6 +143,7 @@ export function DeployLogsPage() {
   const deploymentQuery = useDeploymentQuery(
     isCustomCompose ? deploymentId : undefined,
   );
+  const serverQuery = useServerQuery(serverId);
   const backHref =
     locationState?.backHref ??
     (serverId
@@ -295,6 +297,7 @@ export function DeployLogsPage() {
       }}
       deploymentId={deploymentId}
       serverId={serverId}
+      serverName={serverQuery.data?.name ?? serverId}
       backHref={backHref}
       isStarting={isStarting || Boolean(pendingDeploy && !deploymentId)}
       startError={startError}

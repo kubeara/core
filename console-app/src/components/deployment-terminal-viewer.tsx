@@ -204,7 +204,7 @@ export function DeploymentTerminalViewer({
         scrollTerminalToBottom(term);
       });
     }
-  }, [isActive, lines]);
+  }, [lines, isActive]);
 
   const scrollToBottom = useCallback(() => {
     stickToBottomRef.current = true;

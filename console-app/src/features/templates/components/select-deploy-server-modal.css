@@ -4,13 +4,14 @@
   width: min(100%, 26rem);
   max-width: 26rem;
   border-radius: 16px;
-  overflow: hidden;
 }
 
 .select-deploy-server-modal .modal-header {
   align-items: flex-start;
   gap: 0.75rem;
   padding: 1.25rem 1.5rem 0;
+  border-radius: 16px 16px 0 0;
+  overflow: hidden;
 }
 
 .select-deploy-server-header-inner {
@@ -188,6 +189,8 @@
   border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--foreground) 2%, var(--surface));
   gap: 0.75rem;
+  border-radius: 0 0 16px 16px;
+  overflow: hidden;
 }
 
 .select-deploy-server-modal .btn-primary {
@@ -212,11 +215,21 @@
     border-radius: 14px;
   }
 
-  .select-deploy-server-modal .modal-header,
-  .select-deploy-server-body,
+  .select-deploy-server-modal .modal-header {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    border-radius: 14px 14px 0 0;
+  }
+
+  .select-deploy-server-body {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
   .select-deploy-server-modal .modal-actions {
     padding-left: 1.25rem;
     padding-right: 1.25rem;
+    border-radius: 0 0 14px 14px;
   }
 
   .select-deploy-server-icon {
