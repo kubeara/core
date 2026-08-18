@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1](https://github.com/kubeara/core/compare/v1.2.0...v1.2.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* Self host version installation on the windows OS ([d96b112](https://github.com/kubeara/core/commit/d96b1125f6c286f78276141e1e476d301bc8d455))
+* Uninstall the whole application for windows OS via script ([124b5db](https://github.com/kubeara/core/commit/124b5dbc0c7d8c59e7dcff8b9dd4aa8c4cf42af0))
+
 ## [1.2.0](https://github.com/kubeara/core/compare/v1.1.2...v1.2.0) (2026-08-17)
 
 
