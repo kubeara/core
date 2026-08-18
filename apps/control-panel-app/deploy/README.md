@@ -53,7 +53,7 @@ curl -fsSL https://get.kubeara.dev/uninstall.sh | sh
 irm https://get.kubeara.dev/uninstall.ps1 | iex
 ```
 
-**Hosting:** publish these files at `https://get.kubeara.dev`:
+**Hosting:** `https://get.kubeara.dev` is the `kubeara-install` Cloudflare Worker (`worker/wrangler.install.jsonc`). Source files live in the repo root (`install.sh`, `install.ps1`, `uninstall.sh`, `uninstall.ps1`). Connect this Worker to the GitHub repo in the Cloudflare dashboard (production branch `main`, Wrangler config `worker/wrangler.install.jsonc`) so pushes deploy automatically. Do not reuse `wrangler.jsonc` (that is the console frontend).
 
 | Path | File |
 |------|------|
