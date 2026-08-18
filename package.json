@@ -53,7 +53,7 @@
     "deploy": "wrangler deploy",
     "preview": "wrangler dev",
     "sync:install-assets": "mkdir -p worker/assets && cp install.sh install.ps1 uninstall.sh uninstall.ps1 worker/assets/",
-    "preview:install-worker": "wrangler dev --config worker/wrangler.install.jsonc --port 8788",
+    "preview:install-worker": "wrangler dev --config worker/wrangler.install.jsonc --port 8789",
     "deploy:install-worker": "npm run sync:install-assets && wrangler deploy --config worker/wrangler.install.jsonc"
   },
   "lint-staged": {
