@@ -37,7 +37,8 @@ export type ServerApiResponse = {
   connected: boolean;
   agentConnected: boolean;
   operationStatus: ServerOperationStatus | null;
-  operationError: string | null;
+  serverError: string | null;
+  agentError: string | null;
   createdAt: number | string;
   updatedAt: number | string;
   deletedAt: number | string | null;
@@ -194,7 +195,8 @@ export function mapServerApiToServer(api: ServerApiResponse): Server {
     connected: api.connected,
     agentConnected: api.agentConnected ?? false,
     operationStatus: api.operationStatus ?? null,
-    operationError: api.operationError ?? null,
+    serverError: api.serverError ?? null,
+    agentError: api.agentError ?? null,
     createdAt: unixTimestampToIso(api.createdAt) ?? new Date(0).toISOString(),
     lastConnectedAt: unixTimestampToIso(api.lastConnectedAt),
   };
