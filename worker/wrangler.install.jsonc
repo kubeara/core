@@ -7,7 +7,7 @@
     "enabled": true
   },
   "build": {
-    "command": "mkdir -p assets && cp ../install.sh ../install.ps1 ../uninstall.sh ../uninstall.ps1 assets/"
+    "command": "mkdir -p worker/assets && cp install.sh install.ps1 uninstall.sh uninstall.ps1 worker/assets/"
   },
   "assets": {
     "directory": "./assets",
