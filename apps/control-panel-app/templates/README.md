@@ -201,6 +201,7 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `nextcloud-contacts/` | Baikal CardDAV/CalDAV server for contacts and calendars on port 80 |
 | `nextcloud-sharepoint/` | rclone WebDAV bridge for SharePoint Online / Nextcloud External Storage on port 8080 |
 | `seafile/` | File sync and sharing with MariaDB and Redis on port 80 |
+| `onlyoffice/` | ONLYOFFICE Docs (Document Server) on port 80 with JWT |
 | `flowise/` | Visual AI agent builder on port 3000 |
 | `anything-llm/` | Private AI document workspace on port 3001 |
 | `litellm/` | LLM proxy gateway with PostgreSQL on port 4000 |

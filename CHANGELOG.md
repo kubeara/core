@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.2.0](https://github.com/kubeara/core/compare/v1.1.2...v1.2.0) (2026-08-17)
+
+
+### Features
+
+* Add liveness probe endpoint for API health check ([bd1f80c](https://github.com/kubeara/core/commit/bd1f80c3e29fed501142795a5772ef6859f2ef33))
+* Update the installation script to compatible with the system where docker is not installed and added support for the window OS ([d17f28d](https://github.com/kubeara/core/commit/d17f28d1aa2542707f9f94b43f0713d7def9aa7d))
+
+
+### Bug Fixes
+
+* Cookie issue for the self host version ([49628fb](https://github.com/kubeara/core/commit/49628fb37433f7db76905144586983c303d4fe04))
+* Handled the case when docker compose compatibility ([d69bd0e](https://github.com/kubeara/core/commit/d69bd0e516b4fc63da4432418a047f103d6280a1))
+* Removed the unnecessary default value for the VITE_API_URL and added condition if missed ([aacd6df](https://github.com/kubeara/core/commit/aacd6df8a9b03f8a1ff72582d6a8d316d7b83276))
+* Updated the readme.md file to remove the content related to testing URL ([ca51beb](https://github.com/kubeara/core/commit/ca51bebe60bcce6a997a6b95e36f4ad03f3057e0))
+
+
+### Refactoring
+
+* Update health check endpoint and response structure; modify .gitignore and main.ts for global prefix handling ([b3c5ea2](https://github.com/kubeara/core/commit/b3c5ea29afb8cba72c6c7818bf9b213e236da540))
+
 ## [1.1.2](https://github.com/kubeara/core/compare/v1.1.1...v1.1.2) (2026-08-13)
 
 
