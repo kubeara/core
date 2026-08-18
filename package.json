@@ -51,7 +51,10 @@
     "docker:up:agent": "docker compose -f apps/agent-app/docker-compose.yml up -d",
     "prepare": "husky",
     "deploy": "wrangler deploy",
-    "preview": "wrangler dev"
+    "preview": "wrangler dev",
+    "sync:install-assets": "mkdir -p worker/assets && cp install.sh install.ps1 uninstall.sh uninstall.ps1 worker/assets/",
+    "preview:install-worker": "wrangler dev --config worker/wrangler.install.jsonc --port 8789",
+    "deploy:install-worker": "npm run sync:install-assets && wrangler deploy --config worker/wrangler.install.jsonc"
   },
   "lint-staged": {
     "*.{ts,js}": [
