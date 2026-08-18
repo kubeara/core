@@ -25,6 +25,11 @@ type ComposeUploadFormProps = {
   onSubmit: (data: ComposeUploadFormData) => void;
 };
 
+/**
+ * Validates a Docker Compose file.
+ * @param file - The file to validate.
+ * @returns An error message if the file is not a valid Docker Compose file, otherwise null.
+ */
 function validateComposeFile(file: File | null): string | null {
   if (!file) {
     return "Please select a Docker Compose file";
@@ -38,6 +43,11 @@ function validateComposeFile(file: File | null): string | null {
   return null;
 }
 
+/**
+ * Validates an environment file.
+ * @param file - The file to validate.
+ * @returns An error message if the file is not a valid environment file, otherwise null.
+ */
 function validateEnvFile(file: File | null): string | null {
   if (!file) {
     return null;
@@ -73,6 +83,10 @@ export function ComposeUploadForm({ disabled, onSubmit }: ComposeUploadFormProps
     null,
   );
 
+  /**
+   * Handles the input of a Docker Compose file.
+   * @param file - The file to handle.
+   */
   function handleComposeFileInput(file: File | null) {
     if (!file) {
       setSelectedComposeFile(null);
@@ -94,6 +108,10 @@ export function ComposeUploadForm({ disabled, onSubmit }: ComposeUploadFormProps
     setComposeFileError(null);
   }
 
+  /**
+   * Handles the input of an environment file.
+   * @param file - The file to handle.
+   */
   function handleEnvFileInput(file: File | null) {
     if (!file) {
       setSelectedEnvFile(null);
@@ -115,6 +133,10 @@ export function ComposeUploadForm({ disabled, onSubmit }: ComposeUploadFormProps
     setEnvFileError(null);
   }
 
+  /**
+   * Handles the submission of the form.
+   * @param event - The form event.
+   */
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -153,16 +175,30 @@ export function ComposeUploadForm({ disabled, onSubmit }: ComposeUploadFormProps
     }
   }
 
+  /**
+   * Handles the drag over event.
+   * @param event - The drag over event.
+   * @param target - The target of the drag over event.
+   */
   function handleDragOver(event: DragEvent<HTMLDivElement>, target: UploadTarget) {
     event.preventDefault();
     setActiveDropTarget(target);
   }
 
+  /**
+   * Handles the drag leave event.
+   * @param event - The drag leave event.
+   */
   function handleDragLeave(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
     setActiveDropTarget(null);
   }
 
+  /**
+   * Handles the drop event.
+   * @param event - The drop event.
+   * @param target - The target of the drop event.
+   */
   function handleDrop(event: DragEvent<HTMLDivElement>, target: UploadTarget) {
     event.preventDefault();
     setActiveDropTarget(null);
