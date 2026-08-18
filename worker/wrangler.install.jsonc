@@ -1,0 +1,17 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "kubeara-install",
+  "main": "install-scripts-worker.js",
+  "compatibility_date": "2026-06-03",
+  "observability": {
+    "enabled": true
+  },
+  "build": {
+    "command": "mkdir -p assets && cp ../install.sh ../install.ps1 ../uninstall.sh ../uninstall.ps1 assets/"
+  },
+  "assets": {
+    "directory": "./assets",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  }
+}

@@ -37,6 +37,7 @@ console-app/node_modules
 
 # wrangler files
 .wrangler
+/worker/assets/
 .dev.vars*
 !.dev.vars.example
 !.env.example
