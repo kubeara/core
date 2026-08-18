@@ -1,0 +1,55 @@
+# documentation: https://github.com/ONLYOFFICE/Docker-DocumentServer
+# logo: svgs/onlyoffice.svg
+# port: 80
+
+services:
+  onlyoffice:
+    image: ${ONLYOFFICE_IMAGE:-onlyoffice/documentserver:9.2}
+    restart: ${ONLYOFFICE_RESTART_POLICY:-unless-stopped}
+    stop_grace_period: 60s
+
+    ports:
+      - '${SERVICE_PORT_ONLYOFFICE:-80}:80'
+
+    environment:
+      - SERVICE_URL_ONLYOFFICE_80
+      - JWT_ENABLED=${JWT_ENABLED:-true}
+      - JWT_SECRET=${SERVICE_PASSWORD_ONLYOFFICE}
+      - JWT_HEADER=${JWT_HEADER:-Authorization}
+      - JWT_IN_BODY=${JWT_IN_BODY:-false}
+      - ALLOW_PRIVATE_IP_ADDRESS=${ALLOW_PRIVATE_IP_ADDRESS:-true}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - onlyoffice_data:/var/www/onlyoffice/Data
+      - onlyoffice_logs:/var/log/onlyoffice
+      - onlyoffice_lib:/var/lib/onlyoffice
+      - onlyoffice_db:/var/lib/postgresql
+
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://127.0.0.1:8000/info/info.json || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 2G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  onlyoffice_data:
+  onlyoffice_logs:
+  onlyoffice_lib:
+  onlyoffice_db:
