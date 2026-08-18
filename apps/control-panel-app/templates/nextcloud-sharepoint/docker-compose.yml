@@ -1,0 +1,80 @@
+# documentation: https://rclone.org/webdav/#sharepoint-online
+# logo: svgs/nextcloud-sharepoint.svg
+# port: 8080
+
+services:
+  sharepoint:
+    image: ${NEXTCLOUD_SHAREPOINT_IMAGE:-rclone/rclone:latest}
+    restart: ${NEXTCLOUD_SHAREPOINT_RESTART_POLICY:-unless-stopped}
+    entrypoint: ['/bin/sh', '-c']
+
+    ports:
+      - '${SERVICE_PORT_NEXTCLOUD_SHAREPOINT:-8080}:8080'
+
+    environment:
+      - SERVICE_URL_NEXTCLOUD_SHAREPOINT_8080
+      - NEXTCLOUD_SHAREPOINT_SITE_URL
+      - NEXTCLOUD_SHAREPOINT_VENDOR=${NEXTCLOUD_SHAREPOINT_VENDOR:-sharepoint}
+      - NEXTCLOUD_SHAREPOINT_USER=${SERVICE_USER_SHAREPOINT}
+      - NEXTCLOUD_SHAREPOINT_PASSWORD=${SERVICE_PASSWORD_SHAREPOINT}
+      - TZ=${TZ:-UTC}
+
+    command:
+      - |
+        set -e
+        mkdir -p /config/rclone /cache /data
+        export RCLONE_CONFIG=/config/rclone/rclone.conf
+        if [ -n "$${NEXTCLOUD_SHAREPOINT_SITE_URL}" ]; then
+          OBSCURED="$$(rclone obscure "$${NEXTCLOUD_SHAREPOINT_PASSWORD}")"
+          cat > "$${RCLONE_CONFIG}" <<EOF
+        [sharepoint]
+        type = webdav
+        url = $${NEXTCLOUD_SHAREPOINT_SITE_URL}
+        vendor = $${NEXTCLOUD_SHAREPOINT_VENDOR}
+        user = $${NEXTCLOUD_SHAREPOINT_USER}
+        pass = $${OBSCURED}
+        EOF
+          exec rclone serve webdav sharepoint: \
+            --addr :8080 \
+            --vfs-cache-mode writes \
+            --cache-dir /cache \
+            --dir-cache-time 5m
+        else
+          echo "NEXTCLOUD_SHAREPOINT_SITE_URL unset; serving local /data (set site URL for SharePoint Online)"
+          exec rclone serve webdav /data \
+            --addr :8080 \
+            --vfs-cache-mode writes \
+            --cache-dir /cache
+        fi
+
+    volumes:
+      - nextcloud_sharepoint_cache:/cache
+      - nextcloud_sharepoint_data:/data
+      - nextcloud_sharepoint_config:/config/rclone
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  nextcloud_sharepoint_cache:
+  nextcloud_sharepoint_data:
+  nextcloud_sharepoint_config:

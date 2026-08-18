@@ -1,0 +1,91 @@
+# documentation: https://vikunja.io/docs/installing/
+# logo: svgs/vikunja.svg
+# port: 3456
+
+services:
+  vikunja:
+    image: ${VIKUNJA_IMAGE:-vikunja/vikunja:2.5.0}
+    restart: ${VIKUNJA_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_VIKUNJA:-3456}:3456'
+
+    environment:
+      - SERVICE_URL_VIKUNJA_3456
+      - VIKUNJA_SERVICE_PUBLICURL=${SERVICE_URL_VIKUNJA:-${SERVICE_URL_VIKUNJA_3456}}
+      - VIKUNJA_SERVICE_SECRET=${SERVICE_PASSWORD_64_VIKUNJA}
+      - VIKUNJA_SERVICE_ENABLEREGISTRATION=${VIKUNJA_ENABLE_REGISTRATION:-true}
+      - VIKUNJA_DATABASE_TYPE=postgres
+      - VIKUNJA_DATABASE_HOST=${VIKUNJA_DB_HOST:-postgres}
+      - VIKUNJA_DATABASE_USER=${SERVICE_USER_VIKUNJA}
+      - VIKUNJA_DATABASE_PASSWORD=${SERVICE_PASSWORD_VIKUNJA}
+      - VIKUNJA_DATABASE_DATABASE=${VIKUNJA_DB_NAME:-vikunja}
+      - TZ=${TZ:-UTC}
+
+    volumes:
+      - vikunja_files:/app/vikunja/files
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD', '/app/vikunja/vikunja', 'healthcheck']
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${VIKUNJA_POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${VIKUNJA_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      POSTGRES_USER: ${SERVICE_USER_VIKUNJA}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_VIKUNJA}
+      POSTGRES_DB: ${VIKUNJA_DB_NAME:-vikunja}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - vikunja_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  vikunja_files:
+  vikunja_postgres_data:

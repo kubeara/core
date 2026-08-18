@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "productivity",
+      "collaboration"
+    ],
+    "tags": [
+      "vikunja",
+      "todo",
+      "tasks",
+      "project-management",
+      "kanban",
+      "self-hosted",
+      "postgresql"
+    ],
+    "shortDescription": "Open-source task and project management",
+    "longDescription": "<p>Vikunja is an open-source <strong>to-do and project management</strong> tool with lists, Kanban, and team sharing.</p><p>Includes PostgreSQL. Set <code>VIKUNJA_SERVICE_PUBLICURL</code> via <code>SERVICE_URL_VIKUNJA</code>. Create your account on first launch; disable registration afterward with <code>VIKUNJA_ENABLE_REGISTRATION=false</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "produktivität",
+      "kollaboration"
+    ],
+    "tags": [
+      "vikunja",
+      "todo",
+      "aufgaben",
+      "projektmanagement",
+      "kanban",
+      "self-hosted",
+      "postgresql"
+    ],
+    "shortDescription": "Open-Source-Aufgaben- und Projektmanagement",
+    "longDescription": "<p>Vikunja ist ein quelloffenes Tool für <strong>To-dos und Projektmanagement</strong> mit Listen, Kanban und Team-Sharing.</p><p>Enthält PostgreSQL. Setze <code>VIKUNJA_SERVICE_PUBLICURL</code> über <code>SERVICE_URL_VIKUNJA</code>. Konto beim ersten Start erstellen; Registrierung danach mit <code>VIKUNJA_ENABLE_REGISTRATION=false</code> deaktivieren.</p>"
+  },
+  "fr": {
+    "category": [
+      "productivité",
+      "collaboration"
+    ],
+    "tags": [
+      "vikunja",
+      "todo",
+      "tâches",
+      "gestion-de-projet",
+      "kanban",
+      "auto-hébergé",
+      "postgresql"
+    ],
+    "shortDescription": "Gestion de tâches et de projets open source",
+    "longDescription": "<p>Vikunja est un outil open source de <strong>gestion de tâches et de projets</strong> avec listes, Kanban et partage d'équipe.</p><p>Inclut PostgreSQL. Définissez <code>VIKUNJA_SERVICE_PUBLICURL</code> via <code>SERVICE_URL_VIKUNJA</code>. Créez votre compte au premier lancement ; désactivez ensuite l'inscription avec <code>VIKUNJA_ENABLE_REGISTRATION=false</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "produtividade",
+      "colaboração"
+    ],
+    "tags": [
+      "vikunja",
+      "todo",
+      "tarefas",
+      "gestão-de-projetos",
+      "kanban",
+      "auto-hospedado",
+      "postgresql"
+    ],
+    "shortDescription": "Gestão de tarefas e projetos open source",
+    "longDescription": "<p>Vikunja é uma ferramenta open source de <strong>tarefas e gestão de projetos</strong> com listas, Kanban e partilha em equipa.</p><p>Inclui PostgreSQL. Defina <code>VIKUNJA_SERVICE_PUBLICURL</code> via <code>SERVICE_URL_VIKUNJA</code>. Crie a conta no primeiro arranque; desative o registo depois com <code>VIKUNJA_ENABLE_REGISTRATION=false</code>.</p>"
+  }
+}

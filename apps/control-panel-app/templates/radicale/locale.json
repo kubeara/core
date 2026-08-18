@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "productivity",
+      "calendar"
+    ],
+    "tags": [
+      "radicale",
+      "caldav",
+      "carddav",
+      "calendar",
+      "contacts",
+      "sync",
+      "self-hosted"
+    ],
+    "shortDescription": "Lightweight CalDAV and CardDAV server",
+    "longDescription": "<p>Radicale is a simple, open-source <strong>CalDAV/CardDAV</strong> server for calendars and contacts.</p><p>Connect clients to <code>SERVICE_URL_RADICALE</code> using basic auth with <code>SERVICE_USER_RADICALE</code> / <code>SERVICE_PASSWORD_RADICALE</code>. Collections persist under <code>/data/collections</code>.</p>"
+  },
+  "de": {
+    "category": [
+      "produktivität",
+      "kalender"
+    ],
+    "tags": [
+      "radicale",
+      "caldav",
+      "carddav",
+      "kalender",
+      "kontakte",
+      "sync",
+      "self-hosted"
+    ],
+    "shortDescription": "Leichtgewichtiger CalDAV- und CardDAV-Server",
+    "longDescription": "<p>Radicale ist ein einfacher, quelloffener <strong>CalDAV/CardDAV</strong>-Server für Kalender und Kontakte.</p><p>Verbinde Clients mit <code>SERVICE_URL_RADICALE</code> per Basic Auth mit <code>SERVICE_USER_RADICALE</code> / <code>SERVICE_PASSWORD_RADICALE</code>. Sammlungen werden unter <code>/data/collections</code> gespeichert.</p>"
+  },
+  "fr": {
+    "category": [
+      "productivité",
+      "calendrier"
+    ],
+    "tags": [
+      "radicale",
+      "caldav",
+      "carddav",
+      "calendrier",
+      "contacts",
+      "sync",
+      "auto-hébergé"
+    ],
+    "shortDescription": "Serveur CalDAV et CardDAV léger",
+    "longDescription": "<p>Radicale est un serveur <strong>CalDAV/CardDAV</strong> simple et open source pour calendriers et contacts.</p><p>Connectez les clients à <code>SERVICE_URL_RADICALE</code> avec l'auth basic via <code>SERVICE_USER_RADICALE</code> / <code>SERVICE_PASSWORD_RADICALE</code>. Les collections sont stockées sous <code>/data/collections</code>.</p>"
+  },
+  "pt": {
+    "category": [
+      "produtividade",
+      "calendário"
+    ],
+    "tags": [
+      "radicale",
+      "caldav",
+      "carddav",
+      "calendário",
+      "contatos",
+      "sync",
+      "auto-hospedado"
+    ],
+    "shortDescription": "Servidor CalDAV e CardDAV leve",
+    "longDescription": "<p>Radicale é um servidor <strong>CalDAV/CardDAV</strong> simples e open source para calendários e contatos.</p><p>Conecte clientes a <code>SERVICE_URL_RADICALE</code> com auth básica usando <code>SERVICE_USER_RADICALE</code> / <code>SERVICE_PASSWORD_RADICALE</code>. As coleções ficam em <code>/data/collections</code>.</p>"
+  }
+}
