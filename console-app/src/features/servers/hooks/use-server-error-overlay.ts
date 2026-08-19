@@ -5,7 +5,7 @@ import {
 } from "@/components/error-overlay/error-overlay-store";
 
 /**
- * Shows a server's persisted connection error in the bottom-right error overlay.
+ * Shows a server's persisted connection error in the bottom-left error overlay.
  * The user can dismiss or collapse it; it clears automatically when the server
  * reconnects or the page is left.
  */

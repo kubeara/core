@@ -45,7 +45,7 @@ function errorCountLabel(count: number): string {
 }
 
 /**
- * Bottom-right error panel for failed operations.
+ * Bottom-left error panel for failed operations.
  *
  * Renders nothing when there are no errors. New errors open the panel, which
  * the user can collapse to a badge or dismiss entirely.
