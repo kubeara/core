@@ -12,12 +12,12 @@
 
 .floating-chat-widget {
   --fcw-launcher-size: 3.6rem;
-  --fcw-gap: 1rem;
-  --fcw-edge-left: max(1rem, env(safe-area-inset-left, 0px));
-  --fcw-edge-right: max(1rem, env(safe-area-inset-right, 0px));
-  --fcw-edge-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  --fcw-gap: 0.75rem;
+  --fcw-edge-left: max(0.75rem, env(safe-area-inset-left, 0px));
+  --fcw-edge-right: max(0.75rem, env(safe-area-inset-right, 0px));
+  --fcw-edge-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
   --fcw-edge-top: env(safe-area-inset-top, 0px);
-  --fcw-navbar-clearance: 4.5rem;
+  --fcw-navbar-clearance: 5.75rem;
   --fcw-width: 24rem;
   --fcw-height: min(
     32rem,
@@ -51,13 +51,21 @@
   pointer-events: none;
 }
 
+@media (min-width: 768px) {
+  .floating-chat-widget {
+    --fcw-edge-left: max(1.5rem, env(safe-area-inset-left, 0px));
+    --fcw-edge-right: max(1.5rem, env(safe-area-inset-right, 0px));
+    --fcw-edge-bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+  }
+}
+
 @media (max-width: 767px) {
   .floating-chat-widget {
     --fcw-launcher-size: clamp(2.75rem, 7vw, 3.25rem);
     --fcw-edge-left: max(1.25rem, env(safe-area-inset-left, 0px));
     --fcw-edge-right: max(1.25rem, env(safe-area-inset-right, 0px));
     --fcw-edge-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
-    --fcw-navbar-clearance: 4rem;
+    --fcw-navbar-clearance: 5rem;
     --fcw-width: min(17rem, calc(100vw - 6rem));
     --fcw-height: min(
       28rem,
@@ -177,7 +185,7 @@
   max-height: var(--fcw-height);
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 20px;
   background: var(--surface);
   box-shadow:
     0 24px 56px rgba(0, 0, 0, 0.55),
@@ -191,6 +199,14 @@
     opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1),
     transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
     visibility 0.28s ease;
+}
+
+[data-theme="light"] .floating-chat-widget__panel {
+  color-scheme: light;
+}
+
+[data-theme="dark"] .floating-chat-widget__panel {
+  color-scheme: dark;
 }
 
 .floating-chat-widget--open .floating-chat-widget__panel {
@@ -210,15 +226,38 @@
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: 0.75rem;
   min-height: 4.5rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
 
-.floating-chat-widget__logo .kubeara-logo-image {
-  height: 3.3rem;
+img.floating-chat-widget__logo {
+  display: inline;
   width: auto;
+  height: 3.3rem;
+  max-width: none;
+  object-fit: contain;
+}
+
+/*
+ * Light-theme webp is a tighter crop than landing main_logo.png.
+ * Scale it so the glyph matches the landing header logo.
+ */
+img.floating-chat-widget__logo--light {
+  height: calc(3.3rem * 515 / 534);
+}
+
+img.floating-chat-widget__logo--dark {
+  display: none;
+}
+
+[data-theme="dark"] img.floating-chat-widget__logo--light {
+  display: none;
+}
+
+[data-theme="dark"] img.floating-chat-widget__logo--dark {
+  display: inline;
 }
 
 .floating-chat-widget__card {
@@ -227,13 +266,39 @@
   flex: 1 1 auto;
   min-height: 0;
   margin: 0;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.75rem;
   overflow-x: hidden;
   overflow-y: auto;
   background: var(--surface);
   color: var(--foreground);
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  scrollbar-width: auto;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 32%, var(--surface)) var(--surface);
+}
+
+.floating-chat-widget__card::-webkit-scrollbar {
+  width: 16px;
+}
+
+.floating-chat-widget__card::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+.floating-chat-widget__card::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--foreground) 30%, var(--surface));
+  border: 3px solid var(--surface);
+  border-radius: 8px;
+  background-clip: padding-box;
+}
+
+.floating-chat-widget__card::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--foreground) 42%, var(--surface));
+  background-clip: padding-box;
+}
+
+.floating-chat-widget__card::-webkit-scrollbar-corner {
+  background: var(--surface);
 }
 
 .floating-chat-widget__card .floating-chat-widget__form {
@@ -455,10 +520,10 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.75rem;
   background: var(--surface);
   border-top: 1px solid var(--border);
-  border-radius: 0 0 16px 16px;
+  border-radius: 0 0 20px 20px;
 }
 
 .floating-chat-widget__footer-tab {
@@ -606,8 +671,12 @@
     padding: 0.5rem;
   }
 
-  .floating-chat-widget__logo .kubeara-logo-image {
+  img.floating-chat-widget__logo {
     height: 2.5rem;
+  }
+
+  img.floating-chat-widget__logo--light {
+    height: calc(2.5rem * 515 / 534);
   }
 
   .floating-chat-widget__card {

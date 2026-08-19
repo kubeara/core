@@ -6,7 +6,8 @@ import {
   useState,
   type MouseEvent,
 } from "react";
-import { KubearaLogo } from "@/components/shared/kubeara-logo";
+import blackLogo from "../../../../assets/Logo_black.webp";
+import mainLogo from "../../../../assets/main_logo.png";
 import { CHAT_WIDGET_MESSAGES as t } from "./chat-widget-messages";
 import { FloatingChatMessageForm } from "./floating-chat-message-form";
 import {
@@ -131,7 +132,20 @@ export function FloatingChatWidget() {
           <span id={titleId} className="floating-chat-widget__sr-only">
             {activeTab === "message" ? t.sendMessageTitle : t.recentsTitle}
           </span>
-          <KubearaLogo className="floating-chat-widget__logo" />
+          <img
+            src={blackLogo}
+            alt="Kubeara"
+            width={220}
+            height={66}
+            className="floating-chat-widget__logo floating-chat-widget__logo--light"
+          />
+          <img
+            src={mainLogo}
+            alt="Kubeara"
+            width={220}
+            height={66}
+            className="floating-chat-widget__logo floating-chat-widget__logo--dark"
+          />
         </div>
 
         <div

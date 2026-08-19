@@ -127,7 +127,7 @@ export function FloatingChatMessageForm({ formId, onSubmitted }: FloatingChatMes
             autoComplete="name"
             defaultValue={user?.name ?? ""}
             className={`floating-chat-widget__input${fieldErrors.name ? " floating-chat-widget__input--invalid" : ""}`}
-            disabled={status === "loading"}
+            disabled={user?.name ? true : false}
             aria-invalid={Boolean(fieldErrors.name)}
             onChange={() => setFieldErrors((current) => ({ ...current, name: "" }))}
           />
@@ -149,7 +149,7 @@ export function FloatingChatMessageForm({ formId, onSubmitted }: FloatingChatMes
             autoComplete="email"
             defaultValue={user?.email ?? ""}
             className={`floating-chat-widget__input${fieldErrors.email ? " floating-chat-widget__input--invalid" : ""}`}
-            disabled={status === "loading"}
+            disabled={user?.email ? true : false}
             aria-invalid={Boolean(fieldErrors.email)}
             onChange={() => setFieldErrors((current) => ({ ...current, email: "" }))}
           />
