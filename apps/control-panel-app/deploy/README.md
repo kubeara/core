@@ -13,7 +13,7 @@ Review the script before piping to your shell.
 **macOS / Linux / Windows (WSL or Git Bash)** — same command:
 
 ```bash
-curl -fsSL https://get.kubeara.dev | sh
+curl -fsSL https://setup.kubeara.dev | sh
 ```
 
 Or from GitHub raw:
@@ -45,15 +45,15 @@ Uninstall:
 
 ```bash
 # macOS / Linux / WSL / Git Bash
-curl -fsSL https://get.kubeara.dev/uninstall.sh | sh
+curl -fsSL https://setup.kubeara.dev/uninstall.sh | sh
 ```
 
 ```powershell
 # Windows PowerShell
-irm https://get.kubeara.dev/uninstall.ps1 | iex
+irm https://setup.kubeara.dev/uninstall.ps1 | iex
 ```
 
-**Hosting:** `https://get.kubeara.dev` is the `kubeara-install` Cloudflare Worker (`worker/wrangler.install.jsonc`). Source files live in the repo root (`install.sh`, `install.ps1`, `uninstall.sh`, `uninstall.ps1`). Connect this Worker to the GitHub repo in the Cloudflare dashboard (production branch `main`, Wrangler config `worker/wrangler.install.jsonc`) so pushes deploy automatically. Do not reuse `wrangler.jsonc` (that is the console frontend).
+**Hosting:** `https://setup.kubeara.dev` is the `kubeara-install` Cloudflare Worker (`worker/wrangler.install.jsonc`). Source files live in the repo root (`install.sh`, `install.ps1`, `uninstall.sh`, `uninstall.ps1`). Connect this Worker to the GitHub repo in the Cloudflare dashboard (production branch `main`, Wrangler config `worker/wrangler.install.jsonc`) so pushes deploy automatically. Do not reuse `wrangler.jsonc` (that is the console frontend).
 
 | Path | File |
 |------|------|
@@ -171,7 +171,7 @@ Set **`VITE_API_URL`** to whatever URL the browser should use for the API (must 
 Example override:
 
 ```bash
-VITE_API_URL=https://panel.example.com/api curl -fsSL https://get.kubeara.dev | sh
+VITE_API_URL=https://panel.example.com/api curl -fsSL https://setup.kubeara.dev | sh
 ```
 
 Self-host remote ≠ cloud: leave `IS_CLOUD_VERSION=false` unless agents should connect directly (no SSH tunnels).

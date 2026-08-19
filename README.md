@@ -100,13 +100,13 @@ must run on your own servers.
 **macOS / Linux / Windows (WSL or Git Bash):**
 
 ```bash
-curl -fsSL https://get.kubeara.dev | sh
+curl -fsSL https://setup.kubeara.dev | sh
 ```
 
 **Windows PowerShell** (Docker Desktop):
 
 ```powershell
-irm https://get.kubeara.dev/install.ps1 | iex
+irm https://setup.kubeara.dev/install.ps1 | iex
 ```
 
 > View the install script before running:
