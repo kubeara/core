@@ -8,10 +8,10 @@
   and installs it (UAC). Set KUBEARA_SKIP_DOCKER_INSTALL=1 to skip.
 
   Install:
-    irm https://get.kubeara.dev/install.ps1 | iex
+    irm https://setup.kubeara.dev/install.ps1 | iex
 
   Prefer WSL/Git Bash when possible (same Unix one-liner):
-    curl -fsSL https://get.kubeara.dev | bash
+    curl -fsSL https://setup.kubeara.dev | bash
 #>
 
 $ErrorActionPreference = "Stop"
@@ -22,7 +22,7 @@ $DefaultChannel = if ($env:KUBEARA_CHANNEL) { $env:KUBEARA_CHANNEL } else { "pro
 $InstallScriptUrl = if ($env:KUBEARA_INSTALL_SH_URL) {
   $env:KUBEARA_INSTALL_SH_URL
 } else {
-  "https://get.kubeara.dev"
+  "https://setup.kubeara.dev"
 }
 
 function Write-Info([string]$Message) {
