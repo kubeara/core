@@ -5,10 +5,10 @@
 
 .DESCRIPTION
   Uninstall:
-    irm https://get.kubeara.dev/uninstall.ps1 | iex
+    irm https://setup.kubeara.dev/uninstall.ps1 | iex
 
   Prefer WSL/Git Bash when possible:
-    curl -fsSL https://get.kubeara.dev/uninstall.sh | bash
+    curl -fsSL https://setup.kubeara.dev/uninstall.sh | bash
 #>
 
 $ErrorActionPreference = "Stop"
@@ -18,7 +18,7 @@ $EnvFile = ".env.control-panel"
 $UninstallScriptUrl = if ($env:KUBEARA_UNINSTALL_SH_URL) {
   $env:KUBEARA_UNINSTALL_SH_URL
 } else {
-  "https://get.kubeara.dev/uninstall.sh"
+  "https://setup.kubeara.dev/uninstall.sh"
 }
 
 function Write-Info([string]$Message) {

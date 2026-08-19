@@ -2,11 +2,11 @@
 #
 # Kubeara control panel — remove the Docker Compose stack.
 # Usage (macOS / Linux / Windows WSL or Git Bash):
-#   curl -fsSL https://get.kubeara.dev/uninstall.sh | sh
-#   curl -fsSL https://get.kubeara.dev/uninstall.sh | bash
+#   curl -fsSL https://setup.kubeara.dev/uninstall.sh | sh
+#   curl -fsSL https://setup.kubeara.dev/uninstall.sh | bash
 #
 # Windows PowerShell (native):
-#   irm https://get.kubeara.dev/uninstall.ps1 | iex
+#   irm https://setup.kubeara.dev/uninstall.ps1 | iex
 #
 # Environment:
 #   KUBEARA_INSTALL_DIR        Same directory used by install.sh
@@ -25,7 +25,7 @@
 if [ -z "${BASH_VERSION:-}" ]; then
   if ! command -v bash >/dev/null 2>&1; then
     echo "[kubeara-uninstall] ERROR: bash is required." >&2
-    echo "  curl -fsSL https://get.kubeara.dev/uninstall.sh | bash" >&2
+    echo "  curl -fsSL https://setup.kubeara.dev/uninstall.sh | bash" >&2
     exit 1
   fi
   case "$0" in
@@ -37,7 +37,7 @@ if [ -z "${BASH_VERSION:-}" ]; then
       ;;
   esac
 
-  _kubeara_uninstall_url="${KUBEARA_UNINSTALL_URL:-https://get.kubeara.dev/uninstall.sh}"
+  _kubeara_uninstall_url="${KUBEARA_UNINSTALL_URL:-https://setup.kubeara.dev/uninstall.sh}"
   if ! command -v curl >/dev/null 2>&1; then
     echo "[kubeara-uninstall] ERROR: curl is required when piping to sh/dash." >&2
     echo "  Prefer: curl -fsSL ${_kubeara_uninstall_url} | bash" >&2

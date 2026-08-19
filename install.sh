@@ -7,10 +7,10 @@
 # .env.control-panel (no git clone). Images from Docker Hub.
 #
 # Usage (macOS / Linux / Windows WSL or Git Bash):
-#   curl -fsSL https://get.kubeara.dev | sh
+#   curl -fsSL https://setup.kubeara.dev | sh
 #
 # Windows PowerShell (native):
-#   irm https://get.kubeara.dev/install.ps1 | iex
+#   irm https://setup.kubeara.dev/install.ps1 | iex
 #
 # From a git clone:
 #   ./install.sh
@@ -54,13 +54,13 @@
 # (dash buffers ahead; forked readers lose those bytes). Supported handoffs:
 #   1) sh ./install.sh          → exec bash on the file
 #   2) curl URL | bash          → no handoff needed
-#   3) curl URL | sh            → re-fetch under bash (defaults to https://get.kubeara.dev;
+#   3) curl URL | sh            → re-fetch under bash (defaults to https://setup.kubeara.dev;
 #      override with KUBEARA_INSTALL_URL when the script is served from another host)
 # ---------------------------------------------------------------------------
 if [ -z "${BASH_VERSION:-}" ]; then
   if ! command -v bash >/dev/null 2>&1; then
     echo "[kubeara-install] ERROR: bash is required." >&2
-    echo "  Install bash, then re-run: curl -fsSL https://get.kubeara.dev | bash" >&2
+    echo "  Install bash, then re-run: curl -fsSL https://setup.kubeara.dev | bash" >&2
     exit 1
   fi
   # File invocation: sh ./install.sh
@@ -73,7 +73,7 @@ if [ -z "${BASH_VERSION:-}" ]; then
       ;;
   esac
 
-  _kubeara_install_url="${KUBEARA_INSTALL_URL:-https://get.kubeara.dev}"
+  _kubeara_install_url="${KUBEARA_INSTALL_URL:-https://setup.kubeara.dev}"
   if ! command -v curl >/dev/null 2>&1; then
     echo "[kubeara-install] ERROR: curl is required when piping to sh/dash." >&2
     echo "  Prefer: curl -fsSL ${_kubeara_install_url} | bash" >&2
@@ -365,7 +365,7 @@ ensure_docker_macos() {
 
   error "Docker Desktop did not become ready in time.
   Open Docker Desktop from Applications, wait until it says Running, then re-run:
-  curl -fsSL https://get.kubeara.dev | bash"
+  curl -fsSL https://setup.kubeara.dev | bash"
 }
 
 # Linux: optionally install Docker Engine when the CLI is missing.
@@ -428,7 +428,7 @@ ensure_docker_linux() {
   Try one of:
     sudo usermod -aG docker \$USER && newgrp docker
     sudo docker info
-  Then re-run: curl -fsSL https://get.kubeara.dev | bash"
+  Then re-run: curl -fsSL https://setup.kubeara.dev | bash"
 }
 
 ensure_docker_windows_shell() {
@@ -440,7 +440,7 @@ ensure_docker_windows_shell() {
     error "Docker is not available in this shell.
   Install Docker Desktop for Windows, enable WSL2 (or Git Bash) integration,
   start Docker Desktop, then re-run this script.
-  Native PowerShell: irm https://get.kubeara.dev/install.ps1 | iex"
+  Native PowerShell: irm https://setup.kubeara.dev/install.ps1 | iex"
   fi
 
   error "Docker Desktop appears installed but the daemon is not running.
