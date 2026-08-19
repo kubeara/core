@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.3.0](https://github.com/kubeara/core/compare/v1.2.1...v1.3.0) (2026-08-19)
+
+
+### Features
+
+* Added the worker to configured the cross platform installation scripts ([d67f8c3](https://github.com/kubeara/core/commit/d67f8c3ee43bc54a4bf2ad33b40c949e831eea01))
+* Enhance deployment logs with success modal and automatic log view switching ([86b267d](https://github.com/kubeara/core/commit/86b267db49e16831bba50c3e62a8d7ecd1aef2c1))
+
+
+### Bug Fixes
+
+* Add validation and event handling comments for each functions ([6f3f642](https://github.com/kubeara/core/commit/6f3f642c9d5f46b951dc4004876eb44e1532a6d5))
+* Update the wrangler config file to update the path as per root ([94742de](https://github.com/kubeara/core/commit/94742defbfb9570fd4b5a3e7e4b52767b7a33b24))
+
+
+### Refactoring
+
+* Update routing for custom compose pages and remove upload page ([a206269](https://github.com/kubeara/core/commit/a20626991f51b62c9ed02424d6b57efdf003e971))
+* Update the port number for installation script execution locally ([ebb6623](https://github.com/kubeara/core/commit/ebb6623563ed744ffd1b5cabfe9763b792bb8023))
+
 ## [1.2.1](https://github.com/kubeara/core/compare/v1.2.0...v1.2.1) (2026-08-18)
 
 
