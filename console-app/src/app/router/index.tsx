@@ -6,7 +6,6 @@ import { GuestRoute, HomeRedirect, ProtectedRoute } from "@/features/auth/routes
 import { McpOAuthAuthorizeRoute } from "@/features/mcp-oauth/routes/mcp-oauth-authorize-route";
 import { DeployConfigurePage } from "@/pages/deploy-configure-page";
 import { DeployLogsPage } from "@/pages/deploy-logs-page";
-import { CustomComposeUploadPage } from "@/pages/custom-compose-upload-page";
 import { CustomComposeConfigurePage } from "@/pages/custom-compose-configure-page";
 import { ContainerLogsPage } from "@/pages/container-logs-page";
 import { ForgotPasswordPage } from "@/pages/forgot-password-page";
@@ -25,6 +24,7 @@ import { ServersPage } from "@/pages/servers-page";
 import { CheckoutPage } from "@/pages/checkout-page";
 import { VerifyEmailPage } from "@/pages/verify-email-page";
 import { ServicesPage } from "@/pages/services-page";
+import { GlobalComposePage } from "@/pages/global-compose-page";
 
 function RedirectSubscriptionToPlans() {
   const { search } = useLocation();
@@ -73,11 +73,7 @@ export function AppRoutes() {
             element={<DeployLogsPage />}
           />
           <Route
-            path="/servers/:serverId/custom-compose/upload"
-            element={<CustomComposeUploadPage />}
-          />
-          <Route
-            path="/servers/:serverId/custom-compose/configure"
+            path="/custom-compose/configure"
             element={<CustomComposeConfigurePage />}
           />
           <Route
@@ -85,6 +81,7 @@ export function AppRoutes() {
             element={<ContainerLogsPage />}
           />
           <Route path="/services" element={<ServicesPage />} />
+          <Route path="/compose" element={<GlobalComposePage />} />
           <Route path="/templates" element={<Navigate to="/services" replace />} />
           <Route path="/profile" element={<ProfilePage />} />
           {/* <Route path="/plans" element={<PlansPage />} /> */}

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Navigate, useLocation, useNavigate, useParams } from "react-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Navigate, useLocation, useNavigate } from "react-router";
 import { getErrorMessage } from "@/api/api-error";
 import { BackLink } from "@/components/shared/back-link";
 import { DeployConfigurePageSkeleton } from "@/components/shared/skeleton";
@@ -19,7 +19,7 @@ import { DEPLOYMENT_VALIDATION_IN_PROGRESS_MESSAGE } from "@/features/deployment
 import type { DeploymentResourceWarningCode } from "@/features/deployments/types";
 import { DeployServiceSummaryCard } from "@/features/templates/components/deploy-service-summary-card";
 import { useServerQuery } from "@/features/servers/hooks";
-import { buildServerDetailHref } from "@/features/servers/components/server-detail/utils/server-detail-tab-url";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import type { ApiTemplate, TemplateVariable } from "@/features/templates/types";
 import { getDeploymentSocket } from "@/lib/socket/deployment-socket-client";
 import { showErrorToast } from "@/lib/toast";
@@ -31,21 +31,25 @@ type CustomComposeConfigureLocationState = {
   composeYaml: string;
   envFileContent?: string;
   displayName: string;
+  serverId?: string;
   variables?: TemplateVariable[];
   serviceEnvironments?: CustomComposeServiceEnvironment[];
   composeFileName?: string;
   envFileName?: string;
+  backHref?: string;
 };
 
 /**
  * Edit, validate, and preview environment values for a custom compose stack.
+ *
+ * Receives all data (compose YAML, env, displayName, serverId) via navigation state.
  */
 export function CustomComposeConfigurePage() {
-  const { serverId } = useParams<{ serverId: string }>();
   const location = useLocation();
   const navigate = useNavigate();
   const locationState =
     location.state as CustomComposeConfigureLocationState | null;
+  const serverId = locationState?.serverId;
   const serverQuery = useServerQuery(serverId);
 
   const [composeYaml, setComposeYaml] = useState(locationState?.composeYaml ?? "");
@@ -67,12 +71,8 @@ export function CustomComposeConfigurePage() {
 
   const displayName = locationState?.displayName;
 
-  const backHref = serverId
-    ? `/servers/${encodeURIComponent(serverId)}/custom-compose/upload`
-    : "/servers";
-  const deployLogsBackHref = serverId
-    ? buildServerDetailHref(serverId, "overview")
-    : "/servers";
+  const backHref = locationState?.backHref ?? "/compose";
+  const deployLogsBackHref = locationState?.backHref ?? "/compose";
 
   const syntheticTemplate = useMemo<ApiTemplate>(() => {
     const resolvedName = displayName?.trim() || "Custom Compose";
@@ -101,6 +101,7 @@ export function CustomComposeConfigurePage() {
 
   const validateContent = useCallback(
     async (yaml: string, env: string, fileName?: string) => {
+      isValidatingRef.current = true;
       setIsValidating(true);
       setValidationIssues([]);
       setServiceEnvironments([]);
@@ -123,6 +124,7 @@ export function CustomComposeConfigurePage() {
       } catch (error) {
         showErrorToast(getErrorMessage(error));
       } finally {
+        isValidatingRef.current = false;
         setIsValidating(false);
       }
     },
@@ -146,11 +148,29 @@ export function CustomComposeConfigurePage() {
     void validateContent(yaml, env, locationState.composeFileName);
   }, [locationState, validateContent]);
 
-  if (!serverId) {
-    return <Navigate to="/servers" replace />;
-  }
+  const initialLoadDone = useRef(false);
+  const isValidatingRef = useRef(false);
+  const debouncedComposeYaml = useDebouncedValue(composeYaml, 500);
+  const debouncedEnvFileContent = useDebouncedValue(envFileContent, 500);
 
-  if (!locationState?.composeYaml || !displayName) {
+  useEffect(() => {
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true;
+      return;
+    }
+
+    if (isValidatingRef.current) {
+      return;
+    }
+
+    void validateContent(
+      debouncedComposeYaml,
+      debouncedEnvFileContent,
+      locationState?.composeFileName,
+    );
+  }, [debouncedComposeYaml, debouncedEnvFileContent, locationState?.composeFileName, validateContent]);
+
+  if (!serverId || !locationState?.composeYaml || !displayName) {
     return <Navigate to={backHref} replace />;
   }
 
@@ -169,16 +189,6 @@ export function CustomComposeConfigurePage() {
 
   function markContentDirty() {
     setIsValidated(false);
-    setValidationIssues([]);
-    setServiceEnvironments([]);
-  }
-
-  function handleValidate() {
-    void validateContent(
-      composeYaml,
-      envFileContent,
-      locationState?.composeFileName,
-    );
   }
 
   function proceedToDeployLogs(acknowledgeResourceWarning = false) {
@@ -208,7 +218,7 @@ export function CustomComposeConfigurePage() {
 
   async function handleDeploy() {
     if (!isValidated || validationIssues.length > 0 || !serverId || !displayName) {
-      showErrorToast("Validate your configuration before deploying.");
+      showErrorToast("Your configuration has validation errors. Fix them and try again.");
       return;
     }
 
@@ -279,20 +289,10 @@ export function CustomComposeConfigurePage() {
             <div>
               <h1>Configure deployment</h1>
               <p>
-                Edit your compose and environment files, then validate to preview
-                resolved values by service.
-                {!isValidated ? " Changes must be validated before preview." : null}
+                Edit your compose and environment files. Changes are validated
+                automatically and previewed by service below.
               </p>
             </div>
-            <button
-              type="button"
-              className={`btn-secondary deploy-configure-edit-btn${isValidating ? " is-loading" : ""}`}
-              disabled={isBusy}
-              aria-busy={isValidating}
-              onClick={() => void handleValidate()}
-            >
-              Validate
-            </button>
           </header>
 
           <div className="deploy-configure-form">
@@ -334,7 +334,7 @@ export function CustomComposeConfigurePage() {
                   <section className="deploy-vars-section">
                     <header className="deploy-vars-section-header">
                       <h2>Validation errors</h2>
-                      <p>Fix the issues below and validate again.</p>
+                      <p>Fix the issues below. Validation will re-run automatically.</p>
                     </header>
                     <ul
                       className="custom-compose-validation-issues"

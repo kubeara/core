@@ -5,6 +5,7 @@ import { TerminalWordWrapToggle } from "@/components/shared/terminal-word-wrap-t
 import { TooltipHint } from "@/components/ui/tooltip";
 import { useTerminalWordWrap } from "@/components/shared/use-terminal-word-wrap";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import { DeploymentTerminalViewer } from "@/components/deployment-terminal-viewer";
 import "@/components/shared/kubeara-terminal-shell.css";
 import {
@@ -17,9 +18,11 @@ import {
   hasContainerDeploymentLogs,
   type DeploymentLogView,
 } from "@/features/deployments/utils/deployment-log-filters";
+import { DeploymentSuccessModal } from "@/features/deployments/components/deployment-success-modal";
 import { mapDeploymentFailureMessage } from "@/features/deployments/constants/deployment-failure-messages";
 import { shouldCelebrateDeploymentSuccess } from "@/features/deployments/utils/should-celebrate-deployment-success";
 import { DeploymentStatus } from "@/constants/deployment-events";
+import { buildServerDetailHref } from "@/features/servers/components/server-detail/utils/server-detail-tab-url";
 import type { Template } from "@/types";
 import "./deployment-logs.css";
 
@@ -55,6 +58,7 @@ type DeploymentLogsProps = {
   template: Template;
   deploymentId?: string;
   serverId: string;
+  serverName: string;
   backHref: string;
   isStarting?: boolean;
   startError?: string | null;
@@ -172,15 +176,18 @@ export function DeploymentLogs({
   template,
   deploymentId,
   serverId,
+  serverName,
   backHref,
   isStarting = false,
   startError = null,
   onDeploymentFailed,
 }: DeploymentLogsProps) {
+  const navigate = useNavigate();
   const terminalRef = useRef<HTMLElement>(null);
   const failureHandledRef = useRef(false);
   const previousSocketStatusRef = useRef<DeploymentStatus | null>(null);
   const successCelebratedRef = useRef<string | null>(null);
+  const autoSwitchedRef = useRef(false);
   const [showSuccessConfetti, setShowSuccessConfetti] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [logView, setLogView] = useState<DeploymentLogView>("installation");
@@ -321,6 +328,16 @@ export function DeploymentLogs({
     }
   }, [containerLogsAvailable, logView]);
 
+  const hasContainerLogs = hasContainerDeploymentLogs(logs);
+
+  useEffect(() => {
+    if (autoSwitchedRef.current) return;
+    if (logView === "installation" && hasContainerLogs) {
+      autoSwitchedRef.current = true;
+      setLogView("container");
+    }
+  }, [hasContainerLogs, logView]);
+
   const toggleFullscreen = useCallback(async () => {
     const element = terminalRef.current;
     if (!element) return;
@@ -357,6 +374,13 @@ export function DeploymentLogs({
     <div className={`service-detail-page deploy-logs-page ${isFullscreen ? "is-fullscreen" : ""}`}>
       {showSuccessConfetti && deploymentId ? (
         <ConfettiSideCannons key={deploymentId} />
+      ) : null}
+      {showSuccessConfetti && deploymentId ? (
+        <DeploymentSuccessModal
+          serverName={serverName}
+          onDismiss={() => setShowSuccessConfetti(false)}
+          onGoToOverview={() => navigate(buildServerDetailHref(serverId))}
+        />
       ) : null}
       <BackLink to={backHref} label="Back" />
 
