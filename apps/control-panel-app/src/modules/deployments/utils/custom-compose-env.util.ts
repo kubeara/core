@@ -610,7 +610,9 @@ export function parseDotEnvFile(content: string): DotEnvParseResult {
 export function validateCustomComposeWithEnvFile(
   composeYaml: string,
   envFileContent?: string,
+  options?: { allowIncompleteEnv?: boolean },
 ): CustomComposeCombinedValidationResult {
+  const allowIncompleteEnv = Boolean(options?.allowIncompleteEnv);
   const issues: CustomComposeValidationIssue[] = [];
   const dotEnvResult = parseDotEnvFile(envFileContent ?? "");
   issues.push(...dotEnvResult.issues);
@@ -655,7 +657,7 @@ export function validateCustomComposeWithEnvFile(
   }
 
   const missing = findMissingComposeVariables(composeYaml, resolved);
-  if (missing.length > 0) {
+  if (missing.length > 0 && !allowIncompleteEnv) {
     issues.push({
       path: "variables",
       message: `Missing required environment variables: ${missing.join(", ")}`,
@@ -672,7 +674,7 @@ export function validateCustomComposeWithEnvFile(
     composeYaml,
     envFileContent,
   );
-  if (envFileIssues.length > 0) {
+  if (envFileIssues.length > 0 && !allowIncompleteEnv) {
     issues.push(...envFileIssues);
     return {
       issues,
@@ -690,7 +692,7 @@ export function validateCustomComposeWithEnvFile(
   );
 
   return {
-    issues,
+    issues: allowIncompleteEnv ? [] : issues,
     dotEnvVariables: dotEnvResult.variables,
     resolved,
     serviceEnvironments,
@@ -1096,6 +1098,7 @@ function buildCustomComposeServiceEnvironments(
 
   const previews: CustomComposeServiceEnvironment[] = [];
 
+  // Preserve Compose service declaration order (do not sort alphabetically).
   for (const [serviceName, serviceDefinition] of Object.entries(services)) {
     if (
       !serviceDefinition ||
@@ -1118,6 +1121,7 @@ function buildCustomComposeServiceEnvironments(
     }
 
     collectResolvedServiceEnvironment(service.environment, serviceEnv, lookup);
+    collectServiceInterpolationVariables(service, serviceEnv, lookup);
 
     previews.push({
       serviceName,
@@ -1125,9 +1129,60 @@ function buildCustomComposeServiceEnvironments(
     });
   }
 
-  return previews.sort((left, right) =>
-    left.serviceName.localeCompare(right.serviceName),
-  );
+  return previews;
+}
+
+/**
+ * Adds ${VAR} / $VAR interpolations from any service field (ports, volumes,
+ * image, command, labels, etc.), not only the environment block.
+ */
+function collectServiceInterpolationVariables(
+  service: Record<string, unknown>,
+  serviceEnv: Record<string, string>,
+  lookup: Record<string, string>,
+): void {
+  const placeholderNames = new Set<string>();
+  collectPlaceholderNamesFromNode(service, placeholderNames);
+
+  for (const name of placeholderNames) {
+    if (serviceEnv[name] !== undefined) {
+      continue;
+    }
+
+    serviceEnv[name] = lookup[name] ?? "";
+  }
+}
+
+/**
+ * Collects Compose interpolation variable names from nested YAML values.
+ */
+function collectPlaceholderNamesFromNode(
+  value: unknown,
+  names: Set<string>,
+): void {
+  if (typeof value === "string") {
+    try {
+      for (const variable of extractComposeVariables(value)) {
+        names.add(variable.name);
+      }
+    } catch {
+      // Ignore placeholder scan failures for individual strings.
+    }
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      collectPlaceholderNamesFromNode(item, names);
+    }
+    return;
+  }
+
+  if (value && typeof value === "object") {
+    for (const nested of Object.values(value as Record<string, unknown>)) {
+      collectPlaceholderNamesFromNode(nested, names);
+    }
+  }
 }
 
 /**

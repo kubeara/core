@@ -98,6 +98,51 @@ export function getCustomComposeDisplayNameValidationError(
   }
 }
 
+const COMPOSE_EXTENSIONS = [".yml", ".yaml"];
+const ENV_EXTENSIONS = [".env"];
+
+/**
+ * Validates a Docker Compose file name and presence.
+ */
+export function validateComposeFile(file: File | null): string | null {
+  try {
+    if (!file) {
+      return "Please select a Docker Compose file";
+    }
+
+    const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+    if (!COMPOSE_EXTENSIONS.includes(extension)) {
+      return "Please upload a .yml or .yaml Docker Compose file";
+    }
+
+    return null;
+  } catch (error) {
+    return error instanceof Error
+      ? error.message
+      : "Invalid Docker Compose file";
+  }
+}
+
+/**
+ * Validates an optional environment file name.
+ */
+export function validateEnvFile(file: File | null): string | null {
+  try {
+    if (!file) {
+      return null;
+    }
+
+    const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+    if (!ENV_EXTENSIONS.includes(extension) && file.name !== ".env") {
+      return "Please upload a .env file";
+    }
+
+    return null;
+  } catch (error) {
+    return error instanceof Error ? error.message : "Invalid environment file";
+  }
+}
+
 function parseComposeValidationSummary(
   message: string,
 ): Array<{ path: string; message: string }> {
@@ -131,6 +176,7 @@ export async function validateCustomComposeUpload(input: {
   composeYaml: string;
   envFileContent?: string;
   fileName?: string;
+  skipMissingVariables?: boolean;
 }): Promise<ValidateCustomComposeResponse> {
   try {
     const response = await apiClient.post(
@@ -139,6 +185,7 @@ export async function validateCustomComposeUpload(input: {
         composeYaml: input.composeYaml,
         envFileContent: input.envFileContent ?? "",
         fileName: input.fileName,
+        skipMissingVariables: input.skipMissingVariables,
       },
     );
 

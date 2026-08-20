@@ -72,6 +72,7 @@ export class DeploymentsController {
       const result = this.deploymentsService.validateCustomComposeUpload(
         body.composeYaml,
         body.envFileContent ?? "",
+        { skipMissingVariables: Boolean(body.skipMissingVariables) },
       );
 
       if (!result.valid) {
