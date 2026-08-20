@@ -370,7 +370,8 @@ function StepperItem(props: StepperItemProps) {
     return () => {
       store.removeStep(itemValue);
     };
-  }, [itemValue, store, completed, disabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemValue, store]);
 
   React.useLayoutEffect(() => {
     store.setStep(itemValue, completed, disabled);
