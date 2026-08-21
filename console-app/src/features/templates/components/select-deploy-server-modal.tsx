@@ -26,6 +26,8 @@ type SelectDeployServerModalProps = {
   template: ApiTemplate | null;
   onClose: () => void;
   onSelectServer: (serverId: string) => void;
+  confirmLabel?: string;
+  initialServerId?: string;
 };
 
 /**
@@ -38,12 +40,16 @@ function SelectDeployServerModalContent({
   template,
   onClose,
   onSelectServer,
+  confirmLabel,
+  initialServerId,
 }: {
   template: ApiTemplate;
   onClose: () => void;
   onSelectServer: (serverId: string) => void;
+  confirmLabel: string;
+  initialServerId?: string;
 }) {
-  const [selectedServerId, setSelectedServerId] = useState("");
+  const [selectedServerId, setSelectedServerId] = useState(initialServerId ?? "");
 
   const listParams = useMemo(
     () => ({
@@ -197,7 +203,7 @@ function SelectDeployServerModalContent({
               disabled={!canDeploy}
               onClick={handleDeploy}
             >
-              Deploy
+              {confirmLabel}
             </button>
           ) : null}
         </div>
@@ -218,6 +224,8 @@ export function SelectDeployServerModal({
   template,
   onClose,
   onSelectServer,
+  confirmLabel = "Deploy",
+  initialServerId,
 }: SelectDeployServerModalProps) {
   if (!open || !template) {
     return null;
@@ -225,10 +233,12 @@ export function SelectDeployServerModal({
 
   return (
     <SelectDeployServerModalContent
-      key={template.slug}
+      key={`${template.slug}-${initialServerId ?? ""}`}
       template={template}
       onClose={onClose}
       onSelectServer={onSelectServer}
+      confirmLabel={confirmLabel}
+      initialServerId={initialServerId}
     />
   );
 }

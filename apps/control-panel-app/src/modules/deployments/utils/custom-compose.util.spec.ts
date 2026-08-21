@@ -221,6 +221,27 @@ services:
     expect(result.issues.some((issue) => issue.path === "services")).toBe(true);
   });
 
+  it("accepts structurally valid compose with missing env when skipMissingVariables is set", () => {
+    const compose = `
+services:
+  web:
+    image: nginx:alpine
+    environment:
+      APP_ENV: \${APP_ENV}
+`;
+
+    const skipped = validateUploadedCustomCompose(compose, "", {
+      skipMissingVariables: true,
+    });
+    const required = validateUploadedCustomCompose(compose, "");
+
+    expect(skipped.valid).toBe(true);
+    expect(required.valid).toBe(false);
+    if (skipped.valid) {
+      expect(skipped.serviceEnvironments[0]?.serviceName).toBe("web");
+    }
+  });
+
   it("rejects services without image, build, or extends", () => {
     const issues = validateCustomComposeStructure(`
 services:

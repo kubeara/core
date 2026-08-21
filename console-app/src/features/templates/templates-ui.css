@@ -1417,6 +1417,12 @@
   background: color-mix(in srgb, var(--foreground) 2%, var(--surface));
 }
 
+.custom-compose-upload-editor-wrap .custom-compose-editor-surface {
+  margin: 0;
+  height: 100%;
+  min-height: 12rem;
+}
+
 .deploy-configure-page .custom-compose-editor-error {
   margin: 0 1.5rem 0.75rem;
 }
