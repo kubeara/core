@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.1](https://github.com/kubeara/core/compare/v1.4.0...v1.4.1) (2026-08-21)
+
+
+### Refactoring
+
+* Update the access MCP feature validation for the self host … ([ba28f07](https://github.com/kubeara/core/commit/ba28f07d4c6efae82fda184193aed72f33a8682b))
+* Update the access MCP feature validation for the self host version ([d23719f](https://github.com/kubeara/core/commit/d23719fbc77bcebc031b7e27ced11fd353b374dc))
+
 ## [1.4.0](https://github.com/kubeara/core/compare/v1.3.0...v1.4.0) (2026-08-21)
 
 
