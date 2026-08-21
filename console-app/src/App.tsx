@@ -1,6 +1,8 @@
 import { Providers } from "@/app/providers";
 import { AuthProvider } from "@/features/auth/context/auth-context";
 import { AppRoutes } from "@/app/router";
+import { RecaptchaScript } from "@/components/support/recaptcha-widget";
+import { FloatingChatWidget } from "@/components/support/floating-chat-widget/floating-chat-widget";
 
 /**
  * Root application component.
@@ -21,8 +23,10 @@ import { AppRoutes } from "@/app/router";
 export function App() {
   return (
     <Providers>
+      <RecaptchaScript />
       <AuthProvider>
         <AppRoutes />
+        <FloatingChatWidget />
       </AuthProvider>
     </Providers>
   );

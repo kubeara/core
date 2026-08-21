@@ -32,10 +32,15 @@ function loadTemplate(): string {
     return cachedTemplate;
   }
 
-  cachedTemplate = fs.readFileSync(
-    path.join(__dirname, "../templates", TEMPLATE_FILE),
-    "utf-8",
+  const distPath = path.join(__dirname, "../templates", TEMPLATE_FILE);
+  const sourcePath = path.join(
+    process.cwd(),
+    "apps/control-panel-app/src/modules/public/templates",
+    TEMPLATE_FILE,
   );
+  const templatePath = fs.existsSync(distPath) ? distPath : sourcePath;
+
+  cachedTemplate = fs.readFileSync(templatePath, "utf-8");
 
   return cachedTemplate;
 }
