@@ -24,6 +24,8 @@ interface ImportMetaEnv {
   readonly VITE_RESEND_OTP_MINUTES?: string;
   readonly VITE_RESEND_OTP_MAX_ATTEMPTS?: string;
   readonly VITE_RESEND_OTP_COOLDOWN_SECONDS?: string;
+  /** Google reCAPTCHA v2 site key for public support forms. */
+  readonly VITE_RECAPTCHA_SITE_KEY?: string;
 }
 
 interface ImportMeta {

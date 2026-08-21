@@ -12,4 +12,5 @@ services:
     environment:
       # Read by the browser via /env.js — use a URL reachable from your machine, not from inside the container.
       VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
+      VITE_RECAPTCHA_SITE_KEY: ${VITE_RECAPTCHA_SITE_KEY}
     restart: unless-stopped
