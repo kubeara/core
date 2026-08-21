@@ -21,7 +21,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_DATABASE:-kubeara}
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${DB_PORT:-8274}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -41,6 +41,7 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       DOCKER_ENV: "true"
       DB_HOST: ${DB_HOST:-postgres}
+      # In-container Postgres listens on 5432; DB_PORT in .env is the host publish port.
       DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -66,14 +67,16 @@ services:
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: kubeara-control-panel
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-9461}:3000"
     env_file:
       - .env.control-panel
     environment:
       NODE_ENV: ${NODE_ENV:-production}
       DOCKER_ENV: "true"
-      PORT: ${PORT:-3000}
+      # .env PORT is the host publish port; the app listens on 3000 in-container.
+      PORT: "3000"
       DB_HOST: ${DB_HOST:-postgres}
+      # In-container Postgres listens on 5432; DB_PORT in .env is the host publish port.
       DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -89,16 +92,11 @@ services:
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-lax}
-      CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:-}
+      OTP_EXPIRES_IN: ${OTP_EXPIRES_IN:-2m}
+      CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:-http://localhost:9461}
       IS_CLOUD_VERSION: ${IS_CLOUD_VERSION:-false}
       AGENT_SOCKET_TUNNEL_PORT: ${AGENT_SOCKET_TUNNEL_PORT:-1111}
       KUBEARA_AGENT_IMAGE: ${KUBEARA_AGENT_IMAGE:-kubeara/agent:prod}
-      GRAFANA_CLOUD_LOKI_URL: ${GRAFANA_CLOUD_LOKI_URL:-}
-      GRAFANA_CLOUD_LOKI_USER: ${GRAFANA_CLOUD_LOKI_USER:-}
-      GRAFANA_CLOUD_LOKI_API_KEY: ${GRAFANA_CLOUD_LOKI_API_KEY:-}
-      KUBEARA_ENV: ${KUBEARA_ENV:-}
-      KUBEARA_HOST_LABEL: ${KUBEARA_HOST_LABEL:-control-panel}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - ./.env.control-panel:/app/apps/control-panel-app/.env:ro
     depends_on:
@@ -111,9 +109,9 @@ services:
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: kubeara-console
     ports:
-      - "${CONSOLE_PORT:-8080}:80"
+      - "${CONSOLE_PORT:-7935}:80"
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:9461/api}
     depends_on:
       control-panel-app:
         condition: service_started

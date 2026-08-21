@@ -36,7 +36,7 @@ Optional environment variables:
 |----------|---------|
 | `KUBEARA_INSTALL_DIR` | Where compose and `.env` are stored (default `/opt/kubeara/control-panel` or `~/.kubeara/control-panel`) |
 | `KUBEARA_CHANNEL` | Docker image tag (`prod`, `dev`, …) |
-| `VITE_API_URL` | Browser API URL incl. `/api`. Default: public IP on VPS, else `http://localhost:3000/api`. Override for domain/LAN. |
+| `VITE_API_URL` | Browser API URL incl. `/api`. Default: public IP on VPS, else `http://localhost:9461/api`. Override for domain/LAN. |
 | `ENCRYPTION_SECRET` | Use a fixed secret instead of auto-generating |
 | `SKIP_MIGRATE=1` | Skip migrations/seed on re-run |
 | `KUBEARA_SKIP_DOCKER_INSTALL=1` | Linux: skip Docker Engine auto-install. Windows PowerShell: skip Docker Desktop auto-install |
@@ -81,7 +81,7 @@ Keep the embedded compose inside root `install.sh` in sync when you change `dock
 2. Run **database migrations** once.
 3. Start the **agent** on the deployment host — manually (compose below), automatically via **`POST /servers/onboard`** with `installAgent: true` (default), or on first **`POST /deployments/compose`** with `deployOnLocal: true` (installs prerequisites + agent locally).
 
-Set `CONTROL_PANEL_URL` on the control panel (e.g. `http://host.docker.internal:3000` when the agent runs in Docker and the panel on the host). Local agent files default to `~/.kubeara/agent` (override with `KUBEARA_AGENT_LOCAL_DIR`).
+Set `CONTROL_PANEL_URL` on the control panel (e.g. `http://host.docker.internal:9461` when the agent runs in Docker and the panel on the host). Local agent files default to `~/.kubeara/agent` (override with `KUBEARA_AGENT_LOCAL_DIR`).
 
 ## Remote agent install (onboard API)
 
@@ -154,8 +154,9 @@ docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel
 
 Open (local):
 
-- Control panel API: http://localhost:3000
-- Console SPA: http://localhost:8080
+- Control panel API: http://localhost:9461
+- Console SPA: http://localhost:7935
+- Postgres (host): localhost:8274
 
 ### Local vs remote self-host vs cloud
 
@@ -163,8 +164,8 @@ Set **`VITE_API_URL`** to whatever URL the browser should use for the API (must 
 
 | Scenario | `VITE_API_URL` | Notes |
 |----------|----------------|-------|
-| Laptop | `http://localhost:3000/api` (default) | Open `http://localhost:8080` |
-| VPS with public IP on the NIC | auto `http://PUBLIC_IP:3000/api` | Open the console URL printed at install end |
+| Laptop | `http://localhost:9461/api` (default) | Open `http://localhost:7935` |
+| VPS with public IP on the NIC | auto `http://PUBLIC_IP:9461/api` | Open the console URL printed at install end |
 | Domain / HTTPS / LAN IP / AWS EIP | set explicitly, e.g. `VITE_API_URL=https://panel.example.com/api` | Also set `CONTROL_PANEL_URL` if agents should use a different base |
 | Cloud product | public API + `/api` | `COOKIE_DOMAIN=.example.com`, `COOKIE_SECURE=true`, `IS_CLOUD_VERSION=true` |
 
@@ -184,7 +185,7 @@ Use after the control panel is running (local or remote).
 cd deploy
 cp .env.agent.example .env.agent
 # Edit: ENCRYPTION_SECRET (same as control panel),
-#       CONTROL_PANEL_URL (e.g. http://host.docker.internal:3000)
+#       CONTROL_PANEL_URL (e.g. http://host.docker.internal:9461)
 
 docker compose -f docker-compose.agent.yml --env-file .env.agent up -d
 ```
@@ -258,72 +259,47 @@ docker pull kubeara/agent:prod
 
 ### .env.control-panel
 
-| Variable | Purpose |
-|----------|---------|
-| `KUBEARA_CONTROL_PANEL_IMAGE` | Docker Hub image |
-| `KUBEARA_CONSOLE_IMAGE` | Console SPA Docker image (default `kubeara/console:prod`) |
-| `DOCKER_PLATFORM` | `linux/amd64` or `linux/arm64` (optional) |
-| `ENCRYPTION_SECRET` | App encryption key (must match agent) |
-| `JWT_SECRET` | Access token signing secret (required) |
-| `JWT_REFRESH_SECRET` | Refresh token signing secret (required) |
-| `ACCESS_TOKEN_COOKIE_NAME` | HTTP-only access token cookie name (default `kubeara_access_token`) |
-| `REFRESH_TOKEN_COOKIE_NAME` | HTTP-only refresh token cookie name (default `kubeara_refresh_token`) |
-| `ACCESS_TOKEN_EXPIRES_IN` | Access token and cookie TTL (default `15m`) |
-| `REFRESH_TOKEN_EXPIRES_IN` | Refresh token and cookie TTL (default `7d`) |
-| `COOKIE_DOMAIN` | Leave empty for self-host (local or remote IP / single host). Only set for multi-subdomain HTTPS cloud (e.g. `.kubeara.dev`). Do not set to an IP. |
-| `COOKIE_SECURE` | Set cookie `Secure` flag (`true` / `false`) |
-| `COOKIE_SAME_SITE` | Cookie `SameSite` policy (`lax`, `strict`, `none`) | Use of strict is recommended for production |
-| `CONTROL_PANEL_URL` | URL agents/onboard use (default: derived from `VITE_API_URL`) |
-| `IS_CLOUD_VERSION` | `true` = agents connect via `CONTROL_PANEL_URL` (no SSH tunnels). Self-host: leave `false`. |
-| `PORT` | Control panel port (default 3000) |
-| `CONSOLE_PORT` | Console SPA host port (default 8080) |
-| `VITE_API_URL` | Browser API base incl. `/api`. Primary setting for local / remote / domain. |
-| `DB_HOST` | `postgres` inside compose (do not use `127.0.0.1`) |
-| `DB_*` | Postgres credentials and database name |
-| `GRAFANA_CLOUD_LOKI_*` | Optional Grafana Cloud Loki push (see below) |
-| `KUBEARA_ENV` | Must be `PROD` (case-insensitive) for Loki shipping; also used as a Loki label |
-| `KUBEARA_HOST_LABEL` | Loki label for host identity |
-| `LOG_LEVEL` | Winston log level (default `info`) |
+Required self-host keys (see `.env.control-panel.example` for defaults):
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `NODE_ENV` | yes | `production` for self-host (`DB_SSL=false` keeps Postgres TLS off) |
+| `DOCKER_PLATFORM` | yes | `linux/amd64` or `linux/arm64` |
+| `KUBEARA_CONTROL_PANEL_IMAGE` | yes | Control panel image |
+| `KUBEARA_CONSOLE_IMAGE` | yes | Console SPA image |
+| `KUBEARA_AGENT_IMAGE` | yes | Agent image for remote installs |
+| `PORT` | yes | Control panel host port (default `9461`; app listens on `3000` in-container) |
+| `CONSOLE_PORT` | yes | Console SPA host port (default `7935`) |
+| `DB_PORT` | yes | Postgres host publish port (default `8274`; app uses `5432` in-container) |
+| `VITE_API_URL` | yes | Browser API base incl. `/api` |
+| `CONTROL_PANEL_URL` | yes | Agent/onboard base URL |
+| `CORS_ALLOWED_ORIGINS` | yes | Allowed browser origins for API CORS |
+| `PUBLIC_API_ALLOWED_ORIGINS` | yes | Allowed origins for `/api/public/*` |
+| `ENCRYPTION_SECRET` | yes | Must match agent |
+| `JWT_SECRET` / `JWT_REFRESH_SECRET` | yes | Auth signing secrets |
+| `ACCESS_TOKEN_COOKIE_NAME` / `REFRESH_TOKEN_COOKIE_NAME` | yes | HTTP-only auth cookies |
+| `ACCESS_TOKEN_EXPIRES_IN` / `REFRESH_TOKEN_EXPIRES_IN` | yes | Token / cookie TTL |
+| `COOKIE_DOMAIN` | yes (empty OK) | Leave empty for self-host |
+| `COOKIE_SECURE` / `COOKIE_SAME_SITE` | yes | Cookie flags |
+| `OTP_EXPIRES_IN` | yes | Auth OTP code lifetime (not an email-provider setting) |
+| `DB_HOST` / `DB_USERNAME` / `DB_PASSWORD` / `DB_DATABASE` | yes | App → Postgres (defaults: `postgres` / …) |
+| `DB_SSL` | yes | Keep `false` for compose Postgres |
+| `IS_CLOUD_VERSION` | yes | `false` for self-host tunnels |
+| `AGENT_SOCKET_TUNNEL_PORT` | yes | SSH reverse-tunnel listen port |
+
+Optional cloud-only integrations (Stripe, Zoho, Brevo email, Grafana Loki) are **not** part of the self-host env. Leave them unset.
 
 Mounted at `/app/apps/control-panel-app/.env` inside the container (same pattern as the agent).
 
-### Grafana Cloud logs (winston-loki)
-
-The control panel ships NestJS logs to Grafana Cloud Loki only when `KUBEARA_ENV=PROD` and these variables are set:
-
-| Variable | Purpose |
-|----------|---------|
-| `GRAFANA_CLOUD_LOKI_URL` | Push URL from Grafana Cloud (ends with `/loki/api/v1/push`) |
-| `GRAFANA_CLOUD_LOKI_USER` | Numeric user / instance ID |
-| `GRAFANA_CLOUD_LOKI_API_KEY` | Access policy token with `logs:write` |
-
-Copy `deploy/.env.monitoring.example` to `.env.monitoring`, fill in credentials from your Grafana Cloud stack portal, then either merge the values into `.env.control-panel` or pass both files:
-
-```bash
-docker compose -f docker-compose.control-panel.yml \
-  --env-file .env.control-panel --env-file .env.monitoring up -d
-```
-
-In Grafana → Explore → Loki, query logs with:
-
-```logql
-{service="control-panel-app"}
-```
-
-Add `env` and `host` labels for filtering: `{service="control-panel-app", env="PROD"}`.
-
-When `KUBEARA_ENV` is not `PROD` or Loki credentials are unset, logs continue to stdout only (Docker still captures them).
-
 ### .env.agent
 
-| Variable | Purpose |
-|----------|---------|
-| `KUBEARA_AGENT_IMAGE` | Docker Hub image |
-| `ENCRYPTION_SECRET` | Must match control panel |
-| `CONTROL_PANEL_URL` | Control panel base URL |
-| `AGENT_PORT` | Agent port (default 3001) |
-| `AGENT_PUBLIC_IP` | Public IP for generated URLs |
-| `TRAEFIK_ENABLED` | Enable Traefik routing on agent host |
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `KUBEARA_AGENT_IMAGE` | yes | Docker Hub image |
+| `AGENT_PORT` | yes | Host publish port (container listens on `3001`) |
+| `ENCRYPTION_SECRET` | yes | Must match control panel |
+| `KUBEARA_SERVER_ID` | yes | Set automatically on remote install |
+| `CONTROL_PANEL_URL` | yes | How the agent reaches the panel |
 
 ## Stop
 

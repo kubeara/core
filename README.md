@@ -112,7 +112,7 @@ irm https://setup.kubeara.dev/install.ps1 | iex
 > View the install script before running:
 > [install.sh](https://github.com/kubeara/core/blob/main/install.sh)
 
-Open dashboard: http://your-server-ip:3000 (or the console port from your install output).
+Open dashboard: http://your-server-ip:7935 (or the console URL from your install output).
 
 **Manual install:**
 ```bash
