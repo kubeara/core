@@ -5,6 +5,7 @@ import { SensitiveHost } from "@/components/shared/sensitive-host";
 import { TooltipHint } from "@/components/ui/tooltip";
 import { useTerminalWordWrap } from "@/components/shared/use-terminal-word-wrap";
 import { ContainerLogsStopConfirmModal } from "@/features/deployments/components/container-logs-stop-confirm-modal";
+import { CONTAINER_LOGS_MAX_LINES } from "@/features/deployments/constants/container-logs-messages";
 import { useContainerLogs } from "@/features/deployments/hooks/use-container-logs";
 import {
   ServerTerminalViewer,
@@ -281,6 +282,7 @@ export function ContainerLogsPanel({
               isVisible={isStreaming || status === "complete"}
               readOnly
               wordWrap={wordWrap}
+              maxLines={CONTAINER_LOGS_MAX_LINES}
               onData={() => undefined}
               onResize={() => undefined}
               onReady={(api) => {

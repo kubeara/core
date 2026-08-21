@@ -29,16 +29,21 @@ type ServerTerminalViewerProps = {
   refitToken?: number;
   readOnly?: boolean;
   wordWrap?: boolean;
+  maxLines?: number;
   onData: (data: string) => void;
   onResize: (cols: number, rows: number) => void;
   onReady?: (api: ServerTerminalViewerApi) => void;
 };
+
+const DEFAULT_SCROLLBACK_LINES = 10000;
+const DEFAULT_TERM_ROWS = 24;
 
 export function ServerTerminalViewer({
   isVisible,
   refitToken = 0,
   readOnly = false,
   wordWrap = true,
+  maxLines,
   onData,
   onResize,
   onReady,
@@ -72,7 +77,9 @@ export function ServerTerminalViewer({
       cursorBlink: !readOnly,
       cursorStyle: "bar",
       disableStdin: readOnly,
-      scrollback: 10000,
+      scrollback: maxLines
+        ? Math.max(1, maxLines - DEFAULT_TERM_ROWS)
+        : DEFAULT_SCROLLBACK_LINES,
       convertEol: readOnly,
       allowProposedApi: true,
     });
@@ -134,6 +141,9 @@ export function ServerTerminalViewer({
         });
 
     const resizeDisposable = term.onResize(({ cols, rows }) => {
+      if (maxLines) {
+        term.options.scrollback = Math.max(1, maxLines - rows);
+      }
       onResizeRef.current(cols, rows);
     });
 
@@ -195,7 +205,7 @@ export function ServerTerminalViewer({
       fitRef.current = null;
       contentColsRef.current = 0;
     };
-  }, [readOnly]);
+  }, [readOnly, maxLines]);
 
   useEffect(() => {
     if (!isVisible) return;
