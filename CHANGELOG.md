@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.2](https://github.com/kubeara/core/compare/v1.4.1...v1.4.2) (2026-08-21)
+
+
+### Bug Fixes
+
+* Move constants to relevant file ([7c340c1](https://github.com/kubeara/core/commit/7c340c189d45c13ba0ce5f027143e66b4274f89a))
+
+
+### Refactoring
+
+* Change input fields to readOnly based on user data in chat message form ([f33a780](https://github.com/kubeara/core/commit/f33a78019acab0452d08cddb4061ab3766579f32))
+* Change input fields to readOnly based on user data in chat widget form ([8bf08dd](https://github.com/kubeara/core/commit/8bf08dd49737db870a69b68ffde568f9d21f75a7))
+* Remove terminal service and related dependencies from agent app ([2158e5e](https://github.com/kubeara/core/commit/2158e5e996003d04dee4d99592f726d570398e63))
+
 ## [1.4.1](https://github.com/kubeara/core/compare/v1.4.0...v1.4.1) (2026-08-21)
 
 
