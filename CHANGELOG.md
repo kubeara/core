@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.4.1](https://github.com/kubeara/core/compare/v1.4.0...v1.4.1) (2026-08-21)
+
+
+### Refactoring
+
+* Update the access MCP feature validation for the self host … ([ba28f07](https://github.com/kubeara/core/commit/ba28f07d4c6efae82fda184193aed72f33a8682b))
+* Update the access MCP feature validation for the self host version ([d23719f](https://github.com/kubeara/core/commit/d23719fbc77bcebc031b7e27ced11fd353b374dc))
+
+## [1.4.0](https://github.com/kubeara/core/compare/v1.3.0...v1.4.0) (2026-08-21)
+
+
+### Features
+
+* Refactor custom compose deployment with stepper workflow ([c0ed777](https://github.com/kubeara/core/commit/c0ed777a6b7010be76b4fa8e611077beb52b0bba))
+* Refactor custom compose deployment with stepper workflow ([0b83cbd](https://github.com/kubeara/core/commit/0b83cbd70c7653d9c7548c6ca161f06a1d45e156))
+
+
+### Bug Fixes
+
+* Update dependencies in StepperItem to comply with eslint rules ([bbc4565](https://github.com/kubeara/core/commit/bbc4565baf4911fc03821af3a099636e1d888a5b))
+
 ## [1.3.0](https://github.com/kubeara/core/compare/v1.2.1...v1.3.0) (2026-08-19)
 
 
