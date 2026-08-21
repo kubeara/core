@@ -23,6 +23,11 @@ export class ValidateCustomComposeDto {
   @IsString()
   @MaxLength(262_144)
   envFileContent?: string;
+
+  /** When true, compose structure can succeed even if required env values are missing. */
+  @IsOptional()
+  @IsBoolean()
+  skipMissingVariables?: boolean;
 }
 
 export class DeployCustomComposeDto {

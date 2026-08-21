@@ -1080,9 +1080,14 @@ export class DeploymentsService {
   validateCustomComposeUpload(
     composeYaml: string,
     envFileContent = "",
+    options?: { skipMissingVariables?: boolean },
   ): CustomComposeValidationResult {
     try {
-      return validateUploadedCustomCompose(composeYaml, envFileContent);
+      return validateUploadedCustomCompose(
+        composeYaml,
+        envFileContent,
+        options,
+      );
     } catch (error) {
       throw new BadRequestException(
         `Failed to validate compose file: ${error instanceof Error ? error.message : String(error)}`,

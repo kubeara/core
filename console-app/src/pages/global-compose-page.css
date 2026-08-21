@@ -1,3 +1,41 @@
-.global-compose-page .dashboard-header {
-  margin-bottom: 0.625rem;
+.global-compose-page.deploy-configure-page {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+  /* Match service-detail / other pages: BackLink separated from card. */
+  gap: 1.25rem;
+  height: calc(100dvh - 3.5rem - 2.75rem);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.global-compose-page > .back-link {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.global-compose-page .custom-compose-upload-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  box-shadow: none;
+}
+
+.global-compose-page .custom-compose-upload-header {
+  padding: 0.875rem 1.5rem 0.625rem;
+}
+
+.global-compose-page .custom-compose-page-subtitle {
+  max-width: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 900px) {
+  .global-compose-page .custom-compose-page-subtitle {
+    white-space: normal;
+  }
 }

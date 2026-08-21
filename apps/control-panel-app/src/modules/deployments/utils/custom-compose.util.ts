@@ -33,6 +33,7 @@ export type {
 export function validateUploadedCustomCompose(
   composeYaml: string,
   envFileContent = "",
+  options?: { skipMissingVariables?: boolean },
 ): CustomComposeValidationResult {
   try {
     const trimmed = composeYaml.trim();
@@ -83,6 +84,7 @@ export function validateUploadedCustomCompose(
     const combinedValidation = validateCustomComposeWithEnvFile(
       trimmed,
       envFileContent,
+      { allowIncompleteEnv: Boolean(options?.skipMissingVariables) },
     );
     if (combinedValidation.issues.length > 0) {
       return { valid: false, issues: combinedValidation.issues };

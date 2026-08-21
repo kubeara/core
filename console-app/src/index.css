@@ -829,6 +829,10 @@ a:hover {
   -webkit-overflow-scrolling: touch;
 }
 
+[data-theme="dark"] .modal-overlay {
+  background: rgb(0 0 0 / 68%);
+}
+
 .modal-dialog {
   width: 100%;
   max-width: 440px;

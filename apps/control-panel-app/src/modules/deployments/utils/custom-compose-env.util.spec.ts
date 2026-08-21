@@ -209,6 +209,66 @@ services:
     expect(result.issues[0]?.message).toContain("APP_ENV");
   });
 
+  it("returns per-service env previews when incomplete env is allowed", () => {
+    const compose = `
+services:
+  web:
+    image: nginx:alpine
+    environment:
+      APP_ENV: \${APP_ENV}
+      LOG_LEVEL: info
+`;
+
+    const result = validateCustomComposeWithEnvFile(compose, "", {
+      allowIncompleteEnv: true,
+    });
+
+    expect(result.issues).toEqual([]);
+    expect(result.serviceEnvironments).toEqual([
+      {
+        serviceName: "web",
+        env: {
+          APP_ENV: "${APP_ENV}",
+          LOG_LEVEL: "info",
+        },
+      },
+    ]);
+  });
+
+  it("includes interpolation variables from ports, volumes, and image", () => {
+    const compose = `
+services:
+  api:
+    image: \${IMAGE_NAME}:\${IMAGE_TAG}
+    ports:
+      - "\${APP_PORT:-3000}:3000"
+    volumes:
+      - "\${DATA_PATH}:/data"
+    environment:
+      LOG_LEVEL: info
+  worker:
+    image: alpine:3.19
+`;
+
+    const result = validateCustomComposeWithEnvFile(compose, "", {
+      allowIncompleteEnv: true,
+    });
+
+    expect(result.issues).toEqual([]);
+    expect(
+      result.serviceEnvironments.map((service) => service.serviceName),
+    ).toEqual(["api", "worker"]);
+    expect(result.serviceEnvironments[0]?.env).toEqual(
+      expect.objectContaining({
+        APP_PORT: "3000",
+        IMAGE_NAME: "",
+        IMAGE_TAG: "",
+        DATA_PATH: "",
+        LOG_LEVEL: "info",
+      }),
+    );
+  });
+
   it("resolves env placeholders that reference a different variable name", () => {
     const compose = `
 services:
@@ -232,7 +292,10 @@ services:
       },
       {
         serviceName: "postgres",
-        env: { POSTGRES_PASSWORD: "apppassword" },
+        env: {
+          DATABASE_PASSWORD: "apppassword",
+          POSTGRES_PASSWORD: "apppassword",
+        },
       },
     ]);
   });
