@@ -17,12 +17,6 @@ import {
   DeploymentValidateResponsePayload,
   ServerGetResourcesRequestPayload,
   ServerGetResourcesResponsePayload,
-  TerminalConnectRequestPayload,
-  TerminalConnectResponsePayload,
-  TerminalDisconnectPayload,
-  TerminalInputPayload,
-  TerminalOutputPayload,
-  TerminalResizePayload,
   ContainerLogsStartRequestPayload,
   ContainerLogsStartResponsePayload,
   ContainerLogsStopPayload,
@@ -33,15 +27,12 @@ import {
 } from "@shared/socket-events";
 import { ContainerService } from "../container/container.service";
 import { ServerResourcesService } from "../server-resources/server-resources.service";
-import { TerminalService } from "../terminal/terminal.service";
 import { DeployTemplateExecutor } from "../executors/deploy-template.executor";
 import type { EnvFileInput, PortFileInput } from "../executors/env-file.util";
 import {
   EncryptionService,
   TemplatePayloadService,
   SUCCESS_MESSAGES,
-  DEFAULT_TERMINAL_COLS,
-  DEFAULT_TERMINAL_ROWS,
   SOCKET_ERROR_MESSAGES,
   logStructured,
   logStructuredError,
@@ -77,15 +68,8 @@ export class SocketClientService {
     private readonly templatePayloadService: TemplatePayloadService,
     private readonly containerService: ContainerService,
     private readonly serverResourcesService: ServerResourcesService,
-    private readonly terminalService: TerminalService,
   ) {
     this.agentId = this.generateAgentId();
-    this.terminalService.setOutputHandler((sessionId, data) => {
-      this.emitTerminalOutput(sessionId, data);
-    });
-    this.terminalService.setCloseHandler((sessionId) => {
-      this.emitTerminalDisconnect(sessionId);
-    });
     this.containerService.setLogsDataHandler((sessionId, data) => {
       this.emitContainerLogsData(sessionId, data);
     });
@@ -240,10 +224,6 @@ export class SocketClientService {
     this.socket.off(DeploymentEvents.CONTAINER_DISCOVER);
     this.socket.off(DeploymentEvents.SERVER_GET_RESOURCES);
     this.socket.off(DeploymentEvents.DEPLOYMENT_VALIDATE);
-    this.socket.off(DeploymentEvents.TERMINAL_CONNECT);
-    this.socket.off(DeploymentEvents.TERMINAL_INPUT);
-    this.socket.off(DeploymentEvents.TERMINAL_RESIZE);
-    this.socket.off(DeploymentEvents.TERMINAL_DISCONNECT);
     this.socket.off(DeploymentEvents.CONTAINER_LOGS_START);
     this.socket.off(DeploymentEvents.CONTAINER_LOGS_STOP);
     this.socket.off(DeploymentEvents.AGENT_REMOVE);
@@ -332,34 +312,6 @@ export class SocketClientService {
     );
 
     this.socket.on(
-      DeploymentEvents.TERMINAL_CONNECT,
-      (payload: TerminalConnectRequestPayload) => {
-        this.handleTerminalConnect(payload);
-      },
-    );
-
-    this.socket.on(
-      DeploymentEvents.TERMINAL_INPUT,
-      (payload: TerminalInputPayload) => {
-        this.handleTerminalInput(payload);
-      },
-    );
-
-    this.socket.on(
-      DeploymentEvents.TERMINAL_RESIZE,
-      (payload: TerminalResizePayload) => {
-        this.handleTerminalResize(payload);
-      },
-    );
-
-    this.socket.on(
-      DeploymentEvents.TERMINAL_DISCONNECT,
-      (payload: TerminalDisconnectPayload) => {
-        this.handleTerminalDisconnect(payload);
-      },
-    );
-
-    this.socket.on(
       DeploymentEvents.CONTAINER_LOGS_START,
       (payload: ContainerLogsStartRequestPayload) => {
         void this.handleContainerLogsStart(payload);
@@ -410,7 +362,6 @@ export class SocketClientService {
         DeploymentEvents.CONTAINER_ACTION,
         DeploymentEvents.SERVER_GET_RESOURCES,
         DeploymentEvents.DEPLOYMENT_VALIDATE,
-        DeploymentEvents.TERMINAL_CONNECT,
         DeploymentEvents.CONTAINER_LOGS_START,
         DeploymentEvents.AGENT_REMOVE,
       ],
@@ -771,72 +722,6 @@ export class SocketClientService {
   }
 
   /**
-   * Handles terminal connect requests from the control panel.
-   */
-  private handleTerminalConnect(payload: TerminalConnectRequestPayload): void {
-    const requestId = payload?.requestId?.trim() ?? "";
-    const cols = payload?.cols ?? DEFAULT_TERMINAL_COLS;
-    const rows = payload?.rows ?? DEFAULT_TERMINAL_ROWS;
-
-    let response: TerminalConnectResponsePayload;
-
-    try {
-      if (!requestId) {
-        response = {
-          requestId: "",
-          error: SOCKET_ERROR_MESSAGES.MISSING_REQUEST_ID,
-        };
-      } else {
-        const sessionId = this.terminalService.createSession(cols, rows);
-        response = { requestId, sessionId };
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Terminal connect handler failed: ${message}`);
-      response = { requestId, error: message };
-    }
-
-    if (!this.socket?.connected) {
-      this.logger.warn(
-        SOCKET_ERROR_MESSAGES.CANNOT_SEND_TERMINAL_CONNECT_RESULT,
-      );
-      return;
-    }
-
-    this.socket.emit(DeploymentEvents.TERMINAL_CONNECT_RESULT, response);
-    this.logger.log(
-      `Terminal connect result sent requestId=${requestId}${response.error ? ` error=${response.error}` : ` sessionId=${response.sessionId ?? "n/a"}`}`,
-    );
-  }
-
-  private handleTerminalInput(payload: TerminalInputPayload): void {
-    const sessionId = payload?.sessionId?.trim() ?? "";
-    if (!sessionId || payload.data == null) {
-      return;
-    }
-
-    this.terminalService.writeInput(sessionId, payload.data);
-  }
-
-  private handleTerminalResize(payload: TerminalResizePayload): void {
-    const sessionId = payload?.sessionId?.trim() ?? "";
-    if (!sessionId) {
-      return;
-    }
-
-    this.terminalService.resize(sessionId, payload.cols, payload.rows);
-  }
-
-  private handleTerminalDisconnect(payload: TerminalDisconnectPayload): void {
-    const sessionId = payload?.sessionId?.trim() ?? "";
-    if (!sessionId) {
-      return;
-    }
-
-    this.terminalService.closeSession(sessionId);
-  }
-
-  /**
    * Handles container logs start requests from the control panel.
    */
   private async handleContainerLogsStart(
@@ -932,30 +817,6 @@ export class SocketClientService {
 
     const payload: ContainerLogsStopPayload = { sessionId };
     this.socket.emit(DeploymentEvents.CONTAINER_LOGS_STOP, payload);
-  }
-
-  /**
-   * Emits terminal output to the control panel.
-   */
-  private emitTerminalOutput(sessionId: string, data: string): void {
-    if (!this.socket?.connected) {
-      return;
-    }
-
-    const payload: TerminalOutputPayload = { sessionId, data };
-    this.socket.emit(DeploymentEvents.TERMINAL_OUTPUT, payload);
-  }
-
-  /**
-   * Emits terminal disconnect to the control panel.
-   */
-  private emitTerminalDisconnect(sessionId: string): void {
-    if (!this.socket?.connected) {
-      return;
-    }
-
-    const payload: TerminalDisconnectPayload = { sessionId };
-    this.socket.emit(DeploymentEvents.TERMINAL_DISCONNECT, payload);
   }
 
   /**

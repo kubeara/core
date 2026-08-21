@@ -8,7 +8,6 @@ import { FilesystemService } from "./filesystem/filesystem.service";
 import { DeployTemplateExecutor } from "./executors/deploy-template.executor";
 import { TraefikProxyService } from "./proxy/traefik-proxy.service";
 import { ResourceAvailabilityService } from "./resource-availability/resource-availability.service";
-import { TerminalService } from "./terminal/terminal.service";
 import {
   ComposeParserModule,
   EncryptionModule,
@@ -35,7 +34,6 @@ import {
     DeployTemplateExecutor,
     TraefikProxyService,
     ResourceAvailabilityService,
-    TerminalService,
   ],
 })
 export class AppModule implements OnModuleInit {

@@ -15,6 +15,29 @@ import { startContainerLogs, stopContainerLogs } from "../api";
 import { mapContainerLogsErrorMessage } from "../constants/container-logs-messages";
 import type { StreamStatus } from "../types";
 
+/**
+ * client joins the session room, and the socket client re-subscribes active
+ * sessions automatically on every reconnect.
+ */
+async function ensureDeploymentSocketConnected(): Promise<void> {
+  const socket = getDeploymentSocket();
+  if (socket.connected) {
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    const settle = () => {
+      socket.off("connect", settle);
+      socket.off("connect_error", settle);
+      resolve();
+    };
+
+    socket.once("connect", settle);
+    socket.once("connect_error", settle);
+    socket.connect();
+  });
+}
+
 type UseContainerLogsOptions = {
   serverId: string;
   containerId: string;
@@ -91,6 +114,7 @@ export function useContainerLogs(
     setErrorMessage(null);
 
     try {
+      await ensureDeploymentSocketConnected();
       const session = await startContainerLogs(serverId, containerId, {
         containerName,
       });
@@ -115,6 +139,7 @@ export function useContainerLogs(
       setErrorMessage(null);
 
       try {
+        await ensureDeploymentSocketConnected();
         const session = await startContainerLogs(serverId, containerId, {
           containerName,
         });

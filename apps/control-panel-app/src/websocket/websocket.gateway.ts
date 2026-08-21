@@ -76,6 +76,7 @@ import {
   CONTAINER_DISCOVER_TIMEOUT_MS,
   DEPLOYMENT_VALIDATE_TIMEOUT_MS,
   CONTAINER_LOGS_START_TIMEOUT_MS,
+  CONTAINER_LOGS_BUFFER_MAX_BYTES,
   DEPLOYMENT_REMOVE_TIMEOUT_MS,
   AGENT_REMOVE_TIMEOUT_MS,
   SERVER_GET_RESOURCES_TIMEOUT_MS,
@@ -185,6 +186,15 @@ export class DeploymentGateway
   private readonly containerLogsSessionsById = new Map<
     string,
     ContainerLogsSessionRecord
+  >();
+  /**
+   * sessionId → log data buffered until the first console client joins the
+   * session room. Prevents the initial `docker logs` dump from being dropped
+   * when it arrives before the browser subscription.
+   */
+  private readonly containerLogsDataBuffers = new Map<
+    string,
+    { chunks: string[]; bytes: number }
   >();
   /** serverId → agent-advertised socket capabilities (from agent:hello). */
   private readonly agentCapabilitiesByServerId = new Map<string, Set<string>>();
@@ -716,6 +726,7 @@ export class DeploymentGateway
           room,
           event: DeploymentEvents.CONTAINER_LOGS_SUBSCRIBE,
         });
+        this.flushContainerLogsBuffer(sessionId);
       } catch (error) {
         logSocketError(
           this.logger,
@@ -1738,6 +1749,7 @@ export class DeploymentGateway
         const timer = setTimeout(() => {
           this.pendingContainerLogsStarts.delete(requestId);
           this.containerLogsSessionsById.delete(sessionId);
+          this.containerLogsDataBuffers.delete(sessionId);
           logSocketTimeout(this.logger, "socket.container_logs_start", {
             serverId,
             requestId,
@@ -1764,6 +1776,7 @@ export class DeploymentGateway
           },
           reject: (error: Error) => {
             this.containerLogsSessionsById.delete(sessionId);
+            this.containerLogsDataBuffers.delete(sessionId);
             reject(error);
           },
           timer,
@@ -1840,6 +1853,7 @@ export class DeploymentGateway
       }
 
       this.containerLogsSessionsById.delete(sessionId);
+      this.containerLogsDataBuffers.delete(sessionId);
 
       if (options.notifyAgent !== false) {
         const agent = this.agentsByServerId.get(session.serverId);
@@ -2322,6 +2336,7 @@ export class DeploymentGateway
         clearTimeout(pending.timer);
         this.pendingContainerLogsStarts.delete(requestId);
         this.containerLogsSessionsById.delete(pending.sessionId);
+        this.containerLogsDataBuffers.delete(pending.sessionId);
         pending.reject(new Error(reason));
       }
     } catch (error) {
@@ -2378,6 +2393,7 @@ export class DeploymentGateway
 
       if (payload.error) {
         this.containerLogsSessionsById.delete(pending.sessionId);
+        this.containerLogsDataBuffers.delete(pending.sessionId);
         pending.reject(new Error(payload.error));
         return;
       }
@@ -2385,6 +2401,7 @@ export class DeploymentGateway
       const sessionId = payload.sessionId?.trim();
       if (!sessionId) {
         this.containerLogsSessionsById.delete(pending.sessionId);
+        this.containerLogsDataBuffers.delete(pending.sessionId);
         pending.reject(
           new Error(
             WEBSOCKET_ERROR_MESSAGES.AGENT_RETURNED_NO_CONTAINER_LOGS_SESSION_ID,
@@ -2423,12 +2440,73 @@ export class DeploymentGateway
         return;
       }
 
-      ns.to(containerLogsRoom(sessionId)).emit(
-        DeploymentEvents.CONTAINER_LOGS_DATA,
-        { sessionId, data },
-      );
+      const room = containerLogsRoom(sessionId);
+      const roomClients = (
+        ns.adapter as unknown as { rooms?: Map<string, Set<string>> }
+      ).rooms;
+      if (!roomClients?.has(room)) {
+        this.bufferContainerLogsData(sessionId, data);
+        return;
+      }
+
+      ns.to(room).emit(DeploymentEvents.CONTAINER_LOGS_DATA, {
+        sessionId,
+        data,
+      });
     } catch (error) {
       this.logHandlerError("socket.relay_container_logs_data", error);
+    }
+  }
+
+  /**
+   * Buffers container log data until a console client joins the session room.
+   * Oldest chunks are dropped once the buffer exceeds its size cap.
+   */
+  private bufferContainerLogsData(sessionId: string, data: string): void {
+    try {
+      const maxBytes = CONTAINER_LOGS_BUFFER_MAX_BYTES;
+      let buffered = this.containerLogsDataBuffers.get(sessionId);
+      if (!buffered) {
+        buffered = { chunks: [], bytes: 0 };
+        this.containerLogsDataBuffers.set(sessionId, buffered);
+      }
+
+      buffered.chunks.push(data);
+      buffered.bytes += data.length;
+
+      while (buffered.bytes > maxBytes && buffered.chunks.length > 1) {
+        const dropped = buffered.chunks.shift();
+        buffered.bytes -= dropped?.length ?? 0;
+      }
+    } catch (error) {
+      this.logHandlerError("socket.buffer_container_logs_data", error);
+    }
+  }
+
+  /**
+   * Emits buffered container log data to the session room after the first
+   * client joins, then clears the buffer.
+   */
+  private flushContainerLogsBuffer(sessionId: string): void {
+    try {
+      const buffered = this.containerLogsDataBuffers.get(sessionId);
+      if (!buffered || buffered.chunks.length === 0) {
+        return;
+      }
+
+      this.containerLogsDataBuffers.delete(sessionId);
+
+      const ns = this.getNamespaceServer();
+      if (!ns) {
+        return;
+      }
+
+      ns.to(containerLogsRoom(sessionId)).emit(
+        DeploymentEvents.CONTAINER_LOGS_DATA,
+        { sessionId, data: buffered.chunks.join("") },
+      );
+    } catch (error) {
+      this.logHandlerError("socket.flush_container_logs_buffer", error);
     }
   }
 

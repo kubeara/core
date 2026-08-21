@@ -3,7 +3,7 @@ import type { ContainerActionType } from "@shared/socket-events";
 export const CONTAINER_ACTION_TIMEOUT_MS = 60_000;
 export const DOCKER_PS_TIMEOUT_MS = 10_000;
 export const DOCKER_PS_COMMAND = ["ps", "-a", "--format", "{{json .}}"];
-export const CONTAINER_LOGS_TAIL_LINES = 200;
+export const CONTAINER_LOGS_TAIL_LINES = 1000;
 
 export const CONTAINER_LOGS_COMMAND = (containerId: string): string[] => [
   "logs",

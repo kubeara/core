@@ -1,5 +1,7 @@
 export const CONTAINER_LOGS_LABEL = "View logs";
 
+export const CONTAINER_LOGS_MAX_LINES = 1000;
+
 export const CONTAINER_LOGS_STOP_CONFIRM_TITLE = "Stop log stream?";
 
 export const CONTAINER_LOGS_STOP_CONFIRM_MESSAGE =
