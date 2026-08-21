@@ -15,6 +15,10 @@ import { TerminalScrollDownButton } from "@/components/shared/terminal-scroll-do
 import { useTerminalScrollDown } from "@/components/shared/use-terminal-scroll-down";
 import { useTerminalWheelTrap } from "@/components/shared/use-terminal-wheel-trap";
 import "@/components/shared/terminal-scroll-down-button.css";
+import {
+  DEFAULT_SCROLLBACK_LINES,
+  DEFAULT_TERM_ROWS,
+} from "@/features/servers/constants/terminal";
 
 export type ServerTerminalViewerApi = {
   write: (data: string) => void;
@@ -34,9 +38,6 @@ type ServerTerminalViewerProps = {
   onResize: (cols: number, rows: number) => void;
   onReady?: (api: ServerTerminalViewerApi) => void;
 };
-
-const DEFAULT_SCROLLBACK_LINES = 10000;
-const DEFAULT_TERM_ROWS = 24;
 
 export function ServerTerminalViewer({
   isVisible,

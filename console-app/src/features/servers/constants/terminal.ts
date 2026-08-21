@@ -1,0 +1,2 @@
+export const DEFAULT_SCROLLBACK_LINES = 10000;
+export const DEFAULT_TERM_ROWS = 24;
