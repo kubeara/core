@@ -385,4 +385,4 @@ if ($env:SKIP_MIGRATE -ne "1") {
 }
 
 Write-Info "Kubeara control panel install finished in $installDir"
-Write-Info "Open the console URL from your .env (typically http://127.0.0.1:8080)."
+Write-Info "Open the console URL from your .env (typically http://127.0.0.1:7935)."
