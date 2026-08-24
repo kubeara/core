@@ -9,7 +9,7 @@ export function isProductionEnv(nodeEnv: string | undefined): boolean {
 
 /**
  * Enable Postgres SSL only when DB_SSL=true.
- * Local/self-host examples set DB_SSL=false; production sets DB_SSL=true.
+ * Self-host compose sets DB_SSL=false even with NODE_ENV=production.
  */
 export function isDbSslEnabled(dbSsl: string | undefined | null): boolean {
   return dbSsl?.trim().toLowerCase() === "true";

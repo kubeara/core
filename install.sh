@@ -24,13 +24,16 @@
 #   KUBEARA_CONSOLE_IMAGE_OVERRIDE  Explicit console image (do not export KUBEARA_CONSOLE_IMAGE — same name as .env key)
 #   KUBEARA_CONTROL_PANEL_IMAGE / KUBEARA_AGENT_IMAGE  Override API/agent images
 #   VITE_API_URL            Browser API URL (incl. /api). Default: auto public IP on VPS,
-#                           else http://localhost:3000/api. Override for domain/LAN/custom.
+#                           else http://localhost:9461/api. Override for domain/LAN/custom.
 #   CONTROL_PANEL_URL       Agent/onboard URL (default: derived from VITE_API_URL)
 #   IS_CLOUD_VERSION        true = agents use CONTROL_PANEL_URL directly (no SSH tunnels);
 #                           false/omit = self-host SSH reverse tunnels
 #   KUBEARA_TRACKING_URL    Override installation tracking endpoint
 #                           Default: https://api.kubeara.dev/api/public/installations/events
 #   KUBEARA_SKIP_DOCKER_INSTALL=1  On Linux, do not auto-install Docker Engine when missing
+#   ENCRYPTION_SECRET         Pre-set secret (default: auto-generate)
+#   SKIP_MIGRATE=1            Skip database migrations + seed
+#   KUBEARA_FORCE_ENV=1       Regenerate .env.control-panel from example
 #
 # Installation lifecycle tracking (POST …/api/public/installations/events):
 #   INSTALL   — no .installation-id yet (or id exists but .version never saved)
@@ -42,10 +45,6 @@
 # Version files (under KUBEARA_INSTALL_DIR):
 #   .installation-id  Stable UUID for this host install (kept across upgrades)
 #   .version          Last version successfully reported (INSTALL or UPGRADE)
-#
-#   ENCRYPTION_SECRET         Pre-set secret (default: auto-generate)
-#   SKIP_MIGRATE=1            Skip database migrations + seed
-#   KUBEARA_FORCE_ENV=1       Regenerate .env.control-panel from example
 
 # ---------------------------------------------------------------------------
 # POSIX-safe bootstrap: Ubuntu/Debian `sh` is dash (no pipefail).
@@ -504,7 +503,7 @@ set_env_var() {
 }
 
 default_local_api_url() {
-  echo "http://127.0.0.1:${PORT:-3000}"
+  echo "http://127.0.0.1:${PORT:-9461}"
 }
 
 normalize_vite_api_url() {
@@ -571,11 +570,11 @@ default_vite_api_url() {
   ip="$(detect_default_route_ipv4 || true)"
   if [[ -n "${ip}" ]] && ! is_private_or_local_ipv4 "${ip}"; then
     info "Using detected public IP for VITE_API_URL: ${ip}"
-    echo "http://${ip}:${PORT:-3000}/api"
+    echo "http://${ip}:${PORT:-9461}/api"
     return 0
   fi
 
-  echo "http://localhost:${PORT:-3000}/api"
+  echo "http://localhost:${PORT:-9461}/api"
 }
 
 # Agent URL: explicit CONTROL_PANEL_URL, else same host as VITE_API_URL (127.0.0.1 when local).
@@ -606,7 +605,7 @@ default_control_panel_url() {
 # Add console + API origins from VITE_API_URL when it is not loopback.
 cors_origins_with_vite_api() {
   local cors_origins="$1"
-  local console_port="${2:-8080}"
+  local console_port="${2:-7935}"
   local vite_api_url="$3"
   local origin host scheme
 
@@ -669,7 +668,20 @@ prepare_install_dir() {
 write_embedded_compose_file() {
   local dest="$1"
   cat >"${dest}" <<'COMPOSE_EOF'
-# Kubeara control panel — pull images from Docker Hub (no source code required).
+# Kubeara control panel — pull image from Docker Hub (no source code required).
+# Includes Postgres.
+#
+# One-line install:
+#   curl -fsSL https://setup.kubeara.dev | sh
+#   (Windows PowerShell: irm https://setup.kubeara.dev/install.ps1 | iex)
+#
+# Manual usage:
+#   cp .env.control-panel.example .env.control-panel
+#   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel pull
+#   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel up -d
+# Migrations + template seed (once, before first use):
+#   docker compose -f docker-compose.control-panel.yml --env-file .env.control-panel --profile migrate run -T --rm migrate
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -679,7 +691,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_DATABASE:-kubeara}
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${DB_PORT:-8274}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -696,11 +708,10 @@ services:
     env_file:
       - .env.control-panel
     environment:
-      # Self-hosted compose Postgres has no TLS. Default development so current
-      # Hub images (which enable SSL when NODE_ENV=production) can connect.
-      NODE_ENV: ${NODE_ENV:-development}
+      NODE_ENV: ${NODE_ENV:-production}
       DOCKER_ENV: "true"
       DB_HOST: ${DB_HOST:-postgres}
+      # In-container Postgres listens on 5432; DB_PORT in .env is the host publish port.
       DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -726,22 +737,24 @@ services:
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: kubeara-control-panel
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-9461}:3000"
     env_file:
       - .env.control-panel
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
+      NODE_ENV: ${NODE_ENV:-production}
       DOCKER_ENV: "true"
-      PORT: ${PORT:-3000}
+      # .env PORT is the host publish port; the app listens on 3000 in-container.
+      PORT: "3000"
       DB_HOST: ${DB_HOST:-postgres}
+      # In-container Postgres listens on 5432; DB_PORT in .env is the host publish port.
       DB_PORT: 5432
       DB_USERNAME: ${DB_USERNAME:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_DATABASE: ${DB_DATABASE:-kubeara}
       DB_SSL: ${DB_SSL:-false}
       ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?Set ENCRYPTION_SECRET in .env.control-panel}
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env.control-panel}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET in .env.control-panel}
+      JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-jwt-refresh-secret}
       ACCESS_TOKEN_COOKIE_NAME: ${ACCESS_TOKEN_COOKIE_NAME:-kubeara_access_token}
       REFRESH_TOKEN_COOKIE_NAME: ${REFRESH_TOKEN_COOKIE_NAME:-kubeara_refresh_token}
       ACCESS_TOKEN_EXPIRES_IN: ${ACCESS_TOKEN_EXPIRES_IN:-15m}
@@ -749,16 +762,11 @@ services:
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       COOKIE_SAME_SITE: ${COOKIE_SAME_SITE:-lax}
-      CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:-http://localhost:3000}
+      OTP_EXPIRES_IN: ${OTP_EXPIRES_IN:-2m}
+      CONTROL_PANEL_URL: ${CONTROL_PANEL_URL:-http://localhost:9461}
       IS_CLOUD_VERSION: ${IS_CLOUD_VERSION:-false}
       AGENT_SOCKET_TUNNEL_PORT: ${AGENT_SOCKET_TUNNEL_PORT:-1111}
       KUBEARA_AGENT_IMAGE: ${KUBEARA_AGENT_IMAGE:-kubeara/agent:prod}
-      GRAFANA_CLOUD_LOKI_URL: ${GRAFANA_CLOUD_LOKI_URL:-}
-      GRAFANA_CLOUD_LOKI_USER: ${GRAFANA_CLOUD_LOKI_USER:-}
-      GRAFANA_CLOUD_LOKI_API_KEY: ${GRAFANA_CLOUD_LOKI_API_KEY:-}
-      KUBEARA_ENV: ${KUBEARA_ENV:-}
-      KUBEARA_HOST_LABEL: ${KUBEARA_HOST_LABEL:-control-panel}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
     volumes:
       - ./.env.control-panel:/app/apps/control-panel-app/.env:ro
     depends_on:
@@ -771,9 +779,9 @@ services:
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: kubeara-console
     ports:
-      - "${CONSOLE_PORT:-8080}:80"
+      - "${CONSOLE_PORT:-7935}:80"
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:9461/api}
     depends_on:
       control-panel-app:
         condition: service_started
@@ -788,6 +796,7 @@ materialize_deploy_files() {
   local compose_dest="${KUBEARA_INSTALL_DIR}/${COMPOSE_FILE}"
 
   if [[ "${KUBEARA_INSTALL_SOURCE}" == "local" ]]; then
+    info "Using local compose from ${KUBEARA_DEPLOY_DIR}"
     cp "${KUBEARA_DEPLOY_DIR}/${COMPOSE_FILE}" "${compose_dest}"
     if [[ -f "${KUBEARA_DEPLOY_DIR}/${ENV_EXAMPLE}" ]]; then
       cp "${KUBEARA_DEPLOY_DIR}/${ENV_EXAMPLE}" "${KUBEARA_INSTALL_DIR}/${ENV_EXAMPLE}"
@@ -802,86 +811,104 @@ materialize_deploy_files() {
     return 0
   fi
 
-  info "Writing embedded ${COMPOSE_FILE} (no external download)"
+  info "Writing embedded ${COMPOSE_FILE} and ${ENV_EXAMPLE} (no external download)"
   write_embedded_compose_file "${compose_dest}"
+  write_embedded_env_example "${KUBEARA_INSTALL_DIR}/${ENV_EXAMPLE}"
 }
 
-write_fresh_env_file() {
-  local env_path="$1"
-  local secret platform vite_api_url control_panel_url port console_port
-  local jwt_access jwt_refresh
-  local cp_image console_image agent_image
-  local cors_origins is_cloud_version
+# Keep in sync with apps/control-panel-app/deploy/.env.control-panel.example
+write_embedded_env_example() {
+  local dest="$1"
+  cat >"${dest}" <<'ENV_EXAMPLE_EOF'
+# Copy to .env.control-panel — ENCRYPTION_SECRET must match the agent
+NODE_ENV=production
+DOCKER_PLATFORM=linux/amd64
 
-  secret="$(generate_encryption_secret)"
-  platform="${DOCKER_PLATFORM:-$(detect_docker_platform)}"
-  port="${PORT:-3000}"
-  console_port="${CONSOLE_PORT:-8080}"
-  vite_api_url="$(default_vite_api_url)"
-  control_panel_url="$(default_control_panel_url "${vite_api_url}")"
-  jwt_access="${JWT_SECRET:-$(openssl rand -hex 32)}"
-  jwt_refresh="${JWT_REFRESH_SECRET:-$(openssl rand -hex 32)}"
-  cp_image="${KUBEARA_CONTROL_PANEL_IMAGE:-kubeara/control-panel:${KUBEARA_CHANNEL}}"
-  console_image="${KUBEARA_CONSOLE_IMAGE_OVERRIDE:-kubeara/console:${KUBEARA_CHANNEL}}"
-  agent_image="${KUBEARA_AGENT_IMAGE:-kubeara/agent:${KUBEARA_CHANNEL}}"
-  cors_origins="${CORS_ALLOWED_ORIGINS:-http://localhost:${port},http://localhost:${console_port},http://127.0.0.1:${port},http://127.0.0.1:${console_port}}"
-  cors_origins="$(cors_origins_with_vite_api "${cors_origins}" "${console_port}" "${vite_api_url}")"
-  if [[ "${IS_CLOUD_VERSION:-}" == "true" ]]; then
-    is_cloud_version="true"
-  else
-    is_cloud_version="false"
-  fi
+KUBEARA_CONTROL_PANEL_IMAGE=kubeara/control-panel:prod
+KUBEARA_CONSOLE_IMAGE=kubeara/console:prod
+KUBEARA_AGENT_IMAGE=kubeara/agent:prod
 
-  cat >"${env_path}" <<EOF
-# Generated by kubeara install.sh — core self-hosted configuration.
-# Compose Postgres has no TLS; older Hub images enable SSL when NODE_ENV=production.
-NODE_ENV=${NODE_ENV:-development}
+# Host publish ports
+PORT=9461
+CONSOLE_PORT=7935
+DB_PORT=8274
 
-KUBEARA_CONTROL_PANEL_IMAGE=${cp_image}
-KUBEARA_CONSOLE_IMAGE=${console_image}
-KUBEARA_AGENT_IMAGE=${agent_image}
-DOCKER_PLATFORM=${platform}
+# Browser API URL (include /api)
+VITE_API_URL=http://localhost:9461/api
+CONTROL_PANEL_URL=http://localhost:9461
+CORS_ALLOWED_ORIGINS=http://localhost:9461,http://localhost:7935,http://127.0.0.1:9461,http://127.0.0.1:7935
+PUBLIC_API_ALLOWED_ORIGINS=http://localhost:9461,http://localhost:7935,http://127.0.0.1:9461,http://127.0.0.1:7935
 
-PORT=${port}
-CONSOLE_PORT=${console_port}
-VITE_API_URL=${vite_api_url}
-CONTROL_PANEL_URL=${control_panel_url}
-IS_CLOUD_VERSION=${is_cloud_version}
+# Secrets (change these)
+ENCRYPTION_SECRET=change-me-to-a-long-random-secret
+JWT_SECRET=change-me-jwt-secret
+JWT_REFRESH_SECRET=change-me-jwt-refresh-secret
 
-ENCRYPTION_SECRET=${secret}
-JWT_SECRET=${jwt_access}
-JWT_REFRESH_SECRET=${jwt_refresh}
+ACCESS_TOKEN_COOKIE_NAME=kubeara_access_token
+REFRESH_TOKEN_COOKIE_NAME=kubeara_refresh_token
+ACCESS_TOKEN_EXPIRES_IN=15m
+REFRESH_TOKEN_EXPIRES_IN=7d
+COOKIE_DOMAIN=
+COOKIE_SECURE=false
+COOKIE_SAME_SITE=lax
+OTP_EXPIRES_IN=2m
 
-ACCESS_TOKEN_COOKIE_NAME=${ACCESS_TOKEN_COOKIE_NAME:-kubeara_access_token}
-REFRESH_TOKEN_COOKIE_NAME=${REFRESH_TOKEN_COOKIE_NAME:-kubeara_refresh_token}
-ACCESS_TOKEN_EXPIRES_IN=${ACCESS_TOKEN_EXPIRES_IN:-15m}
-REFRESH_TOKEN_EXPIRES_IN=${REFRESH_TOKEN_EXPIRES_IN:-7d}
-COOKIE_DOMAIN=${COOKIE_DOMAIN:-}
-COOKIE_SECURE=${COOKIE_SECURE:-false}
-COOKIE_SAME_SITE=${COOKIE_SAME_SITE:-lax}
-
-OTP_EXPIRES_IN=${OTP_EXPIRES_IN:-2m}
-OTP_RESEND_MAX_ATTEMPTS=${OTP_RESEND_MAX_ATTEMPTS:-3}
-OTP_RESEND_WINDOW_MINUTES=${OTP_RESEND_WINDOW_MINUTES:-2}
-
-PUBLIC_API_ALLOWED_ORIGINS=${PUBLIC_API_ALLOWED_ORIGINS:-${cors_origins}}
-CORS_ALLOWED_ORIGINS=${cors_origins}
-
+# Postgres (DB_HOST must be the compose service name)
 DB_HOST=postgres
-DB_PORT=5432
 DB_USERNAME=postgres
 DB_PASSWORD=postgres
 DB_DATABASE=kubeara
 DB_SSL=false
 
-# Optional email (leave empty). Present so older control-panel images that still
-# call getOrThrow('BREVO_*') can boot; new images treat empty as disabled.
-BREVO_API_KEY=
-BREVO_FROM_EMAIL=
-BREVO_FROM_NAME=Kubeara
-EOF
+# false = self-host tunnels; true = direct agent URL
+IS_CLOUD_VERSION=false
+AGENT_SOCKET_TUNNEL_PORT=1111
+ENV_EXAMPLE_EOF
+}
 
-  info "Wrote ${env_path}"
+# Copy example → .env and fill install-time secrets / platform / images / URLs.
+seed_env_from_example() {
+  local env_path="$1"
+  local example_path="$2"
+  local secret platform vite_api_url control_panel_url
+  local set_image_tags
+
+  cp "${example_path}" "${env_path}"
+
+  secret="$(generate_encryption_secret)"
+  platform="${DOCKER_PLATFORM:-$(detect_docker_platform)}"
+  vite_api_url="$(default_vite_api_url)"
+  control_panel_url="$(default_control_panel_url "${vite_api_url}")"
+
+  set_image_tags="${KUBEARA_SET_IMAGE_TAGS:-}"
+  if [[ -z "${set_image_tags}" ]]; then
+    if [[ "${KUBEARA_INSTALL_SOURCE}" == "remote" ]]; then
+      set_image_tags="1"
+    else
+      set_image_tags="0"
+    fi
+  fi
+
+  if [[ -n "${KUBEARA_CONTROL_PANEL_IMAGE:-}" ]]; then
+    set_env_var "KUBEARA_CONTROL_PANEL_IMAGE" "${KUBEARA_CONTROL_PANEL_IMAGE}" "${env_path}"
+  elif [[ "${set_image_tags}" == "1" ]]; then
+    set_env_var "KUBEARA_CONTROL_PANEL_IMAGE" "kubeara/control-panel:${KUBEARA_CHANNEL}" "${env_path}"
+  fi
+
+  if [[ -n "${KUBEARA_AGENT_IMAGE:-}" ]]; then
+    set_env_var "KUBEARA_AGENT_IMAGE" "${KUBEARA_AGENT_IMAGE}" "${env_path}"
+  elif [[ "${set_image_tags}" == "1" ]]; then
+    set_env_var "KUBEARA_AGENT_IMAGE" "kubeara/agent:${KUBEARA_CHANNEL}" "${env_path}"
+  fi
+
+  set_env_var "DOCKER_PLATFORM" "${platform}" "${env_path}"
+  set_env_var "ENCRYPTION_SECRET" "${secret}" "${env_path}"
+  set_env_var "JWT_SECRET" "${JWT_SECRET:-$(openssl rand -hex 32)}" "${env_path}"
+  set_env_var "JWT_REFRESH_SECRET" "${JWT_REFRESH_SECRET:-$(openssl rand -hex 32)}" "${env_path}"
+  set_env_var "VITE_API_URL" "${vite_api_url}" "${env_path}"
+  set_env_var "CONTROL_PANEL_URL" "${control_panel_url}" "${env_path}"
+
+  info "Wrote ${env_path} from ${ENV_EXAMPLE}"
   info "Save ENCRYPTION_SECRET — use the same value if you install agents later."
 }
 
@@ -891,68 +918,31 @@ create_env_file() {
 
   if [[ -f "${env_path}" && "${KUBEARA_FORCE_ENV:-}" != "1" ]]; then
     info "Using existing ${env_path} (secrets and DB settings kept)"
-  elif [[ -f "${example_path}" ]]; then
-    cp "${example_path}" "${env_path}"
-
-    local secret platform vite_api_url control_panel_url
-    secret="$(generate_encryption_secret)"
-    platform="${DOCKER_PLATFORM:-$(detect_docker_platform)}"
-    vite_api_url="$(default_vite_api_url)"
-    control_panel_url="$(default_control_panel_url "${vite_api_url}")"
-
-    local set_image_tags="${KUBEARA_SET_IMAGE_TAGS:-}"
-    if [[ -z "${set_image_tags}" ]]; then
-      if [[ "${KUBEARA_INSTALL_SOURCE}" == "remote" ]]; then
-        set_image_tags="1"
-      else
-        set_image_tags="0"
-      fi
-    fi
-
-    if [[ -n "${KUBEARA_CONTROL_PANEL_IMAGE:-}" ]]; then
-      set_env_var "KUBEARA_CONTROL_PANEL_IMAGE" "${KUBEARA_CONTROL_PANEL_IMAGE}" "${env_path}"
-    elif [[ "${set_image_tags}" == "1" ]]; then
-      set_env_var "KUBEARA_CONTROL_PANEL_IMAGE" "kubeara/control-panel:${KUBEARA_CHANNEL}" "${env_path}"
-    fi
-
-    if [[ -n "${KUBEARA_AGENT_IMAGE:-}" ]]; then
-      set_env_var "KUBEARA_AGENT_IMAGE" "${KUBEARA_AGENT_IMAGE}" "${env_path}"
-    elif [[ "${set_image_tags}" == "1" ]]; then
-      set_env_var "KUBEARA_AGENT_IMAGE" "kubeara/agent:${KUBEARA_CHANNEL}" "${env_path}"
-    fi
-
-    set_env_var "DOCKER_PLATFORM" "${platform}" "${env_path}"
-    set_env_var "ENCRYPTION_SECRET" "${secret}" "${env_path}"
-    set_env_var "CONTROL_PANEL_URL" "${control_panel_url}" "${env_path}"
-    set_env_var "VITE_API_URL" "${vite_api_url}" "${env_path}"
-
-    info "Wrote ${env_path}"
-    info "Save ENCRYPTION_SECRET — use the same value if you install agents later."
   else
-    write_fresh_env_file "${env_path}"
+    if [[ ! -f "${example_path}" ]]; then
+      write_embedded_env_example "${example_path}"
+    fi
+    seed_env_from_example "${env_path}" "${example_path}"
   fi
 
   apply_console_image "${env_path}"
   ensure_core_env_config "${env_path}"
 }
 
-# Backfill core auth/cookie/CORS defaults required for self-hosted startup.
-# Does not enable optional integrations (Stripe, Zoho, Brevo, Loki).
+# Backfill missing keys required for self-hosted startup (do not overwrite existing values).
 ensure_core_env_config() {
   local env_path="$1"
   local current
   local port console_port cors_origins vite_api_url control_panel_url
 
-  port="$(grep -E '^[[:space:]]*PORT=' "${env_path}" 2>/dev/null | head -n1 | cut -d= -f2- || echo 3000)"
-  console_port="$(grep -E '^[[:space:]]*CONSOLE_PORT=' "${env_path}" 2>/dev/null | head -n1 | cut -d= -f2- || echo 8080)"
+  port="$(grep -E '^[[:space:]]*PORT=' "${env_path}" 2>/dev/null | head -n1 | cut -d= -f2- || echo 9461)"
+  console_port="$(grep -E '^[[:space:]]*CONSOLE_PORT=' "${env_path}" 2>/dev/null | head -n1 | cut -d= -f2- || echo 7935)"
 
-  # VITE_API_URL is the primary browser knob — set when missing or explicitly overridden.
   current="$(grep -E '^[[:space:]]*VITE_API_URL=' "${env_path}" 2>/dev/null | head -n1 | cut -d= -f2- || true)"
   if [[ -n "${VITE_API_URL:-}" || -z "${current}" ]]; then
     vite_api_url="$(default_vite_api_url)"
     set_env_var "VITE_API_URL" "${vite_api_url}" "${env_path}"
   elif [[ "${current}" == *localhost* || "${current}" == *127.0.0.1* ]]; then
-    # Upgrade localhost → detected public IP on VPS re-installs.
     vite_api_url="$(default_vite_api_url)"
     if [[ "${vite_api_url}" != *localhost* && "${vite_api_url}" != *127.0.0.1* ]]; then
       set_env_var "VITE_API_URL" "${vite_api_url}" "${env_path}"
@@ -990,41 +980,39 @@ ensure_core_env_config() {
   if ! grep -qE '^[[:space:]]*ACCESS_TOKEN_EXPIRES_IN=' "${env_path}"; then
     set_env_var "ACCESS_TOKEN_EXPIRES_IN" "${ACCESS_TOKEN_EXPIRES_IN:-15m}" "${env_path}"
   fi
-
   if ! grep -qE '^[[:space:]]*REFRESH_TOKEN_EXPIRES_IN=' "${env_path}"; then
     set_env_var "REFRESH_TOKEN_EXPIRES_IN" "${REFRESH_TOKEN_EXPIRES_IN:-7d}" "${env_path}"
   fi
-
   if ! grep -qE '^[[:space:]]*ACCESS_TOKEN_COOKIE_NAME=' "${env_path}"; then
     set_env_var "ACCESS_TOKEN_COOKIE_NAME" \
       "${ACCESS_TOKEN_COOKIE_NAME:-kubeara_access_token}" \
       "${env_path}"
   fi
-
   if ! grep -qE '^[[:space:]]*REFRESH_TOKEN_COOKIE_NAME=' "${env_path}"; then
     set_env_var "REFRESH_TOKEN_COOKIE_NAME" \
       "${REFRESH_TOKEN_COOKIE_NAME:-kubeara_refresh_token}" \
       "${env_path}"
   fi
-
   if ! grep -qE '^[[:space:]]*COOKIE_DOMAIN=' "${env_path}"; then
     set_env_var "COOKIE_DOMAIN" "${COOKIE_DOMAIN:-}" "${env_path}"
   fi
-
   if ! grep -qE '^[[:space:]]*COOKIE_SECURE=' "${env_path}"; then
     set_env_var "COOKIE_SECURE" "${COOKIE_SECURE:-false}" "${env_path}"
   fi
-
   if ! grep -qE '^[[:space:]]*COOKIE_SAME_SITE=' "${env_path}"; then
     set_env_var "COOKIE_SAME_SITE" "${COOKIE_SAME_SITE:-lax}" "${env_path}"
   fi
-
   if ! grep -qE '^[[:space:]]*NODE_ENV=' "${env_path}"; then
-    set_env_var "NODE_ENV" "${NODE_ENV:-development}" "${env_path}"
+    set_env_var "NODE_ENV" "production" "${env_path}"
   fi
-
   if ! grep -qE '^[[:space:]]*OTP_EXPIRES_IN=' "${env_path}"; then
     set_env_var "OTP_EXPIRES_IN" "${OTP_EXPIRES_IN:-2m}" "${env_path}"
+  fi
+  if ! grep -qE '^[[:space:]]*DB_SSL=' "${env_path}"; then
+    set_env_var "DB_SSL" "false" "${env_path}"
+  fi
+  if ! grep -qE '^[[:space:]]*DB_PORT=' "${env_path}"; then
+    set_env_var "DB_PORT" "8274" "${env_path}"
   fi
 
   if ! grep -qE '^[[:space:]]*PUBLIC_API_ALLOWED_ORIGINS=' "${env_path}"; then
@@ -1047,10 +1035,6 @@ ensure_core_env_config() {
       "${env_path}"
   fi
 
-  if ! grep -qE '^[[:space:]]*DB_SSL=' "${env_path}"; then
-    set_env_var "DB_SSL" "${DB_SSL:-false}" "${env_path}"
-  fi
-
   if ! grep -qE '^[[:space:]]*IS_CLOUD_VERSION=' "${env_path}"; then
     if [[ "${IS_CLOUD_VERSION:-}" == "true" ]]; then
       set_env_var "IS_CLOUD_VERSION" "true" "${env_path}"
@@ -1059,21 +1043,25 @@ ensure_core_env_config() {
     fi
   fi
 
-  # Older published images call getOrThrow('BREVO_*') at startup. Ensure the keys
-  # exist (even empty) so self-host boots until those images are replaced.
-  if ! grep -qE '^[[:space:]]*BREVO_API_KEY=' "${env_path}"; then
-    set_env_var "BREVO_API_KEY" "${BREVO_API_KEY:-}" "${env_path}"
+  if ! grep -qE '^[[:space:]]*AGENT_SOCKET_TUNNEL_PORT=' "${env_path}"; then
+    set_env_var "AGENT_SOCKET_TUNNEL_PORT" "${AGENT_SOCKET_TUNNEL_PORT:-1111}" "${env_path}"
   fi
-  if ! grep -qE '^[[:space:]]*BREVO_FROM_EMAIL=' "${env_path}"; then
-    set_env_var "BREVO_FROM_EMAIL" "${BREVO_FROM_EMAIL:-}" "${env_path}"
-  fi
-  if ! grep -qE '^[[:space:]]*BREVO_FROM_NAME=' "${env_path}"; then
-    set_env_var "BREVO_FROM_NAME" "${BREVO_FROM_NAME:-Kubeara}" "${env_path}"
+
+  if ! grep -qE '^[[:space:]]*KUBEARA_AGENT_IMAGE=' "${env_path}"; then
+    set_env_var "KUBEARA_AGENT_IMAGE" \
+      "${KUBEARA_AGENT_IMAGE:-kubeara/agent:${KUBEARA_CHANNEL}}" \
+      "${env_path}"
   fi
 }
 
+
 compose() {
-  run_compose -f "${KUBEARA_INSTALL_DIR}/${COMPOSE_FILE}" --env-file "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" "$@"
+  # Prefer --env-file over a polluted shell (e.g. sourced apps/*/.env with PORT=3000).
+  (
+    unset PORT CONSOLE_PORT DB_PORT DB_HOST NODE_ENV DB_SSL
+    run_compose -f "${KUBEARA_INSTALL_DIR}/${COMPOSE_FILE}" \
+      --env-file "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" "$@"
+  )
 }
 
 run_migrate() {
@@ -1087,7 +1075,9 @@ run_migrate() {
 }
 
 wait_for_control_panel() {
-  local port="${PORT:-3000}"
+  local port
+  port="$(grep -E '^[[:space:]]*PORT=' "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" 2>/dev/null | head -n1 | cut -d= -f2- || true)"
+  port="${port:-9461}"
   local i
   info "Waiting for control panel on port ${port}…"
   for i in $(seq 1 60); do
@@ -1363,8 +1353,8 @@ track_installation_event() {
 
 print_success() {
   local port console_port vite_api_url console_url api_host
-  port="$(grep -E '^PORT=' "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" | cut -d= -f2- || echo 3000)"
-  console_port="$(grep -E '^CONSOLE_PORT=' "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" | cut -d= -f2- || echo 8080)"
+  port="$(grep -E '^PORT=' "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" | cut -d= -f2- || echo 9461)"
+  console_port="$(grep -E '^CONSOLE_PORT=' "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" | cut -d= -f2- || echo 7935)"
   vite_api_url="$(grep -E '^VITE_API_URL=' "${KUBEARA_INSTALL_DIR}/${ENV_FILE}" | cut -d= -f2- || echo "http://localhost:${port}/api")"
 
   # Console must be opened on the same host the API URL uses (cookies).
@@ -1432,7 +1422,7 @@ main() {
   compose pull
 
   info "Starting services…"
-  compose up -d
+  compose up -d --remove-orphans
 
   run_migrate
   wait_for_control_panel
