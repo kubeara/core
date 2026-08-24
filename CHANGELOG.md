@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.3](https://github.com/kubeara/core/compare/v1.4.2...v1.4.3) (2026-08-24)
+
+
+### Bug Fixes
+
+* version changes ([7a9beca](https://github.com/kubeara/core/commit/7a9becae15f2caaf0b432f4e942028a3d7cd0206))
+
+
+### Refactoring
+
+* Update console and API ports in installation scripts and cleanup environment variables ([ef23559](https://github.com/kubeara/core/commit/ef235593c06f58d3c423bb96725b9f5bb17db961))
+* Update console and API ports in installation scripts and documentation ([b7332a8](https://github.com/kubeara/core/commit/b7332a8caa3fa2553e401aec20cc76a331f9da2c))
+
 ## [1.4.2](https://github.com/kubeara/core/compare/v1.4.1...v1.4.2) (2026-08-21)
 
 
