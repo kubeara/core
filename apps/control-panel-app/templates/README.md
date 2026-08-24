@@ -257,6 +257,7 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `trivy/` | Vulnerability scanner server on port 4954 |
 | `checkov/` | IaC static analysis scanner on port 8080 |
 | `gitleaks/` | Secret scanner on port 8080 |
+| `kubeara/` | Kubeara control panel with console web UI, PostgreSQL, and one-shot migration job on ports 9461 (API) and 7935 (web UI) |
 
 ---
 

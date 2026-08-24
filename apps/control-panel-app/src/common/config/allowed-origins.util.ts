@@ -8,6 +8,9 @@ const PRODUCTION_DEFAULT_ORIGINS = [
   "https://www.kubeara.com",
 ] as const;
 
+/** Sentinel enabling all origins (self-hosted default; override for strict CORS). */
+export const CORS_WILDCARD = "*";
+
 export function isDevelopmentEnvironment(): boolean {
   return process.env.NODE_ENV !== "production";
 }
@@ -37,10 +40,24 @@ export function parseAllowedOrigins(raw: string): string[] {
   const origins = raw
     .split(",")
     .map((value) => value.trim())
-    .filter(Boolean)
-    .map(normalizeOrigin);
+    .filter(Boolean);
 
-  return [...new Set(origins)];
+  const normalized: string[] = [];
+  for (const origin of origins) {
+    if (origin === CORS_WILDCARD) {
+      normalized.push(CORS_WILDCARD);
+      continue;
+    }
+    try {
+      normalized.push(normalizeOrigin(origin));
+    } catch {
+      // Skip malformed entries instead of failing startup — a bad CORS
+      // value must never prevent the service from booting.
+      continue;
+    }
+  }
+
+  return [...new Set(normalized)];
 }
 
 export function resolvePublicApiAllowedOrigins(
@@ -67,6 +84,10 @@ export function isOriginAllowed(
   requestOrigin: string,
   allowedOrigins: readonly string[],
 ): boolean {
+  if (allowedOrigins.includes(CORS_WILDCARD)) {
+    return true;
+  }
+
   try {
     const normalized = normalizeOrigin(requestOrigin);
     return allowedOrigins.some((allowed) => allowed === normalized);

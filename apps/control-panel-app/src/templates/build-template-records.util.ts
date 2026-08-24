@@ -571,6 +571,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Organizr",
     version: "latest",
   },
+  kubeara: {
+    name: "Kubeara Control Panel",
+    version: "prod",
+  },
 };
 
 /**

@@ -1,0 +1,74 @@
+{
+  "en": {
+    "category": [
+      "automation",
+      "hosting",
+      "developer-tools"
+    ],
+    "tags": [
+      "kubeara",
+      "control-panel",
+      "console",
+      "deployment",
+      "docker",
+      "agent",
+      "postgresql"
+    ],
+    "shortDescription": "Kubeara self-hosted deployment control panel with web console",
+    "longDescription": "<p>Kubeara is a self-hosted <strong>control panel</strong> for deploying and managing Docker applications across your servers.</p><p>This template deploys the full stack: the control panel API, the web console UI, and PostgreSQL for persistent state. After deployment, connect remote servers by installing the Kubeara agent directly from the panel.</p>"
+  },
+  "de": {
+    "category": [
+      "automatisierung",
+      "hosting",
+      "entwicklertools"
+    ],
+    "tags": [
+      "kubeara",
+      "control-panel",
+      "konsole",
+      "deployment",
+      "docker",
+      "agent",
+      "postgresql"
+    ],
+    "shortDescription": "Kubeara selbst gehostetes Deployment-Control-Panel mit Web-Konsole",
+    "longDescription": "<p>Kubeara ist ein selbst gehostetes <strong>Control-Panel</strong> zum Bereitstellen und Verwalten von Docker-Anwendungen auf Ihren Servern.</p><p>Diese Vorlage stellt den gesamten Stack bereit: die Control-Panel-API, die Web-Konsole und PostgreSQL für den persistenten Zustand. Verbinden Sie nach dem Deployment entfernte Server, indem Sie den Kubeara-Agenten direkt über das Panel installieren.</p>"
+  },
+  "fr": {
+    "category": [
+      "automatisation",
+      "hébergement",
+      "outils-développeur"
+    ],
+    "tags": [
+      "kubeara",
+      "control-panel",
+      "console",
+      "déploiement",
+      "docker",
+      "agent",
+      "postgresql"
+    ],
+    "shortDescription": "Panneau de contrôle de déploiement auto-hébergé Kubeara avec console web",
+    "longDescription": "<p>Kubeara est un <strong>panneau de contrôle</strong> auto-hébergé pour déployer et gérer des applications Docker sur vos serveurs.</p><p>Ce modèle déploie la pile complète : l'API du panneau de contrôle, la console web et PostgreSQL pour un état persistant. Après le déploiement, connectez des serveurs distants en installant l'agent Kubeara directement depuis le panneau.</p>"
+  },
+  "pt": {
+    "category": [
+      "automação",
+      "hospedagem",
+      "ferramentas-de-desenvolvedor"
+    ],
+    "tags": [
+      "kubeara",
+      "control-panel",
+      "console",
+      "implantação",
+      "docker",
+      "agente",
+      "postgresql"
+    ],
+    "shortDescription": "Painel de controle de implantação auto-hospedado Kubeara com console web",
+    "longDescription": "<p>O Kubeara é um <strong>painel de controle</strong> auto-hospedado para implantar e gerenciar aplicativos Docker em seus servidores.</p><p>Este modelo implanta a pilha completa: a API do painel de controle, o console web e o PostgreSQL para estado persistente. Após a implantação, conecte servidores remotos instalando o agente Kubeara diretamente pelo painel.</p>"
+  }
+}

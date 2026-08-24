@@ -11,6 +11,7 @@ import {
   ExecuteResult,
 } from "@shared/ssh";
 import { logStructured } from "@shared/common";
+import { resolveControlPanelUrl } from "../../../common/config/control-panel-url.util";
 
 import { LocalAgentHostAdapter } from "../adapters/local-agent-host.adapter";
 import { SshAgentHostAdapter } from "../adapters/ssh-agent-host.adapter";
@@ -961,8 +962,11 @@ export class AgentInstallService {
         remoteHost,
         isCloudVersion,
         tunnelPort,
-        configuredUrl: this.configService.get<string>(
-          AGENT_INSTALL_ENV_KEYS.CONTROL_PANEL_URL,
+        configuredUrl: resolveControlPanelUrl(
+          this.configService.get<string>(
+            AGENT_INSTALL_ENV_KEYS.CONTROL_PANEL_URL,
+          ),
+          this.configService.get<string>("SERVICE_PORT_KUBEARA"),
         ),
       });
       if (!urlResult.ok) {

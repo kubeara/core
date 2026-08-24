@@ -1,0 +1,215 @@
+# documentation: https://github.com/kubeara/core
+# shortDescription: Kubeara self-hosted deployment control panel with web console
+# longDescription: <p>Kubeara is a self-hosted <strong>control panel</strong> for deploying and managing Docker applications across your servers.</p><p>This template deploys the full stack: the control panel API, the web console UI, and PostgreSQL for persistent state. After deployment, connect remote servers by installing the Kubeara agent directly from the panel.</p><p>Open the console at <code>http://SERVER_IP:7935</code> (HTTP, no domain or reverse proxy required). The console talks to the API same-origin, so no CORS setup is needed; if you expose the API on another origin, set <code>CORS_ALLOWED_ORIGINS</code> to a comma-separated list of allowed browser origins.</p>
+# category: automation,hosting,developer-tools
+# tags: kubeara,control-panel,console,deployment,docker,agent,postgresql
+# logo: svgs/kubeara-logo-white.png
+# port: 9461
+
+services:
+  kubeara:
+    image: ${KUBEARA_CONTROL_PANEL_IMAGE:-kubeara/control-panel:prod}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    restart: ${KUBEARA_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_KUBEARA:-9461}:3000'
+
+    environment:
+      - SERVICE_URL_KUBEARA_3000
+      - NODE_ENV=production
+      - DOCKER_ENV=true
+      - PORT=3000
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=${SERVICE_USER_KUBEARA:-kubeara}
+      - DB_PASSWORD=${SERVICE_PASSWORD_KUBEARA:-kubeara_password}
+      - DB_DATABASE=${KUBEARA_DB_NAME:-kubeara}
+      - DB_SSL=false
+      - ENCRYPTION_SECRET=${SERVICE_PASSWORD_64_ENCRYPTION}
+      - JWT_SECRET=${SERVICE_PASSWORD_64_JWT}
+      - JWT_REFRESH_SECRET=${SERVICE_PASSWORD_64_JWTREFRESH}
+      - ACCESS_TOKEN_COOKIE_NAME=kubeara_access_token
+      - REFRESH_TOKEN_COOKIE_NAME=kubeara_refresh_token
+      - ACCESS_TOKEN_EXPIRES_IN=15m
+      - REFRESH_TOKEN_EXPIRES_IN=7d
+      - COOKIE_SECURE=false
+      - COOKIE_SAME_SITE=lax
+      - OTP_EXPIRES_IN=2m
+      # Base address used when installing agents on OTHER servers. The
+      # console proxies /api/* to this panel, so browser traffic needs no
+      # CORS or generated URLs. Override for multi-server setups, e.g.
+      # http://<panel-host>:9461 or https://panel.example.com
+      # Actual deployed backend port; the panel derives its own public URL
+      # (http://localhost:<port>) from this when CONTROL_PANEL_URL is absent,
+      # so changing the published port stays consistent everywhere.
+      - SERVICE_PORT_KUBEARA
+      - SERVICE_PORT_KUBEARA_CONSOLE
+      # Only needed when VITE_API_URL points somewhere other than the console
+      # origin (browser cross-origin calls). Same-origin default needs none.
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost}
+      - IS_CLOUD_VERSION=false
+      - AGENT_SOCKET_TUNNEL_PORT=1111
+      - KUBEARA_AGENT_IMAGE=${KUBEARA_AGENT_IMAGE:-kubeara/agent:prod}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kubeara-migrate: 
+        condition: service_completed_successfully
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/api/health || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  console:
+    image: ${KUBEARA_CONSOLE_IMAGE:-kubeara/console:prod}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    restart: ${KUBEARA_CONSOLE_RESTART_POLICY:-unless-stopped}
+
+    ports:
+      - '${SERVICE_PORT_KUBEARA_CONSOLE:-7935}:80'
+
+    environment:
+      - SERVICE_URL_KUBEARA_CONSOLE_80
+      - SERVICE_PORT_KUBEARA=${SERVICE_PORT_KUBEARA:-9461}
+      # "/" = same-origin: the console nginx proxies /api/* to the panel
+      # service, so no generated URLs or CORS are needed for self-hosting.
+      - VITE_API_URL=${VITE_API_URL:-/}
+
+    depends_on:
+      kubeara:
+        condition: service_started
+
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:80/ || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  kubeara-migrate:
+    image: ${KUBEARA_CONTROL_PANEL_IMAGE:-kubeara/control-panel:prod}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    restart: ${KUBEARA_MIGRATE_RESTART_POLICY:-no}
+
+    working_dir: /app
+    # The seeder expects apps/control-panel-app/.env to exist; template deploys
+    # have no env file, so create an empty one — configuration comes from
+    # environment variables below instead.
+    command:
+      [
+        "sh",
+        "-c",
+        "mkdir -p apps/control-panel-app && : > apps/control-panel-app/.env && node ./node_modules/typeorm/cli.js migration:run -d dist/apps/control-panel-app/config/typeorm.config.js && node dist/apps/control-panel-app/seeders/seed.js",
+      ]
+
+    environment:
+      NODE_ENV: production
+      DOCKER_ENV: "true"
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USERNAME: ${SERVICE_USER_KUBEARA:-kubeara}
+      DB_PASSWORD: ${SERVICE_PASSWORD_KUBEARA:-kubeara_password}
+      DB_DATABASE: ${KUBEARA_DB_NAME:-kubeara}
+      DB_SSL: "false"
+      ENCRYPTION_SECRET: ${SERVICE_PASSWORD_64_ENCRYPTION}
+      TZ: ${TZ:-UTC}
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    healthcheck:
+      test: ['CMD-SHELL', 'exit 0']
+      interval: 5s
+      timeout: 3s
+      retries: 1
+      start_period: 5s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  postgres:
+    image: ${KUBEARA_POSTGRES_IMAGE:-postgres:16-alpine}
+    restart: ${KUBEARA_POSTGRES_RESTART_POLICY:-unless-stopped}
+
+    environment:
+      POSTGRES_USER: ${SERVICE_USER_KUBEARA:-kubeara}
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_KUBEARA:-kubeara_password}
+      POSTGRES_DB: ${KUBEARA_DB_NAME:-kubeara}
+      TZ: ${TZ:-UTC}
+
+    volumes:
+      - kubeara_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  kubeara_postgres_data:

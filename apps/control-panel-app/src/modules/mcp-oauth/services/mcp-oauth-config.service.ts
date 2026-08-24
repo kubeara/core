@@ -2,6 +2,8 @@ import { Injectable } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { StringValue } from "ms";
 
+import { resolveControlPanelUrl } from "../../../common/config/control-panel-url.util";
+
 import { MCP_OAUTH_DEFAULT_SCOPES } from "../constants/mcp-oauth.constants";
 
 @Injectable()
@@ -18,9 +20,11 @@ export class McpOAuthConfigService {
       return configured.trim().replace(/\/$/, "");
     }
 
-    const controlPanelUrl =
-      this.configService.getOrThrow<string>("CONTROL_PANEL_URL");
-    return controlPanelUrl.trim().replace(/\/$/, "");
+    const controlPanelUrl = resolveControlPanelUrl(
+      this.configService.get<string>("CONTROL_PANEL_URL"),
+      this.configService.get<string>("SERVICE_PORT_KUBEARA"),
+    );
+    return controlPanelUrl.replace(/\/$/, "");
   }
   /**
    * Get the resource
