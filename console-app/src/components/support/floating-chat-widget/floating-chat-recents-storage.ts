@@ -1,3 +1,5 @@
+import { generateUuid } from "../../../lib/uuid";
+
 export type FloatingChatRecent = {
   id: string;
   name: string;
@@ -45,7 +47,7 @@ export function appendFloatingChatRecent(
   entry: Pick<FloatingChatRecent, "name" | "email" | "message">,
 ): FloatingChatRecent[] {
   const nextItem: FloatingChatRecent = {
-    id: crypto.randomUUID(),
+    id: generateUuid(),
     ...entry,
     submittedAt: new Date().toISOString(),
   };

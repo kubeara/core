@@ -1,3 +1,5 @@
+import { generateUuid } from "../../lib/uuid";
+
 import type { AppErrorInput, AppErrorItem } from "./types";
 
 type AppErrorListener = (errors: AppErrorItem[]) => void;
@@ -62,7 +64,7 @@ export function publishAppError(input: AppErrorInput): void {
   errors = [
     ...errors,
     {
-      id: crypto.randomUUID(),
+      id: generateUuid(),
       message,
       createdAt: Date.now(),
       ...(source ? { source } : {}),

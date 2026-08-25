@@ -1,3 +1,5 @@
+import { generateUuid } from "../../lib/uuid";
+
 import type { ToastInput, ToastItem } from "./types";
 
 type ToastListener = (toast: ToastItem) => void;
@@ -39,7 +41,7 @@ export function publishToast(input: ToastInput): void {
   }
 
   const toast: ToastItem = {
-    id: crypto.randomUUID(),
+    id: generateUuid(),
     ...input,
   };
 
