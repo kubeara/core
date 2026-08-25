@@ -61,6 +61,7 @@ service_port="${SERVICE_PORT_KUBEARA:-}"
 
 if [ -z "${api_url}" ] && [ -z "${service_port}" ]; then
   echo "kubeara-console: WARNING: Neither VITE_API_URL nor SERVICE_PORT_KUBEARA is set" >&2
+  echo "kubeara-console: WARNING: The frontend must never fall back to its own port for API calls" >&2
 fi
 
 escaped_api_url="$(printf '%s' "$api_url" | sed 's/\\/\\\\/g; s/"/\\"/g')"
