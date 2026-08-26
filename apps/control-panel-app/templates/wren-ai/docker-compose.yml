@@ -8,12 +8,13 @@
 
 services:
   bootstrap:
-    image: ghcr.io/canner/wren-bootstrap:0.1.5
-    restart: unless-stopped
+    image: ghcr.io/canner/wren-bootstrap:${WREN_BOOTSTRAP_VERSION:-0.1.5}
+    restart: ${WREN_AI_RESTART_POLICY:-unless-stopped}
 
     environment:
       DATA_PATH: /app/data
       GENERATION_MODEL: ${GENERATION_MODEL:-gpt-4o-mini}
+      TZ: ${TZ:-UTC}
 
     volumes:
       - wrenai_data:/app/data
@@ -213,12 +214,15 @@ services:
         max-file: "3"
 
   wren-engine:
-    image: ghcr.io/canner/wren-engine:0.22.0
-    restart: unless-stopped
+    image: ghcr.io/canner/wren-engine:${WREN_ENGINE_VERSION:-0.22.0}
+    restart: ${WREN_AI_RESTART_POLICY:-unless-stopped}
 
     expose:
       - '8080'
       - '7432'
+
+    environment:
+      TZ: ${TZ:-UTC}
 
     volumes:
       - wrenai_data:/usr/src/app/etc
@@ -250,14 +254,15 @@ services:
         max-file: "3"
 
   ibis-server:
-    image: ghcr.io/canner/wren-engine-ibis:0.22.0
-    restart: unless-stopped
+    image: ghcr.io/canner/wren-engine-ibis:${IBIS_SERVER_VERSION:-0.22.0}
+    restart: ${WREN_AI_RESTART_POLICY:-unless-stopped}
 
     expose:
       - '8000'
 
     environment:
       WREN_ENGINE_ENDPOINT: http://wren-engine:8080
+      TZ: ${TZ:-UTC}
 
     volumes:
       - wrenai_data:/usr/src/app/data
@@ -289,8 +294,8 @@ services:
         max-file: "3"
 
   wren-ai-service:
-    image: ghcr.io/canner/wren-ai-service:0.29.3
-    restart: unless-stopped
+    image: ghcr.io/canner/wren-ai-service:${WREN_AI_SERVICE_VERSION:-0.29.3}
+    restart: ${WREN_AI_RESTART_POLICY:-unless-stopped}
 
     expose:
       - '5555'
@@ -300,6 +305,11 @@ services:
       CONFIG_PATH: /app/config/config.yaml
       QDRANT_HOST: qdrant
       WREN_AI_SERVICE_PORT: '5555'
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-optional}
+      SHOULD_FORCE_DEPLOY: ${SHOULD_FORCE_DEPLOY:-1}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-optional}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-optional}
+      TZ: ${TZ:-UTC}
 
     volumes:
       - wrenai_config:/app/config:ro
@@ -334,12 +344,15 @@ services:
         max-file: "3"
 
   qdrant:
-    image: qdrant/qdrant:v1.15.0
-    restart: unless-stopped
+    image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.15.0}
+    restart: ${WREN_AI_RESTART_POLICY:-unless-stopped}
 
     expose:
       - '6333'
       - '6334'
+
+    environment:
+      TZ: ${TZ:-UTC}
 
     volumes:
       - wrenai_data:/qdrant/storage
@@ -367,8 +380,8 @@ services:
         max-file: "3"
 
   wren-ui:
-    image: ghcr.io/canner/wren-ui:0.32.3
-    restart: unless-stopped
+    image: ghcr.io/canner/wren-ui:${WREN_UI_VERSION:-0.32.3}
+    restart: ${WREN_AI_RESTART_POLICY:-unless-stopped}
 
     ports:
       - '${SERVICE_PORT_WREN_AI:-3000}:3000'
@@ -382,10 +395,19 @@ services:
       - IBIS_SERVER_ENDPOINT=http://ibis-server:8000
       - GENERATION_MODEL=${GENERATION_MODEL:-gpt-4o-mini}
       - WREN_ENGINE_PORT=8080
-      - WREN_AI_SERVICE_VERSION=0.29.3
-      - WREN_UI_VERSION=0.32.3
-      - WREN_ENGINE_VERSION=0.22.0
-      - WREN_PRODUCT_VERSION=0.29.2
+      - WREN_AI_SERVICE_VERSION=${WREN_AI_SERVICE_VERSION:-0.29.3}
+      - WREN_UI_VERSION=${WREN_UI_VERSION:-0.32.3}
+      - WREN_ENGINE_VERSION=${WREN_ENGINE_VERSION:-0.22.0}
+      - WREN_PRODUCT_VERSION=${WREN_PRODUCT_VERSION:-0.29.2}
+      - USER_UUID=${USER_UUID:-00000000-0000-4000-8000-000000000001}
+      - NEXT_PUBLIC_USER_UUID=${USER_UUID:-00000000-0000-4000-8000-000000000001}
+      - TELEMETRY_ENABLED=${TELEMETRY_ENABLED:-false}
+      - NEXT_PUBLIC_TELEMETRY_ENABLED=${TELEMETRY_ENABLED:-false}
+      - POSTHOG_API_KEY=${POSTHOG_API_KEY:-optional}
+      - POSTHOG_HOST=${POSTHOG_HOST:-https://app.posthog.com}
+      - NEXT_PUBLIC_POSTHOG_API_KEY=${POSTHOG_API_KEY:-optional}
+      - NEXT_PUBLIC_POSTHOG_HOST=${POSTHOG_HOST:-https://app.posthog.com}
+      - EXPERIMENTAL_ENGINE_RUST_VERSION=${EXPERIMENTAL_ENGINE_RUST_VERSION:-false}
       - TZ=${TZ:-UTC}
 
     volumes:

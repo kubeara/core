@@ -8,8 +8,8 @@
 
 services:
   db-gpt:
-    image: eosphorosai/dbgpt-openai:latest
-    restart: unless-stopped
+    image: ${DB_GPT_IMAGE:-eosphorosai/dbgpt-openai:latest}
+    restart: ${DB_GPT_RESTART_POLICY:-unless-stopped}
 
     ports:
       - '${SERVICE_PORT_DB_GPT:-5670}:5670'
@@ -32,11 +32,11 @@ services:
     ipc: host
 
     healthcheck:
-      test: ['CMD-SHELL', 'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:5670'')" || exit 1']
+      test: ['CMD-SHELL', 'python -c "import urllib.request; urllib.request.urlopen(''http://127.0.0.1:5670'')" || exit 1']
       interval: 30s
       timeout: 10s
       retries: 10
-      start_period: 30s
+      start_period: 60s
 
     deploy:
       resources:
@@ -54,22 +54,23 @@ services:
         max-file: "3"
 
   db-gpt-db:
-    image: mysql:8.0
-    restart: unless-stopped
+    image: ${DB_GPT_MYSQL_IMAGE:-mysql:8.0}
+    restart: ${DB_GPT_MYSQL_RESTART_POLICY:-unless-stopped}
 
     environment:
       MYSQL_ROOT_PASSWORD: ${SERVICE_PASSWORD_DB_GPT}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-dbgpt}
+      TZ: ${TZ:-UTC}
 
     volumes:
       - dbgpt-db-data:/var/lib/mysql
 
     healthcheck:
-      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-p${SERVICE_PASSWORD_DB_GPT}']
+      test: ['CMD-SHELL', 'mysqladmin ping -h localhost -uroot -p"$$MYSQL_ROOT_PASSWORD" || exit 1']
       interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
+      timeout: 10s
+      retries: 12
+      start_period: 60s
 
     deploy:
       resources:
