@@ -314,3 +314,130 @@ services:
     expect(deployed).not.toContain("${");
   });
 });
+
+describe("CORS_ALLOWED_ORIGINS from server host", () => {
+  const kubearaStyleCompose = `
+services:
+  kubeara:
+    ports:
+      - '\${SERVICE_PORT_KUBEARA:-9461}:3000'
+    environment:
+      - SERVICE_URL_KUBEARA_3000
+      - SERVICE_PORT_KUBEARA_CONSOLE
+      - CORS_ALLOWED_ORIGINS=\${CORS_ALLOWED_ORIGINS:-http://localhost}
+  console:
+    ports:
+      - '\${SERVICE_PORT_KUBEARA_CONSOLE:-7935}:80'
+    environment:
+      - SERVICE_URL_KUBEARA_CONSOLE_80
+`;
+
+  it("rewrites localhost sentinel to http://<publicIp>:<consolePort>", () => {
+    const resolved = resolveAndValidateComposeEnvironment({
+      compose: kubearaStyleCompose,
+      userPorts: {
+        SERVICE_PORT_KUBEARA: 9461,
+        SERVICE_PORT_KUBEARA_CONSOLE: 7935,
+      },
+      serverUrlContext: {
+        publicIp: "46.224.229.44",
+        deploymentId: "deployment-cors-test",
+      },
+    });
+
+    expect(resolved.env.CORS_ALLOWED_ORIGINS).toBe("http://46.224.229.44:7935");
+    expect(resolved.generatedKeys).toContain("CORS_ALLOWED_ORIGINS");
+  });
+
+  it("does not overwrite an explicit CORS_ALLOWED_ORIGINS value", () => {
+    const resolved = resolveAndValidateComposeEnvironment({
+      compose: kubearaStyleCompose,
+      userEnv: {
+        CORS_ALLOWED_ORIGINS: "https://console.example.com",
+      },
+      userPorts: {
+        SERVICE_PORT_KUBEARA_CONSOLE: 7935,
+      },
+      serverUrlContext: {
+        publicIp: "46.224.229.44",
+        deploymentId: "deployment-cors-test",
+      },
+    });
+
+    expect(resolved.env.CORS_ALLOWED_ORIGINS).toBe(
+      "https://console.example.com",
+    );
+  });
+
+  it("keeps localhost sentinel for loopback server hosts", () => {
+    const resolved = resolveAndValidateComposeEnvironment({
+      compose: kubearaStyleCompose,
+      userPorts: {
+        SERVICE_PORT_KUBEARA_CONSOLE: 7935,
+      },
+      serverUrlContext: {
+        publicIp: "127.0.0.1",
+        deploymentId: "deployment-cors-local",
+      },
+    });
+
+    expect(resolved.env.CORS_ALLOWED_ORIGINS).toBe("http://localhost");
+  });
+
+  it("does not affect templates without CORS_ALLOWED_ORIGINS (n8n)", () => {
+    const n8nCompose = `
+services:
+  n8n:
+    ports:
+      - '\${SERVICE_PORT_N8N:-5678}:5678'
+    environment:
+      - SERVICE_URL_N8N_5678
+      - N8N_EDITOR_BASE_URL=\${SERVICE_URL_N8N}
+      - WEBHOOK_URL=\${SERVICE_URL_N8N}
+      - N8N_HOST=\${SERVICE_FQDN_N8N}
+      - N8N_RUNNERS_AUTH_TOKEN=\${SERVICE_PASSWORD_N8N}
+`;
+
+    const resolved = resolveAndValidateComposeEnvironment({
+      compose: n8nCompose,
+      serverUrlContext: {
+        publicIp: "46.224.229.44",
+        deploymentId: "deployment-n8n-safe",
+      },
+    });
+
+    expect(resolved.env.CORS_ALLOWED_ORIGINS).toBeUndefined();
+    expect(resolved.generatedKeys).not.toContain("CORS_ALLOWED_ORIGINS");
+    expect(resolved.env.SERVICE_URL_N8N).toBe(
+      "http://n8n-n8n-safe.46.224.229.44.sslip.io",
+    );
+    expect(resolved.env.SERVICE_URL_N8N_5678).toBe(
+      "http://n8n-n8n-safe.46.224.229.44.sslip.io:5678",
+    );
+    expect(resolved.ports.SERVICE_PORT_N8N).toBe(5678);
+  });
+
+  it("does not rewrite CORS when compose has CORS but no SERVICE_PORT_*_CONSOLE", () => {
+    const compose = `
+services:
+  app:
+    ports:
+      - '\${SERVICE_PORT_APP:-3000}:3000'
+    environment:
+      - SERVICE_URL_APP_3000
+      - CORS_ALLOWED_ORIGINS=\${CORS_ALLOWED_ORIGINS:-http://localhost}
+`;
+
+    const resolved = resolveAndValidateComposeEnvironment({
+      compose,
+      userPorts: { SERVICE_PORT_APP: 3000 },
+      serverUrlContext: {
+        publicIp: "46.224.229.44",
+        deploymentId: "deployment-app-no-console",
+      },
+    });
+
+    expect(resolved.env.CORS_ALLOWED_ORIGINS).toBe("http://localhost");
+    expect(resolved.generatedKeys).not.toContain("CORS_ALLOWED_ORIGINS");
+  });
+});

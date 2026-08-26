@@ -285,6 +285,72 @@ function applyServerUrlFqdnGeneration(
       }
     }
   }
+
+  applyCorsAllowedOriginFromServerHost(
+    compose,
+    env,
+    ports,
+    generatedKeys,
+    serverUrlContext,
+  );
+}
+
+/**
+ * When a template leaves CORS_ALLOWED_ORIGINS at the localhost sentinel and the
+ * deployment has a real server host plus a SERVICE_PORT_*_CONSOLE publish port,
+ * rewrite CORS to http://<host>:<consolePort> for the generated .env.
+ *
+ * Safety for other templates:
+ * - No-op unless compose mentions CORS_ALLOWED_ORIGINS
+ * - No-op unless a SERVICE_PORT_*_CONSOLE port exists
+ * - Never overwrites an explicit non-sentinel CORS value
+ * - Never rewrites for loopback server hosts
+ */
+function applyCorsAllowedOriginFromServerHost(
+  compose: string,
+  env: Record<string, string>,
+  ports: Record<string, number>,
+  generatedKeys: string[],
+  serverUrlContext: ServerUrlContext,
+): void {
+  if (!compose.includes("CORS_ALLOWED_ORIGINS")) {
+    return;
+  }
+
+  const current = env.CORS_ALLOWED_ORIGINS?.trim();
+  if (current && current !== "http://localhost") {
+    return;
+  }
+
+  const host = serverUrlContext.publicIp?.trim();
+  if (
+    !host ||
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host.includes("/") ||
+    host.includes(" ") ||
+    host.startsWith(":")
+  ) {
+    return;
+  }
+
+  const consolePort = Object.entries(ports).find(([key]) =>
+    /^SERVICE_PORT_[A-Z0-9_]+_CONSOLE$/.test(key),
+  )?.[1];
+
+  if (
+    consolePort === undefined ||
+    !Number.isInteger(consolePort) ||
+    consolePort <= 0
+  ) {
+    return;
+  }
+
+  const scheme = serverUrlContext.forceHttps ? "https" : "http";
+  env.CORS_ALLOWED_ORIGINS = `${scheme}://${host}:${consolePort}`;
+  if (!generatedKeys.includes("CORS_ALLOWED_ORIGINS")) {
+    generatedKeys.push("CORS_ALLOWED_ORIGINS");
+  }
 }
 
 function parsePlaceholderContent(content: string): ComposeVariableRef {

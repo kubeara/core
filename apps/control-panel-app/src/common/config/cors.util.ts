@@ -43,6 +43,7 @@ export function buildCorsOptions(configService: ConfigService): CorsOptions {
       "X-Requested-With",
       "baggage",
       "sentry-trace",
+      "Access-Control-Allow-Origin",
     ],
   };
 }
