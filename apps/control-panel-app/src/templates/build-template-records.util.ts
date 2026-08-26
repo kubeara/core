@@ -406,6 +406,10 @@ const metadataBySlug: Partial<Record<string, Partial<TemplateMetadata>>> = {
     name: "Bifrost",
     version: "latest",
   },
+  "db-gpt": {
+    name: "DB-GPT",
+    version: "latest",
+  },
   comfyui: {
     name: "ComfyUI",
     version: "latest",

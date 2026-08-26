@@ -1,0 +1,90 @@
+# documentation: https://docs.dbgpt.cn
+# shortDescription: Open-source agentic AI data assistant
+# longDescription: <p>DB-GPT is an open-source <strong>agentic AI data assistant</strong> that connects to databases, CSV/Excel files, warehouses, and knowledge bases.</p><p>Ask questions in natural language, let AI write SQL autonomously, run Python analysis workflows, and generate charts, dashboards, and reports.</p>
+# category: ai,data
+# tags: db-gpt,ai,data-analysis,sql,llm,data-assistant
+# logo: svgs/db-gpt.png
+# port: 5670
+
+services:
+  db-gpt:
+    image: eosphorosai/dbgpt-openai:latest
+    restart: unless-stopped
+
+    ports:
+      - '${SERVICE_PORT_DB_GPT:-5670}:5670'
+
+    environment:
+      - SERVICE_URL_DB_GPT_5670
+      - SILICONFLOW_API_KEY=${SILICONFLOW_API_KEY:-${SERVICE_PASSWORD_DB_GPT}}
+      - MYSQL_HOST=${MYSQL_HOST:-db-gpt-db}
+      - MYSQL_PORT=${MYSQL_PORT:-3306}
+      - MYSQL_USER=${MYSQL_USER:-root}
+      - MYSQL_PASSWORD=${SERVICE_PASSWORD_DB_GPT}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-dbgpt}
+      - LANGUAGE=${LANGUAGE:-en}
+      - TZ=${TZ:-UTC}
+
+    depends_on:
+      db-gpt-db:
+        condition: service_healthy
+
+    ipc: host
+
+    healthcheck:
+      test: ['CMD-SHELL', 'python -c "import urllib.request; urllib.request.urlopen(''http://localhost:5670'')" || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  db-gpt-db:
+    image: mysql:8.0
+    restart: unless-stopped
+
+    environment:
+      MYSQL_ROOT_PASSWORD: ${SERVICE_PASSWORD_DB_GPT}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-dbgpt}
+
+    volumes:
+      - dbgpt-db-data:/var/lib/mysql
+
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-u', 'root', '-p${SERVICE_PASSWORD_DB_GPT}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  dbgpt-db-data:
