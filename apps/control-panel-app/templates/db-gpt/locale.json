@@ -1,0 +1,66 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "data"
+    ],
+    "tags": [
+      "db-gpt",
+      "ai",
+      "data-analysis",
+      "sql",
+      "llm",
+      "data-assistant"
+    ],
+    "shortDescription": "Open-source agentic AI data assistant",
+    "longDescription": "<p>DB-GPT is an open-source <strong>agentic AI data assistant</strong> that connects to databases, CSV/Excel files, warehouses, and knowledge bases.</p><p>Ask questions in natural language, let AI write SQL autonomously, run Python analysis workflows, and generate charts, dashboards, and reports.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "daten"
+    ],
+    "tags": [
+      "db-gpt",
+      "ki",
+      "datenanalyse",
+      "sql",
+      "llm",
+      "datenassistent"
+    ],
+    "shortDescription": "Open-Source agentic KI-Datenassistent",
+    "longDescription": "<p>DB-GPT ist ein Open-Source <strong>agentic KI-Datenassistent</strong>, der sich mit Datenbanken, CSV/Excel-Dateien, Warehouses und Wissensbasen verbindet.</p><p>Stellen Sie Fragen in natürlicher Sprache, lassen Sie KI autonom SQL schreiben, führen Sie Python-Analyse-Workflows aus und generieren Sie Diagramme, Dashboards und Berichte.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "données"
+    ],
+    "tags": [
+      "db-gpt",
+      "ia",
+      "analyse-de-données",
+      "sql",
+      "llm",
+      "assistant-de-données"
+    ],
+    "shortDescription": "Assistant de données IA agentique open-source",
+    "longDescription": "<p>DB-GPT est un <strong>assistant de données IA agentique</strong> open-source qui se connecte aux bases de données, fichiers CSV/Excel, entrepôts et bases de connaissances.</p><p>Posez des questions en langage naturel, laissez l'IA écrire du SQL de manière autonome, exécutez des workflows d'analyse Python et générez des graphiques, tableaux de bord et rapports.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "dados"
+    ],
+    "tags": [
+      "db-gpt",
+      "ia",
+      "análise-de-dados",
+      "sql",
+      "llm",
+      "assistente-de-dados"
+    ],
+    "shortDescription": "Assistente de dados IA agêntica de código aberto",
+    "longDescription": "<p>DB-GPT é um <strong>assistente de dados IA agêntica</strong> de código aberto que se conecta a bancos de dados, arquivos CSV/Excel, data warehouses e bases de conhecimento.</p><p>Faça perguntas em linguagem natural, deixe a IA escrever SQL de forma autônoma, execute workflows de análise em Python e gere gráficos, painéis e relatórios.</p>"
+  }
+}

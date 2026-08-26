@@ -1,0 +1,70 @@
+{
+  "en": {
+    "category": [
+      "ai",
+      "data"
+    ],
+    "tags": [
+      "wrenai",
+      "bi",
+      "text-to-sql",
+      "analytics",
+      "llm",
+      "data",
+      "semantic-layer"
+    ],
+    "shortDescription": "Open-source generative BI engine for text-to-SQL",
+    "longDescription": "<p>WrenAI is an open-source <strong>generative BI (GenBI)</strong> engine that turns natural-language questions into governed SQL, dashboards, and charts across 22+ data sources.</p><p>Includes a semantic layer (MDL), vector store, and AI service for text-to-SQL with business context. Requires an <code>OPENAI_API_KEY</code> or compatible LLM provider.</p>"
+  },
+  "de": {
+    "category": [
+      "ki",
+      "daten"
+    ],
+    "tags": [
+      "wrenai",
+      "bi",
+      "text-zu-sql",
+      "analytik",
+      "llm",
+      "daten",
+      "semantikschicht"
+    ],
+    "shortDescription": "Open-source GenBI-Engine für Text-zu-SQL",
+    "longDescription": "<p>WrenAI ist eine Open-Source <strong>Generative BI (GenBI)</strong>-Engine, die natürlichsprachliche Fragen in governete SQL, Dashboards und Diagramme über 22+ Datenquellen umwandelt.</p><p>Beinhaltet eine semantische Schicht (MDL), Vektorspeicher und KI-Service für Text-zu-SQL mit Geschäftskontext. Erfordert einen <code>OPENAI_API_KEY</code> oder kompatiblen LLM-Anbieter.</p>"
+  },
+  "fr": {
+    "category": [
+      "ia",
+      "données"
+    ],
+    "tags": [
+      "wrenai",
+      "bi",
+      "texte-en-sql",
+      "analytique",
+      "llm",
+      "données",
+      "couche-sémantique"
+    ],
+    "shortDescription": "Moteur GenBI open-source pour texte-en-SQL",
+    "longDescription": "<p>WrenAI est un <strong>moteur BI génératif (GenBI)</strong> open-source qui transforme les questions en langage naturel en SQL gouverné, tableaux de bord et graphiques sur 22+ sources de données.</p><p>Inclut une couche sémantique (MDL), un magasin vectoriel et un service IA pour texte-en-SQL avec contexte métier. Nécessite une clé <code>OPENAI_API_KEY</code> ou un fournisseur LLM compatible.</p>"
+  },
+  "pt": {
+    "category": [
+      "ia",
+      "dados"
+    ],
+    "tags": [
+      "wrenai",
+      "bi",
+      "texto-para-sql",
+      "analítica",
+      "llm",
+      "dados",
+      "camada-semântica"
+    ],
+    "shortDescription": "Motor GenBI de código aberto para texto-para-SQL",
+    "longDescription": "<p>WrenAI é um <strong>motor BI generativo (GenBI)</strong> de código aberto que transforma perguntas em linguagem natural em SQL governado, painéis e gráficos em 22+ fontes de dados.</p><p>Inclui uma camada semântica (MDL), armazenamento vetorial e serviço de IA para texto-para-SQL com contexto de negócios. Requer uma <code>OPENAI_API_KEY</code> ou provedor LLM compatível.</p>"
+  }
+}
