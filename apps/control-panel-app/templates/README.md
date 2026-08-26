@@ -240,6 +240,7 @@ After resolution, any placeholder still empty is **missing** and fails validatio
 | `mindsdb/` | AI platform over SQL data with PostgreSQL on ports 47334 and 47335 |
 | `bifrost/` | OpenAI-compatible AI gateway on port 8080 |
 | `db-gpt/` | Agentic AI data assistant with MySQL on port 5670 |
+| `wren-ai/` | Generative BI engine for text-to-SQL with Qdrant on port 3000 |
 | `comfyui/` | Node-based Stable Diffusion workflow UI on port 8188; requires NVIDIA GPU |
 | `continue-dev/` | Ollama backend for the Continue IDE extension on port 11434 |
 | `helicone/` | LLM observability stack (dashboard, API, MinIO) on port 3000 |
