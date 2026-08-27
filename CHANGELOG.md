@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.5.0](https://github.com/kubeara/core/compare/v1.4.3...v1.5.0) (2026-08-27)
+
+
+### Features
+
+* Add DB-GPT template metadata and update README with new service information ([86ea131](https://github.com/kubeara/core/commit/86ea131890c7320d7631811d3ddc852a28ca753b))
+* Add Kubeara as a service template ([cd58b2b](https://github.com/kubeara/core/commit/cd58b2bea65ca73dac844f5c2ca2aeffa5ed1aa9))
+* Add WrenAI template with metadata, Docker configuration, and localization support ([c5f1693](https://github.com/kubeara/core/commit/c5f1693a4e7b7f1e7bccd02fff5fcc7f15593b8e))
+* Enhance CORS configuration for kubeara service ([903d78c](https://github.com/kubeara/core/commit/903d78cd061182da437a7ec26c602a910d90eb9d))
+
+
+### Bug Fixes
+
+* Add Access-Control-Allow-Origin to CORS options ([6804929](https://github.com/kubeara/core/commit/68049299da110896be0a6b835114cfb23bbdc3b9))
+* Add kubeara as a service ([a417e60](https://github.com/kubeara/core/commit/a417e6014d9b9544bccfc81fd2a08f64b57a8738))
+* Add robots meta tag to prevent indexing of console app ([c5a7220](https://github.com/kubeara/core/commit/c5a72202b98eae92794d8e173eff518050ef59b5))
+* Fixed template for wren-ai and db-gpt ([9251620](https://github.com/kubeara/core/commit/9251620d40ed99a469660b21bf6d4df032039726))
+
+
+### Refactoring
+
+* Add new service: WrenAI, DBGpt ([2a23ab7](https://github.com/kubeara/core/commit/2a23ab7e69193b04357ae6a8544194c83813d74a))
+
 ## [1.4.3](https://github.com/kubeara/core/compare/v1.4.2...v1.4.3) (2026-08-24)
 
 
