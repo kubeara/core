@@ -17,6 +17,20 @@ const AUTH_TYPE_OPTIONS: { value: ServerSshAuthType; label: string }[] = [
   { value: "PRIVATE_KEY", label: "Private key" },
 ];
 
+function maskPrivateKey(value: string): string {
+  return value.replace(/[^\r\n]/g, "*");
+}
+
+function restoreTextareaSelection(
+  textarea: HTMLTextAreaElement,
+  position: number,
+) {
+  requestAnimationFrame(() => {
+    textarea.selectionStart = position;
+    textarea.selectionEnd = position;
+  });
+}
+
 type ServerFormModalProps = {
   open: boolean;
   mode: "add" | "edit";
@@ -64,7 +78,6 @@ function ServerFormContent({
   const [addForm, setAddForm] = useState<AddFormState>(getInitialAddForm);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const loading = createMutation.isPending || updateMutation.isPending;
   const isPasswordAuth = addForm.authType === "PASSWORD";
 
@@ -257,6 +270,21 @@ function ServerFormContent({
               )}
             </div>
             <div className="form-field">
+              <FormFieldLabel htmlFor="server-port">Port</FormFieldLabel>
+              <input
+                id="server-port"
+                type="number"
+                min={1}
+                max={65535}
+                value={addForm.port}
+                onChange={(e) =>
+                  setAddForm((prev) => ({ ...prev, port: e.target.value }))
+                }
+                disabled={loading}
+                placeholder="2222"
+              />
+            </div>
+            <div className="form-field">
               <FormFieldLabel htmlFor="server-auth-type" required>
                 Authentication
               </FormFieldLabel>
@@ -309,12 +337,79 @@ function ServerFormContent({
                 <textarea
                   id="server-private-key"
                   className="server-private-key-input"
-                  value={addForm.privateKey}
-                  onChange={(e) => {
+                  value={maskPrivateKey(addForm.privateKey)}
+                  onPaste={(e) => {
+                    const text = e.clipboardData.getData("text");
+                    if (!text) return;
+                    e.preventDefault();
+                    const el = e.currentTarget;
+                    const start = el.selectionStart;
+                    const end = el.selectionEnd;
                     setAddForm((prev) => ({
                       ...prev,
-                      privateKey: e.target.value,
+                      privateKey:
+                        prev.privateKey.slice(0, start) +
+                        text +
+                        prev.privateKey.slice(end),
                     }));
+                    restoreTextareaSelection(el, start + text.length);
+                    clearFieldError("private-key");
+                  }}
+                  onBeforeInput={(e) => {
+                    const native = e.nativeEvent as InputEvent;
+                    if (
+                      native.isComposing ||
+                      typeof native.data !== "string" ||
+                      native.data.length === 0
+                    ) {
+                      return;
+                    }
+                    e.preventDefault();
+                    const el = e.currentTarget;
+                    const start = el.selectionStart;
+                    const end = el.selectionEnd;
+                    setAddForm((prev) => ({
+                      ...prev,
+                      privateKey:
+                        prev.privateKey.slice(0, start) +
+                        native.data +
+                        prev.privateKey.slice(end),
+                    }));
+                    restoreTextareaSelection(el, start + native.data.length);
+                    clearFieldError("private-key");
+                  }}
+                  onChange={(e) => {
+                    const shown = e.target.value;
+                    const prevKey = addForm.privateKey;
+                    const prevMasked = maskPrivateKey(prevKey);
+                    if (shown === prevMasked) {
+                      clearFieldError("private-key");
+                      return;
+                    }
+                    let prefix = 0;
+                    const minLength = Math.min(prevMasked.length, shown.length);
+                    while (
+                      prefix < minLength &&
+                      prevMasked[prefix] === shown[prefix]
+                    ) {
+                      prefix += 1;
+                    }
+                    let suffix = 0;
+                    while (
+                      suffix < minLength - prefix &&
+                      prevMasked[prevMasked.length - 1 - suffix] ===
+                        shown[shown.length - 1 - suffix]
+                    ) {
+                      suffix += 1;
+                    }
+                    if (shown.length < prevMasked.length) {
+                      setAddForm((prev) => ({
+                        ...prev,
+                        privateKey:
+                          prev.privateKey.slice(0, prefix) +
+                          prev.privateKey.slice(prev.privateKey.length - suffix),
+                      }));
+                    }
                     clearFieldError("private-key");
                   }}
                   disabled={loading}
@@ -341,52 +436,6 @@ function ServerFormContent({
                 )}
               </div>
             )}
-            <div className="modal-advanced-section">
-              <button
-                type="button"
-                className="modal-advanced-toggle"
-                onClick={() => setAdvancedOpen((open) => !open)}
-                aria-expanded={advancedOpen}
-              >
-                Advanced options
-                <svg
-                  className={`modal-advanced-chevron${advancedOpen ? " is-open" : ""}`}
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden
-                >
-                  <path
-                    d="M6 9l6 6 6-6"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
-              {advancedOpen && (
-                <div className="modal-advanced-content">
-                  <div className="form-field">
-                    <FormFieldLabel htmlFor="server-port">
-                      Port
-                    </FormFieldLabel>
-                    <input
-                      id="server-port"
-                      type="number"
-                      min={1}
-                      max={65535}
-                      value={addForm.port}
-                      onChange={(e) =>
-                        setAddForm((prev) => ({ ...prev, port: e.target.value }))
-                      }
-                      disabled={loading}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
           </>
         ) : (
           server && (

@@ -987,8 +987,8 @@ a:hover {
   max-height: 12rem;
   resize: vertical;
   overflow: auto;
-  white-space: pre;
-  overflow-wrap: normal;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   word-break: normal;
 }
 
