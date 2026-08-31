@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0](https://github.com/kubeara/core/compare/v1.5.0...v1.6.0) (2026-08-31)
+
+
+### Features
+
+* Enhance server form modal with private key masking and port input ([00c35fd](https://github.com/kubeara/core/commit/00c35fdfb346937bcbd75d86b972a2b8b7779d4e))
+
+
+### Refactoring
+
+* Enhance server form modal with private key masking and port input ([6fa3aa1](https://github.com/kubeara/core/commit/6fa3aa193bf8cdffa58ec2930bf74e7465357064))
+
 ## [1.5.0](https://github.com/kubeara/core/compare/v1.4.3...v1.5.0) (2026-08-27)
 
 
