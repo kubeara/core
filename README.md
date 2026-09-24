@@ -359,7 +359,7 @@ Kubeara uses an agent-based architecture designed to eliminate the attack surfac
 - No Plain text SSH keys stored in any database
 - No persistent access to your server after initial bootstrap
 - All agent communication encrypted in transit
-
+- This project is tested with BrowserStack
 ---
 
 ### Reporting a vulnerability
