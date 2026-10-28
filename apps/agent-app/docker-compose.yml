@@ -7,7 +7,7 @@ services:
       context: ../..
       dockerfile: apps/agent-app/Dockerfile
       args:
-        NODE_VERSION: "24.15.0"
+        NODE_VERSION: "24.22.1"
     container_name: agent-app
     ports:
       - "${PORT:-3001}:${PORT:-3001}"
