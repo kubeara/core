@@ -5,6 +5,9 @@
   "author": "",
   "private": true,
   "license": "UNLICENSED",
+  "engines": {
+    "node": "24.22.1"
+  },
   "scripts": {
     "clean": "rm -rf dist",
     "build:apps": "npm run clean && npm run build:control-panel-app && npm run build:agent-app",

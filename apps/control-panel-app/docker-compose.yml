@@ -26,7 +26,7 @@ services:
       context: ../..
       dockerfile: apps/control-panel-app/Dockerfile
       args:
-        NODE_VERSION: "24.15.0"
+        NODE_VERSION: "24.22.1"
     container_name: control-panel-app
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
